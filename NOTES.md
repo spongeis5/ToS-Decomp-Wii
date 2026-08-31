@@ -7,12 +7,12 @@ numbers here, which move.
 ## State at time of writing
 
 ```
-Game Code:  23 of 498 files complete   7,228 / 2,115,452 bytes  294 / 10,559 fn
+Game Code:  23 of 498 files complete   7,516 / 2,115,452 bytes  299 / 10,559 fn
 
-Of those 294 functions, 218 are GENERATED -- one shape, a 32-bit constant
+Of those 299 functions, 218 are GENERATED -- one shape, a 32-bit constant
 into r3 and a return, mostly a behaviour-tree node's GetTypeID. They are
 real matched functions and the constants are recovered fact, but a count of
-them is not a count of decompiled code. HAND-WRITTEN IS 76, and that is the
+them is not a count of decompiled code. HAND-WRITTEN IS 81, and that is the
 figure to compare against earlier ones.
 All:        1.76% matched              main.dol reproduces byte for byte
 ```
@@ -128,13 +128,10 @@ the `.cpp` that used it, and dtk rejects the fiction anyway.
      carries the full exclusion list.
 
 3. **More units.** `tools/dwarf_targets.py` ranks them. The remaining
-   no-data tier includes `StaticBuilder.cpp` (8 fn, 1,080 bytes -- one of
-   them takes EIGHTEEN parameters), `zLaser.cpp` (1 fn, and the only
-   function seen so far whose prologue calls `__save_gpr` instead of
-   emitting `stmw`), and `Sort.cpp` (7 fn, 2,860 bytes -- the largest
-   left, three near-identical quicksorts over functors in an anonymous
-   namespace, and the one whose DWARF pyelftools cannot walk to the end
-   of).
+   no-data tier is now down to the three functions of `StaticBuilder.cpp`
+   that are not written -- Create takes EIGHTEEN parameters, and
+   CreateRenderable and SetBuffers reach further into the graphics types
+   than has been recovered -- and the five of `Sort.cpp`.
 
    Beware the file name: `Engine/Graphics/Scaleform.cpp` and
    `Game/zScaleform.cpp` are different units in different unity blobs, and

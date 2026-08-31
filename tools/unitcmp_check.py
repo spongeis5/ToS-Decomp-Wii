@@ -46,6 +46,9 @@ EXPECT = {
     # in the chunk; the other 13 are real code and are not written.
     "SB/GM/Engine/WAD02_36": (164, 164),
     "SB/GM/Engine/WAD01_26": (54, 54),
+    # Five of the unit's eight functions are written; the other three
+    # reach further into the graphics types than has been recovered.
+    "SB/NG/Source/Engine/Graphics/Builders/StaticBuilder": (5, 5),
 }
 
 

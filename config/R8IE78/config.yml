@@ -13,6 +13,9 @@ force_active:
   - s_clamp__Q24Math11QuickCull15
   - s_scaleOffs__Q24Math11QuickCull15
   - s_unscaleOffs__Q24Math11QuickCull15
+  # Env.cpp's two arrays; nothing in the image reaches them either.
+  - collBSP
+  - rigidBodies
 ldscript_template: config/R8IE78/ldscript.lcf
 # mw_comment_version: 14
 # See config.example.yml for a list.

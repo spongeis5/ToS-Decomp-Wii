@@ -7,7 +7,7 @@ numbers here, which move.
 ## State at time of writing
 
 ```
-Game Code:  23 of 498 files complete  13,200 / 2,115,452 bytes  614 / 10,559 fn
+Game Code:  24 of 498 files complete  13,216 / 2,115,452 bytes  615 / 10,559 fn
             0.6240% of game code
 
 Of those 614 functions, 528 are GENERATED -- ten machine-recognised shapes,
@@ -103,7 +103,7 @@ the `.cpp` that used it, and dtk rejects the fiction anyway.
 
 ## Open problems, in order of value
 
-1. **The data tier. THE FIRST UNIT NOW CARRIES ITS OWN DATA.**
+1. **The data tier. TWO UNITS NOW CARRY THEIR OWN DATA, 360 bytes.**
    `Collide.cpp` owns 96 bytes of `.bss` at `0x8077AAA8` -- six static data
    members of `Math::QuickCull20` and `Math::QuickCull15` -- and it links,
    at exactly those addresses, with `main.dol` still byte-identical. Game
@@ -126,6 +126,16 @@ the `.cpp` that used it, and dtk rejects the fiction anyway.
       time -- `.bss` 96 bytes, align 8, six symbols at 0/16/32/48/64/80 --
       and the failure looked exactly like a layout mistake. Retail's own
       link kept them; ours has to be told to.
+
+   `Env.cpp` is the second, and the cheapest kind there is: one function,
+   264 bytes of `.bss`, and a range `0x8072DE70..0x8072DF78` that NO unit
+   in splits.txt owned -- so step 2 was not needed at all, nothing was cut
+   and no link order changed. Its lesson is the FOUR-BYTE HOLE: `collBSP`
+   starts at `DE78` and not `DE74`, so it is 8-aligned and the compiler
+   leaves the hole itself. `double[16]` reproduces that -- 128 bytes,
+   align 8 -- where `float[32]` packs it against `collBSPCount` and moves
+   everything after. The element type is a guess; the SIZE and the
+   ALIGNMENT are the recovered facts, and they are what decide the layout.
 
    What is still blocked, and by what:
    - **The anonymous namespace, not alignment.** `Blobloids.cpp` was the

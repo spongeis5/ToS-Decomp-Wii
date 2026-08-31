@@ -196,6 +196,7 @@ SB/GM/Engine/WAD00_26.cpp:
 
 SB/GM/Engine/Core/Wii/Env.cpp:
 	.text       start:0x8004F270 end:0x8004F280
+	.bss        start:0x8072DE70 end:0x8072DF78
 
 SB/GM/Engine/Core/Wii/iFMV.cpp:
 	.text       start:0x8004F280 end:0x80050038

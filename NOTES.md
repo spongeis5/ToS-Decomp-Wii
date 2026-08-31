@@ -7,13 +7,13 @@ numbers here, which move.
 ## State at time of writing
 
 ```
-Game Code:  23 of 498 files complete   6,740 / 2,115,452 bytes  240 / 10,559 fn
+Game Code:  23 of 498 files complete   7,228 / 2,115,452 bytes  294 / 10,559 fn
 
-Of those 240 functions, 164 are GENERATED -- one shape, a 32-bit constant
-returned from a behaviour-tree node's GetTypeID. They are real matched
-functions and the constants are recovered fact, but a count of them is not
-a count of decompiled code, and 76 is the figure to compare against
-earlier ones.
+Of those 294 functions, 218 are GENERATED -- one shape, a 32-bit constant
+into r3 and a return, mostly a behaviour-tree node's GetTypeID. They are
+real matched functions and the constants are recovered fact, but a count of
+them is not a count of decompiled code. HAND-WRITTEN IS 76, and that is the
+figure to compare against earlier ones.
 All:        1.76% matched              main.dol reproduces byte for byte
 ```
 
@@ -62,6 +62,7 @@ r13 or r2.
 | `anon_blocked.py` | which units can never match while they are split out of their unity blob |
 | `next_functions.py` | what is left ranked by FUNCTIONS rather than bytes |
 | `gen_typeids.py` | generate the constant-returning members of a unit from the image |
+| `gen_survey.py` | where else that shape lives, so the cheap work is a population rather than an accident |
 
 `pip install pyelftools` is required for all of them.
 

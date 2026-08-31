@@ -45,6 +45,7 @@ EXPECT = {
     # Generated, not read. 164 constant returns of the 177 functions
     # in the chunk; the other 13 are real code and are not written.
     "SB/GM/Engine/WAD02_36": (164, 164),
+    "SB/GM/Engine/WAD01_26": (54, 54),
 }
 
 

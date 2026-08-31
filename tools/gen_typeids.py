@@ -28,6 +28,12 @@ The members are declared NON-VIRTUAL. CodeWarrior mangles a virtual and a
 non-virtual member identically, so the symbol is the same either way, and a
 virtual declaration would make the compiler emit a vtable this unit does
 not have.
+
+Three symbol shapes are accepted: a const member, a non-const member, and a
+free function, each taking no arguments. A function that TAKES ARGUMENTS is
+refused even when its body is the same three instructions -- reproducing
+its symbol means demangling the parameter list, and a wrong parameter type
+is a silent miss rather than a loud one.
 """
 
 import re
@@ -50,18 +56,24 @@ def sections(raw):
 
 
 def demangle(sym):
-    """-> (namespaces, class, method) or None.
+    """-> (namespaces, class or None, method, is_const), or None.
 
-    CodeWarrior: `name__<qualifier><flags>`. The qualifier is either
-    `<len><name>` for a plain class or `Q<n><len><name>...` for a nested
-    one. Anything else is refused rather than guessed at -- a wrong class
-    name produces a different symbol, which is a silent miss.
+    CodeWarrior: `name__<qualifier><flags>`. The qualifier is `<len><name>`
+    for a plain class, `Q<n><len><name>...` for a nested one, and absent
+    for a free function. Flags are `CFv` for a const member and `Fv`
+    otherwise; anything else -- in particular anything with a parameter
+    list -- is refused rather than guessed at, because a wrong name
+    produces a different symbol and so a silent miss.
     """
     if "__" not in sym:
         return None
     method, rest = sym.split("__", 1)
-    if not rest:
+    if not method or not rest:
         return None
+
+    if rest == "Fv":
+        return [], None, method, False
+
     if rest.startswith("Q"):
         m = re.match(r"Q(\d)(.*)$", rest)
         if not m:
@@ -75,17 +87,22 @@ def demangle(sym):
             ln = int(m2.group(1))
             parts.append(m2.group(2)[:ln])
             rest = m2.group(2)[ln:]
-        if not rest.startswith("CFv"):
-            return None
-        return parts[:-1], parts[-1], method
+        if rest == "CFv":
+            return parts[:-1], parts[-1], method, True
+        if rest == "Fv":
+            return parts[:-1], parts[-1], method, False
+        return None
+
     m = re.match(r"(\d+)(.*)$", rest)
     if not m:
         return None
     ln = int(m.group(1))
     cls, rest = m.group(2)[:ln], m.group(2)[ln:]
-    if rest != "CFv":
-        return None
-    return [], cls, method
+    if rest == "CFv":
+        return [], cls, method, True
+    if rest == "Fv":
+        return [], cls, method, False
+    return None
 
 
 def decode(body):
@@ -163,7 +180,7 @@ def main():
                 rows.append((v, s["st_size"], s.name))
     rows.sort()
 
-    emitted, skipped, classes = [], [], {}
+    emitted, skipped, classes, frees = [], [], {}, []
     for addr, size, sym in rows:
         if size not in (8, 12):
             skipped.append((sym, "%d bytes" % size))
@@ -180,10 +197,12 @@ def main():
         if d is None:
             skipped.append((sym, "symbol does not demangle to Class::m() const"))
             continue
-        ns, cls, method = d
-        key = (tuple(ns), cls)
-        classes.setdefault(key, []).append(method)
-        emitted.append((ns, cls, method, val, addr))
+        ns, cls, method, is_const = d
+        if cls is not None:
+            classes.setdefault((tuple(ns), cls), []).append((method, is_const))
+        else:
+            frees.append((ns, method))
+        emitted.append((ns, cls, method, is_const, val, addr))
 
     if not emitted:
         sys.exit("gen_typeids: nothing in %08X..%08X matches the shape -- "
@@ -221,23 +240,31 @@ def main():
             L.append("")
             L.append("class %s {" % cls)
             L.append("public:")
-            for m in sorted(set(methods)):
-                L.append("    unsigned int %s() const;" % m)
+            for m, is_const in sorted(set(methods)):
+                L.append("    unsigned int %s()%s;"
+                         % (m, " const" if is_const else ""))
             L.append("};")
         L.append("")
         for n in reversed(ns):
             L.append("}  // namespace %s" % n)
         L.append("")
 
+    # Free functions need a declaration of their own.
+    if frees:
+        L.append("")
+        for ns, method in frees:
+            L.append("unsigned int %s();" % method)
+        L.append("")
+
     # Definitions, in the image's own address order.
-    for ns, cls, method, val, addr in emitted:
-        q = "::".join(list(ns) + [cls])
-        if ns:
-            L.append("unsigned int %s::%s() const { return 0x%08Xu; }"
-                     % (q, method, val))
+    for ns, cls, method, is_const, val, addr in emitted:
+        c = " const" if is_const else ""
+        if cls is None:
+            L.append("unsigned int %s() { return 0x%08Xu; }" % (method, val))
         else:
-            L.append("unsigned int %s::%s() const { return 0x%08Xu; }"
-                     % (cls, method, val))
+            q = "::".join(list(ns) + [cls])
+            L.append("unsigned int %s::%s()%s { return 0x%08Xu; }"
+                     % (q, method, c, val))
 
     Path(out).parent.mkdir(parents=True, exist_ok=True)
     Path(out).write_text(NL.join(L) + NL, encoding="utf-8")

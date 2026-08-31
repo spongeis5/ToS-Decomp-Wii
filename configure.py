@@ -219,7 +219,7 @@ cflags_base = [
     "-i src/MetroTRK/include",
     "-i src/hbm/include",
     "-i src/SB/include",
-    "-i src/Havok/include:",
+    "-i src/Havok/include",
     "-ir include/revolution/BTE",
     f"-i build/{config.version}/include",
     f"-DBUILD_VERSION={version_num}",

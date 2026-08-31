@@ -44,14 +44,46 @@ EXPECT = {
     "SB/NG/Source/Engine/Util/Sort/WAD02.cpp": (2, 5),
     # Generated, not read. 164 constant returns of the 177 functions
     # in the chunk; the other 13 are real code and are not written.
-    "SB/GM/Engine/WAD02_36": (164, 164),
-    "SB/GM/Engine/WAD01_26": (54, 54),
+    "SB/GM/Engine/WAD02_36": (166, 166),
+    "SB/GM/Engine/WAD01_26": (61, 61),
     # Five of the unit's eight functions are written; the other three
     # reach further into the graphics types than has been recovered.
     "SB/NG/Source/Engine/Graphics/Builders/StaticBuilder": (5, 5),
     # Five of seven written; xStricmp and the length-limited hash are
     # recorded near misses.  The unit has 14 functions in all.
     "SB/GM/Engine/Core/x/xString": (5, 7),
+    "SB/GM/Engine/Core/x/xGameInterface": (1, 1),
+    "SB/GM/Engine/Core/x/xGroup": (1, 1),
+    "SB/GM/Engine/Game/zButtonMasherWidget": (1, 1),
+    "SB/GM/Engine/Game/zDecal": (1, 1),
+    "SB/GM/Engine/Game/zJawFlapper": (1, 1),
+    "SB/GM/Engine/Game/zPIDController": (1, 1),
+    "SB/GM/Engine/WAD00": (7, 7),
+    "SB/GM/Engine/WAD00_1": (1, 1),
+    "SB/GM/Engine/WAD00_12": (1, 1),
+    "SB/GM/Engine/WAD00_2": (5, 5),
+    "SB/GM/Engine/WAD00_7": (2, 2),
+    "SB/GM/Engine/WAD01_13": (2, 2),
+    "SB/GM/Engine/WAD01_21": (1, 1),
+    "SB/GM/Engine/WAD02_27": (1, 1),
+    "SB/GM/Engine/WAD02_38": (1, 1),
+    "SB/GM/Engine/WAD03_16": (1, 1),
+    "SB/GM/Engine/WAD03_17": (1, 1),
+    "SB/GM/Engine/WAD03_2": (1, 1),
+    "SB/GM/Engine/WAD03_3": (5, 5),
+    "SB/GM/Engine/WAD03_37": (1, 1),
+    "SB/GM/Engine/WAD03_43": (14, 14),
+    "SB/GM/Engine/WAD04_6": (1, 1),
+    "SB/GM/Engine/WAD04_8": (1, 1),
+    "SB/NG/Engine/WAD00_11": (1, 1),
+    "SB/NG/Engine/WAD00_12": (5, 5),
+    "SB/NG/Engine/WAD00_17": (2, 2),
+    "SB/NG/Engine/WAD01_12": (2, 2),
+    "SB/NG/Engine/WAD01_17": (1, 1),
+    "SB/NG/Engine/WAD01_2": (1, 1),
+    "SB/NG/Engine/WAD02_15": (1, 1),
+    "SB/NG/Engine/WADSpeed": (10, 10),
+    "SB/NG/Source/Engine/TRC/TRCPadManager": (2, 2),
 }
 
 

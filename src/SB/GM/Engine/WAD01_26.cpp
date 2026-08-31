@@ -339,3 +339,48 @@ unsigned int zBTConditionFalse::GetTypeID() const { return 0x2EF3935Cu; }
 unsigned int zBTConditionTrue::GetTypeID() const { return 0x89176D7Du; }
 unsigned int zBTActionAlwaysFail::GetTypeID() const { return 0xFD239E46u; }
 unsigned int zBTActionAlwaysComplete::GetTypeID() const { return 0xF7756BA5u; }
+
+// --- and the two-instruction accessors, from tools/gen_accessors.py ---
+
+class zPlayer {
+public:
+    float GetLastLand();
+
+    unsigned char _pad0[0x400];
+    float f400;
+};
+
+
+
+class zDirection {
+public:
+    float GetPitch();
+    float GetRoll();
+    void SetPitch(float value);
+    void SetRoll(float value);
+    void SetYaw(float value);
+
+    unsigned char _pad0[0x4C];
+    float f4C;
+    float f50;
+    float f54;
+};
+
+
+
+class zCamDriver {
+public:
+    float getCurrentHeight() const;
+
+    unsigned char _pad0[0x1B0];
+    float f1B0;
+};
+
+
+float zPlayer::GetLastLand() { return f400; }
+float zDirection::GetRoll() { return f54; }
+float zDirection::GetPitch() { return f50; }
+void zDirection::SetRoll(float value) { f54 = value; }
+void zDirection::SetPitch(float value) { f50 = value; }
+void zDirection::SetYaw(float value) { f4C = value; }
+float zCamDriver::getCurrentHeight() const { return f1B0; }

@@ -999,3 +999,27 @@ unsigned int zNPCFlyingBTWriteInsideWallnetAction::GetTypeID() const { return 0x
 unsigned int zNPCBTWriteInsideWallnetAction::GetTypeID() const { return 0x4E2D3614u; }
 unsigned int zNPCBTWriteMaxHitPointsAction::GetTypeID() const { return 0x129E8F7Du; }
 unsigned int zNPCBTWriteCurHitPointsAction::GetTypeID() const { return 0xF05CA191u; }
+
+// --- and the two-instruction accessors, from tools/gen_accessors.py ---
+
+class zNPCSwarmSteering {
+public:
+    float GetCurTurnRate() const;
+
+    unsigned char _pad0[0x1448];
+    float f1448;
+};
+
+
+
+class zNPCSingleSteering {
+public:
+    float GetCurTurnRate() const;
+
+    unsigned char _pad0[0x98];
+    float f98;
+};
+
+
+float zNPCSwarmSteering::GetCurTurnRate() const { return f1448; }
+float zNPCSingleSteering::GetCurTurnRate() const { return f98; }

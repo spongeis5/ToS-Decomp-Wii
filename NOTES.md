@@ -7,12 +7,13 @@ numbers here, which move.
 ## State at time of writing
 
 ```
-Game Code:  23 of 498 files complete   7,516 / 2,115,452 bytes  299 / 10,559 fn
+Game Code:  23 of 498 files complete   8,528 / 2,115,452 bytes  390 / 10,559 fn
+            0.4031% of game code
 
-Of those 299 functions, 218 are GENERATED -- one shape, a 32-bit constant
+Of those 390 functions, 304 are GENERATED -- one shape, a 32-bit constant
 into r3 and a return, mostly a behaviour-tree node's GetTypeID. They are
 real matched functions and the constants are recovered fact, but a count of
-them is not a count of decompiled code. HAND-WRITTEN IS 81, and that is the
+them is not a count of decompiled code. HAND-WRITTEN IS 86, and that is the
 figure to compare against earlier ones.
 All:        1.76% matched              main.dol reproduces byte for byte
 ```
@@ -60,9 +61,10 @@ r13 or r2.
 | `unitcmp.py` | compile ONE unit and compare each function by name against retail; `-v` for a word-by-word diff |
 | `unitcmp_check.py` | validates `unitcmp.py` against every unit it has a known answer for, and proves its drift guard fires |
 | `anon_blocked.py` | which units can never match while they are split out of their unity blob |
-| `next_functions.py` | what is left ranked by FUNCTIONS rather than bytes |
 | `gen_typeids.py` | generate the constant-returning members of a unit from the image |
-| `gen_survey.py` | where else that shape lives, so the cheap work is a population rather than an accident |
+| `gen_survey.py` | where else the constant-return shape lives |
+| `gen_accessors.py` | generate one-load and one-store accessors; `--survey` for where they are |
+| `next_functions.py` | what is left ranked by functions rather than bytes |
 
 `pip install pyelftools` is required for all of them.
 

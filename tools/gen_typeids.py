@@ -47,6 +47,20 @@ ROOT = Path(__file__).resolve().parent.parent
 ELF = ROOT / "orig/R8IE78/files/SB09WiiMASTERWAD.elf"
 
 
+
+IDENT = re.compile(r'^[A-Za-z_][A-Za-z0-9_]*$')
+
+
+def usable(names):
+    """Every part must be a plain identifier.
+
+    A length-prefixed CodeWarrior name can be a template instantiation
+    -- `ImmediateContext<Q24Sext8VertexUV>` -- which is not a class name
+    that can be declared. Refused rather than emitted: a generator that
+    writes what it cannot reproduce is one step from one that writes
+    something wrong and silent."""
+    return all(IDENT.match(n) for n in names if n)
+
 def sections(raw):
     off, = struct.unpack_from(">I", raw, 32)
     es, num, si = struct.unpack_from(">HHH", raw, 46)
@@ -198,6 +212,9 @@ def main():
             skipped.append((sym, "symbol does not demangle to Class::m() const"))
             continue
         ns, cls, method, is_const = d
+        if not usable(list(ns) + ([cls] if cls else []) + [method]):
+            skipped.append((sym, "name is not a plain identifier"))
+            continue
         if cls is not None:
             classes.setdefault((tuple(ns), cls), []).append((method, is_const))
         else:

@@ -7,17 +7,31 @@ The 258 units `dwarf_splits.py` recovered carry `.text` only. A unit whose
 file owns statics therefore cannot match: its data still sits in the parent
 chunk. This is the evidence for putting it back.
 
-THE DWARF WILL NOT DO IT, and that is measured rather than assumed.
-DW_AT_decl_file placed all 10,064 functions; it places no data at all:
+THIS TOOL'S PREMISE WAS WRONG, and the correction is left here because
+the way it was wrong is the point. It said:
 
-  * 18,594 DW_TAG_variable DIEs have a DW_AT_location, and every one is a
-    DW_FORM_data4 offset into `.debug_loc` holding a REGISTER location list
-    (DW_OP_reg17, DW_OP_regx 32, ...). Those DIEs are locals.
-  * 33 have the file-scope shape -- named, external, no location. 31 of
-    them join a data symbol by name, and NONE of the 33 carries a
-    DW_AT_decl_file.
+    "THE DWARF WILL NOT DO IT, and that is measured rather than assumed.
+     DW_AT_decl_file placed all 10,064 functions; it places no data at all:
+       * 18,594 DW_TAG_variable DIEs have a DW_AT_location, and every one
+         is a DW_FORM_data4 offset into `.debug_loc` holding a REGISTER
+         location list. Those DIEs are locals.
+       * 33 have the file-scope shape -- named, external, no location."
 
-So the code is the only evidence, and it is good evidence: a data address
+The 18,594 is right and so is the 33. What is wrong is "every one":
+15,741 of the 18,594 are inside a function and do hold registers, and the
+other **2,853 are at FILE SCOPE with a DW_OP_addr in their location list**
+-- a fixed address -- and every one of them carries a DW_AT_decl_file.
+Some location lists were opened, all of them held registers, and the
+generalisation went in as a measurement. `tools/dwarf_data_decl.py` reads
+them: 2,853 variables over 321 files, no address claimed by two files, and
+`sGameTime` at 0x8072E17C lands on iTime.cpp as NOTES.md already recorded
+independently.
+
+THIS TOOL IS STILL THE ONLY EVIDENCE FOR MOST OF `.rodata`. Anonymous data
+-- string literals, floating-point pools, jump tables -- has no DIE at all,
+which is why declaration-attribution covers 3.3% of that section and 41.5%
+of `.bss`. Where both speak, prefer the declaration; where only this one
+speaks, it is what there is. And it is good evidence: a data address
 formed by functions in exactly ONE unit belongs to that unit. Measured over
 the recovered units: **2,321 distinct data addresses referenced from 1,893
 functions, 1,972 of them by exactly one unit (85.0%), across 205 units**.

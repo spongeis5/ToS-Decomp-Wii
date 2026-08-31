@@ -63,6 +63,8 @@ r13 or r2.
 | `dwarf_targets.py` | ranks the recovered units by what their code needs (data / calls / neither) |
 | `dwarf_data.py` | attributes `.data`/`.bss`/`.rodata` by who references it |
 | `dwarf_locals.py` | every local and parameter of a function: type, declaration line, and WHICH REGISTER or frame slot it got |
+| `dwarf_lines.py` | which source line and FILE each instruction came from; `--report` for the population |
+| `dwarf_data_decl.py` | attributes data to files by DECLARATION, where `dwarf_data.py` does it by reference |
 | `unitcmp.py` | compile ONE unit and compare each function by name against retail; `-v` for a word-by-word diff |
 | `unitcmp_check.py` | validates `unitcmp.py` against every unit it has a known answer for, and proves its drift guard fires |
 | `anon_blocked.py` | which units can never match while they are split out of their unity blob |
@@ -108,11 +110,32 @@ the `.cpp` that used it, and dtk rejects the fiction anyway.
      honoured; linking it shifts 10,115 bytes of the DOL.
    - An interior unit's data range sits inside the parent's, and carving it
      out needs the parent's data partitioned across its chunks **in link
-     order**. That is only mechanical if data follows text order, and it
-     does not: 62% / 60% / 74% in order for `.rodata` / `.data` / `.bss`.
-     Likely cause is `-inline auto` -- a static belonging to file A,
-     referenced only through A's function inlined into B, is attributed
-     to B.
+     order**. Attributing data by WHO REFERENCES IT gets 62% / 60% / 74%
+     in order for `.rodata` / `.data` / `.bss`, which is not mechanical
+     enough to split on.
+
+     **Attributing it by DECLARATION does much better**, and that was
+     available all along: `tools/dwarf_data_decl.py` reads the 2,853
+     file-scope variables whose location list holds a fixed address, each
+     with a `DW_AT_decl_file`. 230 of 272 files own a contiguous run of
+     `.bss` (85%), 148 of 153 of `.data` (97%) and 63 of 65 of `.rodata`
+     (97%), with no address claimed by two files. `dwarf_data.py` said in
+     its docstring that the DWARF "places no data at all"; that was a
+     generalisation from some location lists to all of them, and the
+     correction is written out at the top of that file.
+
+     It does not cover everything: anonymous data -- literals, pools,
+     jump tables -- has no DIE, which is 96.7% of `.rodata`, and only the
+     eleven compile units with debug info are covered at all.
+
+     The old guess for the disorder was `-inline auto` -- a static
+     belonging to file A, referenced only through A's code inlined into
+     B, is attributed to B. Declaration-attribution does not care either
+     way, so that guess no longer has to be settled to make progress. It
+     also cannot be settled from the debug info: this producer emits no
+     `DW_TAG_inlined_subroutine` at all, and its line table keeps the
+     CALLER's line for inlined code -- `xOGModelRefPtr::IsSet` is 68 bytes
+     over two source lines and is known to have `IsValid` inlined into it.
 
    `iTime.cpp` and `zPerformanceDisplay.cpp` are written and their objects
    match 100%; both are `NonMatching` because of the above.

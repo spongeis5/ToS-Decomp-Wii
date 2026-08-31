@@ -18,76 +18,1515 @@ SB/GM/Engine/Core/LinkFastSqrt.cpp:
 	.rodata     start:0x8067D280 end:0x8067D2A0
 
 SB/GM/Engine/WAD00.cpp:
-	.text       start:0x800067D0 end:0x80051F80
-	.ctors      start:0x8067CE44 end:0x8067CE48
+	.text       start:0x800067D0 end:0x8001BEE0
 	.rodata     start:0x8067D2A0 end:0x8067F4A4
 	.data       start:0x806AFDE0 end:0x806B4E98
 	.bss        start:0x80719900 end:0x80719968
 
+SB/GM/Engine/Core/x/xBase.cpp:
+	.text       start:0x8001BEE0 end:0x8001C04C
+
+SB/GM/Engine/WAD00_1.cpp:
+	.text       start:0x8001C04C end:0x80022150
+
+SB/GM/Engine/Core/x/xCounter.cpp:
+	.text       start:0x80022150 end:0x80022690
+
+SB/GM/Engine/WAD00_2.cpp:
+	.text       start:0x80022690 end:0x8002C2A0
+
+SB/GM/Engine/Core/x/xEntMotion.cpp:
+	.text       start:0x8002C2A0 end:0x8002E4D0
+
+SB/GM/Engine/WAD00_3.cpp:
+	.text       start:0x8002E4D0 end:0x8002F250
+
+SB/GM/Engine/Core/x/xEvent.cpp:
+	.text       start:0x8002F250 end:0x8002F7DC
+
+SB/GM/Engine/WAD00_4.cpp:
+	.text       start:0x8002F7DC end:0x8002F7E0
+
+SB/GM/Engine/Core/x/xFFX.cpp:
+	.text       start:0x8002F7E0 end:0x8002FBD4
+
+SB/GM/Engine/WAD00_5.cpp:
+	.text       start:0x8002FBD4 end:0x8002FBE0
+
+SB/GM/Engine/Core/x/xFMV.cpp:
+	.text       start:0x8002FBE0 end:0x8002FC64
+
+SB/GM/Engine/WAD00_6.cpp:
+	.text       start:0x8002FC64 end:0x80032780
+
+SB/GM/Engine/Core/x/xGameInterface.cpp:
+	.text       start:0x80032780 end:0x80032D00
+
+SB/GM/Engine/Core/x/xGroup.cpp:
+	.text       start:0x80032D00 end:0x800335F0
+
+SB/GM/Engine/Core/x/xHierarchyBound.cpp:
+	.text       start:0x800335F0 end:0x80033820
+
+SB/GM/Engine/Core/x/xIni.cpp:
+	.text       start:0x80033820 end:0x80033EA4
+
+SB/GM/Engine/WAD00_7.cpp:
+	.text       start:0x80033EA4 end:0x80035F20
+
+SB/GM/Engine/Core/x/xMath.cpp:
+	.text       start:0x80035F20 end:0x800365DC
+
+SB/GM/Engine/WAD00_8.cpp:
+	.text       start:0x800365DC end:0x8003AED0
+
+SB/GM/Engine/Core/x/xOGModelRefPtr.cpp:
+	.text       start:0x8003AED0 end:0x8003B074
+
+SB/GM/Engine/WAD00_9.cpp:
+	.text       start:0x8003B074 end:0x8003C9F0
+
+SB/GM/Engine/Core/x/xOGRenderHelperInfo.cpp:
+	.text       start:0x8003C9F0 end:0x8003CA20
+
+SB/GM/Engine/Core/x/xordarray.cpp:
+	.text       start:0x8003CA20 end:0x8003CDD8
+
+SB/GM/Engine/WAD00_10.cpp:
+	.text       start:0x8003CDD8 end:0x8003CDE0
+
+SB/GM/Engine/Core/x/xParabola.cpp:
+	.text       start:0x8003CDE0 end:0x8003D39C
+
+SB/GM/Engine/WAD00_11.cpp:
+	.text       start:0x8003D39C end:0x8003F270
+
+SB/GM/Engine/Core/x/xRegionSupport.cpp:
+	.text       start:0x8003F270 end:0x8003F2F4
+
+SB/GM/Engine/WAD00_12.cpp:
+	.text       start:0x8003F2F4 end:0x80040AA0
+
+SB/GM/Engine/Core/x/xRenderedPhysicsModel.cpp:
+	.text       start:0x80040AA0 end:0x8004112C
+
+SB/GM/Engine/WAD00_13.cpp:
+	.text       start:0x8004112C end:0x80041A30
+
+SB/GM/Engine/Core/x/xScene.cpp:
+	.text       start:0x80041A30 end:0x80041AA4
+
+SB/GM/Engine/WAD00_14.cpp:
+	.text       start:0x80041AA4 end:0x80041AB0
+
+SB/GM/Engine/Core/x/xScreenFade.cpp:
+	.text       start:0x80041AB0 end:0x80042408
+
+SB/GM/Engine/WAD00_15.cpp:
+	.text       start:0x80042408 end:0x80042410
+
+SB/GM/Engine/Core/x/xserializer.cpp:
+	.text       start:0x80042410 end:0x80042E7C
+
+SB/GM/Engine/WAD00_16.cpp:
+	.text       start:0x80042E7C end:0x80042E80
+
+SB/GM/Engine/Core/x/xSpline.cpp:
+	.text       start:0x80042E80 end:0x800449DC
+
+SB/GM/Engine/WAD00_17.cpp:
+	.text       start:0x800449DC end:0x800449E0
+
+SB/GM/Engine/Core/x/xSpringy.cpp:
+	.text       start:0x800449E0 end:0x80044AA8
+
+SB/GM/Engine/WAD00_18.cpp:
+	.text       start:0x80044AA8 end:0x80045770
+
+SB/GM/Engine/Core/x/xString.cpp:
+	.text       start:0x80045770 end:0x8004679C
+
+SB/GM/Engine/WAD00_19.cpp:
+	.text       start:0x8004679C end:0x800467A0
+
+SB/GM/Engine/Core/x/xSubTitles.cpp:
+	.text       start:0x800467A0 end:0x80046BD0
+
+SB/GM/Engine/Core/x/xSubtitlesAsset.cpp:
+	.text       start:0x80046BD0 end:0x80046C3C
+
+SB/GM/Engine/WAD00_20.cpp:
+	.text       start:0x80046C3C end:0x80046C40
+
+SB/GM/Engine/Core/x/xTagParser.cpp:
+	.text       start:0x80046C40 end:0x80046DF4
+
+SB/GM/Engine/WAD00_21.cpp:
+	.text       start:0x80046DF4 end:0x80046E00
+
+SB/GM/Engine/Core/x/xTextAsset.cpp:
+	.text       start:0x80046E00 end:0x80046E14
+
+SB/GM/Engine/WAD00_22.cpp:
+	.text       start:0x80046E14 end:0x80046E20
+
+SB/GM/Engine/Core/x/xTextDepot.cpp:
+	.text       start:0x80046E20 end:0x80046F88
+
+SB/GM/Engine/WAD00_23.cpp:
+	.text       start:0x80046F88 end:0x80046F90
+
+SB/GM/Engine/Core/x/xTimer.cpp:
+	.text       start:0x80046F90 end:0x8004736C
+
+SB/GM/Engine/WAD00_24.cpp:
+	.text       start:0x8004736C end:0x80048540
+
+SB/GM/Engine/Core/x/xUpdateCull.cpp:
+	.text       start:0x80048540 end:0x80048F28
+
+SB/GM/Engine/WAD00_25.cpp:
+	.text       start:0x80048F28 end:0x80049320
+
+SB/GM/Engine/Core/x/xWMLTypes.cpp:
+	.text       start:0x80049320 end:0x8004C1C8
+
+SB/GM/Engine/WAD00_26.cpp:
+	.text       start:0x8004C1C8 end:0x8004F270
+
+SB/GM/Engine/Core/Wii/Env.cpp:
+	.text       start:0x8004F270 end:0x8004F280
+
+SB/GM/Engine/Core/Wii/iFMV.cpp:
+	.text       start:0x8004F280 end:0x80050038
+
+SB/GM/Engine/WAD00_27.cpp:
+	.text       start:0x80050038 end:0x800501C0
+
+SB/GM/Engine/Core/Wii/iMath3.cpp:
+	.text       start:0x800501C0 end:0x800503CC
+
+SB/GM/Engine/WAD00_28.cpp:
+	.text       start:0x800503CC end:0x800503D0
+
+SB/GM/Engine/Core/Wii/iSystem.cpp:
+	.text       start:0x800503D0 end:0x800503F8
+
+SB/GM/Engine/WAD00_29.cpp:
+	.text       start:0x800503F8 end:0x80050400
+
+SB/GM/Engine/Core/Wii/iTime.cpp:
+	.text       start:0x80050400 end:0x8005042C
+
+SB/GM/Engine/WAD00_30.cpp:
+	.text       start:0x8005042C end:0x80050430
+
+SB/GM/Engine/Core/Wii/Bink/wiitextures.c:
+	.text       start:0x80050430 end:0x8005145C
+
+SB/GM/Engine/WAD00_31.cpp:
+	.text       start:0x8005145C end:0x80051F80
+	.ctors      start:0x8067CE44 end:0x8067CE48
+
+SB/GM/Engine/Game/zAchievementsMgr.cpp:
+	.text       start:0x80051F80 end:0x80052414
+
 SB/GM/Engine/WAD01.cpp:
-	.text       start:0x80051F80 end:0x800AF0A0
-	.ctors      start:0x8067CE48 end:0x8067CE4C
+	.text       start:0x80052414 end:0x80074B40
 	.rodata     start:0x80689398 end:0x8068B9C0
 	.data       start:0x806B4E98 end:0x806BD4A0
 	.bss        start:0x8072EC80 end:0x807340F0
 
+SB/GM/Engine/Game/zBouncer.cpp:
+	.text       start:0x80074B40 end:0x80074EA0
+
+SB/GM/Engine/WAD01_1.cpp:
+	.text       start:0x80074EA0 end:0x8007F050
+
+SB/GM/Engine/Game/zBTNodeCondition.cpp:
+	.text       start:0x8007F050 end:0x8007F388
+
+SB/GM/Engine/WAD01_2.cpp:
+	.text       start:0x8007F388 end:0x800804B0
+
+SB/GM/Engine/Game/zBTNodeParallel.cpp:
+	.text       start:0x800804B0 end:0x80080A28
+
+SB/GM/Engine/WAD01_3.cpp:
+	.text       start:0x80080A28 end:0x80080A30
+
+SB/GM/Engine/Game/zBTNodeReference.cpp:
+	.text       start:0x80080A30 end:0x80080C1C
+
+SB/GM/Engine/WAD01_4.cpp:
+	.text       start:0x80080C1C end:0x80080C20
+
+SB/GM/Engine/Game/zBTNodeSelector.cpp:
+	.text       start:0x80080C20 end:0x800811A8
+
+SB/GM/Engine/WAD01_5.cpp:
+	.text       start:0x800811A8 end:0x80081200
+
+SB/GM/Engine/Game/zBTNodeSequence.cpp:
+	.text       start:0x80081200 end:0x800813E4
+
+SB/GM/Engine/WAD01_6.cpp:
+	.text       start:0x800813E4 end:0x800813F0
+
+SB/GM/Engine/Game/zBTClient.cpp:
+	.text       start:0x800813F0 end:0x800816FC
+
+SB/GM/Engine/WAD01_7.cpp:
+	.text       start:0x800816FC end:0x80081700
+
+SB/GM/Engine/Game/zBTDepot.cpp:
+	.text       start:0x80081700 end:0x80081A64
+
+SB/GM/Engine/WAD01_8.cpp:
+	.text       start:0x80081A64 end:0x80081A70
+
+SB/GM/Engine/Game/zBTFactory.cpp:
+	.text       start:0x80081A70 end:0x80081B04
+
+SB/GM/Engine/WAD01_9.cpp:
+	.text       start:0x80081B04 end:0x80081F60
+
+SB/GM/Engine/Game/zBTCommonConditions.cpp:
+	.text       start:0x80081F60 end:0x80082784
+
+SB/GM/Engine/WAD01_10.cpp:
+	.text       start:0x80082784 end:0x80085020
+
+SB/GM/Engine/Game/zBTSet.cpp:
+	.text       start:0x80085020 end:0x80085650
+
+SB/GM/Engine/WAD01_11.cpp:
+	.text       start:0x80085650 end:0x80087A30
+
+SB/GM/Engine/Game/zButtonMasherWidget.cpp:
+	.text       start:0x80087A30 end:0x80088120
+
+SB/GM/Engine/WAD01_12.cpp:
+	.text       start:0x80088120 end:0x8008ED90
+
+SB/GM/Engine/Game/zCameraCurveAsset.cpp:
+	.text       start:0x8008ED90 end:0x8008EDB4
+
+SB/GM/Engine/WAD01_13.cpp:
+	.text       start:0x8008EDB4 end:0x800958E0
+
+SB/GM/Engine/Game/zCamHelper.cpp:
+	.text       start:0x800958E0 end:0x8009643C
+
+SB/GM/Engine/WAD01_14.cpp:
+	.text       start:0x8009643C end:0x800966D0
+
+SB/GM/Engine/Game/zCamPool.cpp:
+	.text       start:0x800966D0 end:0x80096A48
+
+SB/GM/Engine/WAD01_15.cpp:
+	.text       start:0x80096A48 end:0x80097730
+
+SB/GM/Engine/Game/zCamSplineCommonMix.cpp:
+	.text       start:0x80097730 end:0x80097798
+
+SB/GM/Engine/WAD01_16.cpp:
+	.text       start:0x80097798 end:0x800977A0
+
+SB/GM/Engine/Game/zCamTargetSpline.cpp:
+	.text       start:0x800977A0 end:0x80097B64
+
+SB/GM/Engine/WAD01_17.cpp:
+	.text       start:0x80097B64 end:0x80098270
+
+SB/GM/Engine/Game/zCharacterAsset.cpp:
+	.text       start:0x80098270 end:0x80098280
+
+SB/GM/Engine/Game/zCheat.cpp:
+	.text       start:0x80098280 end:0x8009880C
+
+SB/GM/Engine/WAD01_18.cpp:
+	.text       start:0x8009880C end:0x800990F0
+
+SB/GM/Engine/Game/zCinematic.cpp:
+	.text       start:0x800990F0 end:0x8009A4F0
+
+SB/GM/Engine/WAD01_19.cpp:
+	.text       start:0x8009A4F0 end:0x8009CE60
+
+SB/GM/Engine/Game/zCombatAttack.cpp:
+	.text       start:0x8009CE60 end:0x8009CED0
+
+SB/GM/Engine/Game/zCombatHitSpot.cpp:
+	.text       start:0x8009CED0 end:0x8009D45C
+
+SB/GM/Engine/WAD01_20.cpp:
+	.text       start:0x8009D45C end:0x8009D460
+
+SB/GM/Engine/Game/zCombatSystem.cpp:
+	.text       start:0x8009D460 end:0x8009D5B0
+
+SB/GM/Engine/WAD01_21.cpp:
+	.text       start:0x8009D5B0 end:0x800AA490
+
+SB/GM/Engine/Game/zConditional.cpp:
+	.text       start:0x800AA490 end:0x800AAA90
+
+SB/GM/Engine/Game/zDecal.cpp:
+	.text       start:0x800AAA90 end:0x800AAFE0
+
+SB/GM/Engine/Game/zDestructibles.cpp:
+	.text       start:0x800AAFE0 end:0x800AC160
+
+SB/GM/Engine/Game/zDirection.cpp:
+	.text       start:0x800AC160 end:0x800AC39C
+
+SB/GM/Engine/WAD01_22.cpp:
+	.text       start:0x800AC39C end:0x800AC3A0
+
+SB/GM/Engine/Game/zEmbeddedStartupIcon.cpp:
+	.text       start:0x800AC3A0 end:0x800AC3E8
+
+SB/GM/Engine/WAD01_23.cpp:
+	.text       start:0x800AC3E8 end:0x800AC3F0
+
+SB/GM/Engine/Game/zEnv.cpp:
+	.text       start:0x800AC3F0 end:0x800AC524
+
+SB/GM/Engine/WAD01_24.cpp:
+	.text       start:0x800AC524 end:0x800AC530
+
+SB/GM/Engine/Game/zEventSpy.cpp:
+	.text       start:0x800AC530 end:0x800AC6B8
+
+SB/GM/Engine/WAD01_25.cpp:
+	.text       start:0x800AC6B8 end:0x800AC6C0
+
+SB/GM/Engine/Game/zExplosiveObject.cpp:
+	.text       start:0x800AC6C0 end:0x800AD0B0
+
+SB/GM/Engine/WAD01_26.cpp:
+	.text       start:0x800AD0B0 end:0x800AF0A0
+	.ctors      start:0x8067CE48 end:0x8067CE4C
+
 SB/GM/Engine/WAD02.cpp:
-	.text       start:0x800AF0A0 end:0x80103F90
-	.ctors      start:0x8067CE4C end:0x8067CE50
+	.text       start:0x800AF0A0 end:0x800B1E00
 	.rodata     start:0x8068B9C0 end:0x8068D298
 	.data       start:0x806BD4A0 end:0x806C1B28
 	.bss        start:0x807340F0 end:0x80753F80
 
+SB/GM/Engine/Game/zFountain.cpp:
+	.text       start:0x800B1E00 end:0x800B27E4
+
+SB/GM/Engine/WAD02_1.cpp:
+	.text       start:0x800B27E4 end:0x800B3F20
+
+SB/GM/Engine/Game/zFMV.cpp:
+	.text       start:0x800B3F20 end:0x800B4244
+
+SB/GM/Engine/WAD02_2.cpp:
+	.text       start:0x800B4244 end:0x800B4250
+
+SB/GM/Engine/Game/zFog.cpp:
+	.text       start:0x800B4250 end:0x800B483C
+
+SB/GM/Engine/WAD02_3.cpp:
+	.text       start:0x800B483C end:0x800B4840
+
+SB/GM/Engine/Game/zFXRibbonPool.cpp:
+	.text       start:0x800B4840 end:0x800B4A54
+
+SB/GM/Engine/WAD02_4.cpp:
+	.text       start:0x800B4A54 end:0x800C16F0
+
+SB/GM/Engine/Game/zFXObjectLocator.cpp:
+	.text       start:0x800C16F0 end:0x800C3474
+
+SB/GM/Engine/WAD02_5.cpp:
+	.text       start:0x800C3474 end:0x800C42C0
+
+SB/GM/Engine/Game/zGameState.cpp:
+	.text       start:0x800C42C0 end:0x800C45E8
+
+SB/GM/Engine/WAD02_6.cpp:
+	.text       start:0x800C45E8 end:0x800C98F0
+
+SB/GM/Engine/Game/zHitParameters.cpp:
+	.text       start:0x800C98F0 end:0x800C9974
+
+SB/GM/Engine/WAD02_7.cpp:
+	.text       start:0x800C9974 end:0x800C9980
+
+SB/GM/Engine/Game/zHudSB.cpp:
+	.text       start:0x800C9980 end:0x800CB194
+
+SB/GM/Engine/WAD02_8.cpp:
+	.text       start:0x800CB194 end:0x800CB720
+
+SB/GM/Engine/Game/zBuyScreen.cpp:
+	.text       start:0x800CB720 end:0x800CBB88
+
+SB/GM/Engine/WAD02_9.cpp:
+	.text       start:0x800CBB88 end:0x800CBB90
+
+SB/GM/Engine/Game/zPlanktonReticle.cpp:
+	.text       start:0x800CBB90 end:0x800CC164
+
+SB/GM/Engine/WAD02_10.cpp:
+	.text       start:0x800CC164 end:0x800CC170
+
+SB/GM/Engine/Game/zInflatablePlatform.cpp:
+	.text       start:0x800CC170 end:0x800CD468
+
+SB/GM/Engine/WAD02_11.cpp:
+	.text       start:0x800CD468 end:0x800D04B0
+
+SB/GM/Engine/Game/zLedgegrab.cpp:
+	.text       start:0x800D04B0 end:0x800D0B40
+
+SB/GM/Engine/WAD02_12.cpp:
+	.text       start:0x800D0B40 end:0x800D1740
+
+SB/GM/Engine/Game/zLetterbox.cpp:
+	.text       start:0x800D1740 end:0x800D19C0
+
+SB/GM/Engine/WAD02_13.cpp:
+	.text       start:0x800D19C0 end:0x800D5070
+
+SB/GM/Engine/Game/zMainLanguageScreen.cpp:
+	.text       start:0x800D5070 end:0x800D56D8
+
+SB/GM/Engine/WAD02_14.cpp:
+	.text       start:0x800D56D8 end:0x800D56E0
+
+SB/GM/Engine/Game/zMenu.cpp:
+	.text       start:0x800D56E0 end:0x800D5EE8
+
+SB/GM/Engine/WAD02_15.cpp:
+	.text       start:0x800D5EE8 end:0x800D5EF0
+
+SB/GM/Engine/Game/zModuleDebugMetrics.cpp:
+	.text       start:0x800D5EF0 end:0x800D5F08
+
+SB/GM/Engine/WAD02_16.cpp:
+	.text       start:0x800D5F08 end:0x800D5F10
+
+SB/GM/Engine/Game/zModuleMgr.cpp:
+	.text       start:0x800D5F10 end:0x800D655C
+
+SB/GM/Engine/WAD02_17.cpp:
+	.text       start:0x800D655C end:0x800D6560
+
+SB/GM/Engine/Game/zModuleMgr_Registry.cpp:
+	.text       start:0x800D6560 end:0x800D65E0
+
+SB/GM/Engine/WAD02_18.cpp:
+	.text       start:0x800D65E0 end:0x800D7A70
+
+SB/GM/Engine/Game/zNPCAnimViewer.cpp:
+	.text       start:0x800D7A70 end:0x800D7C74
+
+SB/GM/Engine/WAD02_19.cpp:
+	.text       start:0x800D7C74 end:0x800D7C80
+
+SB/GM/Engine/Game/zNPCAsset.cpp:
+	.text       start:0x800D7C80 end:0x800D7E2C
+
+SB/GM/Engine/WAD02_20.cpp:
+	.text       start:0x800D7E2C end:0x800DADA0
+
+SB/GM/Engine/Game/zNPCBTActionBuilder.cpp:
+	.text       start:0x800DADA0 end:0x800DAE3C
+
+SB/GM/Engine/WAD02_21.cpp:
+	.text       start:0x800DAE3C end:0x800DAE40
+
+SB/GM/Engine/Game/zNPCBTConditionBuilder.cpp:
+	.text       start:0x800DAE40 end:0x800DAE94
+
+SB/GM/Engine/WAD02_22.cpp:
+	.text       start:0x800DAE94 end:0x800E0C70
+
+SB/GM/Engine/Game/zNPCCommonBTConditions.cpp:
+	.text       start:0x800E0C70 end:0x800E191C
+
+SB/GM/Engine/WAD02_23.cpp:
+	.text       start:0x800E191C end:0x800E1920
+
+SB/GM/Engine/Game/zNPCCommonCombatBTActions.cpp:
+	.text       start:0x800E1920 end:0x800E29A0
+
+SB/GM/Engine/WAD02_24.cpp:
+	.text       start:0x800E29A0 end:0x800EF410
+
+SB/GM/Engine/Game/zNPCExtraModel.cpp:
+	.text       start:0x800EF410 end:0x800EF678
+
+SB/GM/Engine/WAD02_25.cpp:
+	.text       start:0x800EF678 end:0x800EF680
+
+SB/GM/Engine/Game/zNPCFX.cpp:
+	.text       start:0x800EF680 end:0x800F0640
+
+SB/GM/Engine/WAD02_26.cpp:
+	.text       start:0x800F0640 end:0x800F2160
+
+SB/GM/Engine/Game/zNPCGenericPool.cpp:
+	.text       start:0x800F2160 end:0x800F25A4
+
+SB/GM/Engine/WAD02_27.cpp:
+	.text       start:0x800F25A4 end:0x800F4650
+
+SB/GM/Engine/Game/zNPCGroupBase.cpp:
+	.text       start:0x800F4650 end:0x800F483C
+
+SB/GM/Engine/WAD02_28.cpp:
+	.text       start:0x800F483C end:0x800F4A70
+
+SB/GM/Engine/Game/zNPCInfoNode.cpp:
+	.text       start:0x800F4A70 end:0x800F4A98
+
+SB/GM/Engine/WAD02_29.cpp:
+	.text       start:0x800F4A98 end:0x800F8290
+
+SB/GM/Engine/Game/zNPCQuickTimeCombat.cpp:
+	.text       start:0x800F8290 end:0x800F84B0
+
+SB/GM/Engine/Game/zNPCSearchMapLinkCostCalculator.cpp:
+	.text       start:0x800F84B0 end:0x800F85D8
+
+SB/GM/Engine/WAD02_30.cpp:
+	.text       start:0x800F85D8 end:0x800F85E0
+
+SB/GM/Engine/Game/zNPCStatus.cpp:
+	.text       start:0x800F85E0 end:0x800F8638
+
+SB/GM/Engine/WAD02_31.cpp:
+	.text       start:0x800F8638 end:0x800FD780
+
+SB/GM/Engine/Game/zNPCSteeringPath.cpp:
+	.text       start:0x800FD780 end:0x800FE080
+
+SB/GM/Engine/WAD02_32.cpp:
+	.text       start:0x800FE080 end:0x800FE540
+
+SB/GM/Engine/Game/zNPCType.cpp:
+	.text       start:0x800FE540 end:0x800FE58C
+
+SB/GM/Engine/WAD02_33.cpp:
+	.text       start:0x800FE58C end:0x800FE590
+
+SB/GM/Engine/Game/zNPCUpdateLOD.cpp:
+	.text       start:0x800FE590 end:0x800FEA64
+
+SB/GM/Engine/WAD02_34.cpp:
+	.text       start:0x800FEA64 end:0x800FEA70
+
+SB/GM/Engine/Game/zNPCUPGeneric.cpp:
+	.text       start:0x800FEA70 end:0x80100244
+
+SB/GM/Engine/WAD02_35.cpp:
+	.text       start:0x80100244 end:0x80100250
+
+SB/GM/Engine/Game/zPuckReflector.cpp:
+	.text       start:0x80100250 end:0x80100A74
+
+SB/GM/Engine/WAD02_36.cpp:
+	.text       start:0x80100A74 end:0x801017F0
+
+SB/GM/Engine/Game/zLaserScanner.cpp:
+	.text       start:0x801017F0 end:0x80101894
+
+SB/GM/Engine/WAD02_37.cpp:
+	.text       start:0x80101894 end:0x801018A0
+
+SB/GM/Engine/Game/zLaser.cpp:
+	.text       start:0x801018A0 end:0x80101960
+
+SB/GM/Engine/WAD02_38.cpp:
+	.text       start:0x80101960 end:0x80103F90
+	.ctors      start:0x8067CE4C end:0x8067CE50
+
 SB/GM/Engine/WAD03.cpp:
-	.text       start:0x80103F90 end:0x80189AF0
-	.ctors      start:0x8067CE50 end:0x8067CE54
+	.text       start:0x80103F90 end:0x80103FB0
 	.rodata     start:0x8068D298 end:0x80691550
 	.data       start:0x806C1B28 end:0x806C6FB0
 	.bss        start:0x80753F80 end:0x8075B260
+
+SB/GM/Engine/Game/zPerformanceDisplay.cpp:
+	.text       start:0x80103FB0 end:0x80103FCC
+
+SB/GM/Engine/WAD03_1.cpp:
+	.text       start:0x80103FCC end:0x80104D50
+
+SB/GM/Engine/Game/zPhysicsObjectEntity.cpp:
+	.text       start:0x80104D50 end:0x80104ED8
+
+SB/GM/Engine/WAD03_2.cpp:
+	.text       start:0x80104ED8 end:0x80104EF0
+
+SB/GM/Engine/Game/zPIDController.cpp:
+	.text       start:0x80104EF0 end:0x801052C8
+
+SB/GM/Engine/WAD03_3.cpp:
+	.text       start:0x801052C8 end:0x801191A0
+
+SB/GM/Engine/Game/zPlayerAction.cpp:
+	.text       start:0x801191A0 end:0x80119B3C
+
+SB/GM/Engine/WAD03_4.cpp:
+	.text       start:0x80119B3C end:0x80119B40
+
+SB/GM/Engine/Game/zPlayerBase.cpp:
+	.text       start:0x80119B40 end:0x80119CD4
+
+SB/GM/Engine/WAD03_5.cpp:
+	.text       start:0x80119CD4 end:0x8011B870
+
+SB/GM/Engine/Game/zPlayerContainer.cpp:
+	.text       start:0x8011B870 end:0x8011B8A8
+
+SB/GM/Engine/WAD03_6.cpp:
+	.text       start:0x8011B8A8 end:0x8011B8B0
+
+SB/GM/Engine/Game/zPlayerInputAI.cpp:
+	.text       start:0x8011B8B0 end:0x8011BB58
+
+SB/GM/Engine/WAD03_7.cpp:
+	.text       start:0x8011BB58 end:0x8011BB60
+
+SB/GM/Engine/Game/zPlayerInputBase.cpp:
+	.text       start:0x8011BB60 end:0x8011BBB8
+
+SB/GM/Engine/WAD03_8.cpp:
+	.text       start:0x8011BBB8 end:0x8011F280
+
+SB/GM/Engine/Game/zPlayerInputPadMgr.cpp:
+	.text       start:0x8011F280 end:0x80120D34
+
+SB/GM/Engine/WAD03_9.cpp:
+	.text       start:0x80120D34 end:0x80121970
+
+SB/GM/Engine/Game/zJawFlapper.cpp:
+	.text       start:0x80121970 end:0x80121F84
+
+SB/GM/Engine/WAD03_10.cpp:
+	.text       start:0x80121F84 end:0x80121F90
+
+SB/GM/Engine/Game/zPlayerLocationEnt.cpp:
+	.text       start:0x80121F90 end:0x80122408
+
+SB/GM/Engine/WAD03_11.cpp:
+	.text       start:0x80122408 end:0x801234C0
+
+SB/GM/Engine/Game/zPlayerTemplate.cpp:
+	.text       start:0x801234C0 end:0x80123778
+
+SB/GM/Engine/WAD03_12.cpp:
+	.text       start:0x80123778 end:0x80123780
+
+SB/GM/Engine/Game/zPolygonalVolume.cpp:
+	.text       start:0x80123780 end:0x80123F8C
+
+SB/GM/Engine/WAD03_13.cpp:
+	.text       start:0x80123F8C end:0x80123F90
+
+SB/GM/Engine/Game/zPortal.cpp:
+	.text       start:0x80123F90 end:0x801244A0
+
+SB/GM/Engine/WAD03_14.cpp:
+	.text       start:0x801244A0 end:0x80126360
+
+SB/GM/Engine/Game/zPOWManager.cpp:
+	.text       start:0x80126360 end:0x80126464
+
+SB/GM/Engine/WAD03_15.cpp:
+	.text       start:0x80126464 end:0x80126470
+
+SB/GM/Engine/Game/zPOWObject.cpp:
+	.text       start:0x80126470 end:0x8012657C
+
+SB/GM/Engine/WAD03_16.cpp:
+	.text       start:0x8012657C end:0x801298D0
+
+SB/GM/Engine/Game/zProjectileCollisionListener.cpp:
+	.text       start:0x801298D0 end:0x8012A1D0
+
+SB/GM/Engine/Game/zProjectileEntity.cpp:
+	.text       start:0x8012A1D0 end:0x8012A364
+
+SB/GM/Engine/WAD03_17.cpp:
+	.text       start:0x8012A364 end:0x8012AAB0
+
+SB/GM/Engine/Game/zProjectileManager.cpp:
+	.text       start:0x8012AAB0 end:0x8012B138
+
+SB/GM/Engine/WAD03_18.cpp:
+	.text       start:0x8012B138 end:0x8012B140
+
+SB/GM/Engine/Game/zProjectileSpawner.cpp:
+	.text       start:0x8012B140 end:0x8012BB40
+
+SB/GM/Engine/Game/zRandDistribution.cpp:
+	.text       start:0x8012BB40 end:0x8012BE40
+
+SB/GM/Engine/Game/zRandomModelList.cpp:
+	.text       start:0x8012BE40 end:0x8012BFFC
+
+SB/GM/Engine/WAD03_19.cpp:
+	.text       start:0x8012BFFC end:0x8012C000
+
+SB/GM/Engine/Game/zReference.cpp:
+	.text       start:0x8012C000 end:0x8012C288
+
+SB/GM/Engine/WAD03_20.cpp:
+	.text       start:0x8012C288 end:0x8012C290
+
+SB/GM/Engine/Game/zRibbon.cpp:
+	.text       start:0x8012C290 end:0x8012C758
+
+SB/GM/Engine/WAD03_21.cpp:
+	.text       start:0x8012C758 end:0x8012EA40
+
+SB/GM/Engine/Game/zRuntimeEntityFX.cpp:
+	.text       start:0x8012EA40 end:0x8012F0D4
+
+SB/GM/Engine/WAD03_22.cpp:
+	.text       start:0x8012F0D4 end:0x80159550
+
+SB/GM/Engine/Game/zSBPlayerHoseMode.cpp:
+	.text       start:0x80159550 end:0x8015ADA8
+
+SB/GM/Engine/WAD03_23.cpp:
+	.text       start:0x8015ADA8 end:0x8015ADB0
+
+SB/GM/Engine/Game/zSBPlayerCharacterProxyCollisionListener.cpp:
+	.text       start:0x8015ADB0 end:0x8015BD00
+
+SB/GM/Engine/Game/zSBProjectileManager.cpp:
+	.text       start:0x8015BD00 end:0x8015C120
+
+SB/GM/Engine/WAD03_24.cpp:
+	.text       start:0x8015C120 end:0x80167030
+
+SB/GM/Engine/Game/zSceneDependency.cpp:
+	.text       start:0x80167030 end:0x80167788
+
+SB/GM/Engine/WAD03_25.cpp:
+	.text       start:0x80167788 end:0x80167F10
+
+SB/GM/Engine/Game/zScript.cpp:
+	.text       start:0x80167F10 end:0x80168670
+
+SB/GM/Engine/WAD03_26.cpp:
+	.text       start:0x80168670 end:0x8016A680
+
+SB/GM/Engine/Game/zSound.cpp:
+	.text       start:0x8016A680 end:0x8016C744
+
+SB/GM/Engine/WAD03_27.cpp:
+	.text       start:0x8016C744 end:0x8016EFD0
+
+SB/GM/Engine/Game/zSoundReverb.cpp:
+	.text       start:0x8016EFD0 end:0x8016F04C
+
+SB/GM/Engine/WAD03_28.cpp:
+	.text       start:0x8016F04C end:0x8016F1B0
+
+SB/GM/Engine/Game/zSoundPhysics.cpp:
+	.text       start:0x8016F1B0 end:0x8016F52C
+
+SB/GM/Engine/WAD03_29.cpp:
+	.text       start:0x8016F52C end:0x8016F530
+
+SB/GM/Engine/Game/zSoundsNamed.cpp:
+	.text       start:0x8016F530 end:0x8016FA9C
+
+SB/GM/Engine/WAD03_30.cpp:
+	.text       start:0x8016FA9C end:0x8016FAA0
+
+SB/GM/Engine/Game/zSoundWiimoteSpeaker.cpp:
+	.text       start:0x8016FAA0 end:0x8016FECC
+
+SB/GM/Engine/WAD03_31.cpp:
+	.text       start:0x8016FECC end:0x8016FED0
+
+SB/GM/Engine/Game/zSoundMask.cpp:
+	.text       start:0x8016FED0 end:0x8016FF90
+
+SB/GM/Engine/Game/zInteractiveMusic.cpp:
+	.text       start:0x8016FF90 end:0x801707C4
+
+SB/GM/Engine/WAD03_32.cpp:
+	.text       start:0x801707C4 end:0x8017AE70
+
+SB/GM/Engine/Game/zSurfaces.cpp:
+	.text       start:0x8017AE70 end:0x8017B30C
+
+SB/GM/Engine/WAD03_33.cpp:
+	.text       start:0x8017B30C end:0x8017B340
+
+SB/GM/Engine/Game/zSweptCircle.cpp:
+	.text       start:0x8017B340 end:0x8017B660
+
+SB/GM/Engine/WAD03_34.cpp:
+	.text       start:0x8017B660 end:0x8017B6B0
+
+SB/GM/Engine/Game/zTextBox.cpp:
+	.text       start:0x8017B6B0 end:0x8017BB7C
+
+SB/GM/Engine/WAD03_35.cpp:
+	.text       start:0x8017BB7C end:0x8017BB80
+
+SB/GM/Engine/Game/zTrampoline.cpp:
+	.text       start:0x8017BB80 end:0x8017C258
+
+SB/GM/Engine/WAD03_36.cpp:
+	.text       start:0x8017C258 end:0x80182060
+
+SB/GM/Engine/Game/zUIImage.cpp:
+	.text       start:0x80182060 end:0x80183338
+
+SB/GM/Engine/WAD03_37.cpp:
+	.text       start:0x80183338 end:0x80183E70
+
+SB/GM/Engine/Game/zUIModel.cpp:
+	.text       start:0x80183E70 end:0x8018425C
+
+SB/GM/Engine/WAD03_38.cpp:
+	.text       start:0x8018425C end:0x80184260
+
+SB/GM/Engine/Game/zUIUserString.cpp:
+	.text       start:0x80184260 end:0x8018460C
+
+SB/GM/Engine/WAD03_39.cpp:
+	.text       start:0x8018460C end:0x80184610
+
+SB/GM/Engine/Game/zVar.cpp:
+	.text       start:0x80184610 end:0x80185DA0
+
+SB/GM/Engine/WAD03_40.cpp:
+	.text       start:0x80185DA0 end:0x80187A00
+
+SB/GM/Engine/Game/zWallNetPosition.cpp:
+	.text       start:0x80187A00 end:0x80187C88
+
+SB/GM/Engine/WAD03_41.cpp:
+	.text       start:0x80187C88 end:0x80187C90
+
+SB/GM/Engine/Game/zWallNetGroup.cpp:
+	.text       start:0x80187C90 end:0x80187F28
+
+SB/GM/Engine/WAD03_42.cpp:
+	.text       start:0x80187F28 end:0x80187F30
+
+SB/GM/Engine/Game/zWaterWheel.cpp:
+	.text       start:0x80187F30 end:0x80188964
+
+SB/GM/Engine/WAD03_43.cpp:
+	.text       start:0x80188964 end:0x80189AF0
+	.ctors      start:0x8067CE50 end:0x8067CE54
 
 SB/GM/Engine/Core/x/xOGEntity.cpp:
 	.text       start:0x80189AF0 end:0x80189B48
 
 SB/GM/Engine/WAD04.cpp:
-	.text       start:0x80189B48 end:0x801ABAA0
-	.ctors      start:0x8067CE54 end:0x8067CE58
+	.text       start:0x80189B48 end:0x80195A30
 	.rodata     start:0x80691550 end:0x80692A98
 	.data       start:0x806C6FB0 end:0x806C93D0
 	.bss        start:0x8075B260 end:0x807741C0
 
+SB/GM/Engine/Game/zAnimList.cpp:
+	.text       start:0x80195A30 end:0x80195E80
+
+SB/GM/Engine/Game/zAnimPackage.cpp:
+	.text       start:0x80195E80 end:0x80196818
+
+SB/GM/Engine/WAD04_1.cpp:
+	.text       start:0x80196818 end:0x80196820
+
+SB/GM/Engine/Game/zEnt.cpp:
+	.text       start:0x80196820 end:0x80197C04
+
+SB/GM/Engine/WAD04_2.cpp:
+	.text       start:0x80197C04 end:0x80199C50
+
+SB/GM/Engine/Game/zDispatcher.cpp:
+	.text       start:0x80199C50 end:0x8019B184
+
+SB/GM/Engine/WAD04_3.cpp:
+	.text       start:0x8019B184 end:0x8019F5E0
+
+SB/GM/Engine/Game/zUIText.cpp:
+	.text       start:0x8019F5E0 end:0x801A0054
+
+SB/GM/Engine/WAD04_4.cpp:
+	.text       start:0x801A0054 end:0x801A0060
+
+SB/GM/Engine/Game/zUIFlashOnScreenText.cpp:
+	.text       start:0x801A0060 end:0x801A060C
+
+SB/GM/Engine/WAD04_5.cpp:
+	.text       start:0x801A060C end:0x801A0610
+
+SB/GM/Engine/Game/zUPContextAction.cpp:
+	.text       start:0x801A0610 end:0x801A11E0
+
+SB/GM/Engine/Game/zUPQuestCard.cpp:
+	.text       start:0x801A11E0 end:0x801A124C
+
+SB/GM/Engine/WAD04_6.cpp:
+	.text       start:0x801A124C end:0x801A7350
+
+SB/GM/Engine/Game/zPathFinderNodeFinder.cpp:
+	.text       start:0x801A7350 end:0x801A746C
+
+SB/GM/Engine/WAD04_7.cpp:
+	.text       start:0x801A746C end:0x801A84F0
+
+SB/GM/Engine/Game/zPlayerAICommandGroup.cpp:
+	.text       start:0x801A84F0 end:0x801A85C0
+
+SB/GM/Engine/WAD04_8.cpp:
+	.text       start:0x801A85C0 end:0x801AABE0
+
+SB/GM/Engine/Game/zNavMarker.cpp:
+	.text       start:0x801AABE0 end:0x801AAC84
+
+SB/GM/Engine/WAD04_9.cpp:
+	.text       start:0x801AAC84 end:0x801AAC90
+
+SB/GM/Engine/Game/zNavLink.cpp:
+	.text       start:0x801AAC90 end:0x801AAFA4
+
+SB/GM/Engine/WAD04_10.cpp:
+	.text       start:0x801AAFA4 end:0x801AAFB0
+
+SB/GM/Engine/Game/zPlayerAISearchMapLinkCostCalculator.cpp:
+	.text       start:0x801AAFB0 end:0x801AB0F8
+
+SB/GM/Engine/WAD04_11.cpp:
+	.text       start:0x801AB0F8 end:0x801AB100
+
+SB/GM/Engine/Game/zSearchPath.cpp:
+	.text       start:0x801AB100 end:0x801AB140
+
+SB/GM/Engine/Game/zPathFinderSearchMapLinkCostCalculator.cpp:
+	.text       start:0x801AB140 end:0x801AB4E8
+
+SB/GM/Engine/WAD04_12.cpp:
+	.text       start:0x801AB4E8 end:0x801AB4F0
+
+SB/GM/Engine/Game/zStoryMoment.cpp:
+	.text       start:0x801AB4F0 end:0x801AB544
+
+SB/GM/Engine/WAD04_13.cpp:
+	.text       start:0x801AB544 end:0x801ABAA0
+	.ctors      start:0x8067CE54 end:0x8067CE58
+
+SB/GM/Engine/Core/x/xModelOpt.cpp:
+	.text       start:0x801ABAA0 end:0x801AC220
+
 SB/GM/Engine/WADSpeed.cpp:
-	.text       start:0x801ABAA0 end:0x801AC2B0
+	.text       start:0x801AC220 end:0x801AC2B0
 	.ctors      start:0x8067CE58 end:0x8067CE5C
 	.rodata     start:0x80692A98 end:0x80692AA8
 	.data       start:0x806C93D0 end:0x806C93E0
 	.bss        start:0x807741C0 end:0x80774228
 
 SB/NG/Engine/WAD00.cpp:
-	.text       start:0x801AC2B0 end:0x801C2460
-	.ctors      start:0x8067CE5C end:0x8067CE60
+	.text       start:0x801AC2B0 end:0x801ACD80
 	.rodata     start:0x80692AA8 end:0x80692C08
 	.data       start:0x806C93E0 end:0x806CB0A0
 	.bss        start:0x80774228 end:0x80774A60
 
+SB/NG/Source/Engine/AssetManager/Domains/Blobloids.cpp:
+	.text       start:0x801ACD80 end:0x801AD098
+
+SB/NG/Engine/WAD00_1.cpp:
+	.text       start:0x801AD098 end:0x801AF370
+
+SB/NG/Source/Engine/AssetManager/Domains/DomainMgr.cpp:
+	.text       start:0x801AF370 end:0x801AFA10
+
+SB/NG/Engine/WAD00_2.cpp:
+	.text       start:0x801AFA10 end:0x801B4BB0
+
+SB/NG/Source/Engine/Basic/Color.cpp:
+	.text       start:0x801B4BB0 end:0x801B4BF4
+
+SB/NG/Engine/WAD00_3.cpp:
+	.text       start:0x801B4BF4 end:0x801B4C00
+
+SB/NG/Source/Engine/Debug/Exception.cpp:
+	.text       start:0x801B4C00 end:0x801B4D50
+
+SB/NG/Engine/WAD00_4.cpp:
+	.text       start:0x801B4D50 end:0x801B5420
+
+SB/NG/Source/Engine/Entities/ClipEntity.cpp:
+	.text       start:0x801B5420 end:0x801B54B4
+
+SB/NG/Engine/WAD00_5.cpp:
+	.text       start:0x801B54B4 end:0x801B7930
+
+SB/NG/Source/Engine/Entities/GlobalFXEntity.cpp:
+	.text       start:0x801B7930 end:0x801B7A74
+
+SB/NG/Engine/WAD00_6.cpp:
+	.text       start:0x801B7A74 end:0x801B8500
+
+SB/NG/Source/Engine/Entities/ImmediateInstanceArticle.cpp:
+	.text       start:0x801B8500 end:0x801B8A1C
+
+SB/NG/Engine/WAD00_7.cpp:
+	.text       start:0x801B8A1C end:0x801B8A20
+
+SB/NG/Source/Engine/Entities/ImmediatePrototypeEntity.cpp:
+	.text       start:0x801B8A20 end:0x801B8C44
+
+SB/NG/Engine/WAD00_8.cpp:
+	.text       start:0x801B8C44 end:0x801B8C50
+
+SB/NG/Source/Engine/Entities/LightKitEntity.cpp:
+	.text       start:0x801B8C50 end:0x801B8E90
+
+SB/NG/Engine/WAD00_9.cpp:
+	.text       start:0x801B8E90 end:0x801B8EF0
+
+SB/NG/Source/Engine/Entities/LightKitSceneEntity.cpp:
+	.text       start:0x801B8EF0 end:0x801B92DC
+
+SB/NG/Engine/WAD00_10.cpp:
+	.text       start:0x801B92DC end:0x801B92E0
+
+SB/NG/Source/Engine/Entities/MaterialEntity.cpp:
+	.text       start:0x801B92E0 end:0x801B9624
+
+SB/NG/Engine/WAD00_11.cpp:
+	.text       start:0x801B9624 end:0x801BCD90
+
+SB/NG/Source/Engine/Entities/ShaderEntity.cpp:
+	.text       start:0x801BCD90 end:0x801BD0E4
+
+SB/NG/Engine/WAD00_12.cpp:
+	.text       start:0x801BD0E4 end:0x801C0BF0
+
+SB/NG/Source/Engine/Entities/Blobs/CMeshBlobEntity.cpp:
+	.text       start:0x801C0BF0 end:0x801C0FE8
+
+SB/NG/Engine/WAD00_13.cpp:
+	.text       start:0x801C0FE8 end:0x801C0FF0
+
+SB/NG/Source/Engine/Entities/Blobs/RawBlobEntity.cpp:
+	.text       start:0x801C0FF0 end:0x801C1108
+
+SB/NG/Engine/WAD00_14.cpp:
+	.text       start:0x801C1108 end:0x801C1110
+
+SB/NG/Source/Engine/Entities/Blobs/ScaleformBlobEntity.cpp:
+	.text       start:0x801C1110 end:0x801C1414
+
+SB/NG/Engine/WAD00_15.cpp:
+	.text       start:0x801C1414 end:0x801C1420
+
+SB/NG/Source/Engine/Entities/Blobs/SkeletonBlobEntity.cpp:
+	.text       start:0x801C1420 end:0x801C1648
+
+SB/NG/Engine/WAD00_16.cpp:
+	.text       start:0x801C1648 end:0x801C16B0
+
+SB/NG/Source/Engine/Entities/Blobs/Anims/ComboAnimBlobEntity.cpp:
+	.text       start:0x801C16B0 end:0x801C1754
+
+SB/NG/Engine/WAD00_17.cpp:
+	.text       start:0x801C1754 end:0x801C2460
+	.ctors      start:0x8067CE5C end:0x8067CE60
+
+SB/NG/Source/Engine/Graphics/Builder.cpp:
+	.text       start:0x801C2460 end:0x801C24FC
+
 SB/NG/Engine/WAD01.cpp:
-	.text       start:0x801C2460 end:0x801E4270
-	.ctors      start:0x8067CE60 end:0x8067CE64
+	.text       start:0x801C24FC end:0x801C2860
 	.rodata     start:0x80692C08 end:0x80693C08
 	.data       start:0x806CB0A0 end:0x806CE7A8
 	.bss        start:0x80774A60 end:0x80779F70
 
+SB/NG/Source/Engine/Graphics/Display.cpp:
+	.text       start:0x801C2860 end:0x801C307C
+
+SB/NG/Engine/WAD01_1.cpp:
+	.text       start:0x801C307C end:0x801C4670
+
+SB/NG/Source/Engine/Graphics/Graphics.cpp:
+	.text       start:0x801C4670 end:0x801C485C
+
+SB/NG/Engine/WAD01_2.cpp:
+	.text       start:0x801C485C end:0x801C5B10
+
+SB/NG/Source/Engine/Graphics/Material.cpp:
+	.text       start:0x801C5B10 end:0x801C5B30
+
+SB/NG/Engine/WAD01_3.cpp:
+	.text       start:0x801C5B30 end:0x801C7C30
+
+SB/NG/Source/Engine/Graphics/ModelPrototype.cpp:
+	.text       start:0x801C7C30 end:0x801C8394
+
+SB/NG/Engine/WAD01_4.cpp:
+	.text       start:0x801C8394 end:0x801C83A0
+
+SB/NG/Source/Engine/Graphics/Movie.cpp:
+	.text       start:0x801C83A0 end:0x801C8708
+
+SB/NG/Engine/WAD01_5.cpp:
+	.text       start:0x801C8708 end:0x801C8FF0
+
+SB/NG/Source/Engine/Graphics/Primitive.cpp:
+	.text       start:0x801C8FF0 end:0x801C9034
+
+SB/NG/Engine/WAD01_6.cpp:
+	.text       start:0x801C9034 end:0x801C9040
+
+SB/NG/Source/Engine/Graphics/Renderable.cpp:
+	.text       start:0x801C9040 end:0x801C912C
+
+SB/NG/Engine/WAD01_7.cpp:
+	.text       start:0x801C912C end:0x801C9E60
+
+SB/NG/Source/Engine/Graphics/RenderState.cpp:
+	.text       start:0x801C9E60 end:0x801CABF4
+
+SB/NG/Engine/WAD01_8.cpp:
+	.text       start:0x801CABF4 end:0x801CEA20
+
+SB/NG/Source/Engine/Graphics/Sampler.cpp:
+	.text       start:0x801CEA20 end:0x801CEAC4
+
+SB/NG/Engine/WAD01_9.cpp:
+	.text       start:0x801CEAC4 end:0x801CEAD0
+
+SB/NG/Source/Engine/Graphics/Scaleform.cpp:
+	.text       start:0x801CEAD0 end:0x801CEBF4
+
+SB/NG/Engine/WAD01_10.cpp:
+	.text       start:0x801CEBF4 end:0x801D4D60
+
+SB/NG/Source/Engine/Graphics/Texture.cpp:
+	.text       start:0x801D4D60 end:0x801D502C
+
+SB/NG/Engine/WAD01_11.cpp:
+	.text       start:0x801D502C end:0x801D5030
+
+SB/NG/Source/Engine/Graphics/View.cpp:
+	.text       start:0x801D5030 end:0x801D519C
+
+SB/NG/Engine/WAD01_12.cpp:
+	.text       start:0x801D519C end:0x801D9B40
+
+SB/NG/Source/Engine/Graphics/Builders/SkinBuilderWii.cpp:
+	.text       start:0x801D9B40 end:0x801DBFA8
+
+SB/NG/Engine/WAD01_13.cpp:
+	.text       start:0x801DBFA8 end:0x801DCA30
+
+SB/NG/Source/Engine/Graphics/Builders/StaticBuilder.cpp:
+	.text       start:0x801DCA30 end:0x801DCE90
+
+SB/NG/Engine/WAD01_14.cpp:
+	.text       start:0x801DCE90 end:0x801DD2A0
+
+SB/NG/Source/Engine/Graphics/Util/ScreenShot.cpp:
+	.text       start:0x801DD2A0 end:0x801DD2CC
+
+SB/NG/Engine/WAD01_15.cpp:
+	.text       start:0x801DD2CC end:0x801E1030
+
+SB/NG/Source/Engine/IO/File/MediaCommands.cpp:
+	.text       start:0x801E1030 end:0x801E12C4
+
+SB/NG/Engine/WAD01_16.cpp:
+	.text       start:0x801E12C4 end:0x801E12D0
+
+SB/NG/Source/Engine/IO/File/MediaConfig.cpp:
+	.text       start:0x801E12D0 end:0x801E1324
+
+SB/NG/Engine/WAD01_17.cpp:
+	.text       start:0x801E1324 end:0x801E2C10
+
+SB/NG/Source/Engine/IO/File/MediaObject.cpp:
+	.text       start:0x801E2C10 end:0x801E2C68
+
+SB/NG/Engine/WAD01_18.cpp:
+	.text       start:0x801E2C68 end:0x801E2C70
+
+SB/NG/Source/Engine/IO/VirtualKeyboard/VirtualKeyboard.cpp:
+	.text       start:0x801E2C70 end:0x801E2CD0
+
+SB/NG/Engine/WAD01_19.cpp:
+	.text       start:0x801E2CD0 end:0x801E35E0
+
+SB/NG/Source/Engine/IO/File/SystemCache.cpp:
+	.text       start:0x801E35E0 end:0x801E3834
+
+SB/NG/Engine/WAD01_20.cpp:
+	.text       start:0x801E3834 end:0x801E3840
+
+SB/NG/Source/Engine/IO/File/Wii/DVDWrap.cpp:
+	.text       start:0x801E3840 end:0x801E3C98
+
+SB/NG/Engine/WAD01_21.cpp:
+	.text       start:0x801E3C98 end:0x801E4270
+	.ctors      start:0x8067CE60 end:0x8067CE64
+
 SB/NG/Engine/WAD02.cpp:
-	.text       start:0x801E4270 end:0x8020B5A0
-	.ctors      start:0x8067CE64 end:0x8067CE68
+	.text       start:0x801E4270 end:0x801E4440
 	.rodata     start:0x80693C08 end:0x80695AD0
 	.data       start:0x806CE7A8 end:0x806D0860
 	.bss        start:0x80779F70 end:0x80784130
 	.sdata      start:0x80819920 end:0x80819958
 	.sbss       start:0x8081BBC0 end:0x8081BBD8
 
+SB/NG/Source/Engine/Graphics/Channel.cpp:
+	.text       start:0x801E4440 end:0x801E44A0
+
+SB/NG/Source/Engine/Graphics/PostRenderChannel.cpp:
+	.text       start:0x801E44A0 end:0x801E44B4
+
+SB/NG/Engine/WAD02_1.cpp:
+	.text       start:0x801E44B4 end:0x801E85C0
+
+SB/NG/Source/Engine/Math/Collide.cpp:
+	.text       start:0x801E85C0 end:0x801E8664
+
+SB/NG/Engine/WAD02_2.cpp:
+	.text       start:0x801E8664 end:0x801E8670
+
+SB/NG/Source/Engine/Math/CubicSpline.cpp:
+	.text       start:0x801E8670 end:0x801E8DF4
+
+SB/NG/Engine/WAD02_3.cpp:
+	.text       start:0x801E8DF4 end:0x801E8E00
+
+SB/NG/Source/Engine/Math/Math.cpp:
+	.text       start:0x801E8E00 end:0x801E8E54
+
+SB/NG/Engine/WAD02_4.cpp:
+	.text       start:0x801E8E54 end:0x801EA660
+
+SB/NG/Source/Engine/Math/Quaternion.cpp:
+	.text       start:0x801EA660 end:0x801EA698
+
+SB/NG/Engine/WAD02_5.cpp:
+	.text       start:0x801EA698 end:0x801EA6A0
+
+SB/NG/Source/Engine/Math/Random.cpp:
+	.text       start:0x801EA6A0 end:0x801EA6F0
+
+SB/NG/Engine/WAD02_6.cpp:
+	.text       start:0x801EA6F0 end:0x801EA880
+
+SB/NG/Source/Engine/Memory/FixedAllocator.cpp:
+	.text       start:0x801EA880 end:0x801EAA14
+
+SB/NG/Engine/WAD02_7.cpp:
+	.text       start:0x801EAA14 end:0x801EB850
+
+SB/NG/Source/Engine/Memory/MemoryUtil.cpp:
+	.text       start:0x801EB850 end:0x801EBAC8
+
+SB/NG/Engine/WAD02_8.cpp:
+	.text       start:0x801EBAC8 end:0x801EBAD0
+
+SB/NG/Source/Engine/Memory/MemTracker.cpp:
+	.text       start:0x801EBAD0 end:0x801EBD6C
+
+SB/NG/Engine/WAD02_9.cpp:
+	.text       start:0x801EBD6C end:0x801EBDA0
+
+SB/NG/Source/Engine/Memory/PoolManager.cpp:
+	.text       start:0x801EBDA0 end:0x801EC374
+
+SB/NG/Engine/WAD02_10.cpp:
+	.text       start:0x801EC374 end:0x801EC380
+
+SB/NG/Source/Engine/Memory/Factory/Factory.cpp:
+	.text       start:0x801EC380 end:0x801ECC7C
+
+SB/NG/Engine/WAD02_11.cpp:
+	.text       start:0x801ECC7C end:0x801ECC80
+
+SB/NG/Source/Engine/Memory/Factory/FactoryMemTypeRegistry.cpp:
+	.text       start:0x801ECC80 end:0x801ECD20
+
+SB/NG/Source/Engine/Physics/Physics.cpp:
+	.text       start:0x801ECD20 end:0x801ECDB0
+
+SB/NG/Source/Tools/Havok/source/Common/Base/keycode.cxx:
+	.text       start:0x801ECDB0 end:0x801ECE18
+
+SB/NG/Engine/WAD02_12.cpp:
+	.text       start:0x801ECE18 end:0x801EEFD0
+
+SB/NG/Source/Engine/Physics/Havok/HavokCollectors.cpp:
+	.text       start:0x801EEFD0 end:0x801EF540
+
+SB/NG/Engine/WAD02_13.cpp:
+	.text       start:0x801EF540 end:0x801F2800
+
+SB/NG/Source/Engine/Scaleform/ScaleformAllocator.cpp:
+	.text       start:0x801F2800 end:0x801F2C38
+
+SB/NG/Engine/WAD02_14.cpp:
+	.text       start:0x801F2C38 end:0x801F6630
+
+SB/NG/Source/Engine/Scaleform/ScaleformWrap.cpp:
+	.text       start:0x801F6630 end:0x801F6B34
+
+SB/NG/Engine/WAD02_15.cpp:
+	.text       start:0x801F6B34 end:0x801FAFC0
+
+SB/NG/Source/Engine/System/Game.cpp:
+	.text       start:0x801FAFC0 end:0x801FB988
+
+SB/NG/Engine/WAD02_16.cpp:
+	.text       start:0x801FB988 end:0x801FB990
+
+SB/NG/Source/Engine/System/GameWindow.cpp:
+	.text       start:0x801FB990 end:0x801FB9CC
+
+SB/NG/Engine/WAD02_17.cpp:
+	.text       start:0x801FB9CC end:0x801FB9D0
+
+SB/NG/Source/Engine/System/Main.cpp:
+	.text       start:0x801FB9D0 end:0x801FBA58
+
+SB/NG/Engine/WAD02_18.cpp:
+	.text       start:0x801FBA58 end:0x801FC820
+
+SB/NG/Source/Engine/System/Multithread.cpp:
+	.text       start:0x801FC820 end:0x801FCEEC
+
+SB/NG/Engine/WAD02_19.cpp:
+	.text       start:0x801FCEEC end:0x801FE330
+
+SB/NG/Source/Engine/System/StartupConfig.cpp:
+	.text       start:0x801FE330 end:0x801FE3C4
+
+SB/NG/Engine/WAD02_20.cpp:
+	.text       start:0x801FE3C4 end:0x801FE3D0
+
+SB/NG/Source/Engine/System/Tasking.cpp:
+	.text       start:0x801FE3D0 end:0x801FE550
+
+SB/NG/Source/Engine/System/Time.cpp:
+	.text       start:0x801FE550 end:0x801FE61C
+
+SB/NG/Engine/WAD02_21.cpp:
+	.text       start:0x801FE61C end:0x801FE620
+
+SB/NG/Source/Engine/TestSuite/TestSuite.cpp:
+	.text       start:0x801FE620 end:0x801FE674
+
+SB/NG/Engine/WAD02_22.cpp:
+	.text       start:0x801FE674 end:0x801FEB40
+
+SB/NG/Source/Engine/TRC/PowerControl.cpp:
+	.text       start:0x801FEB40 end:0x801FEDDC
+
+SB/NG/Engine/WAD02_23.cpp:
+	.text       start:0x801FEDDC end:0x801FEDE0
+
+SB/NG/Source/Engine/TRC/TRCModule.cpp:
+	.text       start:0x801FEDE0 end:0x801FEF68
+
+SB/NG/Engine/WAD02_24.cpp:
+	.text       start:0x801FEF68 end:0x801FEF70
+
+SB/NG/Source/Engine/TRC/TRCMessageBox.cpp:
+	.text       start:0x801FEF70 end:0x801FF424
+
+SB/NG/Engine/WAD02_25.cpp:
+	.text       start:0x801FF424 end:0x801FF430
+
+SB/NG/Source/Engine/TRC/TRCPadManager.cpp:
+	.text       start:0x801FF430 end:0x801FFE70
+
+SB/NG/Engine/WAD02_26.cpp:
+	.text       start:0x801FFE70 end:0x80202540
+
+SB/NG/Source/Engine/TRC/Wii/SaveErrorMsgBox.cpp:
+	.text       start:0x80202540 end:0x802027F4
+
+SB/NG/Engine/WAD02_27.cpp:
+	.text       start:0x802027F4 end:0x80202800
+
+SB/NG/Source/Engine/TRC/Wii/SaveLoadWii.cpp:
+	.text       start:0x80202800 end:0x80202C9C
+
+SB/NG/Engine/WAD02_28.cpp:
+	.text       start:0x80202C9C end:0x80203D10
+
+SB/NG/Source/Engine/UI/Text.cpp:
+	.text       start:0x80203D10 end:0x80203E8C
+
+SB/NG/Engine/WAD02_29.cpp:
+	.text       start:0x80203E8C end:0x80203E90
+
+SB/NG/Source/Engine/UI/Strings.cpp:
+	.text       start:0x80203E90 end:0x802041E0
+
+SB/NG/Source/Engine/Util/Containers.cpp:
+	.text       start:0x802041E0 end:0x80204428
+
+SB/NG/Engine/WAD02_30.cpp:
+	.text       start:0x80204428 end:0x80204430
+
+SB/NG/Source/Engine/Util/RTTID.cpp:
+	.text       start:0x80204430 end:0x80204518
+
+SB/NG/Engine/WAD02_31.cpp:
+	.text       start:0x80204518 end:0x80204520
+
+SB/NG/Source/Engine/Util/Sort.cpp:
+	.text       start:0x80204520 end:0x80205078
+
+SB/NG/Engine/WAD02_32.cpp:
+	.text       start:0x80205078 end:0x80205080
+
+SB/NG/Source/Engine/Util/Util.cpp:
+	.text       start:0x80205080 end:0x802050C4
+
+SB/NG/Engine/WAD02_33.cpp:
+	.text       start:0x802050C4 end:0x802050D0
+
+SB/NG/Source/Engine/Video/Cinematic.cpp:
+	.text       start:0x802050D0 end:0x802052D4
+
+SB/NG/Engine/WAD02_34.cpp:
+	.text       start:0x802052D4 end:0x802052E0
+
+SB/NG/Source/Engine/World/Entity.cpp:
+	.text       start:0x802052E0 end:0x802055A8
+
+SB/NG/Engine/WAD02_35.cpp:
+	.text       start:0x802055A8 end:0x80206C50
+
+SB/NG/Source/Engine/World/World.cpp:
+	.text       start:0x80206C50 end:0x80206ECC
+
+SB/NG/Engine/WAD02_36.cpp:
+	.text       start:0x80206ECC end:0x80206ED0
+
+SB/NG/Source/Engine/Globals.cpp:
+	.text       start:0x80206ED0 end:0x80206F14
+
+SB/NG/Engine/WAD02_37.cpp:
+	.text       start:0x80206F14 end:0x8020B5A0
+	.ctors      start:0x8067CE64 end:0x8067CE68
+
 SB/NG/Engine/WADSpeed.cpp:
-	.text       start:0x8020B5A0 end:0x8021A3B0
-	.ctors      start:0x8067CE68 end:0x8067CE6C
+	.text       start:0x8020B5A0 end:0x80215B50
 	.rodata     start:0x80695AD0 end:0x80695BC0
 	.data       start:0x806D0860 end:0x806D1D90
 	.bss        start:0x80784130 end:0x807841D0
@@ -95,6 +1534,25 @@ SB/NG/Engine/WADSpeed.cpp:
 Havok/src/hkLogger.cpp:
 	.rodata     start:0x80695BC0 end:0x80695BE8
 	.data       start:0x806D1D90 end:0x806D1DB0
+
+SB/NG/Source/Engine/Graphics/RenderSceneCollide.cpp:
+	.text       start:0x80215B50 end:0x80216190
+
+SB/NG/Engine/WADSpeed_1.cpp:
+	.text       start:0x80216190 end:0x802188D0
+
+SB/NG/Source/Engine/Graphics/Space.cpp:
+	.text       start:0x802188D0 end:0x80219074
+
+SB/NG/Engine/WADSpeed_2.cpp:
+	.text       start:0x80219074 end:0x80219080
+
+SB/NG/Source/Engine/Math/CollideOpt.cpp:
+	.text       start:0x80219080 end:0x8021A318
+
+SB/NG/Engine/WADSpeed_3.cpp:
+	.text       start:0x8021A318 end:0x8021A3B0
+	.ctors      start:0x8067CE68 end:0x8067CE6C
 
 Havok/src/hkRadixSort.cpp:
 	.text       start:0x8021A3B0 end:0x8021A8C4

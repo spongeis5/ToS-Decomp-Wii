@@ -135,13 +135,31 @@ carried a hardcoded absolute path with the author's Windows account name in
 it; that went out in a commit and sat in the tree of sixteen more before
 anyone thought to look. Thinking to look is not a mechanism.
 
+The FIRST version of the checker only asked about the working tree, which is
+the narrower question and the one that feels like an answer. `git grep`
+reports the TREE; a push sends the OBJECTS. The two rules are therefore
+asked twice, once of tracked files and once of every git object, reachable
+and unreachable -- an unreachable blob is not published but is still on the
+disk, and the remedies differ (a rewrite versus a `git gc`). One batched
+`git cat-file` does it in about a tenth of a second, because a check too
+slow to run every time becomes an opt-in check, which is a check that does
+not run.
+
 Nothing personal is written in the checker itself -- a blocklist of a name
 publishes that name to every reader. The account name is derived from
 `Path.home().name` at runtime, commit identities are matched against the
 SHAPE of a GitHub privacy address, and home directories are matched by
 shape too. `tools/test_privacy_guard.py` plants all three home-path shapes
-to prove the checker rejects them, because a guard that has never been seen
-to fire is not known to work.
+to prove the checker rejects them, and `tools/test_privacy_history_guard.py`
+plants git OBJECTS -- reachable, unreachable, and one placeholder that must
+NOT fire -- because a guard that has never been seen to fire is not known to
+work, and one that fires on correct input is worse than none.
+
+That second failure mode is not hypothetical here either. The home-path rule
+allows one placeholder account component, `redacted`, so that it does not
+fire on the evidence of a completed rewrite. The first version of that
+allowlist held eight words including `user` and `someone`, and it silently
+disarmed the other guard's own fixtures. The guard caught it.
 
 The identity check deliberately covers `upstream/main..HEAD` only. The
 inherited history carries the upstream author's own address in their own

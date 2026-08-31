@@ -372,6 +372,7 @@ config.libs = [
             Object(NonMatching, "SB/GM/Engine/WAD01.cpp"),
             Object(NonMatching, "SB/GM/Engine/WAD02.cpp"),
             Object(NonMatching, "SB/GM/Engine/WAD03.cpp"),
+            Object(Matching, "SB/GM/Engine/Core/x/xOGEntity.cpp"),
             Object(NonMatching, "SB/GM/Engine/WAD04.cpp"),
             Object(NonMatching, "SB/GM/Engine/WADSpeed.cpp"),
             Object(NonMatching, "SB/NG/Engine/WAD00.cpp"),

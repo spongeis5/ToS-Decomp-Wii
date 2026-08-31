@@ -45,8 +45,11 @@ SB/GM/Engine/WAD03.cpp:
 	.data       start:0x806C1B28 end:0x806C6FB0
 	.bss        start:0x80753F80 end:0x8075B260
 
+SB/GM/Engine/Core/x/xOGEntity.cpp:
+	.text       start:0x80189AF0 end:0x80189B48
+
 SB/GM/Engine/WAD04.cpp:
-	.text       start:0x80189AF0 end:0x801ABAA0
+	.text       start:0x80189B48 end:0x801ABAA0
 	.ctors      start:0x8067CE54 end:0x8067CE58
 	.rodata     start:0x80691550 end:0x80692A98
 	.data       start:0x806C6FB0 end:0x806C93D0

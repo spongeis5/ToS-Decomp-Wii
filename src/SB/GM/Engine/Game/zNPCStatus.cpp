@@ -45,6 +45,27 @@
 // is the open question; it is not the field offsets, which are confirmed
 // from two directions, and not the argument order, which the retail loads
 // give directly.
+//
+// TWO SEARCHES ARE ALREADY DONE, so nobody should repeat them.
+//
+// SEVEN SPELLINGS, all 6 of 22 words except where noted: plain assignment
+// with only a constructor declared; with an inline operator=; with a
+// declared-but-undefined operator= (29 words instead of 39, still wrong);
+// placement new (3 of 22); members declared before the constructor; the
+// constructor taking const float& (1 of 22); and a default constructor
+// added alongside. The ties are the finding -- these are one function
+// written seven ways.
+//
+// EIGHT FLAG SETS, all 6 of 22: -inline auto/on/off/all/deferred, -O4,p,
+// -O3,s, and -Cpp_exceptions on. That matters because the last two
+// near-misses of this shape WERE flags -- -O4,s fixed zPlayerContainer and
+// -sdata 0 fixed iTime -- so it was the first thing to try and it is not
+// the answer here.
+//
+// What is left is the declaration of Math::Vector itself, which this file
+// guesses at and the DWARF does not pin down: `xVec3` is a leaf name, and
+// whatever it really is has a constructor that can be called straight onto
+// a member.
 
 namespace Math {
 struct Vector {

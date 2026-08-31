@@ -1489,7 +1489,7 @@ SB/NG/Source/Engine/Util/RTTID.cpp:
 SB/NG/Engine/WAD02_31.cpp:
 	.text       start:0x80204518 end:0x80204520
 
-SB/NG/Source/Engine/Util/Sort.cpp:
+SB/NG/Source/Engine/Util/Sort/WAD02.cpp:
 	.text       start:0x80204520 end:0x80205078
 
 SB/NG/Engine/WAD02_32.cpp:

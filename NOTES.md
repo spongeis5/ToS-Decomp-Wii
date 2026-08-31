@@ -7,7 +7,7 @@ numbers here, which move.
 ## State at time of writing
 
 ```
-Game Code:  23 of 498 files complete   4,644 / 2,115,452 bytes   74 / 10,559 fn
+Game Code:  23 of 498 files complete   4,772 / 2,115,452 bytes   76 / 10,559 fn
 All:        1.76% matched              main.dol reproduces byte for byte
 ```
 
@@ -52,7 +52,8 @@ r13 or r2.
 | `dwarf_targets.py` | ranks the recovered units by what their code needs (data / calls / neither) |
 | `dwarf_data.py` | attributes `.data`/`.bss`/`.rodata` by who references it |
 | `unitcmp.py` | compile ONE unit and compare each function by name against retail; `-v` for a word-by-word diff |
-| `unitcmp_check.py` | validates `unitcmp.py` against all seven units it has known answers for, and proves its drift guard fires |
+| `unitcmp_check.py` | validates `unitcmp.py` against every unit it has a known answer for, and proves its drift guard fires |
+| `anon_blocked.py` | which units can never match while they are split out of their unity blob |
 
 `pip install pyelftools` is required for all of them.
 
@@ -129,6 +130,19 @@ the `.cpp` that used it, and dtk rejects the fiction anyway.
    Beware the file name: `Engine/Graphics/Scaleform.cpp` and
    `Game/zScaleform.cpp` are different units in different unity blobs, and
    a suffix match on the first returns both.
+
+4. **Anonymous namespaces pin a unit to its blob.** CodeWarrior mangles an
+   anonymous namespace with the name of the TRANSLATION UNIT, so a function
+   in one carries `@unnamed@WAD02_cpp@` in retail and would carry
+   `@unnamed@<our file>_cpp@` in ours. `#line` does not move it -- the
+   mangler reads the input file's BASENAME, measured.
+   `tools/anon_blocked.py` lists the units affected and what they are worth.
+
+   The way through is to NAME THE SOURCE FILE after the blob, at a different
+   path: `Util/Sort/WAD02.cpp` reproduces `@unnamed@WAD02_cpp@` exactly, and
+   dtk accepts the duplicate basename because the object paths differ. Both
+   of Sort.cpp's functors matched byte for byte the first time because of
+   it.
 
 ## Nothing personal in tracked files
 

@@ -40,6 +40,8 @@ EXPECT = {
     # A recorded near miss, listed at 0 of 1 on purpose. If it ever reads
     # 1 of 1 this check must say so rather than quietly agreeing.
     "SB/NG/Source/Tools/Havok/source/Common/Base/keycode.cxx": (0, 1),
+    # Both functors match; the three sorts are a recorded near miss.
+    "SB/NG/Source/Engine/Util/Sort/WAD02.cpp": (2, 5),
 }
 
 

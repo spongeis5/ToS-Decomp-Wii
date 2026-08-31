@@ -873,7 +873,7 @@ config.libs = [
             Object(NonMatching, "SB/NG/Engine/WAD02_30.cpp"),
             Object(NonMatching, "SB/NG/Source/Engine/Util/RTTID.cpp"),
             Object(NonMatching, "SB/NG/Engine/WAD02_31.cpp"),
-            Object(NonMatching, "SB/NG/Source/Engine/Util/Sort.cpp"),
+            Object(NonMatching, "SB/NG/Source/Engine/Util/Sort/WAD02.cpp"),
             Object(NonMatching, "SB/NG/Engine/WAD02_32.cpp"),
             Object(NonMatching, "SB/NG/Source/Engine/Util/Util.cpp"),
             Object(NonMatching, "SB/NG/Engine/WAD02_33.cpp"),

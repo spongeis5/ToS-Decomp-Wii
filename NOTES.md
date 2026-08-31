@@ -62,6 +62,7 @@ r13 or r2.
 | `dwarf_splits.py` | cuts the WAD unity builds into real source files, `--apply` |
 | `dwarf_targets.py` | ranks the recovered units by what their code needs (data / calls / neither) |
 | `dwarf_data.py` | attributes `.data`/`.bss`/`.rodata` by who references it |
+| `dwarf_locals.py` | every local and parameter of a function: type, declaration line, and WHICH REGISTER or frame slot it got |
 | `unitcmp.py` | compile ONE unit and compare each function by name against retail; `-v` for a word-by-word diff |
 | `unitcmp_check.py` | validates `unitcmp.py` against every unit it has a known answer for, and proves its drift guard fires |
 | `anon_blocked.py` | which units can never match while they are split out of their unity blob |
@@ -123,13 +124,16 @@ the `.cpp` that used it, and dtk rejects the fiction anyway.
      member; ours builds a temporary and copies. **Seven spellings and
      eight flag sets tried**, all 6 of 22. What is left is the real
      declaration of `Math::Vector`, which the DWARF does not pin down.
-   - `keycode.cxx` 5 of 26 words, and all five are ONE register swap:
-     retail keeps the walking destination in r4 and the character in r5,
-     and every spelling puts them the other way round. **Thirteen
-     spellings across two sweeps**, listed in the file. Folding the three
-     loop tests into a single condition is what took it from 15 to 5 --
-     with `break`s inside a bounded loop mwcc proves the trip count and
-     emits `mtctr`/`bdnz`, which retail does not have.
+   - `keycode.cxx` **2 of 26 words**, down from 5 on 2026-08-31, and the
+     three that fell fell to the DWARF. `tools/dwarf_locals.py` says the
+     function has exactly two variables -- `keyValue`, a `char[11]` in a
+     frame slot, and `i`, an int in r6 -- and NO walking destination
+     pointer. Ours declared one, and it occupied the register the compiler
+     otherwise gives the character. Indexing the array instead had been
+     tried before, but only with the `break` form of the loop, where the
+     counted loop drowns the difference; with the folded condition it is
+     worth three words. What is left is two `addi rX,rX,1` in the opposite
+     order, and eight spellings of the increments all tie at 2.
    - `xOGModelRefPtr` 3 of 4 -- `GetWeakPtr` is right in all thirty words
      except where the first load sits in the prologue. **Seven spellings and
      twelve flag sets tried**, six of the spellings emitting identical bytes.
@@ -305,6 +309,37 @@ function.
 This is the sharpest form so far of the rule already in this file: unitcmp
 is not the oracle. It answers "are these bytes the same", which is not the
 same question as "does this unit match".
+
+## The debug info, and what is still not read
+
+`SB09WiiMASTERWAD.elf` carries DWARF for 11 compile units, and those 11 are
+exactly the `Game Code` region. The type graph and `DW_AT_decl_file` are
+mined already. What was not, until `dwarf_locals.py`:
+
+* **26,602 locals and parameters with a location**, of which **22,413 name
+  an exact register** and 4,087 a frame slot. That is the register
+  allocator's own answer for the whole game library, and all four recorded
+  near-misses are register or scheduling problems.
+* **39,519 `DW_AT_decl_line`** -- the declaration ORDER of every local, and
+  declaration order is a lever this file names three times.
+* **7,211 lexical blocks** with PC ranges: the brace structure of each
+  function, so a variable declared inside an `if` is distinguishable from
+  one at the top.
+
+A DWARF 2 location list holds offsets from the compile unit's own `low_pc`,
+not addresses, and reading them as addresses gives small plausible numbers
+that are wrong. `dwarf_locals.py` asserts every resolved range lies inside
+the function that owns it and refuses to print if one does not: 26,602 of
+26,602 pass, which is what makes the registers beside them trustworthy.
+
+Two things it is NOT. It says what the compiler DID, not what source text
+produces it -- eight spellings of `keycode.cxx`'s loop all emit the same
+bytes, and the DWARF cannot say which one was written. And it covers the
+game library only; the SDK and middleware have no debug info at all.
+
+Still unread: **`.debug_line`, 990 KB**, the statement boundaries -- which
+address belongs to which source line, and therefore how many statements a
+function has and which ones repeat.
 
 ## Three traps worth knowing
 

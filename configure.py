@@ -798,7 +798,7 @@ config.libs = [
             Object(NonMatching, "SB/NG/Source/Engine/Graphics/Channel.cpp"),
             Object(NonMatching, "SB/NG/Source/Engine/Graphics/PostRenderChannel.cpp"),
             Object(NonMatching, "SB/NG/Engine/WAD02_1.cpp"),
-            Object(NonMatching, "SB/NG/Source/Engine/Math/Collide.cpp"),
+            Object(Matching, "SB/NG/Source/Engine/Math/Collide.cpp"),
             Object(NonMatching, "SB/NG/Engine/WAD02_2.cpp"),
             Object(NonMatching, "SB/NG/Source/Engine/Math/CubicSpline.cpp"),
             Object(NonMatching, "SB/NG/Engine/WAD02_3.cpp"),

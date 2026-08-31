@@ -485,7 +485,7 @@ config.libs = [
             Object(NonMatching, "SB/GM/Engine/WAD01_14.cpp"),
             Object(NonMatching, "SB/GM/Engine/Game/zCamPool.cpp"),
             Object(NonMatching, "SB/GM/Engine/WAD01_15.cpp"),
-            Object(NonMatching, "SB/GM/Engine/Game/zCamSplineCommonMix.cpp"),
+            Object(Matching, "SB/GM/Engine/Game/zCamSplineCommonMix.cpp"),
             Object(NonMatching, "SB/GM/Engine/WAD01_16.cpp"),
             Object(NonMatching, "SB/GM/Engine/Game/zCamTargetSpline.cpp"),
             Object(NonMatching, "SB/GM/Engine/WAD01_17.cpp"),

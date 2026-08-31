@@ -33,6 +33,8 @@ EXPECT = {
     "SB/GM/Engine/Game/zNPCInfoNode": (1, 1),
     "SB/GM/Engine/Core/x/xSpringy": (1, 1),
     "SB/NG/Source/Engine/Graphics/Scaleform": (5, 5),
+    "SB/GM/Engine/Game/zWallNetPosition": (3, 3),
+    "SB/NG/Source/Engine/AssetManager/Domains/Blobloids": (9, 9),
 }
 
 

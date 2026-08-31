@@ -7,8 +7,8 @@ numbers here, which move.
 ## State at time of writing
 
 ```
-Game Code:  19 of 498 files complete   2,988 / 2,115,452 bytes   60 / 10,559 fn
-All:        1.73% matched              main.dol reproduces byte for byte
+Game Code:  21 of 498 files complete   4,368 / 2,115,452 bytes   72 / 10,559 fn
+All:        1.75% matched              main.dol reproduces byte for byte
 ```
 
 The other categories (Revolution SDK 15.60%, SDK Code 5.29%) were already
@@ -111,10 +111,13 @@ the `.cpp` that used it, and dtk rejects the fiction anyway.
      carries the full exclusion list.
 
 3. **More units.** `tools/dwarf_targets.py` ranks them. The remaining
-   no-data tier includes `zWallNetPosition.cpp` (3 fn), `zLaser.cpp`
-   (1 fn), `Blobloids.cpp` (9 fn), `StaticBuilder.cpp` (8 fn) and
-   `Sort.cpp` (7 fn, 2,860 bytes -- the largest left, and the one whose
-   DWARF pyelftools cannot walk to the end of).
+   no-data tier includes `StaticBuilder.cpp` (8 fn, 1,080 bytes -- one of
+   them takes EIGHTEEN parameters), `zLaser.cpp` (1 fn, and the only
+   function seen so far whose prologue calls `__save_gpr` instead of
+   emitting `stmw`), and `Sort.cpp` (7 fn, 2,860 bytes -- the largest
+   left, three near-identical quicksorts over functors in an anonymous
+   namespace, and the one whose DWARF pyelftools cannot walk to the end
+   of).
 
    Beware the file name: `Engine/Graphics/Scaleform.cpp` and
    `Game/zScaleform.cpp` are different units in different unity blobs, and
@@ -162,3 +165,17 @@ and it cuts both ways:
 * **A bool member tested after being stored is not the parameter.** The
   member load truncates (`clrlwi.`); testing the parameter does not
   (`cmpwi`). That was the last word of `FixedAllocator::Create`.
+* **Writing a derived value back into the PARAMETER is not the same as
+  putting it in a local.** `Blobloid::RemDomainRef` opens with
+  `nor r4, r4, r4` -- the complement lands in the register the argument
+  arrived in. Four spellings with a local, of both widths, all stopped
+  four words short; `domRefMask = ~domRefMask;` closed it.
+* **Which block comes LAST is a source decision.** `DoOverWrite` puts its
+  `return false` after the computation, so the test has to be written the
+  other way round from the obvious one. Same instructions, different
+  order, six words apart.
+
+Two things that are NOT levers, measured rather than assumed: which
+overload of a name gets picked (CodeWarrior mangles static and non-static
+members identically -- read the registers instead, see Blobloids.cpp), and
+operand order in a commutative expression.

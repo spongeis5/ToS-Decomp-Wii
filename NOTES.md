@@ -7,8 +7,8 @@ numbers here, which move.
 ## State at time of writing
 
 ```
-Game Code:  15 of 498 files complete   2,460 / 2,115,452 bytes   52 / 10,559 fn
-All:        1.72% matched              main.dol reproduces byte for byte
+Game Code:  19 of 498 files complete   2,988 / 2,115,452 bytes   60 / 10,559 fn
+All:        1.73% matched              main.dol reproduces byte for byte
 ```
 
 The other categories (Revolution SDK 15.60%, SDK Code 5.29%) were already
@@ -111,9 +111,14 @@ the `.cpp` that used it, and dtk rejects the fiction anyway.
      carries the full exclusion list.
 
 3. **More units.** `tools/dwarf_targets.py` ranks them. The remaining
-   no-data tier includes `Scaleform.cpp` (5 fn), `zWallNetPosition.cpp`
-   (3 fn), `Blobloids.cpp` (9 fn), `StaticBuilder.cpp` (8 fn) and
-   `Sort.cpp` (7 fn, 2,860 bytes -- the largest left).
+   no-data tier includes `zWallNetPosition.cpp` (3 fn), `zLaser.cpp`
+   (1 fn), `Blobloids.cpp` (9 fn), `StaticBuilder.cpp` (8 fn) and
+   `Sort.cpp` (7 fn, 2,860 bytes -- the largest left, and the one whose
+   DWARF pyelftools cannot walk to the end of).
+
+   Beware the file name: `Engine/Graphics/Scaleform.cpp` and
+   `Game/zScaleform.cpp` are different units in different unity blobs, and
+   a suffix match on the first returns both.
 
 ## Two traps worth knowing
 

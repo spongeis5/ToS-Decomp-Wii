@@ -29,6 +29,10 @@ EXPECT = {
     "SB/NG/Source/Engine/Math/Collide": (4, 4),
     "SB/NG/Source/Engine/Memory/FixedAllocator": (5, 5),
     "SB/NG/Source/Engine/Util/Containers": (10, 10),
+    "SB/GM/Engine/Game/zCameraCurveAsset": (1, 1),
+    "SB/GM/Engine/Game/zNPCInfoNode": (1, 1),
+    "SB/GM/Engine/Core/x/xSpringy": (1, 1),
+    "SB/NG/Source/Engine/Graphics/Scaleform": (5, 5),
 }
 
 

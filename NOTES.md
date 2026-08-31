@@ -108,6 +108,37 @@ the `.cpp` that used it, and dtk rejects the fiction anyway.
    - mwcc emits `.bss` with align 8 and no option changes it. A 4-aligned
      `.bss` start (like `iTime`'s `sGameTime` at `0x8072E17C`) cannot be
      honoured; linking it shifts 10,115 bytes of the DOL.
+
+     **Re-measured 2026-08-31, and it blocks a THIRD of the tier, not all
+     of it.** iTime was linked for real to check: `sGameTime` moves from
+     `0x8072E17C` to `0x8072E180`, `.bss` grows by 8, and the 10,115 bytes
+     are 8,982 runs of ONE byte each, every one the low half of an address
+     immediate that moved by 8. So the mechanism is exactly as recorded.
+
+     What was never counted is how many placements it touches. Over the
+     341 objects this project compiles, mwcc emits **no data section below
+     align 8** -- `.bss`, `.data`, `.rodata`, `.sdata`, `.sbss` are 8, 32
+     or 64, never 4 -- and `.text` is 16 in 317 of them. But of the 492
+     (file, section) placements the DWARF gives, **356 need a start that
+     is already 8-aligned or better** and mwcc's alignment does not move
+     them. Only 136 do not. By file: 199 of 321 are clean. Counting only
+     files that are units in `splits.txt`: **72 unblocked, 39 blocked.**
+
+     Two options were checked against the SECTION ALIGNMENT rather than
+     against matched-function counts, which is what the twelve-flag sweep
+     asked. `-func_align 4` does move `.text` from 16 to 4 -- and drops
+     the inter-function padding with it, 44 bytes to 32, so it is not a
+     route. `-align` is documented in the compiler's own help as
+     "structure/array alignment" and moves neither. Nothing in that help
+     addresses a data section's alignment.
+
+     A trap to avoid repeating: the "target" object dtk carves has `.text`
+     align 4 and `.bss` align 4, and iTime.cpp's comment compares against
+     those as if they were the original build's. They are dtk's defaults
+     for a reconstructed object. `-O4` implies `func_align 16` by the
+     compiler's own help, so the original build's objects were align 16
+     too. The only thing worth comparing against is whether the LINK comes
+     out right.
    - An interior unit's data range sits inside the parent's, and carving it
      out needs the parent's data partitioned across its chunks **in link
      order**. Attributing data by WHO REFERENCES IT gets 62% / 60% / 74%

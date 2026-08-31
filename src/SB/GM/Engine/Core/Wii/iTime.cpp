@@ -37,9 +37,23 @@
 //   TARGET   .text size=44 align=4    .bss size=4 align=4
 //   OURS     .text size=44 align=16   .bss size=4 align=8
 //
-// and that shifts .bss for everything after it -- 10,115 bytes of the DOL
-// differ, starting inside .init's BSS table. `align:4` on the split line
-// does not help: that describes the TARGET, and the target is already 4.
+// and that shifts .bss for everything after it. Linked for real to check:
+// sGameTime moves 8072E17C -> 8072E180, .bss grows by 8, and 10,115 bytes
+// of the DOL differ -- 8,982 runs of ONE byte, every one the low half of
+// an address immediate that moved by 8. `align:4` on the split line does
+// not help: that describes the TARGET, and the target is already 4.
+//
+// BUT DO NOT READ THE TARGET COLUMN AS RETAIL'S OWN. That object is dtk's
+// reconstruction and those alignments are dtk's defaults; `-O4` implies
+// `func_align 16` by the compiler's own help, so the original build emitted
+// align 16 here as well. The only question is whether the link comes out
+// right, and for THIS unit it does not.
+//
+// It does for most others. mwcc emits no data section below align 8 over
+// all 341 objects here, but 356 of the 492 (file, section) placements the
+// DWARF gives already need 8 or more -- 72 of the units in splits.txt are
+// unblocked and 39 are blocked. `-func_align 4` moves .text to align 4 and
+// drops the padding with it (44 bytes to 32), so it is not a route either.
 // This is the first unit here to own data, so it is the first time the
 // distinction between "the object matches" and "the image links" has had
 // anything to say. Both are true statements and only one of them is a

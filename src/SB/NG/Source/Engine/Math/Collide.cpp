@@ -56,6 +56,49 @@ public:
     Triangle* triangleList;
 };
 
+// THE FIRST UNIT IN THIS PROJECT TO CARRY ITS OWN DATA. Three things were
+// needed and only one of them is in this file:
+//
+//   1. these definitions, in ADDRESS ORDER;
+//   2. `.bss start:0x8077AAA8 end:0x8077AB08` on this unit in splits.txt,
+//      with the parent's range CUT -- the upper half goes to WAD02_2.cpp,
+//      the chunk that follows, because leaving both halves under the
+//      parent makes the link order cyclic;
+//   3. all six names in `force_active` in config.yml. NOTHING in the image
+//      references them, so the linker dead-strips them and everything
+//      after moves down by 96 bytes. The object is perfect while that
+//      happens -- .bss 96 bytes, align 8, six symbols at the right
+//      offsets -- so the failure reads as a layout mistake and is not one.
+//
+// The unit's own .bss, 96 bytes at 0x8077AAA8, from
+// tools/dwarf_data_decl.py and the retail symbol table. Six static data
+// members of two classes; the definitions are in address order, which is
+// what puts them at the right offsets.
+//
+// float[4] rather than a vector type: 16 bytes and align 4. Nothing with
+// align 16 can be right, because 0x8077AAA8 is not 16-aligned and that is
+// where retail put it.
+class QuickCull20 {
+public:
+    static float s_clamp[4];
+    static float s_scaleOffs[4];
+    static float s_unscaleOffs[4];
+};
+
+class QuickCull15 {
+public:
+    static float s_clamp[4];
+    static float s_scaleOffs[4];
+    static float s_unscaleOffs[4];
+};
+
+float QuickCull20::s_clamp[4];
+float QuickCull20::s_scaleOffs[4];
+float QuickCull20::s_unscaleOffs[4];
+float QuickCull15::s_clamp[4];
+float QuickCull15::s_scaleOffs[4];
+float QuickCull15::s_unscaleOffs[4];
+
 void CollKDTree::FixHeader() {
     branchList = (Branch*)(this + 1);
     triangleList = (Triangle*)(branchList + branchCount);

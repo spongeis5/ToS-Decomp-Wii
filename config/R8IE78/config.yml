@@ -4,6 +4,15 @@ object: orig/R8IE78/sys/main.dol
 hash: d7eb579ca3fdd05474e268582aa34ce667533066
 symbols: config/R8IE78/symbols.txt
 splits: config/R8IE78/splits.txt
+# Nothing in the image references Collide.cpp's six statics -- retail's own
+# link kept them anyway, ours has to be told to. See src/.../Math/Collide.cpp.
+force_active:
+  - s_clamp__Q24Math11QuickCull20
+  - s_scaleOffs__Q24Math11QuickCull20
+  - s_unscaleOffs__Q24Math11QuickCull20
+  - s_clamp__Q24Math11QuickCull15
+  - s_scaleOffs__Q24Math11QuickCull15
+  - s_unscaleOffs__Q24Math11QuickCull15
 ldscript_template: config/R8IE78/ldscript.lcf
 # mw_comment_version: 14
 # See config.example.yml for a list.

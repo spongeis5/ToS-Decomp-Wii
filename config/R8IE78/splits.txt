@@ -1284,7 +1284,7 @@ SB/NG/Engine/WAD02.cpp:
 	.text       start:0x801E4270 end:0x801E4440
 	.rodata     start:0x80693C08 end:0x80695AD0
 	.data       start:0x806CE7A8 end:0x806D0860
-	.bss        start:0x80779F70 end:0x80784130
+	.bss        start:0x80779F70 end:0x8077AAA8
 	.sdata      start:0x80819920 end:0x80819958
 	.sbss       start:0x8081BBC0 end:0x8081BBD8
 
@@ -1299,9 +1299,11 @@ SB/NG/Engine/WAD02_1.cpp:
 
 SB/NG/Source/Engine/Math/Collide.cpp:
 	.text       start:0x801E85C0 end:0x801E8664
+	.bss        start:0x8077AAA8 end:0x8077AB08
 
 SB/NG/Engine/WAD02_2.cpp:
 	.text       start:0x801E8664 end:0x801E8670
+	.bss        start:0x8077AB08 end:0x80784130
 
 SB/NG/Source/Engine/Math/CubicSpline.cpp:
 	.text       start:0x801E8670 end:0x801E8DF4

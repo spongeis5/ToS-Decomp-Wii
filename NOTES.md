@@ -103,7 +103,39 @@ the `.cpp` that used it, and dtk rejects the fiction anyway.
 
 ## Open problems, in order of value
 
-1. **The data tier.** 205 units would gain data, and none can take it yet.
+1. **The data tier. THE FIRST UNIT NOW CARRIES ITS OWN DATA.**
+   `Collide.cpp` owns 96 bytes of `.bss` at `0x8077AAA8` -- six static data
+   members of `Math::QuickCull20` and `Math::QuickCull15` -- and it links,
+   at exactly those addresses, with `main.dol` still byte-identical. Game
+   Code data went 4 -> 100 bytes. The recipe, all three steps needed:
+
+   1. **The variables**, from `tools/dwarf_data_decl.py` plus the retail
+      symbol table for the mangled names. Defined in ADDRESS ORDER; the
+      order in the file is the order in `.bss`. `float[4]` for a 16-byte
+      slot: nothing with align 16 can be right, because `0x8077AAA8` is
+      not 16-aligned and that is where retail put it.
+   2. **The split**, and the parent has to be CUT, not extended. Leaving
+      both halves under the parent's own name gives
+      `Cyclic dependency ... WAD00.cpp -> Blobloids.cpp`, because the
+      parent then has to come both before and after. Naming the upper half
+      after the chunk that FOLLOWS in text order breaks it -- the same
+      trick `dwarf_splits.py` already uses for `.text`.
+   3. **`force_active` in `config.yml`.** Nothing in the image references
+      those six statics, so the linker threw them away and everything
+      after them moved down by 96 bytes. The object was perfect the whole
+      time -- `.bss` 96 bytes, align 8, six symbols at 0/16/32/48/64/80 --
+      and the failure looked exactly like a layout mistake. Retail's own
+      link kept them; ours has to be told to.
+
+   What is still blocked, and by what:
+   - **The anonymous namespace, not alignment.** `Blobloids.cpp` was the
+     first candidate and failed on its one variable being
+     `blobMemCB__Q27Domains19@unnamed@WAD00_cpp@` -- an anonymous namespace
+     inside `Domains`, so the mangled name carries the BLOB's basename. See
+     `tools/anon_blocked.py`; the way through is naming the source file
+     after the blob.
+   - The two blockers below, re-measured.
+
    Two distinct blockers, both measured:
    - mwcc emits `.bss` with align 8 and no option changes it. A 4-aligned
      `.bss` start (like `iTime`'s `sGameTime` at `0x8072E17C`) cannot be

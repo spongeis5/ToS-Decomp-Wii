@@ -226,6 +226,15 @@ cflags_base = [
      "-DREVOLUTION",
 ]
 
+# The GAME code was built for SIZE, not speed. Measured, not guessed: at
+# -O4,p zPlayerContainer::ContainsEnt comes out 13 words against retail's 14
+# and zNPCType::Setup 14 against 19, and ten source spellings of the first
+# all score identically -- so the lever was never the source. At -O4,s both
+# are exact, and the three units that already matched at -O4,p still match.
+# A flag that fixes two and breaks none is the answer; one that fixed two
+# and broke one would not have been.
+cflags_game = [f for f in cflags_base if f != "-O4,p"] + ["-O4,s"]
+
 cflags_pedantic = [
     "-w unused",
     "-w missingreturn",
@@ -364,7 +373,7 @@ config.libs = [
     {
         "lib": "SB",
         "mw_version": config.linker_version,
-        "cflags": cflags_base,
+        "cflags": cflags_game,
         "progress_category": "game",
         "objects": [
             Object(NonMatching, "SB/GM/Engine/Core/LinkFastSqrt.cpp"),
@@ -585,7 +594,7 @@ config.libs = [
             Object(NonMatching, "SB/GM/Engine/WAD03_4.cpp"),
             Object(NonMatching, "SB/GM/Engine/Game/zPlayerBase.cpp"),
             Object(NonMatching, "SB/GM/Engine/WAD03_5.cpp"),
-            Object(NonMatching, "SB/GM/Engine/Game/zPlayerContainer.cpp"),
+            Object(Matching, "SB/GM/Engine/Game/zPlayerContainer.cpp"),
             Object(NonMatching, "SB/GM/Engine/WAD03_6.cpp"),
             Object(NonMatching, "SB/GM/Engine/Game/zPlayerInputAI.cpp"),
             Object(NonMatching, "SB/GM/Engine/WAD03_7.cpp"),
@@ -692,7 +701,7 @@ config.libs = [
             Object(NonMatching, "SB/GM/Engine/WAD04_10.cpp"),
             Object(NonMatching, "SB/GM/Engine/Game/zPlayerAISearchMapLinkCostCalculator.cpp"),
             Object(NonMatching, "SB/GM/Engine/WAD04_11.cpp"),
-            Object(NonMatching, "SB/GM/Engine/Game/zSearchPath.cpp"),
+            Object(Matching, "SB/GM/Engine/Game/zSearchPath.cpp"),
             Object(NonMatching, "SB/GM/Engine/Game/zPathFinderSearchMapLinkCostCalculator.cpp"),
             Object(NonMatching, "SB/GM/Engine/WAD04_12.cpp"),
             Object(NonMatching, "SB/GM/Engine/Game/zStoryMoment.cpp"),

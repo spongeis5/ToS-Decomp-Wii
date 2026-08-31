@@ -1,11 +1,9 @@
 // C:/branches/SB09/main/GM/Engine/Game/zPlayerContainer.cpp
 //
-// NEAR-MISS at 87.86% (objdiff), 13 words against retail's 14. Recorded
-// with its mechanism rather than left as "not matching yet", because the
-// mechanism is the thing that will settle it.
+// MATCHED. This file spent a while at 87.86% and the reason is worth
+// keeping, because it was not a source problem at all.
 //
-// The layout is not in question -- the DWARF gives it exactly, and it is
-// what the code reads:
+// Layout from the Wii build's DWARF (tools/dwarf_types.py):
 //
 //   class zPlayerContainer  /* 0x14 bytes */
 //   {
@@ -13,39 +11,17 @@
 //       /* +0x10 */ int numPlayers;
 //   };
 //
-// THE DIFFERENCE IS INDUCTION, AND ONLY THAT:
+// At -O4,p the loop came out one word short: mwcc strength-reduced it into
+// a moving base pointer and clobbered `this`, where retail keeps `this` in
+// r3 and walks a separate byte offset in r5 with `lwzx`. TEN spellings were
+// compiled and scored -- index against pointer arithmetic, cast placement,
+// inlined accessor, count hoisted to a local, while loop, this-relative
+// index, unsigned index, found-flag-and-break -- and eight of them landed
+// on exactly 87.86%. Eight ways of writing one function producing one
+// object is what said the lever was not in this file.
 //
-//   retail                          ours
-//   lwz   r0, 0x10(r3)              lwz   r0, 0x10(r3)
-//   li    r5, 0                     --
-//   mtctr r0                        mtctr r0
-//   cmpwi r0, 0                     cmpwi r0, 0
-//   ble   ...                       ble   ...
-//   lwzx  r0, r3, r5                lwz   r0, 0(r3)
-//   cmplw r0, r4                    cmplw r0, r4
-//   bne   ...                       bne   ...
-//   li    r3, 1 ; blr               li    r3, 1 ; blr
-//   addi  r5, r5, 4                 addi  r3, r3, 4
-//   bdnz  ...                       bdnz  ...
-//   li    r3, 0 ; blr               li    r3, 0 ; blr
-//
-// Retail keeps `this` in r3 across the loop and walks a separate BYTE
-// OFFSET in r5 with `lwzx`. mwcc strength-reduces our loop into a moving
-// base pointer instead and clobbers `this`, which it is entitled to do
-// because `this` is dead after the loop. So the question is what keeps
-// `this` live in the original -- and it is not this file's text: ten
-// spellings were compiled and scored, and every one that is still this
-// function lands on exactly 87.86%.
-//
-//   index / cast at use ....... 87.86     pointer-add deref ....... 87.86
-//   array typed xEnt* ......... 87.86     inlined accessor ........ 87.86
-//   int declared outside ...... 87.86     count in a local ........ 87.86
-//   while loop ................ 87.86     this-relative index ..... 87.86
-//   unsigned index ............ 83.57     found flag + break ...... 78.93
-//
-// The two that score WORSE are informative: they are different functions.
-// The eight that tie are the same function written eight ways, which says
-// the lever is not a spelling of this loop.
+// It was the OPTIMISATION SETTING. The game code is built for size:
+// `-O4,s`, not `-O4,p`. See the note on `cflags_game` in configure.py.
 
 class xEnt;
 class zPlayer;

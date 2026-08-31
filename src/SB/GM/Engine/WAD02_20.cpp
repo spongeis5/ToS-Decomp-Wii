@@ -14,24 +14,15 @@
 // offsets each function touches are known, not the fields between.
 
 
-class zProjectile {
+class zNPCExtraModel {
 public:
-    unsigned int GetExplosionHitSource();
+    void Paused();
+    void Resumed();
 
+    unsigned char _pad0[0xAB];
+    unsigned char fAB;
 };
 
 
-
-class hkpAllCdBodyPairCollector {
-public:
-    void reset();
-
-    unsigned char _pad0[0x4];
-    unsigned char f4;
-    unsigned char _pad1[0x7];
-    int fC;
-};
-
-
-unsigned int zProjectile::GetExplosionHitSource() { return 0x00000002u; }
-void hkpAllCdBodyPairCollector::reset() { fC = 0; f4 = 0; }
+void zNPCExtraModel::Paused() { fAB = 1; }
+void zNPCExtraModel::Resumed() { fAB = 0; }

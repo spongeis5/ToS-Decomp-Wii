@@ -7,19 +7,19 @@ numbers here, which move.
 ## State at time of writing
 
 ```
-Game Code:  23 of 498 files complete   9,852 / 2,115,452 bytes  510 / 10,559 fn
-            0.4657% of game code
+Game Code:  23 of 498 files complete  10,620 / 2,115,452 bytes  571 / 10,559 fn
+            0.5020% of game code
 
-Of those 510 functions, 424 are GENERATED -- six machine-recognised shapes,
+Of those 571 functions, 485 are GENERATED -- nine machine-recognised shapes,
 not one of which is decompiling. They are real matched functions and the
 offsets and constants are recovered fact, but a count of them is not a count
 of decompiled code. HAND-WRITTEN IS 86, across 29 units and 5,384 bytes --
-UNCHANGED by any of it -- and that is the figure to compare against earlier
-ones.
+UNCHANGED by any of it, and now smaller than the generated half -- and that
+is the figure to compare against earlier ones.
 `python tools/written_vs_generated.py` prints the split, decided by the
 banner in the file that defines each function, and refuses to report at all
 if the two halves do not add up to the category total.
-All:        1.82% matched              main.dol reproduces byte for byte
+All:        1.85% matched              main.dol reproduces byte for byte
 ```
 
 The other categories (Revolution SDK 15.60%, SDK Code 5.29%) were already
@@ -205,26 +205,45 @@ someone else's work under a different name.
 
 ## The generated shapes, and what they cost to get right
 
-`gen_accessors.py` now recognises six shapes, all of them member-only or
-constant, and `gen_units.py` runs it over every unit that has any. That took
-Game Code from 8,528 to 9,852 bytes -- and **not one byte of it is
-decompiling**, which is why `written_vs_generated.py` exists.
+`gen_accessors.py` now recognises nine shapes -- member-only, constant, or
+one global -- and `gen_units.py` runs it over every unit that has any. That
+took Game Code from 8,528 to 10,620 bytes across 89 units, and **not one
+byte of it is decompiling**, which is why `written_vs_generated.py` exists.
+
+The last three came from the same census rows. A function whose whole body
+touches ONE GLOBAL -- `return g`, `return &g`, `g = v` -- is reachable
+because a variable carries the same qualifier a function does
+(`activeViewport__Q28Graphics7Display`), and CodeWarrior spells that the
+same whether the scope is a class or a namespace, so an `extern` in nested
+namespaces reproduces the symbol. Where the scope IS a class this file
+declares, it goes in as a static member instead. 42 of the 56 twelve-byte
+`lis`-based functions point at a symbol nameable that way; the other 14 are
+static locals, anonymous namespaces and string literals, which no
+declaration can name.
+
+Two of those shapes collide, and the collision cost 139 functions for one
+build: `lis r3,HI ; addi r3,r3,LO ; blr` is BOTH "return the address of a
+global" and "return this 32-bit constant". The tie-break is the test
+already measured for the constant returns -- inside a loaded section it is
+an address, outside it is a number -- and until that was put in, WAD02_36's
+164 constant returns were read as global references, found no symbol, and
+were dropped.
 
 The population was found by measuring rather than by noticing. Both earlier
 generators were written after someone spotted a shape by accident, so
 `shape_census.py` asks the question directly: group every unmatched game
-function by its sequence of opcodes and count. 1,727 of the 9,960 unmatched
-functions are 32 bytes or less, carrying 29,124 bytes across 600 distinct
+function by its sequence of opcodes and count. 1,546 of the 9,779 unmatched
+functions are 32 bytes or less, carrying 27,032 bytes across 591 distinct
 signatures, and the top of that list is where the next generator goes. The
-four biggest that are still unwritten:
+five biggest that are still unwritten:
 
 | N | bytes | signature | what it is |
 |---|---|---|---|
 | 261 | 1,044 | `b` | a tail call; needs the target's full signature |
 | 97 | 776 | `addi b` | a tail call after adjusting `this` |
 | 54 | 1,296 | `lwz or or lwz or b` | a member loaded, then a tail call |
-| 38 | 608 | `addis addi stw bclr` | a member set to a constant ADDRESS |
-| 17 | 340 | `lwz lwz lwz mtspr bcctr` | a virtual call forwarded |
+| 38 | 608 | `addis addi stw bclr` | a member set to the address of a static local or an anonymous-namespace object -- unnameable |
+| 23 | 368 | `or or or b` | registers shuffled, then a tail call |
 
 `b` was measured before being written off: of the 262 four-byte functions,
 only 55 branch to a target whose parameter list is the same as the caller's,
@@ -254,8 +273,12 @@ function byte-identical -- and it is right to, for its own question -- while
 that state. The test is whether the value lands inside a loaded section, and
 it was validated before being adopted: of the 245 constant returns in the
 game code, the 230 that land outside a section ALL match and the 15 that
-land inside match NOT AT ALL. A perfect split, and the generator now refuses
-the second group.
+land inside match NOT AT ALL. A perfect split, and the generator refuses to
+write the second group as a number. Some of those 15 came back later by the
+other route: an address whose symbol can be NAMED is `return &g`, which is
+a relocation against the same symbol retail relocates against, and that
+does match. The refusal is of writing an address as a literal, not of the
+function.
 
 This is the sharpest form so far of the rule already in this file: unitcmp
 is not the oracle. It answers "are these bytes the same", which is not the

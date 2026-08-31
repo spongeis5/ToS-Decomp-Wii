@@ -13,25 +13,14 @@
 // Members are non-virtual, and the padding is padding -- only the
 // offsets each function touches are known, not the fields between.
 
+extern float sCamTweakPivotHeightCur;
 
-class zProjectile {
+
+class zCamDriver {
 public:
-    unsigned int GetExplosionHitSource();
+    float getCurrentDefaultHeight();
 
 };
 
 
-
-class hkpAllCdBodyPairCollector {
-public:
-    void reset();
-
-    unsigned char _pad0[0x4];
-    unsigned char f4;
-    unsigned char _pad1[0x7];
-    int fC;
-};
-
-
-unsigned int zProjectile::GetExplosionHitSource() { return 0x00000002u; }
-void hkpAllCdBodyPairCollector::reset() { fC = 0; f4 = 0; }
+float zCamDriver::getCurrentDefaultHeight() { return sCamTweakPivotHeightCur; }

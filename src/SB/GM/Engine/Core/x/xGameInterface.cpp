@@ -17,10 +17,15 @@
 class xGameInterface {
 public:
     unsigned char IsMessageBoxVisible();
+    void MessageBoxClosed();
+    void MessageBoxOpened();
 
     unsigned char _pad0[0x4];
     unsigned char f4;
+    unsigned char f5;
 };
 
 
+void xGameInterface::MessageBoxOpened() { f5 = 0; }
+void xGameInterface::MessageBoxClosed() { f4 = 0; f5 = 0; }
 unsigned char xGameInterface::IsMessageBoxVisible() { return f4; }

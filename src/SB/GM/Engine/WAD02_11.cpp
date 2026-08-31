@@ -19,9 +19,24 @@ class zCommonPlayer;
 class zInteractionUP {
 public:
     void Start(zCommonPlayer* value);
+    void Starting();
+    void Stop(zCommonPlayer* a0);
 
     unsigned char _pad0[0x44];
     int f44;
+    unsigned char _pad1[0x1];
+    unsigned char f49;
+};
+
+
+
+class zInteractionUPWithIcons {
+public:
+    void SetupIcons();
+
+    unsigned char _pad0[0x80];
+    unsigned char f80;
+    unsigned char f81;
 };
 
 
@@ -36,4 +51,7 @@ public:
 
 
 void zInteractionUP::Start(zCommonPlayer* value) { f44 = (int)value; }
+void zInteractionUP::Stop(zCommonPlayer* a0) { f49 = 0; }
+void zInteractionUPWithIcons::SetupIcons() { f80 = 1; f81 = 1; }
+void zInteractionUP::Starting() { f49 = 1; }
 void zInteractionManager::Reset() { f4 = 0; f0 = 0; }

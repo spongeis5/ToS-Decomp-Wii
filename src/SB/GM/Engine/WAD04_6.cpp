@@ -13,6 +13,8 @@
 // Members are non-virtual, and the padding is padding -- only the
 // offsets each function touches are known, not the fields between.
 
+namespace zViewportNS { extern int splitscreenCount; }
+
 namespace TRC {
 
 class SaveLoadBase {
@@ -29,11 +31,17 @@ public:
 class zScaleform {
 public:
     void movieStopped();
+    void stopMovie();
 
     unsigned char _pad0[0x11C];
     int f11C;
+    unsigned char f120;
 };
 
 
+int zViewportGetActiveCount();
+
+int zViewportGetActiveCount() { return zViewportNS::splitscreenCount; }
 void TRC::SaveLoadBase::SetSaveEnabled(bool value) { f5 = value; }
+void zScaleform::stopMovie() { f120 = 0; }
 void zScaleform::movieStopped() { f11C = 1; }

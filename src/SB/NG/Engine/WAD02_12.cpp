@@ -13,25 +13,8 @@
 // Members are non-virtual, and the padding is padding -- only the
 // offsets each function touches are known, not the fields between.
 
+extern int ghkSimWorld;
 
-class zProjectile {
-public:
-    unsigned int GetExplosionHitSource();
+int xHavok_GetWorld();
 
-};
-
-
-
-class hkpAllCdBodyPairCollector {
-public:
-    void reset();
-
-    unsigned char _pad0[0x4];
-    unsigned char f4;
-    unsigned char _pad1[0x7];
-    int fC;
-};
-
-
-unsigned int zProjectile::GetExplosionHitSource() { return 0x00000002u; }
-void hkpAllCdBodyPairCollector::reset() { fC = 0; f4 = 0; }
+int xHavok_GetWorld() { return ghkSimWorld; }

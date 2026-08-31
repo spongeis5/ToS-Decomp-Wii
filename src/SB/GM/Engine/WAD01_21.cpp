@@ -52,6 +52,16 @@ public:
 
 
 
+class zPlayerJump {
+public:
+    void End();
+
+    unsigned char _pad0[0x10];
+    unsigned char f10;
+};
+
+
+
 class zPlayerTriggered {
 public:
     void Reset();
@@ -74,5 +84,6 @@ const int* zCommonPlayer::GetFloorPosition() const { return &f154; }
 void zCommonPlayer::ZeroPointGrab(zNPCBase* value) { f7A8 = (int)value; }
 void zCommonPlayer::ZeroPointResetState() { f7A8 = 0; f7AC = 0; f7B0 = 0; }
 void zPlayerSlip::Reset() { f10 = 0; }
+void zPlayerJump::End() { f10 = 0; }
 void zPlayerTriggered::Reset() { f24 = 4; }
 unsigned int zCommonPlayerDash::GetID() { return 0x0000000Fu; }

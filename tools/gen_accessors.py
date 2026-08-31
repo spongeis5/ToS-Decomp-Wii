@@ -1,10 +1,11 @@
-"""Generate the member-only functions of a unit from the retail image.
+"""Generate a unit's member-only, constant and one-global functions.
 
     python tools/gen_accessors.py --survey
+    python tools/gen_accessors.py --unit <unit> <out.cpp>
     python tools/gen_accessors.py <start> <end> <out.cpp>
 
 A function whose whole body touches nothing but its own object's members,
-or is a constant. Six shapes:
+one global, or a constant. Nine shapes:
 
     lwz  r3, N(r3) ; blr         int, unsigned int or a pointer   -- get
     lhz / lha / lbz / lfs        unsigned short, short, unsigned char, float
@@ -12,10 +13,17 @@ or is a constant. Six shapes:
     sth / stb / stfs             the same by width
     addi r3, r3, N ; blr         T* Get() { return &member; }     -- ref
     lis/addi r3, K ; blr         a constant return                -- constret
-    li   r0, K ; stw r0, A(r3)   member(s) set to one constant    -- constset
-      [; stw r0, B(r3) ...] ; blr
-    lis/addi r4, __vt__C        a constructor storing its own     -- vtable
-      ; stw r4, 0(r3) ; blr      vtable pointer, and nothing else
+    li   r0, K ; st* r0, A(r3)   member(s) set to one constant    -- constset
+      [; st* r0, B(r3) ...] ; blr    each store at its own width
+    lis r4 ; addi r4, __vt__C    a constructor storing its own    -- vtable
+      ; stw r4, 0(r3) ; blr          vtable pointer, and nothing else
+    lis rD ; addi r3, rD, g      return the address of a global   -- gref
+      ; blr
+    lis rD ; l** r3, g(rD) ; blr return a global                  -- gget
+    lis rD ; st** rV, g(rD)      assign to a global; rV is r3 in  -- gset
+      ; blr                          a free function, r4 in a member
+    lis rD ; addi rD, g          a member set to the address of   -- gstore
+      ; stw rD, N(r3) ; blr          a global
 
 THESE ARE GENERATED, NOT READ, and the same caveat applies as to the type
 ids: real matched functions whose offsets are recovered fact, but a count of
@@ -33,6 +41,20 @@ against the same name retail uses. What the real class's virtuals WERE is
 not in those four words, so the table this object defines has one entry and
 retail's has its own. The CONSTRUCTOR is what matches, not the table -- and
 the unit is NonMatching either way, so nothing is linked from it.
+
+The `g*` shapes DO need the global named, and a variable carries the same
+qualifier a function does: `activeViewport__Q28Graphics7Display`.
+CodeWarrior spells that the same whether the scope is a class or a
+namespace, so an `extern` inside nested namespaces reproduces the symbol --
+except where the scope is a class this file also declares, in which case
+the variable goes in as a static member instead.
+
+`gref` and `constret` are the SAME THREE WORDS. `lis r3,HI ; addi r3,r3,LO
+; blr` is both "return the address of a global" and "return this 32-bit
+constant", and the two are told apart by whether the value lands inside a
+loaded section -- the test in loaded_spans(). Without it, 164 constant
+returns in WAD02_36 read as global references, found no symbol, and were
+dropped.
 
 EVERY CANDIDATE IS RE-ENCODED AND COMPARED against the image before it is
 emitted, and anything unrecognised is skipped and counted with its reason.
@@ -363,6 +385,33 @@ def decode(body):
             return ("set", ctype, imm)
         return None
 
+    if n == 12:
+        # lis rD, HI ; <one access at LO(rD)> ; blr -- a function whose whole
+        # body touches one GLOBAL. Which global is checked in candidates();
+        # here it is only decoded. This has to come before the constant
+        # return below, whose three-word form is the same instructions.
+        if (ws[0] >> 26) == 15 and ((ws[0] >> 16) & 31) == 0:
+            d = (ws[0] >> 21) & 31
+            op, dd = ws[1] >> 26, (ws[1] >> 21) & 31
+            if ((ws[1] >> 16) & 31) == d:
+                lo = ws[1] & 0xFFFF
+                v = (((ws[0] & 0xFFFF) << 16)
+                     + (lo - 0x10000 if lo & 0x8000 else lo)) & 0xFFFFFFFF
+                if op == 14 and d == 3 and dd == 3:
+                    return ("gref", v)
+                if op in LOADS:
+                    ctype, _w, isf = LOADS[op]
+                    if dd == (1 if isf else 3):
+                        return ("gget", ctype, v, d)
+                if op in STORES:
+                    ctype, _w, isf = STORES[op]
+                    # The value is in f1 for a float; otherwise r3 for a
+                    # free function and r4 for a member, which the symbol
+                    # decides and candidates() checks.
+                    ok = (dd == 1) if isf else (dd in (3, 4))
+                    if ok:
+                        return ("gset", ctype, v, d, dd)
+
     if n == 16:
         # lis rD, HI ; addi rD, rD, LO ; stw rD, N(r3) ; blr -- a constructor
         # storing its own vtable pointer. Whether the address really is this
@@ -389,12 +438,16 @@ def decode(body):
         v -= 0x10000
     offs = []
     for w in ws[1:-1]:
-        if (w >> 26) != 36 or ((w >> 21) & 31) != 0 or ((w >> 16) & 31) != 3:
+        op = w >> 26
+        if op not in STORES or ((w >> 21) & 31) != 0 or ((w >> 16) & 31) != 3:
             return None
+        ctype, _wd, isf = STORES[op]
+        if isf:
+            return None              # r0 is not a floating-point register
         off = w & 0xFFFF
         if off & 0x8000:
             return None
-        offs.append(off)
+        offs.append((ctype, off))
     if not offs:
         return None
     return ("constset", v, tuple(offs))
@@ -417,9 +470,31 @@ def reencode(shape):
     if kind == "constset":
         v, offs = shape[1], shape[2]
         ws = [0x38000000 | (v & 0xFFFF)]
-        ws += [0x90030000 | o for o in offs]
+        for ctype, off in offs:
+            op = next(o for o, (ty, _w, isf) in STORES.items()
+                      if ty == ctype and not isf)
+            ws.append((op << 26) | (3 << 16) | off)
         ws.append(BLR)
         return struct.pack(">" + "I" * len(ws), *ws)
+    if kind == "gref":
+        v = shape[1]
+        lo, hi = v & 0xFFFF, (v >> 16) & 0xFFFF
+        if lo & 0x8000:
+            hi = (hi + 1) & 0xFFFF
+        return struct.pack(">III", 0x3C600000 | hi, 0x38630000 | lo, BLR)
+    if kind in ("gget", "gset"):
+        table = LOADS if kind == "gget" else STORES
+        ctype, v, d = shape[1], shape[2], shape[3]
+        lo, hi = v & 0xFFFF, (v >> 16) & 0xFFFF
+        if lo & 0x8000:
+            hi = (hi + 1) & 0xFFFF
+        for op, (ty, _w, isf) in table.items():
+            if ty != ctype:
+                continue
+            dd = (1 if isf else 3) if kind == "gget" else shape[4]
+            return struct.pack(">III", 0x3C000000 | (d << 21) | hi,
+                               (op << 26) | (dd << 21) | (d << 16) | lo, BLR)
+        return None
     if kind == "vtable":
         v, off, d = shape[1], shape[2], shape[3]
         lo, hi = v & 0xFFFF, (v >> 16) & 0xFFFF
@@ -516,6 +591,32 @@ def data_symbols():
     return _DATA_SYMS
 
 
+def split_data_symbol(sym):
+    """-> (namespaces, name) for a global we could declare, or None.
+
+    A variable carries the same qualifier a function does -- `name__<qual>`
+    -- and CodeWarrior spells it the same whether the scope is a class or a
+    namespace, so a namespace reproduces either. Anything with an `@` in it
+    is a static local, an anonymous namespace or a string literal, and no
+    declaration can name it.
+    """
+    if "@" in sym:
+        return None
+    if "__" in sym:
+        name, rest = sym.split("__", 1)
+        got = parse_type(rest)
+        if got is None or got[1] or got[0][0] != "name":
+            return None
+        if mangle_type(got[0]) != rest:
+            return None
+        parts = got[0][1]
+    else:
+        name, parts = sym, ()
+    if not name or not usable([name] + list(parts)):
+        return None
+    return tuple(parts), name
+
+
 def candidates(raw, base, foff, syms, lo, hi):
     """-> (list of candidate dicts, Counter of reasons for the rest)."""
     good, skipped = [], Counter()
@@ -526,7 +627,12 @@ def candidates(raw, base, foff, syms, lo, hi):
         body = raw[foff + (addr - base): foff + (addr - base) + size]
 
         shape = decode(body)
-        const = None
+        const, glob = None, None
+        if (shape is not None and shape[0] == "gref"
+                and not any(a <= shape[1] < b for a, b in spans)):
+            # Not an address, so those three words are a constant return
+            # and not a reference to anything.
+            shape = None
         if shape is None:
             # The constant-return shape. Its decoder lives in gen_typeids,
             # which is where it was written and measured; this imports it
@@ -547,9 +653,10 @@ def candidates(raw, base, foff, syms, lo, hi):
             skipped["symbol is not a member of a nameable class"] += 1
             continue
         ns, cls, method, is_const, args = dm
-        if cls is None and const is None:
-            # A free function is not a member, so it has no members to
-            # touch; only the constant return can be one.
+        if (cls is None and const is None
+                and shape[0] not in ("gref", "gget", "gset")):
+            # A free function has no members of its own to touch. Only a
+            # constant return and the global-touching shapes can be one.
             skipped["a free function with a member-shaped body"] += 1
             continue
         names = (list(ns) + ([cls] if cls else [])
@@ -569,19 +676,59 @@ def candidates(raw, base, foff, syms, lo, hi):
                 continue
             shape = ("constret", const)
         elif shape[0] == "vtable":
-            if method != "__ct__":
-                skipped["only a constructor stores the vtable pointer"] += 1
+            got_sym = data_symbols().get(shape[1])
+            want = ("__vt__" + mangle_type(("name", tuple(ns) + (cls,)))
+                    if cls else None)
+            if want is not None and got_sym == want:
+                if method != "__ct__":
+                    skipped["only a constructor stores the vtable "
+                            "pointer"] += 1
+                    continue
+                if shape[2] != 0:
+                    # The vptr sits after a base class subobject, and how
+                    # many bytes of base there are is not in these four
+                    # words.
+                    skipped["the vtable pointer is not at offset 0"] += 1
+                    continue
+            else:
+                # Not a vtable: a member set to the address of some other
+                # global, which is only reachable if that global is
+                # nameable.
+                glob = split_data_symbol(got_sym or "")
+                if glob is None:
+                    skipped["the stored address is not a nameable "
+                            "global"] += 1
+                    continue
+                if cls is None:
+                    skipped["a free function storing through r3"] += 1
+                    continue
+                shape = ("gstore", shape[1], shape[2], shape[3])
+        elif shape[0] in ("gref", "gget", "gset"):
+            glob = split_data_symbol(
+                data_symbols().get(shape[1] if shape[0] == "gref"
+                                   else shape[2]) or "")
+            if glob is None:
+                skipped["the address is not a nameable global"] += 1
                 continue
-            want = "__vt__" + mangle_type(("name", tuple(ns) + (cls,)))
-            if data_symbols().get(shape[1]) != want:
-                skipped["the stored address is not this class's own "
-                        "vtable"] += 1
-                continue
-            if shape[2] != 0:
-                # The vptr sits after a base class subobject, and how many
-                # bytes of base there are is not in these four words.
-                skipped["the vtable pointer is not at offset 0"] += 1
-                continue
+            if shape[0] == "gset":
+                if len(params) != 1:
+                    skipped["a setter whose body stores one value takes one "
+                            "argument"] += 1
+                    continue
+                w = value_width(params[0])
+                want = {t: wd for t, wd, _f in STORES.values()}
+                if w is None or w != want[shape[1]]:
+                    skipped["argument width does not match the store"] += 1
+                    continue
+                if base_kind(params[0]) == "ref":
+                    skipped["a reference argument stored by value"] += 1
+                    continue
+                isf = shape[1] == "float"
+                want_reg = 1 if isf else (3 if cls is None else 4)
+                if shape[4] != want_reg:
+                    skipped["the stored register is not where this kind of "
+                            "function's first argument arrives"] += 1
+                    continue
         elif shape[0] == "set":
             if len(params) != 1:
                 skipped["a setter whose body stores one value takes one "
@@ -600,7 +747,7 @@ def candidates(raw, base, foff, syms, lo, hi):
                 continue
         good.append({"addr": addr, "size": size, "ns": tuple(ns), "cls": cls,
                      "method": method, "const": is_const, "shape": shape,
-                     "params": params, "sym": sym})
+                     "params": params, "sym": sym, "global": glob})
     return good, skipped
 
 
@@ -717,6 +864,37 @@ def field_types(good, skipped):
     return fields, keep
 
 
+def global_types(good, skipped):
+    """-> {(namespaces, name): ctype}, having dropped the contradictions.
+
+    Two functions that disagree about the type of one global cannot both be
+    right, and nothing here can tell which is, so both go -- the same rule
+    the member offsets get.
+    """
+    types, bad = {}, set()
+    for c in good:
+        if not c["global"]:
+            continue
+        key = c["global"]
+        ctype = None
+        if c["shape"][0] in ("gget", "gset"):
+            ctype = c["shape"][1]
+        prev = types.setdefault(key, None)
+        if ctype is None:
+            continue
+        if prev is not None and prev != ctype:
+            bad.add(key)
+        types[key] = ctype
+
+    keep = []
+    for c in good:
+        if c["global"] in bad:
+            skipped["two functions disagree about a global's type"] += 1
+            continue
+        keep.append(c)
+    return types, keep
+
+
 def offsets_of(shape):
     """-> [(offset, ctype or None)] the shape proves about the class."""
     if shape[0] in ("get", "set"):
@@ -724,7 +902,9 @@ def offsets_of(shape):
     if shape[0] == "ref":
         return [(shape[1], None)]
     if shape[0] == "constset":
-        return [(off, "int") for off in shape[2]]
+        return [(off, ctype) for ctype, off in shape[2]]
+    if shape[0] == "gstore":
+        return [(shape[2], "int")]
     return []
 
 
@@ -782,6 +962,7 @@ def main():
                  "refusing to write an empty file" % (lo, hi))
 
     fields, good = field_types(good, skipped)
+    globs, good = global_types(good, skipped)
 
     # Named parameter types. A name used by value has to be DEFINED -- the
     # only definition this tool writes is an enum -- and a name used only
@@ -844,6 +1025,20 @@ def main():
          "// offsets each function touches are known, not the fields between.",
          ""]
 
+    statics = {}
+    externs = []
+    for key in sorted(globs):
+        parts, name = key
+        ctype = globs[key] or "int"
+        if (parts[:-1], parts[-1]) in defined if parts else False:
+            statics.setdefault((parts[:-1], parts[-1]), []).append(
+                (name, ctype))
+        else:
+            line = "extern %s %s;" % (ctype, name)
+            for n in reversed(parts):
+                line = "namespace %s { %s }" % (n, line)
+            externs.append(line)
+
     for parts in sorted(byvalue):
         for n in parts[:-1]:
             L.append("namespace %s {" % n)
@@ -859,6 +1054,9 @@ def main():
         L.append(line)
     if byvalue or byref:
         L.append("")
+    if externs:
+        L += externs
+        L.append("")
 
     for key in methods:
         ns, cls = list(key[0]), key[1]
@@ -867,6 +1065,8 @@ def main():
         L.append("")
         L.append("class %s {" % cls)
         L.append("public:")
+        for name, ctype in sorted(statics.get(key, [])):
+            L.append("    static %s %s;" % (ctype, name))
         if has_vtable(methods[key]):
             # One virtual is all it takes to make the compiler emit
             # __vt__<class> and have the constructor store it. Which
@@ -896,9 +1096,12 @@ def main():
         L.append("")
 
     if frees:
+        seen = set()
         for c in sorted(frees, key=lambda c: c["method"]):
-            L.append("unsigned int %s(%s);"
-                     % (c["method"], param_decls(c["params"], False)))
+            d = declare_free(c)
+            if d not in seen:
+                seen.add(d)
+                L.append(d)
         L.append("")
 
     for c in good:
@@ -924,10 +1127,47 @@ def ref_type(c, flds):
     return ("const " + t) if c["const"] else t
 
 
+def gname(c):
+    """The global this candidate touches, spelled for C++."""
+    parts, name = c["global"]
+    return "::".join(list(parts) + [name])
+
+
+def return_type(c):
+    """The return type for a shape that reads or points at something."""
+    kind = c["shape"][0]
+    if kind == "gget":
+        return c["shape"][1]
+    if kind == "gref":
+        return "int*"
+    if kind == "get":
+        return c["shape"][1]
+    return "unsigned int"
+
+
+def declare_free(c):
+    """The file-scope declaration for a free function."""
+    kind = c["shape"][0]
+    if kind == "gset":
+        return "void %s(%s);" % (c["method"],
+                                 param_decls(c["params"], True))
+    return "%s %s(%s);" % (return_type(c), c["method"],
+                           param_decls(c["params"], False))
+
+
 def declare(c, flds):
     """The in-class declaration for one candidate."""
     kind = c["shape"][0]
     cst = " const" if c["const"] else ""
+    if kind in ("gref", "gget"):
+        return "    %s %s(%s)%s;" % (return_type(c), c["method"],
+                                     param_decls(c["params"], False), cst)
+    if kind == "gset":
+        return "    void %s(%s)%s;" % (c["method"],
+                                       param_decls(c["params"], True), cst)
+    if kind == "gstore":
+        return "    void %s(%s)%s;" % (c["method"],
+                                       param_decls(c["params"], False), cst)
     if kind == "vtable":
         return "    %s(%s);" % (c["cls"], param_decls(c["params"], False))
     if c["method"] == "__ct__":
@@ -958,6 +1198,23 @@ def define(c, flds):
     q = "::".join(list(c["ns"]) + ([c["cls"]] if c["cls"] else []))
     kind = c["shape"][0]
     cst = " const" if c["const"] else ""
+    if kind in ("gref", "gget", "gset", "gstore"):
+        scope = (q + "::") if c["cls"] else ""
+        if kind == "gref":
+            return "int* %s%s(%s)%s { return &%s; }" % (
+                scope, c["method"], param_decls(c["params"], False), cst,
+                gname(c))
+        if kind == "gget":
+            return "%s %s%s(%s)%s { return %s; }" % (
+                c["shape"][1], scope, c["method"],
+                param_decls(c["params"], False), cst, gname(c))
+        if kind == "gset":
+            return "void %s%s(%s)%s { %s = %s; }" % (
+                scope, c["method"], param_decls(c["params"], True), cst,
+                gname(c), stored_value(c["params"][0], c["shape"][1]))
+        return "void %s%s(%s)%s { f%X = (int)&%s; }" % (
+            scope, c["method"], param_decls(c["params"], False), cst,
+            c["shape"][2], gname(c))
     if kind == "vtable":
         # The body IS the vtable store; the compiler writes it because the
         # class is polymorphic, so an empty body is the whole function.
@@ -965,7 +1222,7 @@ def define(c, flds):
                                   param_decls(c["params"], False))
     if c["method"] == "__ct__":
         body = " ".join("f%X = %d;" % (off, c["shape"][1])
-                        for off in c["shape"][2])
+                        for _ctype, off in c["shape"][2])
         return "%s::%s(%s) { %s }" % (q, c["cls"],
                                       param_decls(c["params"], False), body)
     if kind == "get":
@@ -990,7 +1247,7 @@ def define(c, flds):
             c["shape"][1])
     if kind == "constset":
         body = " ".join("f%X = %d;" % (off, c["shape"][1])
-                        for off in c["shape"][2])
+                        for _ctype, off in c["shape"][2])
         return "void %s::%s(%s)%s { %s }" % (
             q, c["method"], param_decls(c["params"], False), cst, body)
     raise AssertionError(kind)

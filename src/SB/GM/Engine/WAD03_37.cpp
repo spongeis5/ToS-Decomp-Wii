@@ -13,6 +13,12 @@
 // Members are non-virtual, and the padding is padding -- only the
 // offsets each function touches are known, not the fields between.
 
+extern float afterTimer;
+extern unsigned char screenLetterBoxActive;
+extern unsigned char uiHDREnabled;
+namespace UIMgr { extern int activeUIPads; }
+namespace UIMgr { extern unsigned char pauseEnabled; }
+
 
 class zUI {
 public:
@@ -23,4 +29,19 @@ public:
 };
 
 
+float zUIGetTimer();
+void zUIMgrEnableHDR(bool value);
+void zUIMgrEnablePause(bool value);
+int zUIMgrGetActivePadMask();
+unsigned char zUIMgrGetScreenLetterBox();
+void zUIMgrSetActivePadMask(unsigned int value);
+void zUIMgrSetScreenLetterBox(bool value);
+
+float zUIGetTimer() { return afterTimer; }
+void zUIMgrEnablePause(bool value) { UIMgr::pauseEnabled = value; }
+void zUIMgrSetScreenLetterBox(bool value) { screenLetterBoxActive = value; }
+unsigned char zUIMgrGetScreenLetterBox() { return screenLetterBoxActive; }
 unsigned char zUI::IsForceHDR() { return fE7; }
+void zUIMgrEnableHDR(bool value) { uiHDREnabled = value; }
+void zUIMgrSetActivePadMask(unsigned int value) { UIMgr::activeUIPads = value; }
+int zUIMgrGetActivePadMask() { return UIMgr::activeUIPads; }

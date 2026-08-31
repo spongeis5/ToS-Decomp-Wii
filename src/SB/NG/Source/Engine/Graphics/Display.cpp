@@ -13,25 +13,19 @@
 // Members are non-virtual, and the padding is padding -- only the
 // offsets each function touches are known, not the fields between.
 
+extern int windowHeight;
+extern int windowWidth;
 
-class zProjectile {
+namespace Graphics {
+
+class Display {
 public:
-    unsigned int GetExplosionHitSource();
+    int GetScreenHeight();
+    int GetScreenWidth();
 
 };
 
+}  // namespace Graphics
 
-
-class hkpAllCdBodyPairCollector {
-public:
-    void reset();
-
-    unsigned char _pad0[0x4];
-    unsigned char f4;
-    unsigned char _pad1[0x7];
-    int fC;
-};
-
-
-unsigned int zProjectile::GetExplosionHitSource() { return 0x00000002u; }
-void hkpAllCdBodyPairCollector::reset() { fC = 0; f4 = 0; }
+int Graphics::Display::GetScreenWidth() { return windowWidth; }
+int Graphics::Display::GetScreenHeight() { return windowHeight; }

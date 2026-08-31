@@ -14,6 +14,19 @@
 // offsets each function touches are known, not the fields between.
 
 enum ePlayerActivationState { ePlayerActivationState_ = 0x7FFFFFFF };
+class xEnt;
+
+
+class hkpWorldRayCastInput {
+public:
+    hkpWorldRayCastInput();
+
+    unsigned char _pad0[0x20];
+    unsigned char f20;
+    unsigned char _pad1[0x3];
+    int f24;
+};
+
 
 
 class hkpShapeRayCastInput {
@@ -23,6 +36,15 @@ public:
     unsigned char _pad0[0x20];
     int f20;
     int f24;
+};
+
+
+
+class zPlanktonShakeManager {
+public:
+    static int currentShakeState;
+    int* GetShakeState(const xEnt* a0);
+
 };
 
 
@@ -73,7 +95,9 @@ public:
 };
 
 
+hkpWorldRayCastInput::hkpWorldRayCastInput() { f20 = 0; f24 = 0; }
 hkpShapeRayCastInput::hkpShapeRayCastInput() { f20 = 0; f24 = 0; }
+int* zPlanktonShakeManager::GetShakeState(const xEnt* a0) { return &zPlanktonShakeManager::currentShakeState; }
 int* zPlantTrap::GetAttachDPos() { return &f90; }
 void Graphics::Renderable3D::SetShadowCastDepth(float value) { fB0 = value; }
 int zPlayer::GetCombat() { return f21C; }

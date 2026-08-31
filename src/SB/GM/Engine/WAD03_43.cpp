@@ -17,6 +17,8 @@ namespace zPlayerInputNS {
 enum PadType { PadType_ = 0x7FFFFFFF };
 }  // namespace zPlayerInputNS
 
+namespace Math { extern int vec4Zero; }
+
 
 class zUI {
 public:
@@ -43,8 +45,17 @@ public:
 
 
 
+class zPlayerInputAI {
+public:
+    int* GetWMPCorrectedAcc();
+
+};
+
+
+
 class zPlayerInputHuman {
 public:
+    void DisablePad();
     int GetPadType();
     unsigned char IsPadDisabled();
     unsigned char NunchukConnected();
@@ -93,10 +104,12 @@ void zUI::SetRotation(float value) { f78 = value; }
 void zUI::SetHeight(float value) { f64 = value; }
 void zUI::SetWidth(float value) { f60 = value; }
 unsigned char zUI::IsRestoreFocus() { return fE8; }
+int* zPlayerInputAI::GetWMPCorrectedAcc() { return &Math::vec4Zero; }
 unsigned char zPlayerInputHuman::WiiRemoteConnected() { return f210; }
 unsigned char zPlayerInputHuman::NunchukConnected() { return f211; }
 unsigned char zPlayerInputHuman::WiiClassicControllerConnected() { return f212; }
 unsigned char zPlayerInputHuman::IsPadDisabled() { return f38; }
+void zPlayerInputHuman::DisablePad() { f38 = 1; }
 void zPlayerInputHuman::SetPadType(zPlayerInputNS::PadType value) { f2C = (int)value; }
 int zPlayerInputHuman::GetPadType() { return f2C; }
 int* zRunEntLaser::GetDPos() { return &fA8; }

@@ -34,6 +34,16 @@ public:
 
 
 
+class zPlayerTurn180Board {
+public:
+    void Begin();
+
+    unsigned char _pad0[0x1C];
+    unsigned char f1C;
+};
+
+
+
 class ProjectileCollisionDetails {
 public:
     ProjectileCollisionDetails();
@@ -45,6 +55,18 @@ public:
 };
 
 
+
+class hkpCdBodyPairCollector {
+public:
+    void reset();
+
+    unsigned char _pad0[0x4];
+    unsigned char f4;
+};
+
+
 float zBoardPlayer::GetRigidBodyHeight() { return fAA4; }
 const int* zPlayer::GetFloorNormal() const { return &f160; }
+void zPlayerTurn180Board::Begin() { f1C = 0; }
 ProjectileCollisionDetails::ProjectileCollisionDetails() { f0 = 0; f4 = 0; f2C = 0; }
+void hkpCdBodyPairCollector::reset() { f4 = 0; }

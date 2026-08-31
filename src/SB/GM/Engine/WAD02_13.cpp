@@ -13,25 +13,17 @@
 // Members are non-virtual, and the padding is padding -- only the
 // offsets each function touches are known, not the fields between.
 
+namespace EngineOG { extern int MainScreenView; }
+namespace EngineOG { extern float MonitorAspectRatio; }
 
-class zProjectile {
+
+class Graphics {
 public:
-    unsigned int GetExplosionHitSource();
+    float HackGetMonitorAspectRatio();
+    int* HackGetScreenView();
 
 };
 
 
-
-class hkpAllCdBodyPairCollector {
-public:
-    void reset();
-
-    unsigned char _pad0[0x4];
-    unsigned char f4;
-    unsigned char _pad1[0x7];
-    int fC;
-};
-
-
-unsigned int zProjectile::GetExplosionHitSource() { return 0x00000002u; }
-void hkpAllCdBodyPairCollector::reset() { fC = 0; f4 = 0; }
+int* Graphics::HackGetScreenView() { return &EngineOG::MainScreenView; }
+float Graphics::HackGetMonitorAspectRatio() { return EngineOG::MonitorAspectRatio; }

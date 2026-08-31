@@ -112,6 +112,17 @@ public:
 
 namespace Graphics {
 
+class Display {
+public:
+    static int activeViewport;
+    int GetViewport();
+
+};
+
+}  // namespace Graphics
+
+namespace Graphics {
+
 class Renderable3D {
 public:
     void SetProjectShadowReceive(void* value);
@@ -152,6 +163,7 @@ int Graphics::Geometry::GetEffect() const { return f4C; }
 int Graphics::Scene::GetRenderSceneCollider() const { return f40; }
 unsigned char Graphics::Viewport::GetRendering() const { return f1D; }
 int* Graphics::TextureRenderTargetCommon::GetTexture() { return &f14; }
+int Graphics::Display::GetViewport() { return Graphics::Display::activeViewport; }
 int Graphics::TextureRenderTargetCommon::GetTextureHandle() const { return f20; }
 void Graphics::Renderable3D::SetProjectShadowReceive(void* value) { fD0 = (int)value; }
 int Graphics::TextureRenderTargetWii::GetTextureHandle2() const { return f70; }

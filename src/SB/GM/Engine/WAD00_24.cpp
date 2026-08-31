@@ -13,6 +13,8 @@
 // Members are non-virtual, and the padding is padding -- only the
 // offsets each function touches are known, not the fields between.
 
+extern unsigned char gTrcControlsDisabled;
+
 
 class _tagTRCPadInfo {
 public:
@@ -22,4 +24,7 @@ public:
 };
 
 
+unsigned char xTRCPadIsControlsDisabled();
+
 _tagTRCPadInfo::_tagTRCPadInfo() { f0 = -1; }
+unsigned char xTRCPadIsControlsDisabled() { return gTrcControlsDisabled; }

@@ -13,6 +13,12 @@
 // Members are non-virtual, and the padding is padding -- only the
 // offsets each function touches are known, not the fields between.
 
+namespace Sext {
+enum ePauseType { ePauseType_ = 0x7FFFFFFF };
+}  // namespace Sext
+
+extern int pause_type;
+
 
 class zTrigger {
 public:
@@ -23,4 +29,9 @@ public:
 };
 
 
+int zUIGetPauseType();
+void zUISetPauseType(Sext::ePauseType value);
+
 int* zTrigger::DriveGetCurMat(int a0) { return &f3C; }
+int zUIGetPauseType() { return pause_type; }
+void zUISetPauseType(Sext::ePauseType value) { pause_type = (int)value; }

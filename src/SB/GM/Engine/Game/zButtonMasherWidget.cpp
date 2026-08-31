@@ -17,10 +17,13 @@
 class zButtonMasherMashChecker {
 public:
     unsigned char CycleDone();
+    void ResetButton();
 
     unsigned char _pad0[0x4C];
     unsigned char f4C;
+    unsigned char f4D;
 };
 
 
 unsigned char zButtonMasherMashChecker::CycleDone() { return f4C; }
+void zButtonMasherMashChecker::ResetButton() { f4C = 0; f4D = 0; }

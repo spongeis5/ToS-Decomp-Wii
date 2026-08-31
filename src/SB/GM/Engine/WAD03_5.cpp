@@ -14,24 +14,18 @@
 // offsets each function touches are known, not the fields between.
 
 
-class zProjectile {
+class zPlayerConstrainer {
 public:
-    unsigned int GetExplosionHitSource();
+    static float sFarWall;
+    static float sNearWall;
+    static float sTetherRatio;
+    void SetConstraintsFar(float value);
+    void SetConstraintsNear(float value);
+    void SetTether(float value);
 
 };
 
 
-
-class hkpAllCdBodyPairCollector {
-public:
-    void reset();
-
-    unsigned char _pad0[0x4];
-    unsigned char f4;
-    unsigned char _pad1[0x7];
-    int fC;
-};
-
-
-unsigned int zProjectile::GetExplosionHitSource() { return 0x00000002u; }
-void hkpAllCdBodyPairCollector::reset() { fC = 0; f4 = 0; }
+void zPlayerConstrainer::SetConstraintsNear(float value) { zPlayerConstrainer::sNearWall = value; }
+void zPlayerConstrainer::SetConstraintsFar(float value) { zPlayerConstrainer::sFarWall = value; }
+void zPlayerConstrainer::SetTether(float value) { zPlayerConstrainer::sTetherRatio = value; }

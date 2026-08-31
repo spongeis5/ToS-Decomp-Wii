@@ -25,4 +25,19 @@ public:
 
 }  // namespace IO
 
+namespace IO {
+
+class FileHandleData {
+public:
+    FileHandleData();
+
+    unsigned char _pad0[0x3C];
+    int f3C;
+    int f40;
+    unsigned char f44;
+};
+
+}  // namespace IO
+
 unsigned int IO::LFDevice::Write(const void* a0, int a1, IO::FileError& a2) { return 0xFFFFFFFFu; }
+IO::FileHandleData::FileHandleData() { f3C = 0; f40 = 0; f44 = 0; }

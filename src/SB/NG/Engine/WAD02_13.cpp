@@ -13,25 +13,16 @@
 // Members are non-virtual, and the padding is padding -- only the
 // offsets each function touches are known, not the fields between.
 
+namespace Scaleform {
 
-class zProjectile {
+class CustomTextRenderer {
 public:
-    unsigned int GetExplosionHitSource();
+    void SetTextChanged();
 
+    unsigned char _pad0[0x4688];
+    unsigned char f4688;
 };
 
+}  // namespace Scaleform
 
-
-class hkpAllCdBodyPairCollector {
-public:
-    void reset();
-
-    unsigned char _pad0[0x4];
-    unsigned char f4;
-    unsigned char _pad1[0x7];
-    int fC;
-};
-
-
-unsigned int zProjectile::GetExplosionHitSource() { return 0x00000002u; }
-void hkpAllCdBodyPairCollector::reset() { fC = 0; f4 = 0; }
+void Scaleform::CustomTextRenderer::SetTextChanged() { f4688 = 1; }

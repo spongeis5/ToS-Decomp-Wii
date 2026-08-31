@@ -13,25 +13,18 @@
 // Members are non-virtual, and the padding is padding -- only the
 // offsets each function touches are known, not the fields between.
 
+enum _GameOstrich { _GameOstrich_ = 0x7FFFFFFF };
 
-class zProjectile {
-public:
-    unsigned int GetExplosionHitSource();
+extern int gGameMode;
+extern int gGameOstrich;
+extern int gGameState;
 
-};
+int zGameGetOstrich();
+int zGameModeGet();
+void zGameSetOstrich(_GameOstrich value);
+int zGameStateGet();
 
-
-
-class hkpAllCdBodyPairCollector {
-public:
-    void reset();
-
-    unsigned char _pad0[0x4];
-    unsigned char f4;
-    unsigned char _pad1[0x7];
-    int fC;
-};
-
-
-unsigned int zProjectile::GetExplosionHitSource() { return 0x00000002u; }
-void hkpAllCdBodyPairCollector::reset() { fC = 0; f4 = 0; }
+int zGameStateGet() { return gGameState; }
+int zGameModeGet() { return gGameMode; }
+int zGameGetOstrich() { return gGameOstrich; }
+void zGameSetOstrich(_GameOstrich value) { gGameOstrich = (int)value; }

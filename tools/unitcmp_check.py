@@ -42,6 +42,9 @@ EXPECT = {
     "SB/NG/Source/Tools/Havok/source/Common/Base/keycode.cxx": (0, 1),
     # Both functors match; the three sorts are a recorded near miss.
     "SB/NG/Source/Engine/Util/Sort/WAD02.cpp": (2, 5),
+    # Generated, not read. 164 constant returns of the 177 functions
+    # in the chunk; the other 13 are real code and are not written.
+    "SB/GM/Engine/WAD02_36": (164, 164),
 }
 
 

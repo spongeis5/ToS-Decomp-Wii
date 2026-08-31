@@ -23,4 +23,16 @@ public:
 };
 
 
+namespace System {
+
+class CoreJobProcessor {
+public:
+    virtual void __vtable_anchor();
+    CoreJobProcessor();
+
+};
+
+}  // namespace System
+
 int GTextureWiiImpl::GetRenderer() const { return f1C; }
+System::CoreJobProcessor::CoreJobProcessor() {}

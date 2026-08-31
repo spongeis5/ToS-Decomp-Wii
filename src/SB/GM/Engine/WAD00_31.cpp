@@ -13,6 +13,17 @@
 // Members are non-virtual, and the padding is padding -- only the
 // offsets each function touches are known, not the fields between.
 
+namespace Debug {
+
+class QuaternionFormatter {
+public:
+    virtual void __vtable_anchor();
+    QuaternionFormatter();
+
+};
+
+}  // namespace Debug
+
 
 class bit_array_alloc {
 public:
@@ -24,4 +35,5 @@ public:
 };
 
 
+Debug::QuaternionFormatter::QuaternionFormatter() {}
 bit_array_alloc::bit_array_alloc() { f0 = 0; f4 = 0; f8 = 0; }

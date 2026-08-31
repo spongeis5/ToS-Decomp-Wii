@@ -13,28 +13,15 @@
 // Members are non-virtual, and the padding is padding -- only the
 // offsets each function touches are known, not the fields between.
 
+namespace IO {
 
-class zCamDriver {
-public:
-    float getCurrentBasisDist() const;
-    float getCurrentBasisTheta() const;
-
-    unsigned char _pad0[0x1A0];
-    float f1A0;
-    unsigned char _pad1[0x4];
-    float f1A8;
-};
-
-
-
-class zCamWorldFixed {
+class ConsolePadDevice {
 public:
     virtual void __vtable_anchor();
-    zCamWorldFixed();
+    ConsolePadDevice();
 
 };
 
+}  // namespace IO
 
-float zCamDriver::getCurrentBasisTheta() const { return f1A0; }
-float zCamDriver::getCurrentBasisDist() const { return f1A8; }
-zCamWorldFixed::zCamWorldFixed() {}
+IO::ConsolePadDevice::ConsolePadDevice() {}

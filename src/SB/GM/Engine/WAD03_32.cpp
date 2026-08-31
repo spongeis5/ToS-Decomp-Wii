@@ -14,27 +14,12 @@
 // offsets each function touches are known, not the fields between.
 
 
-class zCamDriver {
-public:
-    float getCurrentBasisDist() const;
-    float getCurrentBasisTheta() const;
-
-    unsigned char _pad0[0x1A0];
-    float f1A0;
-    unsigned char _pad1[0x4];
-    float f1A8;
-};
-
-
-
-class zCamWorldFixed {
+class zTikiCollisionListener {
 public:
     virtual void __vtable_anchor();
-    zCamWorldFixed();
+    zTikiCollisionListener();
 
 };
 
 
-float zCamDriver::getCurrentBasisTheta() const { return f1A0; }
-float zCamDriver::getCurrentBasisDist() const { return f1A8; }
-zCamWorldFixed::zCamWorldFixed() {}
+zTikiCollisionListener::zTikiCollisionListener() {}

@@ -465,6 +465,15 @@ public:
 
 
 
+class zAnimViewerCamera {
+public:
+    virtual void __vtable_anchor();
+    zAnimViewerCamera();
+
+};
+
+
+
 class zBTConditionFalse {
 public:
     unsigned int GetTypeID() const;
@@ -555,6 +564,7 @@ void zDirection::SetRoll(float value) { f54 = value; }
 void zDirection::SetPitch(float value) { f50 = value; }
 void zDirection::SetYaw(float value) { f4C = value; }
 float zCamDriver::getCurrentHeight() const { return f1B0; }
+zAnimViewerCamera::zAnimViewerCamera() {}
 unsigned int zBTConditionFalse::GetTypeID() const { return 0x2EF3935Cu; }
 unsigned int zBTConditionTrue::GetTypeID() const { return 0x89176D7Du; }
 unsigned int zBTActionAlwaysFail::GetTypeID() const { return 0xFD239E46u; }

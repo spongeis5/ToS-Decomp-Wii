@@ -49,6 +49,114 @@ public:
 
 }  // namespace Graphics
 
+namespace Configs {
+
+class MemCB_INIData {
+public:
+    virtual void __vtable_anchor();
+    MemCB_INIData();
+
+};
+
+}  // namespace Configs
+
+namespace Configs {
+
+class MemCB_HingeConfig {
+public:
+    virtual void __vtable_anchor();
+    MemCB_HingeConfig();
+
+};
+
+}  // namespace Configs
+
+namespace Domains {
+
+class BlobMemCB {
+public:
+    virtual void __vtable_anchor();
+    BlobMemCB();
+
+};
+
+}  // namespace Domains
+
+namespace Domains {
+
+class MemCB_ParcelLoadAndParse {
+public:
+    virtual void __vtable_anchor();
+    MemCB_ParcelLoadAndParse();
+
+};
+
+}  // namespace Domains
+
+namespace Loader {
+
+class LoadMemOwner {
+public:
+    virtual void __vtable_anchor();
+    LoadMemOwner();
+
+};
+
+}  // namespace Loader
+
+namespace Loader {
+
+class MemCB_MetaRecord {
+public:
+    virtual void __vtable_anchor();
+    MemCB_MetaRecord();
+
+};
+
+}  // namespace Loader
+
+namespace Loader {
+
+class MemCB_SectTable {
+public:
+    virtual void __vtable_anchor();
+    MemCB_SectTable();
+
+};
+
+}  // namespace Loader
+
+namespace Domains {
+
+class MemOwnerUnclaimed {
+public:
+    virtual void __vtable_anchor();
+    MemOwnerUnclaimed();
+
+};
+
+}  // namespace Domains
+
+namespace Domains {
+
+class MemCB_BorrowedMemory {
+public:
+    virtual void __vtable_anchor();
+    MemCB_BorrowedMemory();
+
+};
+
+}  // namespace Domains
+
 int* World::GenericShaderEntity::GetShader() { return &f30; }
 int World::UVMovementInstanceData::GetRows() { return f5C; }
 int Graphics::SkinBuilder::GetMaterial() const { return f14; }
+Configs::MemCB_INIData::MemCB_INIData() {}
+Configs::MemCB_HingeConfig::MemCB_HingeConfig() {}
+Domains::BlobMemCB::BlobMemCB() {}
+Domains::MemCB_ParcelLoadAndParse::MemCB_ParcelLoadAndParse() {}
+Loader::LoadMemOwner::LoadMemOwner() {}
+Loader::MemCB_MetaRecord::MemCB_MetaRecord() {}
+Loader::MemCB_SectTable::MemCB_SectTable() {}
+Domains::MemOwnerUnclaimed::MemOwnerUnclaimed() {}
+Domains::MemCB_BorrowedMemory::MemCB_BorrowedMemory() {}

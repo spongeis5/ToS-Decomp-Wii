@@ -30,5 +30,29 @@ public:
 };
 
 
+namespace Loader {
+
+class DomainDirMemCB {
+public:
+    virtual void __vtable_anchor();
+    DomainDirMemCB();
+
+};
+
+}  // namespace Loader
+
+namespace TRC {
+
+class WiiDVDErrorRunnable {
+public:
+    virtual void __vtable_anchor();
+    WiiDVDErrorRunnable();
+
+};
+
+}  // namespace TRC
+
 void GRendererWiiImpl::LineStyleDisable() { f1D4 = 0; f1E0 = 0; }
 void GRendererWiiImpl::FillStyleDisable() { f148 = 0; f154 = 0; }
+Loader::DomainDirMemCB::DomainDirMemCB() {}
+TRC::WiiDVDErrorRunnable::WiiDVDErrorRunnable() {}

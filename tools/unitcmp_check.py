@@ -46,7 +46,7 @@ EXPECT = {
     # 178 and 135 functions those two chunks hold. The rest is real code
     # and is not written.
     "SB/GM/Engine/WAD02_36": (170, 170),
-    "SB/GM/Engine/WAD01_26": (63, 63),
+    "SB/GM/Engine/WAD01_26": (64, 64),
     # Five of the unit's eight functions are written; the other three
     # reach further into the graphics types than has been recovered.
     "SB/NG/Source/Engine/Graphics/Builders/StaticBuilder": (5, 5),
@@ -64,7 +64,7 @@ EXPECT = {
     "SB/GM/Engine/WAD00_12": (1, 1),
     "SB/GM/Engine/WAD00_2": (10, 10),
     "SB/GM/Engine/WAD00_7": (2, 2),
-    "SB/GM/Engine/WAD01_13": (2, 2),
+    "SB/GM/Engine/WAD01_13": (3, 3),
     "SB/GM/Engine/WAD01_21": (7, 7),
     "SB/GM/Engine/WAD02_27": (1, 1),
     "SB/GM/Engine/WAD02_38": (2, 2),
@@ -86,11 +86,11 @@ EXPECT = {
     "SB/GM/Engine/WAD04_8": (3, 3),
     "SB/NG/Engine/WAD00_11": (3, 3),
     "SB/NG/Engine/WAD00_12": (9, 9),
-    "SB/NG/Engine/WAD00_17": (3, 3),
+    "SB/NG/Engine/WAD00_17": (12, 12),
     "SB/NG/Engine/WAD01_12": (3, 3),
     "SB/NG/Engine/WAD01_17": (3, 3),
     "SB/NG/Engine/WAD01_2": (1, 1),
-    "SB/NG/Engine/WAD02_15": (1, 1),
+    "SB/NG/Engine/WAD02_15": (2, 2),
     "SB/NG/Engine/WADSpeed": (17, 17),
     "SB/NG/Source/Engine/TRC/TRCPadManager": (5, 5),
     "SB/GM/Engine/Core/x/xUpdateCull": (1, 1),
@@ -98,7 +98,7 @@ EXPECT = {
     "SB/GM/Engine/Game/zEventSpy": (1, 1),
     "SB/GM/Engine/Game/zWaterWheel": (1, 1),
     "SB/GM/Engine/WAD00_24": (1, 1),
-    "SB/GM/Engine/WAD00_31": (1, 1),
+    "SB/GM/Engine/WAD00_31": (2, 2),
     "SB/GM/Engine/WAD00_6": (1, 1),
     "SB/GM/Engine/WAD00_8": (1, 1),
     "SB/GM/Engine/WAD01": (3, 3),
@@ -119,11 +119,15 @@ EXPECT = {
     "SB/NG/Engine/WAD00_2": (2, 2),
     "SB/NG/Engine/WAD01_10": (1, 1),
     "SB/NG/Engine/WAD02_1": (1, 1),
-    "SB/NG/Engine/WAD02_37": (2, 2),
+    "SB/NG/Engine/WAD02_37": (4, 4),
     "SB/NG/Source/Engine/IO/VirtualKeyboard/VirtualKeyboard": (1, 1),
     # Lowered by hand for the reason given above WAD03_3.
     "SB/NG/Source/Engine/TRC/TRCMessageBox": (1, 1),
     "SB/NG/Source/Engine/TRC/TRCModule": (1, 1),
+    "SB/GM/Engine/Game/zNPCCommonCombatBTActions": (1, 1),
+    "SB/GM/Engine/Game/zPlayerInputAI": (1, 1),
+    "SB/GM/Engine/WAD03_32": (1, 1),
+    "SB/NG/Engine/WAD01_15": (1, 1),
 }
 
 

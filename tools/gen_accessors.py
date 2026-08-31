@@ -3,26 +3,36 @@
     python tools/gen_accessors.py --survey
     python tools/gen_accessors.py <start> <end> <out.cpp>
 
-A sibling of tools/gen_typeids.py for the shapes below it: a function whose
-whole body touches nothing but its own object's members.
+A function whose whole body touches nothing but its own object's members,
+or is a constant. Six shapes:
 
     lwz  r3, N(r3) ; blr         int, unsigned int or a pointer   -- get
     lhz / lha / lbz / lfs        unsigned short, short, unsigned char, float
     stw  r4, N(r3) ; blr         void Set(int)                    -- set
     sth / stb / stfs             the same by width
     addi r3, r3, N ; blr         T* Get() { return &member; }     -- ref
-    addi r3, r0, K ; blr         a constant return, WITH arguments -- constret
+    lis/addi r3, K ; blr         a constant return                -- constret
     li   r0, K ; stw r0, A(r3)   member(s) set to one constant    -- constset
       [; stw r0, B(r3) ...] ; blr
+    lis/addi r4, __vt__C        a constructor storing its own     -- vtable
+      ; stw r4, 0(r3) ; blr      vtable pointer, and nothing else
 
 THESE ARE GENERATED, NOT READ, and the same caveat applies as to the type
 ids: real matched functions whose offsets are recovered fact, but a count of
-them is not a count of decompiled code.
+them is not a count of decompiled code. tools/written_vs_generated.py keeps
+the two apart.
 
-`constret` is deliberately restricted to functions that TAKE ARGUMENTS.
-tools/gen_typeids.py owns the argument-free ones and refuses the rest, so
-the two tools partition that shape between them rather than both emitting
-it into different files for the same unit.
+This writes the FILE for a unit; tools/gen_units.py drives it over every
+unit that has candidates. tools/gen_typeids.py wrote the constant-return
+shape before this tool could, and is now the codec for it -- its decode,
+re-encode and demangle are imported here rather than copied.
+
+`vtable` needs no symbol named by hand: one declared virtual makes mwcc
+emit `__vt__<class>` itself, and the constructor store then relocates
+against the same name retail uses. What the real class's virtuals WERE is
+not in those four words, so the table this object defines has one entry and
+retail's has its own. The CONSTRUCTOR is what matches, not the table -- and
+the unit is NonMatching either way, so nothing is linked from it.
 
 EVERY CANDIDATE IS RE-ENCODED AND COMPARED against the image before it is
 emitted, and anything unrecognised is skipped and counted with its reason.
@@ -353,6 +363,23 @@ def decode(body):
             return ("set", ctype, imm)
         return None
 
+    if n == 16:
+        # lis rD, HI ; addi rD, rD, LO ; stw rD, N(r3) ; blr -- a constructor
+        # storing its own vtable pointer. Whether the address really is this
+        # class's vtable is checked in candidates(), where the symbol table
+        # is to hand; here it is only decoded.
+        d = (ws[0] >> 21) & 31
+        if ((ws[0] >> 26) == 15 and (ws[1] >> 26) == 14
+                and (ws[2] >> 26) == 36
+                and ((ws[0] >> 16) & 31) == 0
+                and ((ws[1] >> 21) & 31) == d and ((ws[1] >> 16) & 31) == d
+                and ((ws[2] >> 21) & 31) == d and ((ws[2] >> 16) & 31) == 3):
+            off = ws[2] & 0xFFFF
+            hi, lo = ws[0] & 0xFFFF, ws[1] & 0xFFFF
+            if not off & 0x8000:
+                v = ((hi << 16) + (lo - 0x10000 if lo & 0x8000 else lo))
+                return ("vtable", v & 0xFFFFFFFF, off, d)
+
     # li r0, K then one or more stw r0, N(r3)
     li = ws[0]
     if (li >> 26) != 14 or ((li >> 21) & 31) != 0 or ((li >> 16) & 31) != 0:
@@ -393,6 +420,16 @@ def reencode(shape):
         ws += [0x90030000 | o for o in offs]
         ws.append(BLR)
         return struct.pack(">" + "I" * len(ws), *ws)
+    if kind == "vtable":
+        v, off, d = shape[1], shape[2], shape[3]
+        lo, hi = v & 0xFFFF, (v >> 16) & 0xFFFF
+        if lo & 0x8000:
+            hi = (hi + 1) & 0xFFFF
+        return struct.pack(">IIII",
+                           0x3C000000 | (d << 21) | hi,
+                           0x38000000 | (d << 21) | (d << 16) | lo,
+                           0x90000000 | (d << 21) | (3 << 16) | off,
+                           BLR)
     return None
 
 
@@ -455,6 +492,30 @@ def loaded_spans(raw):
     return [(sh[3], sh[3] + sh[5]) for sh in sections(raw) if sh[3] and sh[5]]
 
 
+_DATA_SYMS = None
+
+
+def data_symbols():
+    """address -> name, for everything that is not a function.
+
+    A constructor's vtable store is only reproducible if the address it
+    builds really is this class's own `__vt__`; mwcc emits that symbol from
+    the class declaration, so nothing else has to be named. Any other
+    address is somebody else's object and is refused.
+    """
+    global _DATA_SYMS
+    if _DATA_SYMS is None:
+        _DATA_SYMS = {}
+        with open(ELF, "rb") as fh:
+            for sec in ELFFile(fh).iter_sections():
+                if sec.header["sh_type"] != "SHT_SYMTAB":
+                    continue
+                for s in sec.iter_symbols():
+                    if s["st_info"]["type"] != "STT_FUNC" and s.name:
+                        _DATA_SYMS.setdefault(s["st_value"], s.name)
+    return _DATA_SYMS
+
+
 def candidates(raw, base, foff, syms, lo, hi):
     """-> (list of candidate dicts, Counter of reasons for the rest)."""
     good, skipped = [], Counter()
@@ -507,6 +568,20 @@ def candidates(raw, base, foff, syms, lo, hi):
                         "relocation"] += 1
                 continue
             shape = ("constret", const)
+        elif shape[0] == "vtable":
+            if method != "__ct__":
+                skipped["only a constructor stores the vtable pointer"] += 1
+                continue
+            want = "__vt__" + mangle_type(("name", tuple(ns) + (cls,)))
+            if data_symbols().get(shape[1]) != want:
+                skipped["the stored address is not this class's own "
+                        "vtable"] += 1
+                continue
+            if shape[2] != 0:
+                # The vptr sits after a base class subobject, and how many
+                # bytes of base there are is not in these four words.
+                skipped["the vtable pointer is not at offset 0"] += 1
+                continue
         elif shape[0] == "set":
             if len(params) != 1:
                 skipped["a setter whose body stores one value takes one "
@@ -615,10 +690,15 @@ def field_types(good, skipped):
                 bad.add((key, off))
             fields[key][off] = ctype
 
+    # A class whose constructor stores a vtable pointer has one at offset
+    # 0, put there by the compiler and not by us. Nothing may be declared
+    # in those four bytes, or every field after it lands four too far on.
+    poly = {(c["ns"], c["cls"]) for c in good if c["shape"][0] == "vtable"}
+
     # Lay each class out and refuse one that cannot be: an offset that is
     # not aligned for its type, or a field that would overlap the next.
     for key, offs in fields.items():
-        end = 0
+        end = 4 if key in poly else 0
         for off in sorted(offs):
             ctype = offs[off] or "int"
             if off % WIDTH[ctype]:
@@ -646,6 +726,10 @@ def offsets_of(shape):
     if shape[0] == "constset":
         return [(off, "int") for off in shape[2]]
     return []
+
+
+def has_vtable(cands):
+    return any(c["shape"][0] == "vtable" for c in cands)
 
 
 def param_decls(params, setter):
@@ -783,6 +867,13 @@ def main():
         L.append("")
         L.append("class %s {" % cls)
         L.append("public:")
+        if has_vtable(methods[key]):
+            # One virtual is all it takes to make the compiler emit
+            # __vt__<class> and have the constructor store it. Which
+            # virtuals the real class had is not in these bytes, so the
+            # vtable this object defines holds one entry and retail's holds
+            # its own -- the CONSTRUCTOR is what matches, not the table.
+            L.append("    virtual void __vtable_anchor();")
         seen = set()
         for c in sorted(methods[key], key=lambda c: (c["method"], c["addr"])):
             decl = declare(c, fields[key])
@@ -837,6 +928,8 @@ def declare(c, flds):
     """The in-class declaration for one candidate."""
     kind = c["shape"][0]
     cst = " const" if c["const"] else ""
+    if kind == "vtable":
+        return "    %s(%s);" % (c["cls"], param_decls(c["params"], False))
     if c["method"] == "__ct__":
         return "    %s(%s);" % (c["cls"], param_decls(c["params"], False))
     if kind == "get":
@@ -865,6 +958,11 @@ def define(c, flds):
     q = "::".join(list(c["ns"]) + ([c["cls"]] if c["cls"] else []))
     kind = c["shape"][0]
     cst = " const" if c["const"] else ""
+    if kind == "vtable":
+        # The body IS the vtable store; the compiler writes it because the
+        # class is polymorphic, so an empty body is the whole function.
+        return "%s::%s(%s) {}" % (q, c["cls"],
+                                  param_decls(c["params"], False))
     if c["method"] == "__ct__":
         body = " ".join("f%X = %d;" % (off, c["shape"][1])
                         for off in c["shape"][2])

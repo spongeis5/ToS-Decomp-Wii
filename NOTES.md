@@ -7,15 +7,18 @@ numbers here, which move.
 ## State at time of writing
 
 ```
-Game Code:  23 of 498 files complete   8,528 / 2,115,452 bytes  390 / 10,559 fn
-            0.4031% of game code
+Game Code:  23 of 498 files complete   9,548 / 2,115,452 bytes  491 / 10,559 fn
+            0.4513% of game code
 
-Of those 390 functions, 304 are GENERATED -- one shape, a 32-bit constant
-into r3 and a return, mostly a behaviour-tree node's GetTypeID. They are
-real matched functions and the constants are recovered fact, but a count of
-them is not a count of decompiled code. HAND-WRITTEN IS 86, and that is the
-figure to compare against earlier ones.
-All:        1.76% matched              main.dol reproduces byte for byte
+Of those 491 functions, 405 are GENERATED -- five machine-recognised shapes,
+not one of which is decompiling. They are real matched functions and the
+offsets and constants are recovered fact, but a count of them is not a count
+of decompiled code. HAND-WRITTEN IS 86, across 29 units and 5,384 bytes, and
+that is the figure to compare against earlier ones.
+`python tools/written_vs_generated.py` prints the split, decided by the
+banner in the file that defines each function, and refuses to report at all
+if the two halves do not add up to the category total.
+All:        1.82% matched              main.dol reproduces byte for byte
 ```
 
 The other categories (Revolution SDK 15.60%, SDK Code 5.29%) were already
@@ -61,9 +64,13 @@ r13 or r2.
 | `unitcmp.py` | compile ONE unit and compare each function by name against retail; `-v` for a word-by-word diff |
 | `unitcmp_check.py` | validates `unitcmp.py` against every unit it has a known answer for, and proves its drift guard fires |
 | `anon_blocked.py` | which units can never match while they are split out of their unity blob |
-| `gen_typeids.py` | generate the constant-returning members of a unit from the image |
+| `gen_typeids.py` | the constant-return codec -- decode, re-encode, demangle. `gen_accessors` imports it; it no longer writes files |
 | `gen_survey.py` | where else the constant-return shape lives |
-| `gen_accessors.py` | generate one-load and one-store accessors; `--survey` for where they are |
+| `gen_accessors.py` | generate every member-only shape for a unit; `--survey` for what is left |
+| `gen_units.py` | run that over EVERY unit that has candidates, and withdraw the files that no longer do |
+| `shape_census.py` | what the unmatched short functions LOOK like, as a population, by opcode signature |
+| `unitcmp_pins.py` | re-measure `unitcmp_check`'s pins; refuses to lower one |
+| `written_vs_generated.py` | the split, from the banner in each source file |
 | `next_functions.py` | what is left ranked by functions rather than bytes |
 
 `pip install pyelftools` is required for all of them.
@@ -195,7 +202,54 @@ inherited history carries the upstream author's own address in their own
 public repository; that is correct attribution, and rewriting it would put
 someone else's work under a different name.
 
-## Two traps worth knowing
+## The generated shapes, and what they cost to get right
+
+`gen_accessors.py` now recognises five shapes, all of them member-only or
+constant, and `gen_units.py` runs it over every unit that has any. That took
+Game Code from 8,528 to 9,548 bytes in one pass -- and **not one byte of it
+is decompiling**, which is why `written_vs_generated.py` exists.
+
+The population was found by measuring rather than by noticing. Both earlier
+generators were written after someone spotted a shape by accident, so
+`shape_census.py` asks the question directly: group every unmatched game
+function by its sequence of opcodes and count. 1,727 of the 9,960 unmatched
+functions are 32 bytes or less, carrying 29,124 bytes across 600 distinct
+signatures, and the top of that list is where the next generator goes. The
+four biggest that are still unwritten:
+
+| N | bytes | signature | what it is |
+|---|---|---|---|
+| 261 | 1,044 | `b` | a tail call; needs the target's full signature |
+| 97 | 776 | `addi b` | a tail call after adjusting `this` |
+| 57 | 912 | `addis addi stw bclr` | a member set to a constant ADDRESS |
+| 17 | 340 | `lwz lwz lwz mtspr bcctr` | a virtual call forwarded |
+
+**A constant return whose value is an ADDRESS cannot be written as a
+number.** Retail reaches it through a relocation; writing the constant
+reproduces the instruction word and not the relocation, so the object
+differs by that field. `unitcmp` masks relocated fields and calls such a
+function byte-identical -- and it is right to, for its own question -- while
+`report.json` never agreed. Fifteen functions sat in the tree in exactly
+that state. The test is whether the value lands inside a loaded section, and
+it was validated before being adopted: of the 245 constant returns in the
+game code, the 230 that land outside a section ALL match and the 15 that
+land inside match NOT AT ALL. A perfect split, and the generator now refuses
+the second group.
+
+This is the sharpest form so far of the rule already in this file: unitcmp
+is not the oracle. It answers "are these bytes the same", which is not the
+same question as "does this unit match".
+
+## Three traps worth knowing
+
+**A survey that cannot see what is finished reports finished work as
+remaining.** `gen_survey.py` said in its own docstring that it counted only
+unmatched functions; it built the set to do that and then never filled it,
+so it reported 164 already-generated, already-matching functions of
+`WAD02_36` as available work. `gen_accessors --survey` had the same hole.
+Both now take `report.json` as REQUIRED rather than optional -- with it
+missing they exited zero and surveyed everything, which is the benign-looking
+value again.
 
 **Adding a `.cpp` needs `python configure.py`, not just `ninja`.** Until you
 re-run it, objdiff has no `base_path` for the unit and the object you are

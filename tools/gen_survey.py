@@ -83,29 +83,37 @@ def main():
                 syms.append((s["st_value"], s["st_size"], s.name))
     syms.sort()
 
-    matched = set()
-    if REPORT.exists():
-        rep = json.loads(REPORT.read_text(encoding="utf-8"))
-        game = set()
-        for u in rep["units"]:
-            meta = u.get("metadata", {})
-            if "game" in (meta.get("progress_categories") or []):
-                name = u["name"].split("/", 1)[1] if "/" in u["name"] \
-                    else u["name"]
-                game.add(name + ".cpp")
-    else:
-        game = None
+    # Both the unit filter and the already-matched filter come out of
+    # report.json, so it is required rather than optional. Until 2026-08-31
+    # `matched` was built empty and never filled, and the survey reported 164
+    # functions of WAD02_36 as available when all 164 were already generated
+    # and matching -- the docstring's claim was false for two commits.
+    if not REPORT.exists():
+        sys.exit("gen_survey: %s is missing -- run ninja first. Without it "
+                 "every already-matched function counts as remaining work."
+                 % REPORT)
+    rep = json.loads(REPORT.read_text(encoding="utf-8"))
+    game, matched = set(), set()
+    for u in rep["units"]:
+        meta = u.get("metadata", {})
+        if "game" not in (meta.get("progress_categories") or []):
+            continue
+        name = u["name"].split("/", 1)[1] if "/" in u["name"] else u["name"]
+        game.add(name + ".cpp")
+        for fn in u.get("functions", []):
+            if fn.get("fuzzy_match_percent") == 100.0:
+                matched.add(fn["name"])
 
     rows = []
     for unit, rs in ranges:
-        if game is not None and unit not in game:
+        if unit not in game:
             continue
         good = tot = 0
         for a, sz, nm in syms:
             if not any(b <= a < e for b, e in rs):
                 continue
             tot += 1
-            if sz not in (8, 12):
+            if nm in matched or sz not in (8, 12):
                 continue
             body = raw[foff + (a - base): foff + (a - base) + sz]
             v = G.decode(body)

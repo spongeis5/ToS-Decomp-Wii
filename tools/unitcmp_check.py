@@ -42,10 +42,11 @@ EXPECT = {
     "SB/NG/Source/Tools/Havok/source/Common/Base/keycode.cxx": (0, 1),
     # Both functors match; the three sorts are a recorded near miss.
     "SB/NG/Source/Engine/Util/Sort/WAD02.cpp": (2, 5),
-    # Generated, not read. 164 constant returns of the 177 functions
-    # in the chunk; the other 13 are real code and are not written.
-    "SB/GM/Engine/WAD02_36": (166, 166),
-    "SB/GM/Engine/WAD01_26": (61, 61),
+    # Generated, not read: constant returns, plus a few accessors, of the
+    # 178 and 135 functions those two chunks hold. The rest is real code
+    # and is not written.
+    "SB/GM/Engine/WAD02_36": (170, 170),
+    "SB/GM/Engine/WAD01_26": (63, 63),
     # Five of the unit's eight functions are written; the other three
     # reach further into the graphics types than has been recovered.
     "SB/NG/Source/Engine/Graphics/Builders/StaticBuilder": (5, 5),
@@ -56,34 +57,73 @@ EXPECT = {
     "SB/GM/Engine/Core/x/xGroup": (1, 1),
     "SB/GM/Engine/Game/zButtonMasherWidget": (1, 1),
     "SB/GM/Engine/Game/zDecal": (1, 1),
-    "SB/GM/Engine/Game/zJawFlapper": (1, 1),
+    "SB/GM/Engine/Game/zJawFlapper": (2, 2),
     "SB/GM/Engine/Game/zPIDController": (1, 1),
-    "SB/GM/Engine/WAD00": (7, 7),
-    "SB/GM/Engine/WAD00_1": (1, 1),
+    "SB/GM/Engine/WAD00": (8, 8),
+    "SB/GM/Engine/WAD00_1": (2, 2),
     "SB/GM/Engine/WAD00_12": (1, 1),
-    "SB/GM/Engine/WAD00_2": (5, 5),
+    "SB/GM/Engine/WAD00_2": (10, 10),
     "SB/GM/Engine/WAD00_7": (2, 2),
     "SB/GM/Engine/WAD01_13": (2, 2),
-    "SB/GM/Engine/WAD01_21": (1, 1),
+    "SB/GM/Engine/WAD01_21": (7, 7),
     "SB/GM/Engine/WAD02_27": (1, 1),
-    "SB/GM/Engine/WAD02_38": (1, 1),
-    "SB/GM/Engine/WAD03_16": (1, 1),
+    "SB/GM/Engine/WAD02_38": (2, 2),
+    "SB/GM/Engine/WAD03_16": (3, 3),
     "SB/GM/Engine/WAD03_17": (1, 1),
     "SB/GM/Engine/WAD03_2": (1, 1),
-    "SB/GM/Engine/WAD03_3": (5, 5),
+    # Three pins were LOWERED by hand on 2026-08-31 -- these two and
+    # TRCMessageBox below -- and this is the only reason one ever is here:
+    # the generator WITHDREW a function, so the object legitimately defines
+    # one fewer. Each held a constant return whose value is an ADDRESS.
+    # unitcmp masks relocated fields and called it byte-identical;
+    # report.json never agreed, and report.json was right.
+    # tools/unitcmp_pins.py refuses to make this edit on its own, which is
+    # why it is written out here instead.
+    "SB/GM/Engine/WAD03_3": (9, 9),
     "SB/GM/Engine/WAD03_37": (1, 1),
-    "SB/GM/Engine/WAD03_43": (14, 14),
-    "SB/GM/Engine/WAD04_6": (1, 1),
-    "SB/GM/Engine/WAD04_8": (1, 1),
-    "SB/NG/Engine/WAD00_11": (1, 1),
-    "SB/NG/Engine/WAD00_12": (5, 5),
-    "SB/NG/Engine/WAD00_17": (2, 2),
-    "SB/NG/Engine/WAD01_12": (2, 2),
-    "SB/NG/Engine/WAD01_17": (1, 1),
+    "SB/GM/Engine/WAD03_43": (18, 18),
+    "SB/GM/Engine/WAD04_6": (2, 2),
+    "SB/GM/Engine/WAD04_8": (3, 3),
+    "SB/NG/Engine/WAD00_11": (3, 3),
+    "SB/NG/Engine/WAD00_12": (9, 9),
+    "SB/NG/Engine/WAD00_17": (3, 3),
+    "SB/NG/Engine/WAD01_12": (3, 3),
+    "SB/NG/Engine/WAD01_17": (3, 3),
     "SB/NG/Engine/WAD01_2": (1, 1),
     "SB/NG/Engine/WAD02_15": (1, 1),
-    "SB/NG/Engine/WADSpeed": (10, 10),
-    "SB/NG/Source/Engine/TRC/TRCPadManager": (2, 2),
+    "SB/NG/Engine/WADSpeed": (17, 17),
+    "SB/NG/Source/Engine/TRC/TRCPadManager": (5, 5),
+    "SB/GM/Engine/Core/x/xUpdateCull": (1, 1),
+    "SB/GM/Engine/Game/zBTDepot": (1, 1),
+    "SB/GM/Engine/Game/zEventSpy": (1, 1),
+    "SB/GM/Engine/Game/zWaterWheel": (1, 1),
+    "SB/GM/Engine/WAD00_24": (1, 1),
+    "SB/GM/Engine/WAD00_31": (1, 1),
+    "SB/GM/Engine/WAD00_6": (1, 1),
+    "SB/GM/Engine/WAD00_8": (1, 1),
+    "SB/GM/Engine/WAD01": (3, 3),
+    "SB/GM/Engine/WAD01_1": (7, 7),
+    "SB/GM/Engine/WAD01_10": (1, 1),
+    "SB/GM/Engine/WAD01_11": (1, 1),
+    "SB/GM/Engine/WAD01_18": (2, 2),
+    "SB/GM/Engine/WAD01_19": (1, 1),
+    "SB/GM/Engine/WAD02_11": (2, 2),
+    "SB/GM/Engine/WAD02_22": (4, 4),
+    "SB/GM/Engine/WAD02_24": (2, 2),
+    "SB/GM/Engine/WAD02_31": (1, 1),
+    "SB/GM/Engine/WAD02_4": (1, 1),
+    "SB/GM/Engine/WAD03_1": (2, 2),
+    "SB/GM/Engine/WAD03_36": (1, 1),
+    "SB/GM/Engine/WAD03_40": (1, 1),
+    "SB/GM/Engine/WAD04_13": (1, 1),
+    "SB/NG/Engine/WAD00_2": (2, 2),
+    "SB/NG/Engine/WAD01_10": (1, 1),
+    "SB/NG/Engine/WAD02_1": (1, 1),
+    "SB/NG/Engine/WAD02_37": (2, 2),
+    "SB/NG/Source/Engine/IO/VirtualKeyboard/VirtualKeyboard": (1, 1),
+    # Lowered by hand for the reason given above WAD03_3.
+    "SB/NG/Source/Engine/TRC/TRCMessageBox": (1, 1),
+    "SB/NG/Source/Engine/TRC/TRCModule": (1, 1),
 }
 
 

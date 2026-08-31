@@ -566,7 +566,7 @@ config.libs = [
             Object(NonMatching, "SB/GM/Engine/WAD02_20.cpp"),
             Object(NonMatching, "SB/GM/Engine/Game/zNPCBTActionBuilder.cpp"),
             Object(NonMatching, "SB/GM/Engine/WAD02_21.cpp"),
-            Object(NonMatching, "SB/GM/Engine/Game/zNPCBTConditionBuilder.cpp"),
+            Object(Matching, "SB/GM/Engine/Game/zNPCBTConditionBuilder.cpp"),
             Object(NonMatching, "SB/GM/Engine/WAD02_22.cpp"),
             Object(NonMatching, "SB/GM/Engine/Game/zNPCCommonBTConditions.cpp"),
             Object(NonMatching, "SB/GM/Engine/WAD02_23.cpp"),

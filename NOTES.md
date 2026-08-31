@@ -7,7 +7,7 @@ numbers here, which move.
 ## State at time of writing
 
 ```
-Game Code:  21 of 498 files complete   4,368 / 2,115,452 bytes   72 / 10,559 fn
+Game Code:  22 of 498 files complete   4,452 / 2,115,452 bytes   73 / 10,559 fn
 All:        1.75% matched              main.dol reproduces byte for byte
 ```
 

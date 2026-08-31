@@ -35,6 +35,7 @@ EXPECT = {
     "SB/NG/Source/Engine/Graphics/Scaleform": (5, 5),
     "SB/GM/Engine/Game/zWallNetPosition": (3, 3),
     "SB/NG/Source/Engine/AssetManager/Domains/Blobloids": (9, 9),
+    "SB/GM/Engine/Game/zNPCBTConditionBuilder": (1, 1),
 }
 
 

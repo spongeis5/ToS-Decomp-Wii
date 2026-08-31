@@ -37,7 +37,10 @@ import sys
 from collections import Counter
 from pathlib import Path
 
-REPO = Path("C:/Users/redacted/Downloads/ToS-Decomp-Wii")
+# DERIVED, never written down. An absolute path here carries the account
+# name of whoever wrote it into a public repository. Content can be edited
+# away; an identity already in git history cannot.
+REPO = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(REPO / "tools"))
 from dwarf_types import Types                                  # noqa: E402
 

@@ -123,6 +123,31 @@ the `.cpp` that used it, and dtk rejects the fiction anyway.
    `Game/zScaleform.cpp` are different units in different unity blobs, and
    a suffix match on the first returns both.
 
+## Nothing personal in tracked files
+
+`python tools/test_privacy.py` refuses to let identifying information reach
+a public repository, and `hooks/pre-commit` runs it before a commit exists.
+Run `git config core.hooksPath hooks` after any fresh clone -- a hook that
+lives only in `.git/hooks` does not survive one.
+
+It exists because it was needed and was not there. `tools/dwarf_types_check.py`
+carried a hardcoded absolute path with the author's Windows account name in
+it; that went out in a commit and sat in the tree of sixteen more before
+anyone thought to look. Thinking to look is not a mechanism.
+
+Nothing personal is written in the checker itself -- a blocklist of a name
+publishes that name to every reader. The account name is derived from
+`Path.home().name` at runtime, commit identities are matched against the
+SHAPE of a GitHub privacy address, and home directories are matched by
+shape too. `tools/test_privacy_guard.py` plants all three home-path shapes
+to prove the checker rejects them, because a guard that has never been seen
+to fire is not known to work.
+
+The identity check deliberately covers `upstream/main..HEAD` only. The
+inherited history carries the upstream author's own address in their own
+public repository; that is correct attribution, and rewriting it would put
+someone else's work under a different name.
+
 ## Two traps worth knowing
 
 **Adding a `.cpp` needs `python configure.py`, not just `ninja`.** Until you

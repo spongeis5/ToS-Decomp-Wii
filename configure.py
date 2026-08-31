@@ -226,6 +226,12 @@ cflags_base = [
      "-DREVOLUTION",
 ]
 
+# And with SMALL DATA OFF. iTime.cpp is the first unit that owns a static,
+# and at the default it came out two words short per function: mwcc reached
+# sGameTime through r13 where retail forms the address with lis/lfs. That
+# agrees with what the retail code itself says -- of 7,054 data references
+# from the recovered units, ZERO use r13 or r2 (tools/dwarf_data.py). The
+# measurement and the flag are the same fact from both ends.
 # The GAME code was built for SIZE, not speed. Measured, not guessed: at
 # -O4,p zPlayerContainer::ContainsEnt comes out 13 words against retail's 14
 # and zNPCType::Setup 14 against 19, and ten source spellings of the first
@@ -233,7 +239,8 @@ cflags_base = [
 # are exact, and the three units that already matched at -O4,p still match.
 # A flag that fixes two and breaks none is the answer; one that fixed two
 # and broke one would not have been.
-cflags_game = [f for f in cflags_base if f != "-O4,p"] + ["-O4,s"]
+cflags_game = ([f for f in cflags_base if f != "-O4,p"]
+                + ["-O4,s", "-sdata", "0", "-sdata2", "0"])
 
 cflags_pedantic = [
     "-w unused",

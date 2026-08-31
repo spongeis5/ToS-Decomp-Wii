@@ -217,6 +217,7 @@ SB/GM/Engine/WAD00_29.cpp:
 
 SB/GM/Engine/Core/Wii/iTime.cpp:
 	.text       start:0x80050400 end:0x8005042C
+	.bss        start:0x8072E17C end:0x8072E180
 
 SB/GM/Engine/WAD00_30.cpp:
 	.text       start:0x8005042C end:0x80050430

@@ -43,8 +43,34 @@ either base. The game code is not built with small-data addressing.
 
 WHAT THIS DOES NOT DO. It reports and proposes; it does not write
 splits.txt. An address referenced by several units is SHARED and stays
-where it is -- attributing it to one of them would be a guess, and the 18%
+where it is -- attributing it to one of them would be a guess, and the ones
 that are shared are reported as shared rather than assigned.
+
+AND IT IS NOT ENOUGH TO ORDER BY, which is the harder finding. Giving an
+interior unit its data means carving it out of the parent's range, and the
+parent's remaining data must then fall on chunks that keep the link order
+its .text already fixed. That is only mechanical if data is laid out in the
+same order as text. It is not:
+
+    section   units owning data   in text order
+    .rodata          66                62%
+    .data           138                60%
+    .bss             87                74%
+
+measured over addresses that are the START of a data symbol -- the strict
+test, after dropping the constants that a lis/addi pair produces (643 of
+1,972 owned addresses fall in no section at all, and others land inside one
+without being 4-aligned; `80720003` and `8067FF9F` were being counted as
+data before that filter went in).
+
+A quarter to two fifths of inversions is far too many to be noise. The
+likely cause is `-inline auto`: a static belonging to file A, referenced
+only through a copy of A's function inlined into file B, is attributed here
+to B -- correctly, in the sense that B's code is what references it, and
+wrongly for the purpose of placing it. So the text split's trick does not
+carry over, and the data tier needs evidence this tool does not have.
+
+That is why nothing here writes splits.txt.
 """
 
 import argparse

@@ -527,7 +527,7 @@ config.libs = [
             Object(NonMatching, "SB/GM/Engine/WAD02_14.cpp"),
             Object(NonMatching, "SB/GM/Engine/Game/zMenu.cpp"),
             Object(NonMatching, "SB/GM/Engine/WAD02_15.cpp"),
-            Object(NonMatching, "SB/GM/Engine/Game/zModuleDebugMetrics.cpp"),
+            Object(Matching, "SB/GM/Engine/Game/zModuleDebugMetrics.cpp"),
             Object(NonMatching, "SB/GM/Engine/WAD02_16.cpp"),
             Object(NonMatching, "SB/GM/Engine/Game/zModuleMgr.cpp"),
             Object(NonMatching, "SB/GM/Engine/WAD02_17.cpp"),

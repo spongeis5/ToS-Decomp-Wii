@@ -13,6 +13,29 @@
 // Members are non-virtual, and the padding is padding -- only the
 // offsets each function touches are known, not the fields between.
 
+namespace World { class EntityHandleBase; }
+
+namespace World {
+
+class xOGEntity {
+public:
+    xOGEntity(World::EntityHandleBase* a0);
+    virtual void __vtable_anchor();
+};
+
+}  // namespace World
+
+namespace xRumble {
+
+class emitterBase : public World::xOGEntity {
+public:
+    virtual void __vtable_anchor();
+    emitterBase(World::EntityHandleBase* a0);
+
+};
+
+}  // namespace xRumble
+
 namespace xRumble {
 
 class Manager {
@@ -25,4 +48,5 @@ public:
 
 }  // namespace xRumble
 
+xRumble::emitterBase::emitterBase(World::EntityHandleBase* a0) : World::xOGEntity(a0) {}
 void xRumble::Manager::EnableRumbling(bool value) { f824 = value; }

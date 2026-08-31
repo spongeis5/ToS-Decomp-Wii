@@ -14,6 +14,131 @@
 // offsets each function touches are known, not the fields between.
 
 
+class zPlayerAction {
+public:
+    zPlayerAction();
+    unsigned char _pad[0xC];
+};
+
+
+
+class zCommonPlayerAction : public zPlayerAction {
+public:
+    virtual void __vtable_anchor();
+    zCommonPlayerAction();
+
+};
+
+
+
+class zBoardPlayerAction : public zCommonPlayerAction {
+public:
+    virtual void __vtable_anchor();
+    zBoardPlayerAction();
+
+};
+
+
+
+class zPlayerSkidStop : public zCommonPlayerAction {
+public:
+    virtual void __vtable_anchor();
+    zPlayerSkidStop();
+
+};
+
+
+
+class zPlayerSlip : public zCommonPlayerAction {
+public:
+    virtual void __vtable_anchor();
+    zPlayerSlip();
+
+};
+
+
+
+class zPlayerFallToDeath : public zCommonPlayerAction {
+public:
+    virtual void __vtable_anchor();
+    zPlayerFallToDeath();
+
+};
+
+
+
+class zPlayerLandBoard : public zBoardPlayerAction {
+public:
+    virtual void __vtable_anchor();
+    zPlayerLandBoard();
+
+};
+
+
+
+class zPlayerTriggered : public zCommonPlayerAction {
+public:
+    virtual void __vtable_anchor();
+    zPlayerTriggered();
+
+};
+
+
+
+class zPlayerHit : public zCommonPlayerAction {
+public:
+    virtual void __vtable_anchor();
+    zPlayerHit();
+
+};
+
+
+
+class zPlayerHitLaunch : public zCommonPlayerAction {
+public:
+    virtual void __vtable_anchor();
+    zPlayerHitLaunch();
+
+};
+
+
+
+class zCommonPlayerDash : public zCommonPlayerAction {
+public:
+    virtual void __vtable_anchor();
+    zCommonPlayerDash();
+
+};
+
+
+
+class zPlayerWalkStart : public zCommonPlayerAction {
+public:
+    virtual void __vtable_anchor();
+    zPlayerWalkStart();
+
+};
+
+
+
+class zPlayerCustomAnim : public zCommonPlayerAction {
+public:
+    virtual void __vtable_anchor();
+    zPlayerCustomAnim();
+
+};
+
+
+
+class zPlayerCheat : public zCommonPlayerAction {
+public:
+    virtual void __vtable_anchor();
+    zPlayerCheat();
+
+};
+
+
+
 class zBoardPlayer {
 public:
     float GetRigidBodyHeight();
@@ -65,6 +190,19 @@ public:
 };
 
 
+zBoardPlayerAction::zBoardPlayerAction() : zCommonPlayerAction() {}
+zCommonPlayerAction::zCommonPlayerAction() : zPlayerAction() {}
+zPlayerSkidStop::zPlayerSkidStop() : zCommonPlayerAction() {}
+zPlayerSlip::zPlayerSlip() : zCommonPlayerAction() {}
+zPlayerFallToDeath::zPlayerFallToDeath() : zCommonPlayerAction() {}
+zPlayerLandBoard::zPlayerLandBoard() : zBoardPlayerAction() {}
+zPlayerTriggered::zPlayerTriggered() : zCommonPlayerAction() {}
+zPlayerHit::zPlayerHit() : zCommonPlayerAction() {}
+zPlayerHitLaunch::zPlayerHitLaunch() : zCommonPlayerAction() {}
+zCommonPlayerDash::zCommonPlayerDash() : zCommonPlayerAction() {}
+zPlayerWalkStart::zPlayerWalkStart() : zCommonPlayerAction() {}
+zPlayerCustomAnim::zPlayerCustomAnim() : zCommonPlayerAction() {}
+zPlayerCheat::zPlayerCheat() : zCommonPlayerAction() {}
 float zBoardPlayer::GetRigidBodyHeight() { return fAA4; }
 const int* zPlayer::GetFloorNormal() const { return &f160; }
 void zPlayerTurn180Board::Begin() { f1C = 0; }

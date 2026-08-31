@@ -13,7 +13,29 @@
 // Members are non-virtual, and the padding is padding -- only the
 // offsets each function touches are known, not the fields between.
 
+namespace World { class EntityHandleBase; }
 namespace World { class IHackCinematicCallbackSink; }
+
+namespace World {
+
+class Entity {
+public:
+    Entity(World::EntityHandleBase* a0);
+    virtual void __vtable_anchor();
+};
+
+}  // namespace World
+
+namespace World {
+
+class GeometryEntity : public World::Entity {
+public:
+    virtual void __vtable_anchor();
+    GeometryEntity(World::EntityHandleBase* a0);
+
+};
+
+}  // namespace World
 
 namespace Graphics {
 
@@ -28,6 +50,17 @@ public:
 };
 
 }  // namespace Graphics
+
+namespace World {
+
+class BlobEntity : public World::Entity {
+public:
+    virtual void __vtable_anchor();
+    BlobEntity(World::EntityHandleBase* a0);
+
+};
+
+}  // namespace World
 
 namespace Graphics {
 
@@ -104,7 +137,9 @@ public:
 
 }  // namespace Graphics
 
+World::GeometryEntity::GeometryEntity(World::EntityHandleBase* a0) : World::Entity(a0) {}
 void Graphics::FixedVertexBuffer::Create() { fC = 0; f4 = 0; }
+World::BlobEntity::BlobEntity(World::EntityHandleBase* a0) : World::Entity(a0) {}
 unsigned char Graphics::Node::Attached() const { return f8; }
 void Graphics::Renderable3D::SetProjectShadowCast(void* value) { fCC = (int)value; }
 void World::CinematicBlobEntity::Play() { fA0 = 1; }

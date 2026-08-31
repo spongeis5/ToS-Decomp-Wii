@@ -13,12 +13,7 @@
 // Members are non-virtual, and the padding is padding -- only the
 // offsets each function touches are known, not the fields between.
 
-namespace Sext {
-enum ePauseType { ePauseType_ = 0x7FFFFFFF };
-}  // namespace Sext
 namespace World { class EntityHandleBase; }
-
-extern int pause_type;
 
 namespace World {
 
@@ -31,28 +26,12 @@ public:
 }  // namespace World
 
 
-class zTrigger {
-public:
-    int* DriveGetCurMat(int a0);
-
-    unsigned char _pad0[0x3C];
-    int f3C;
-};
-
-
-
-class zUIGroup : public World::xOGEntity {
+class zCollectibleSpawner : public World::xOGEntity {
 public:
     virtual void __vtable_anchor();
-    zUIGroup(World::EntityHandleBase* a0);
+    zCollectibleSpawner(World::EntityHandleBase* a0);
 
 };
 
 
-int zUIGetPauseType();
-void zUISetPauseType(Sext::ePauseType value);
-
-int* zTrigger::DriveGetCurMat(int a0) { return &f3C; }
-int zUIGetPauseType() { return pause_type; }
-void zUISetPauseType(Sext::ePauseType value) { pause_type = (int)value; }
-zUIGroup::zUIGroup(World::EntityHandleBase* a0) : World::xOGEntity(a0) {}
+zCollectibleSpawner::zCollectibleSpawner(World::EntityHandleBase* a0) : World::xOGEntity(a0) {}

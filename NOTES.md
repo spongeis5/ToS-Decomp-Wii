@@ -7,10 +7,10 @@ numbers here, which move.
 ## State at time of writing
 
 ```
-Game Code:  23 of 498 files complete  10,620 / 2,115,452 bytes  571 / 10,559 fn
-            0.5020% of game code
+Game Code:  23 of 498 files complete  13,200 / 2,115,452 bytes  614 / 10,559 fn
+            0.6240% of game code
 
-Of those 571 functions, 485 are GENERATED -- nine machine-recognised shapes,
+Of those 614 functions, 528 are GENERATED -- ten machine-recognised shapes,
 not one of which is decompiling. They are real matched functions and the
 offsets and constants are recovered fact, but a count of them is not a count
 of decompiled code. HAND-WRITTEN IS 86, across 29 units and 5,384 bytes --
@@ -19,7 +19,7 @@ is the figure to compare against earlier ones.
 `python tools/written_vs_generated.py` prints the split, decided by the
 banner in the file that defines each function, and refuses to report at all
 if the two halves do not add up to the category total.
-All:        1.85% matched              main.dol reproduces byte for byte
+All:        1.89% matched              main.dol reproduces byte for byte
 ```
 
 The other categories (Revolution SDK 15.60%, SDK Code 5.29%) were already
@@ -67,7 +67,7 @@ r13 or r2.
 | `anon_blocked.py` | which units can never match while they are split out of their unity blob |
 | `gen_typeids.py` | the constant-return codec -- decode, re-encode, demangle. `gen_accessors` imports it; it no longer writes files |
 | `gen_survey.py` | where else the constant-return shape lives |
-| `gen_accessors.py` | generate every member-only shape for a unit; `--survey` for what is left |
+| `gen_accessors.py` | generate every mechanical shape for a unit -- members, globals, constants, constructors; `--survey` for what is left |
 | `gen_units.py` | run that over EVERY unit that has candidates, and withdraw the files that no longer do |
 | `shape_census.py` | what the unmatched short functions LOOK like, as a population, by opcode signature |
 | `unitcmp_pins.py` | re-measure `unitcmp_check`'s pins; refuses to lower one |
@@ -205,10 +205,32 @@ someone else's work under a different name.
 
 ## The generated shapes, and what they cost to get right
 
-`gen_accessors.py` now recognises nine shapes -- member-only, constant, or
-one global -- and `gen_units.py` runs it over every unit that has any. That
-took Game Code from 8,528 to 10,620 bytes across 89 units, and **not one
-byte of it is decompiling**, which is why `written_vs_generated.py` exists.
+`gen_accessors.py` now recognises ten shapes -- member-only, constant, one
+global, or a constructor -- and `gen_units.py` runs it over every unit that
+has any. That took Game Code from 8,528 to 13,200 bytes across 94 units, and
+**not one byte of it is decompiling**, which is why
+`written_vs_generated.py` exists.
+
+The tenth is the largest single row the census had left, and the first that
+is a whole function rather than one instruction with a return:
+
+    stwu r1,-16(r1) ; mflr r0 ; stw r0,20(r1) ; stw r31,12(r1)
+    mr r31,r3 ; bl __ct__<Base> ; lis r4,HI ; mr r3,r31
+    addi r4,r4,LO ; stw r4,N(r31) ; <epilogue> ; blr
+
+A constructor that calls its base and then stores its own vtable pointer:
+`Derived::Derived(args) : Base(args) {}`, 60 bytes, 45 of them. The base is
+read out of the `bl` -- its symbol IS `__ct__<Base>` -- and its argument
+list has to be the same as ours, which for 46 of the 47 it is. **N says how
+the base is declared**: at 0 the base shares the vtable pointer and is
+declared polymorphic, above 0 the base sits in front of it and is declared
+padded to exactly N bytes. Both were tried by hand against the image before
+any of this was written, one of each kind, and both matched first time.
+
+A class that has a base subobject does not have its members where a bare
+offset says, so where one class has both a base constructor and a measured
+layout the BASE CONSTRUCTOR is dropped -- nothing that already matched can
+be lost that way.
 
 The last three came from the same census rows. A function whose whole body
 touches ONE GLOBAL -- `return g`, `return &g`, `g = v` -- is reachable
@@ -232,7 +254,7 @@ were dropped.
 The population was found by measuring rather than by noticing. Both earlier
 generators were written after someone spotted a shape by accident, so
 `shape_census.py` asks the question directly: group every unmatched game
-function by its sequence of opcodes and count. 1,546 of the 9,779 unmatched
+function by its sequence of opcodes and count. 1,546 of the 9,736 unmatched
 functions are 32 bytes or less, carrying 27,032 bytes across 591 distinct
 signatures, and the top of that list is where the next generator goes. The
 five biggest that are still unwritten:

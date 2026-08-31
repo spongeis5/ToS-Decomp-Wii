@@ -14,6 +14,28 @@
 // offsets each function touches are known, not the fields between.
 
 namespace FX { class activity_data; }
+namespace World { class EntityHandleBase; }
+
+namespace FX {
+
+class zFXSpawn {
+public:
+    zFXSpawn(World::EntityHandleBase* a0);
+    virtual void __vtable_anchor();
+};
+
+}  // namespace FX
+
+namespace FX {
+
+class zFXSpawnWithSoundAssetMultiple : public FX::zFXSpawn {
+public:
+    virtual void __vtable_anchor();
+    zFXSpawnWithSoundAssetMultiple(World::EntityHandleBase* a0);
+
+};
+
+}  // namespace FX
 
 namespace FX {
 namespace Particles {
@@ -31,4 +53,5 @@ public:
 }  // namespace Particles
 }  // namespace FX
 
+FX::zFXSpawnWithSoundAssetMultiple::zFXSpawnWithSoundAssetMultiple(World::EntityHandleBase* a0) : FX::zFXSpawn(a0) {}
 void FX::Particles::Locator::Sphere::release_volume(FX::activity_data& a0) { f4 = 0; }

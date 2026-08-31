@@ -15,7 +15,27 @@
 
 namespace Sext { class ActionBase; }
 namespace Sext { class BTNodeBase; }
+namespace World { class EntityHandleBase; }
 class zBTClient;
+
+namespace World {
+
+class xOGEntity {
+public:
+    xOGEntity(World::EntityHandleBase* a0);
+    virtual void __vtable_anchor();
+};
+
+}  // namespace World
+
+
+class xEffectAttachIntf : public World::xOGEntity {
+public:
+    virtual void __vtable_anchor();
+    xEffectAttachIntf(World::EntityHandleBase* a0);
+
+};
+
 
 
 class zBreakawayPlatform {
@@ -74,6 +94,7 @@ public:
 };
 
 
+xEffectAttachIntf::xEffectAttachIntf(World::EntityHandleBase* a0) : World::xOGEntity(a0) {}
 int* zBreakawayPlatform::DriveGetCurMat(int a0) { return &f1B4; }
 const int* zBreakawayPlatform::GetSoundPosition() const { return &f1E4; }
 int zBTActionHandleEvent::Update(float a0) { return f10; }

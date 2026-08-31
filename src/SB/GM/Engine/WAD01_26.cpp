@@ -16,6 +16,22 @@
 namespace Sext { class ConditionBase; }
 
 
+class zBTAction {
+public:
+    zBTAction();
+    unsigned char _pad[0xC];
+};
+
+
+
+class zModule {
+public:
+    zModule();
+    unsigned char _pad[0x14];
+};
+
+
+
 class zCamWorldDrivable {
 public:
     int* DriveGetCurMat(int a0);
@@ -465,6 +481,35 @@ public:
 
 
 
+class zAchievementsMgr : public zModule {
+public:
+    virtual void __vtable_anchor();
+    zAchievementsMgr();
+
+};
+
+
+
+class zBTActionAlwaysComplete : public zBTAction {
+public:
+    virtual void __vtable_anchor();
+    unsigned int GetTypeID() const;
+    zBTActionAlwaysComplete();
+
+};
+
+
+
+class zBTActionAlwaysFail : public zBTAction {
+public:
+    virtual void __vtable_anchor();
+    unsigned int GetTypeID() const;
+    zBTActionAlwaysFail();
+
+};
+
+
+
 class zAnimViewerCamera {
 public:
     virtual void __vtable_anchor();
@@ -483,22 +528,6 @@ public:
 
 
 class zBTConditionTrue {
-public:
-    unsigned int GetTypeID() const;
-
-};
-
-
-
-class zBTActionAlwaysFail {
-public:
-    unsigned int GetTypeID() const;
-
-};
-
-
-
-class zBTActionAlwaysComplete {
 public:
     unsigned int GetTypeID() const;
 
@@ -564,6 +593,9 @@ void zDirection::SetRoll(float value) { f54 = value; }
 void zDirection::SetPitch(float value) { f50 = value; }
 void zDirection::SetYaw(float value) { f4C = value; }
 float zCamDriver::getCurrentHeight() const { return f1B0; }
+zAchievementsMgr::zAchievementsMgr() : zModule() {}
+zBTActionAlwaysComplete::zBTActionAlwaysComplete() : zBTAction() {}
+zBTActionAlwaysFail::zBTActionAlwaysFail() : zBTAction() {}
 zAnimViewerCamera::zAnimViewerCamera() {}
 unsigned int zBTConditionFalse::GetTypeID() const { return 0x2EF3935Cu; }
 unsigned int zBTConditionTrue::GetTypeID() const { return 0x89176D7Du; }

@@ -13,6 +13,18 @@
 // Members are non-virtual, and the padding is padding -- only the
 // offsets each function touches are known, not the fields between.
 
+namespace World { class EntityHandleBase; }
+
+namespace World {
+
+class Entity {
+public:
+    Entity(World::EntityHandleBase* a0);
+    virtual void __vtable_anchor();
+};
+
+}  // namespace World
+
 namespace Graphics {
 
 class Renderable3D {
@@ -39,6 +51,17 @@ public:
 
 namespace World {
 
+class RenderCustomizerBaseEntity : public World::Entity {
+public:
+    virtual void __vtable_anchor();
+    RenderCustomizerBaseEntity(World::EntityHandleBase* a0);
+
+};
+
+}  // namespace World
+
+namespace World {
+
 class UVMovementSettingsEntity {
 public:
     unsigned int GetInstanceDataSize();
@@ -49,4 +72,5 @@ public:
 
 void Graphics::Renderable3D::SetProjectShadowFlag(unsigned int value) { fF0 = value; }
 void World::UVMovementInstanceData::SetRows(float* value) { f5C = (int)value; }
+World::RenderCustomizerBaseEntity::RenderCustomizerBaseEntity(World::EntityHandleBase* a0) : World::Entity(a0) {}
 unsigned int World::UVMovementSettingsEntity::GetInstanceDataSize() { return 0x00000060u; }

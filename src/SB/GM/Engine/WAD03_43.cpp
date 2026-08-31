@@ -20,6 +20,14 @@ enum PadType { PadType_ = 0x7FFFFFFF };
 namespace Math { extern int vec4Zero; }
 
 
+class zModule {
+public:
+    zModule();
+    unsigned char _pad[0x14];
+};
+
+
+
 class zUI {
 public:
     unsigned char GetBrightness();
@@ -95,6 +103,24 @@ public:
 };
 
 
+
+class zPOWManager : public zModule {
+public:
+    virtual void __vtable_anchor();
+    zPOWManager();
+
+};
+
+
+
+class zProjectileManager : public zModule {
+public:
+    virtual void __vtable_anchor();
+    zProjectileManager();
+
+};
+
+
 unsigned char zUI::GetBrightness() { return f84; }
 float zUI::GetRotation() { return f78; }
 float zUI::GetHeight() { return f64; }
@@ -115,3 +141,5 @@ int zPlayerInputHuman::GetPadType() { return f2C; }
 int* zRunEntLaser::GetDPos() { return &fA8; }
 int* zRunEntLaser::GetCurMatrixPtr() { return &f50; }
 unsigned int zPlayerSingleCustomAnimSB::GetID() { return 0x0000002Cu; }
+zPOWManager::zPOWManager() : zModule() {}
+zProjectileManager::zProjectileManager() : zModule() {}

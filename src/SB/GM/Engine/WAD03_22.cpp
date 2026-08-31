@@ -14,6 +14,49 @@
 // offsets each function touches are known, not the fields between.
 
 
+class hkpClosestRayHitCollector {
+public:
+    hkpClosestRayHitCollector();
+    virtual void __vtable_anchor();
+};
+
+
+
+class zCommonPlayerAction {
+public:
+    zCommonPlayerAction();
+    unsigned char _pad[0xC];
+};
+
+
+
+class zSBPlayerAction : public zCommonPlayerAction {
+public:
+    virtual void __vtable_anchor();
+    zSBPlayerAction();
+
+};
+
+
+
+class zPlayerLandSB : public zSBPlayerAction {
+public:
+    virtual void __vtable_anchor();
+    zPlayerLandSB();
+
+};
+
+
+
+class zSBCastCollector : public hkpClosestRayHitCollector {
+public:
+    virtual void __vtable_anchor();
+    zSBCastCollector();
+
+};
+
+
+
 class zPlayerSingleCustomAnimSB {
 public:
     void Reset();
@@ -25,4 +68,7 @@ public:
 };
 
 
+zSBPlayerAction::zSBPlayerAction() : zCommonPlayerAction() {}
+zPlayerLandSB::zPlayerLandSB() : zSBPlayerAction() {}
+zSBCastCollector::zSBCastCollector() : hkpClosestRayHitCollector() {}
 void zPlayerSingleCustomAnimSB::Reset() { f10 = 0; f1C = 0; }

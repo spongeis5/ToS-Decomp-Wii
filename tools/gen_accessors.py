@@ -5,7 +5,7 @@
     python tools/gen_accessors.py <start> <end> <out.cpp>
 
 A function whose whole body touches nothing but its own object's members,
-one global, or a constant. Nine shapes:
+one global, a constant, or its own base constructor. Ten shapes:
 
     lwz  r3, N(r3) ; blr         int, unsigned int or a pointer   -- get
     lhz / lha / lbz / lfs        unsigned short, short, unsigned char, float
@@ -24,6 +24,9 @@ one global, or a constant. Nine shapes:
       ; blr                          a free function, r4 in a member
     lis rD ; addi rD, g          a member set to the address of   -- gstore
       ; stw rD, N(r3) ; blr          a global
+    <prologue> ; bl __ct__<Base>     a constructor calling its base,  -- basector
+      ; lis/addi r4, __vt__C             then storing its own vtable
+      ; stw r4, N(r31) ; <epilogue>      pointer, and nothing else
 
 THESE ARE GENERATED, NOT READ, and the same caveat applies as to the type
 ids: real matched functions whose offsets are recovered fact, but a count of
@@ -48,6 +51,15 @@ CodeWarrior spells that the same whether the scope is a class or a
 namespace, so an `extern` inside nested namespaces reproduces the symbol --
 except where the scope is a class this file also declares, in which case
 the variable goes in as a static member instead.
+
+`basector` reads the base out of the `bl`: its symbol IS `__ct__<Base>`,
+and its argument list has to be the same as the caller's. N -- where the
+vtable pointer is stored -- says how the base gets declared: at 0 the base
+shares that pointer and is declared polymorphic, above 0 it sits in front
+and is declared padded to exactly N bytes. A class that has a base
+subobject does not have its members where a bare offset says, so where one
+class has both a base constructor and a measured layout, the BASE
+CONSTRUCTOR is the one dropped.
 
 `gref` and `constret` are the SAME THREE WORDS. `lis r3,HI ; addi r3,r3,LO
 ; blr` is both "return the address of a global" and "return this 32-bit
@@ -385,6 +397,34 @@ def decode(body):
             return ("set", ctype, imm)
         return None
 
+    if n == 60:
+        # A constructor: prologue, base constructor, vtable store, epilogue.
+        # Every word but the call, the two halves of the vtable address and
+        # the store offset is fixed, so the whole frame is checked here and
+        # only four fields are read out.
+        if (list(ws[:5]) == [0x9421FFF0, 0x7C0802A6, 0x90010014, 0x93E1000C,
+                             0x7C7F1B78]
+                and ws[7] == 0x7FE3FB78
+                and list(ws[10:]) == [0x83E1000C, 0x80010014, 0x7C0803A6,
+                                      0x38210010, BLR]
+                and (ws[5] >> 26) == 18 and (ws[5] & 3) == 1
+                and (ws[6] >> 26) == 15 and ((ws[6] >> 21) & 31) == 4
+                and ((ws[6] >> 16) & 31) == 0
+                and (ws[8] >> 26) == 14 and ((ws[8] >> 21) & 31) == 4
+                and ((ws[8] >> 16) & 31) == 4
+                and (ws[9] >> 26) == 36 and ((ws[9] >> 21) & 31) == 4
+                and ((ws[9] >> 16) & 31) == 31):
+            rel = ws[5] & 0x03FFFFFC
+            if rel & 0x02000000:
+                rel -= 0x04000000
+            lo16 = ws[8] & 0xFFFF
+            v = (((ws[6] & 0xFFFF) << 16)
+                 + (lo16 - 0x10000 if lo16 & 0x8000 else lo16)) & 0xFFFFFFFF
+            voff = ws[9] & 0xFFFF
+            if not voff & 0x8000:
+                return ("basector", rel, v, voff)
+        return None
+
     if n == 12:
         # lis rD, HI ; <one access at LO(rD)> ; blr -- a function whose whole
         # body touches one GLOBAL. Which global is checked in candidates();
@@ -495,6 +535,17 @@ def reencode(shape):
             return struct.pack(">III", 0x3C000000 | (d << 21) | hi,
                                (op << 26) | (dd << 21) | (d << 16) | lo, BLR)
         return None
+    if kind == "basector":
+        rel, v, voff = shape[1], shape[2], shape[3]
+        lo, hi = v & 0xFFFF, (v >> 16) & 0xFFFF
+        if lo & 0x8000:
+            hi = (hi + 1) & 0xFFFF
+        ws = [0x9421FFF0, 0x7C0802A6, 0x90010014, 0x93E1000C, 0x7C7F1B78,
+              (18 << 26) | (rel & 0x03FFFFFC) | 1,
+              0x3C800000 | hi, 0x7FE3FB78, 0x38840000 | lo,
+              0x909F0000 | voff,
+              0x83E1000C, 0x80010014, 0x7C0803A6, 0x38210010, BLR]
+        return struct.pack(">" + "I" * 15, *ws)
     if kind == "vtable":
         v, off, d = shape[1], shape[2], shape[3]
         lo, hi = v & 0xFFFF, (v >> 16) & 0xFFFF
@@ -545,7 +596,7 @@ def symbols():
                 continue
             for s in sec.iter_symbols():
                 if (s["st_info"]["type"] == "STT_FUNC"
-                        and s["st_size"] in (8, 12, 16, 20)):
+                        and s["st_size"] in (8, 12, 16, 20, 60)):
                     out.append((s["st_value"], s["st_size"], s.name))
     out.sort()
     return out
@@ -565,6 +616,24 @@ def loaded_spans(raw):
     one of them does. The test separates them exactly.
     """
     return [(sh[3], sh[3] + sh[5]) for sh in sections(raw) if sh[3] and sh[5]]
+
+
+_FUNC_SYMS = None
+
+
+def function_symbols():
+    """address -> name, for functions. The base constructor is found here."""
+    global _FUNC_SYMS
+    if _FUNC_SYMS is None:
+        _FUNC_SYMS = {}
+        with open(ELF, "rb") as fh:
+            for sec in ELFFile(fh).iter_sections():
+                if sec.header["sh_type"] != "SHT_SYMTAB":
+                    continue
+                for s in sec.iter_symbols():
+                    if s["st_info"]["type"] == "STT_FUNC" and s["st_size"]:
+                        _FUNC_SYMS.setdefault(s["st_value"], s.name)
+    return _FUNC_SYMS
 
 
 _DATA_SYMS = None
@@ -627,7 +696,7 @@ def candidates(raw, base, foff, syms, lo, hi):
         body = raw[foff + (addr - base): foff + (addr - base) + size]
 
         shape = decode(body)
-        const, glob = None, None
+        const, glob, base_cls = None, None, None
         if (shape is not None and shape[0] == "gref"
                 and not any(a <= shape[1] < b for a, b in spans)):
             # Not an address, so those three words are a constant return
@@ -675,6 +744,39 @@ def candidates(raw, base, foff, syms, lo, hi):
                         "relocation"] += 1
                 continue
             shape = ("constret", const)
+        elif shape[0] == "basector":
+            if cls is None or method != "__ct__":
+                skipped["only a constructor calls a base constructor"] += 1
+                continue
+            want = "__vt__" + mangle_type(("name", tuple(ns) + (cls,)))
+            if data_symbols().get(shape[2]) != want:
+                skipped["the stored address is not this class's own "
+                        "vtable"] += 1
+                continue
+            tgt = (addr + 20 + shape[1]) & 0xFFFFFFFF
+            tname = function_symbols().get(tgt)
+            if tname is None or not tname.startswith("__ct__"):
+                skipped["the call target is not a constructor"] += 1
+                continue
+            them = split_symbol(tname)
+            if them is None or them[1] is None:
+                skipped["the base constructor does not name a class"] += 1
+                continue
+            if them[4] != args:
+                skipped["the base constructor takes different "
+                        "arguments"] += 1
+                continue
+            if not usable(list(them[0]) + [them[1]]):
+                skipped["the base class name is not a plain "
+                        "identifier"] += 1
+                continue
+            if shape[3] % 4:
+                skipped["the vtable offset is not a multiple of four"] += 1
+                continue
+            base_cls = (tuple(them[0]), them[1])
+            if base_cls == (tuple(ns), cls):
+                skipped["a class cannot be its own base"] += 1
+                continue
         elif shape[0] == "vtable":
             got_sym = data_symbols().get(shape[1])
             want = ("__vt__" + mangle_type(("name", tuple(ns) + (cls,)))
@@ -747,7 +849,8 @@ def candidates(raw, base, foff, syms, lo, hi):
                 continue
         good.append({"addr": addr, "size": size, "ns": tuple(ns), "cls": cls,
                      "method": method, "const": is_const, "shape": shape,
-                     "params": params, "sym": sym, "global": glob})
+                     "params": params, "sym": sym, "global": glob,
+                     "base": base_cls})
     return good, skipped
 
 
@@ -854,9 +957,20 @@ def field_types(good, skipped):
                 bad.add((key, off))
             end = off + WIDTH[ctype]
 
+    # A class with a base subobject in front of it does not have its members
+    # where a bare offset says: the offsets measured here are from the start
+    # of the whole object. Rather than guess, the BASE CONSTRUCTOR is the one
+    # dropped, so nothing that already matched can be lost this way.
+    laid_out = {(c["ns"], c["cls"]) for c in good
+                if offsets_of(c["shape"]) or c["shape"][0] == "vtable"}
+
     keep = []
     for c in good:
         key = (c["ns"], c["cls"])
+        if c["shape"][0] == "basector" and key in laid_out:
+            skipped["a base constructor on a class whose layout is also "
+                    "measured"] += 1
+            continue
         if any((key, off) in bad for off, _t in offsets_of(c["shape"])):
             skipped["the class cannot be laid out from what was measured"] += 1
             continue
@@ -909,7 +1023,40 @@ def offsets_of(shape):
 
 
 def has_vtable(cands):
-    return any(c["shape"][0] == "vtable" for c in cands)
+    return any(c["shape"][0] in ("vtable", "basector") for c in cands)
+
+
+def base_of(cands):
+    """The (namespaces, class) this class derives from, or None."""
+    for c in cands:
+        if c["shape"][0] == "basector":
+            return c["base"]
+    return None
+
+
+def class_order(methods):
+    """Our classes, a base before anything deriving from it.
+
+    Two of the units hold a chain -- zPlayerLandSB derives from
+    zSBPlayerAction, which derives from zCommonPlayerAction -- and a class
+    has to be complete before it is used as a base.
+    """
+    order, seen = [], set()
+
+    def visit(key, path):
+        if key in seen or key not in methods:
+            return
+        if key in path:
+            return                      # a cycle; leave the order alone
+        b = base_of(methods[key])
+        if b is not None:
+            visit(b, path | {key})
+        seen.add(key)
+        order.append(key)
+
+    for key in methods:
+        visit(key, set())
+    return order
 
 
 def param_decls(params, setter):
@@ -972,6 +1119,12 @@ def main():
     # `Graphics` cannot also be a namespace. A forward declaration of a
     # class this file goes on to define is fine and is not a collision.
     defined = {(c["ns"], c["cls"]) for c in good}
+    # A base stub is a class this file declares too, so a parameter type
+    # whose scope is that same name cannot also be a namespace.
+    # Graphics::Node is both a base class and the scope of
+    # Graphics::Node::NodeTypeEnum, and `namespace Node` beside
+    # `class Node` does not compile.
+    defined |= {c["base"] for c in good if c["shape"][0] == "basector"}
 
     def collides(parts, is_value):
         scopes = [parts[:i + 1] for i in range(len(parts) - 1)]
@@ -1058,12 +1211,46 @@ def main():
         L += externs
         L.append("")
 
-    for key in methods:
+    # Base classes this file does not otherwise declare, as stubs. The
+    # vtable offset says which kind: at 0 the base shares the pointer and is
+    # polymorphic, above 0 it sits in front of it and is that many bytes.
+    stubs = {}
+    for key, cands in methods.items():
+        b = base_of(cands)
+        if b is None or b in methods:
+            continue
+        c = next(x for x in cands if x["shape"][0] == "basector")
+        stubs.setdefault(b, (c["shape"][3], c["params"]))
+    for b in sorted(stubs):
+        voff, params = stubs[b]
+        bns, bcls = list(b[0]), b[1]
+        for n in bns:
+            L.append("namespace %s {" % n)
+        L.append("")
+        L.append("class %s {" % bcls)
+        L.append("public:")
+        L.append("    %s(%s);" % (bcls, param_decls(params, False)))
+        if voff:
+            L.append("    unsigned char _pad[0x%X];" % voff)
+        else:
+            L.append("    virtual void __vtable_anchor();")
+        L.append("};")
+        L.append("")
+        for n in reversed(bns):
+            L.append("}  // namespace %s" % n)
+        L.append("")
+
+    for key in class_order(methods):
         ns, cls = list(key[0]), key[1]
+        b = base_of(methods[key])
         for n in ns:
             L.append("namespace %s {" % n)
         L.append("")
-        L.append("class %s {" % cls)
+        if b is None:
+            L.append("class %s {" % cls)
+        else:
+            L.append("class %s : public %s {"
+                     % (cls, "::".join(list(b[0]) + [b[1]])))
         L.append("public:")
         for name, ctype in sorted(statics.get(key, [])):
             L.append("    static %s %s;" % (ctype, name))
@@ -1168,7 +1355,7 @@ def declare(c, flds):
     if kind == "gstore":
         return "    void %s(%s)%s;" % (c["method"],
                                        param_decls(c["params"], False), cst)
-    if kind == "vtable":
+    if kind in ("vtable", "basector"):
         return "    %s(%s);" % (c["cls"], param_decls(c["params"], False))
     if c["method"] == "__ct__":
         return "    %s(%s);" % (c["cls"], param_decls(c["params"], False))
@@ -1220,6 +1407,11 @@ def define(c, flds):
         # class is polymorphic, so an empty body is the whole function.
         return "%s::%s(%s) {}" % (q, c["cls"],
                                   param_decls(c["params"], False))
+    if kind == "basector":
+        args = ", ".join("a%d" % i for i in range(len(c["params"])))
+        return "%s::%s(%s) : %s(%s) {}" % (
+            q, c["cls"], param_decls(c["params"], False),
+            "::".join(list(c["base"][0]) + [c["base"][1]]), args)
     if c["method"] == "__ct__":
         body = " ".join("f%X = %d;" % (off, c["shape"][1])
                         for _ctype, off in c["shape"][2])

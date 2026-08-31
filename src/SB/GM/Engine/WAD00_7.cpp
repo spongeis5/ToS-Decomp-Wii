@@ -13,6 +13,18 @@
 // Members are non-virtual, and the padding is padding -- only the
 // offsets each function touches are known, not the fields between.
 
+namespace World { class EntityHandleBase; }
+
+namespace World {
+
+class xOGEntity {
+public:
+    xOGEntity(World::EntityHandleBase* a0);
+    virtual void __vtable_anchor();
+};
+
+}  // namespace World
+
 namespace Graphics {
 
 class LightPointSpot {
@@ -27,5 +39,15 @@ public:
 
 }  // namespace Graphics
 
+
+class xLightEffectBase : public World::xOGEntity {
+public:
+    virtual void __vtable_anchor();
+    xLightEffectBase(World::EntityHandleBase* a0);
+
+};
+
+
 void Graphics::LightPointSpot::SetViewportVisibleMask(unsigned short value) { f12 = value; }
 void Graphics::LightPointSpot::SetLightMask(unsigned short value) { f14 = value; }
+xLightEffectBase::xLightEffectBase(World::EntityHandleBase* a0) : World::xOGEntity(a0) {}

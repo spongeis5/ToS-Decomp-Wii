@@ -13,6 +13,16 @@
 // Members are non-virtual, and the padding is padding -- only the
 // offsets each function touches are known, not the fields between.
 
+namespace zCombat {
+
+class hkpCombatCdBodyPairCollector {
+public:
+    hkpCombatCdBodyPairCollector();
+    virtual void __vtable_anchor();
+};
+
+}  // namespace zCombat
+
 
 class zProjectile {
 public:
@@ -20,6 +30,17 @@ public:
 
 };
 
+
+namespace zCombat {
+
+class hkpCombatCdBodyPairCollectorNoBSP : public zCombat::hkpCombatCdBodyPairCollector {
+public:
+    virtual void __vtable_anchor();
+    hkpCombatCdBodyPairCollectorNoBSP();
+
+};
+
+}  // namespace zCombat
 
 
 class hkpAllCdBodyPairCollector {
@@ -34,4 +55,5 @@ public:
 
 
 unsigned int zProjectile::GetExplosionHitSource() { return 0x00000002u; }
+zCombat::hkpCombatCdBodyPairCollectorNoBSP::hkpCombatCdBodyPairCollectorNoBSP() : zCombat::hkpCombatCdBodyPairCollector() {}
 void hkpAllCdBodyPairCollector::reset() { fC = 0; f4 = 0; }

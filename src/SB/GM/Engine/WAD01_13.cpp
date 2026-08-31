@@ -13,6 +13,18 @@
 // Members are non-virtual, and the padding is padding -- only the
 // offsets each function touches are known, not the fields between.
 
+namespace World { class EntityHandleBase; }
+
+namespace World {
+
+class xOGEntity {
+public:
+    xOGEntity(World::EntityHandleBase* a0);
+    virtual void __vtable_anchor();
+};
+
+}  // namespace World
+
 
 class zCamDriver {
 public:
@@ -27,6 +39,15 @@ public:
 
 
 
+class zCamFixed : public World::xOGEntity {
+public:
+    virtual void __vtable_anchor();
+    zCamFixed(World::EntityHandleBase* a0);
+
+};
+
+
+
 class zCamWorldFixed {
 public:
     virtual void __vtable_anchor();
@@ -37,4 +58,5 @@ public:
 
 float zCamDriver::getCurrentBasisTheta() const { return f1A0; }
 float zCamDriver::getCurrentBasisDist() const { return f1A8; }
+zCamFixed::zCamFixed(World::EntityHandleBase* a0) : World::xOGEntity(a0) {}
 zCamWorldFixed::zCamWorldFixed() {}

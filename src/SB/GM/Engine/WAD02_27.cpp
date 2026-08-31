@@ -13,6 +13,25 @@
 // Members are non-virtual, and the padding is padding -- only the
 // offsets each function touches are known, not the fields between.
 
+namespace World { class EntityHandleBase; }
+
+
+class zNPCGeneric {
+public:
+    zNPCGeneric(World::EntityHandleBase* a0);
+    virtual void __vtable_anchor();
+};
+
+
+
+class zNPCGenericSpawner : public zNPCGeneric {
+public:
+    virtual void __vtable_anchor();
+    zNPCGenericSpawner(World::EntityHandleBase* a0);
+
+};
+
+
 
 class zNPCGenericSwarm {
 public:
@@ -23,4 +42,5 @@ public:
 };
 
 
+zNPCGenericSpawner::zNPCGenericSpawner(World::EntityHandleBase* a0) : zNPCGeneric(a0) {}
 int zNPCGenericSwarm::GetNumberOfChildren() { return f240; }

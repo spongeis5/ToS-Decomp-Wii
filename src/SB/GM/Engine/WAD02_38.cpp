@@ -14,6 +14,14 @@
 // offsets each function touches are known, not the fields between.
 
 
+class zModule {
+public:
+    zModule();
+    unsigned char _pad[0x14];
+};
+
+
+
 class zNPCBTClientBase {
 public:
     int GetOwner() const;
@@ -37,5 +45,25 @@ public:
 
 }  // namespace Graphics
 
+
+class zNPCManager : public zModule {
+public:
+    virtual void __vtable_anchor();
+    zNPCManager();
+
+};
+
+
+
+class zNPCNinjaManager : public zModule {
+public:
+    virtual void __vtable_anchor();
+    zNPCNinjaManager();
+
+};
+
+
 int zNPCBTClientBase::GetOwner() const { return f1A0; }
 Graphics::LightKitData::LightKitData() { f70 = 0; f74 = 0; f78 = 0; }
+zNPCManager::zNPCManager() : zModule() {}
+zNPCNinjaManager::zNPCNinjaManager() : zModule() {}

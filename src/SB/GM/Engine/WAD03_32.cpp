@@ -14,6 +14,14 @@
 // offsets each function touches are known, not the fields between.
 
 
+class Electricity {
+public:
+    Electricity();
+    unsigned char _pad[0x4];
+};
+
+
+
 class zTikiCollisionListener {
 public:
     virtual void __vtable_anchor();
@@ -22,4 +30,14 @@ public:
 };
 
 
+
+class MappedElectricity : public Electricity {
+public:
+    virtual void __vtable_anchor();
+    MappedElectricity();
+
+};
+
+
 zTikiCollisionListener::zTikiCollisionListener() {}
+MappedElectricity::MappedElectricity() : Electricity() {}

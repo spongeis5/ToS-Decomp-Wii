@@ -13,46 +13,27 @@
 // Members are non-virtual, and the padding is padding -- only the
 // offsets each function touches are known, not the fields between.
 
-namespace Sext {
-enum ePauseType { ePauseType_ = 0x7FFFFFFF };
-}  // namespace Sext
 namespace World { class EntityHandleBase; }
 
-extern int pause_type;
+namespace UI {
 
-namespace World {
-
-class xOGEntity {
+class Font {
 public:
-    xOGEntity(World::EntityHandleBase* a0);
+    Font(World::EntityHandleBase* a0);
     virtual void __vtable_anchor();
 };
 
-}  // namespace World
+}  // namespace UI
 
+namespace UI {
 
-class zTrigger {
-public:
-    int* DriveGetCurMat(int a0);
-
-    unsigned char _pad0[0x3C];
-    int f3C;
-};
-
-
-
-class zUIGroup : public World::xOGEntity {
+class TextureFont : public UI::Font {
 public:
     virtual void __vtable_anchor();
-    zUIGroup(World::EntityHandleBase* a0);
+    TextureFont(World::EntityHandleBase* a0);
 
 };
 
+}  // namespace UI
 
-int zUIGetPauseType();
-void zUISetPauseType(Sext::ePauseType value);
-
-int* zTrigger::DriveGetCurMat(int a0) { return &f3C; }
-int zUIGetPauseType() { return pause_type; }
-void zUISetPauseType(Sext::ePauseType value) { pause_type = (int)value; }
-zUIGroup::zUIGroup(World::EntityHandleBase* a0) : World::xOGEntity(a0) {}
+UI::TextureFont::TextureFont(World::EntityHandleBase* a0) : UI::Font(a0) {}

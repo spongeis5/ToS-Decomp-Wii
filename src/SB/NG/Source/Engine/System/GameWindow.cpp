@@ -13,42 +13,25 @@
 // Members are non-virtual, and the padding is padding -- only the
 // offsets each function touches are known, not the fields between.
 
-namespace World { class EntityHandleBase; }
+namespace System {
 
-extern unsigned char gTrcControlsDisabled;
-
-namespace World {
-
-class Entity {
+class Module {
 public:
-    Entity(World::EntityHandleBase* a0);
-    virtual void __vtable_anchor();
+    Module();
+    unsigned char _pad[0x14];
 };
 
-}  // namespace World
+}  // namespace System
 
+namespace System {
 
-class _tagTRCPadInfo {
-public:
-    _tagTRCPadInfo();
-
-    int f0;
-};
-
-
-namespace World {
-
-class xOGStubEntity : public World::Entity {
+class GameWindowModule : public System::Module {
 public:
     virtual void __vtable_anchor();
-    xOGStubEntity(World::EntityHandleBase* a0);
+    GameWindowModule();
 
 };
 
-}  // namespace World
+}  // namespace System
 
-unsigned char xTRCPadIsControlsDisabled();
-
-_tagTRCPadInfo::_tagTRCPadInfo() { f0 = -1; }
-unsigned char xTRCPadIsControlsDisabled() { return gTrcControlsDisabled; }
-World::xOGStubEntity::xOGStubEntity(World::EntityHandleBase* a0) : World::Entity(a0) {}
+System::GameWindowModule::GameWindowModule() : System::Module() {}

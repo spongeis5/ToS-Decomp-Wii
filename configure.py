@@ -226,6 +226,16 @@ cflags_base = [
      "-DREVOLUTION",
 ]
 
+# And with lmw/stmw prologues. IO::MediaObject::MediaObject() saves r30-r31
+# with a single stmw where the default emits two stw, and restores with lmw
+# against two lwz. The body was already identical, so this was two words in
+# twenty-two. Checked against all twelve units that already matched before
+# being adopted -- none of them changes.
+#
+# It is NOT uniform in retail: zNPCStatus's target saves the same pair with
+# two stw. So the setting does not force stmw everywhere, it permits it, and
+# mwcc still chooses per function.
+
 # And with SMALL DATA OFF. iTime.cpp is the first unit that owns a static,
 # and at the default it came out two words short per function: mwcc reached
 # sGameTime through r13 where retail forms the address with lis/lfs. That
@@ -240,7 +250,8 @@ cflags_base = [
 # A flag that fixes two and breaks none is the answer; one that fixed two
 # and broke one would not have been.
 cflags_game = ([f for f in cflags_base if f != "-O4,p"]
-                + ["-O4,s", "-sdata", "0", "-sdata2", "0"])
+                + ["-O4,s", "-sdata", "0", "-sdata2", "0",
+                   "-use_lmw_stmw", "on"])
 
 cflags_pedantic = [
     "-w unused",
@@ -786,7 +797,7 @@ config.libs = [
             Object(NonMatching, "SB/NG/Engine/WAD01_16.cpp"),
             Object(NonMatching, "SB/NG/Source/Engine/IO/File/MediaConfig.cpp"),
             Object(NonMatching, "SB/NG/Engine/WAD01_17.cpp"),
-            Object(NonMatching, "SB/NG/Source/Engine/IO/File/MediaObject.cpp"),
+            Object(Matching, "SB/NG/Source/Engine/IO/File/MediaObject.cpp"),
             Object(NonMatching, "SB/NG/Engine/WAD01_18.cpp"),
             Object(NonMatching, "SB/NG/Source/Engine/IO/VirtualKeyboard/VirtualKeyboard.cpp"),
             Object(NonMatching, "SB/NG/Engine/WAD01_19.cpp"),

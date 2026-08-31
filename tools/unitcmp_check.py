@@ -49,6 +49,9 @@ EXPECT = {
     # Five of the unit's eight functions are written; the other three
     # reach further into the graphics types than has been recovered.
     "SB/NG/Source/Engine/Graphics/Builders/StaticBuilder": (5, 5),
+    # Five of seven written; xStricmp and the length-limited hash are
+    # recorded near misses.  The unit has 14 functions in all.
+    "SB/GM/Engine/Core/x/xString": (5, 7),
 }
 
 

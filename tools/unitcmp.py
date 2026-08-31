@@ -226,10 +226,24 @@ def dis(b):
     return [t for _v, _w, t in ppcdis.words(words(b))]
 
 
+SOURCE_EXTS = (".cpp", ".cxx", ".cc", ".c")
+
+
+def source_of(unit):
+    """Not every unit is a .cpp -- keycode is a .cxx, and appending .cpp to
+    it silently compiles nothing and reports zero functions."""
+    if unit.endswith(SOURCE_EXTS):
+        return "src/" + unit
+    for ext in SOURCE_EXTS:
+        if (REPO / ("src/" + unit + ext)).exists():
+            return "src/" + unit + ext
+    return "src/" + unit + ".cpp"
+
+
 def compile_unit(unit, extra=()):
     obj = REPO / "build/_unitcmp.o"
     r = subprocess.run(
-        [CC] + BASE + list(extra) + ["-o", str(obj), "src/" + unit + ".cpp"],
+        [CC] + BASE + list(extra) + ["-o", str(obj), source_of(unit)],
         cwd=str(REPO), capture_output=True, text=True)
     if r.returncode:
         return None, "COMPILE FAILED (exit %d)\n%s%s" % (

@@ -599,7 +599,7 @@ config.libs = [
             Object(NonMatching, "SB/GM/Engine/WAD02_36.cpp"),
             Object(NonMatching, "SB/GM/Engine/Game/zLaserScanner.cpp"),
             Object(NonMatching, "SB/GM/Engine/WAD02_37.cpp"),
-            Object(NonMatching, "SB/GM/Engine/Game/zLaser.cpp"),
+            Object(Matching, "SB/GM/Engine/Game/zLaser.cpp"),
             Object(NonMatching, "SB/GM/Engine/WAD02_38.cpp"),
             Object(NonMatching, "SB/GM/Engine/WAD03.cpp"),
             Object(NonMatching, "SB/GM/Engine/Game/zPerformanceDisplay.cpp"),

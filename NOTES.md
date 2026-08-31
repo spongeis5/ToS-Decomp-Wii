@@ -7,8 +7,8 @@ numbers here, which move.
 ## State at time of writing
 
 ```
-Game Code:  22 of 498 files complete   4,452 / 2,115,452 bytes   73 / 10,559 fn
-All:        1.75% matched              main.dol reproduces byte for byte
+Game Code:  23 of 498 files complete   4,644 / 2,115,452 bytes   74 / 10,559 fn
+All:        1.76% matched              main.dol reproduces byte for byte
 ```
 
 The other categories (Revolution SDK 15.60%, SDK Code 5.29%) were already
@@ -96,13 +96,20 @@ the `.cpp` that used it, and dtk rejects the fiction anyway.
    `iTime.cpp` and `zPerformanceDisplay.cpp` are written and their objects
    match 100%; both are `NonMatching` because of the above.
 
-2. **Three near-misses with exhausted searches.** Do not redo these:
+2. **Four near-misses with exhausted searches.** Do not redo these:
    - `zNPCType` 84.53% -- register allocation only; structure identical.
      Five declaration orders tried, all 8 of 19 words.
    - `zNPCStatus` 67.55% -- retail constructs `Math::Vector` in place at the
      member; ours builds a temporary and copies. **Seven spellings and
      eight flag sets tried**, all 6 of 22. What is left is the real
      declaration of `Math::Vector`, which the DWARF does not pin down.
+   - `keycode.cxx` 5 of 26 words, and all five are ONE register swap:
+     retail keeps the walking destination in r4 and the character in r5,
+     and every spelling puts them the other way round. **Thirteen
+     spellings across two sweeps**, listed in the file. Folding the three
+     loop tests into a single condition is what took it from 15 to 5 --
+     with `break`s inside a bounded loop mwcc proves the trip count and
+     emits `mtctr`/`bdnz`, which retail does not have.
    - `xOGModelRefPtr` 3 of 4 -- `GetWeakPtr` is right in all thirty words
      except where the first load sits in the prologue. **Seven spellings and
      twelve flag sets tried**, six of the spellings emitting identical bytes.
@@ -188,6 +195,13 @@ first operand where `x + base` does not -- mwcc normalises commutative adds
 before the emitter, so operand order in the text does not survive).
 
 When a body is already identical, stop editing C++ and look at the flags.
+
+`zLaser` settled one open question by measurement. It is the only function
+in the tree whose prologue CALLS `__save_gpr` instead of emitting `stmw`,
+and it came out of the current flags unchanged on the first attempt. So
+`-use_lmw_stmw on` really does PERMIT rather than force, and the choice
+between `stmw`, `stw` pairs and the helper is the compiler's, made per
+function. Nothing needs doing about it.
 
 The one place the source text HAS been the lever is **where a value lives**,
 and it cuts both ways:

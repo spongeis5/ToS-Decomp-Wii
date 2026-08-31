@@ -396,7 +396,7 @@ config.libs = [
         "objects": [
             Object(NonMatching, "SB/GM/Engine/Core/LinkFastSqrt.cpp"),
             Object(NonMatching, "SB/GM/Engine/WAD00.cpp"),
-            Object(NonMatching, "SB/GM/Engine/Core/x/xBase.cpp"),
+            Object(Matching, "SB/GM/Engine/Core/x/xBase.cpp"),
             Object(NonMatching, "SB/GM/Engine/WAD00_1.cpp"),
             Object(NonMatching, "SB/GM/Engine/Core/x/xCounter.cpp"),
             Object(NonMatching, "SB/GM/Engine/WAD00_2.cpp"),

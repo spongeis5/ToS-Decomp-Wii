@@ -408,64 +408,92 @@ method, which no derivation reaches.
 
 ## Where to pick up
 
-Run these three first; they take about four minutes together and they say
-what is true rather than what was true:
+Run these first. They say what is true rather than what was true, and
+the third one takes a while because it now covers every unit with
+source rather than only the generated ones:
 
 ```bash
 ninja                                  # main.dol: OK, and report.json
 python tools/notes_state.py            # rewrite the State block above
-python tools/unitcmp_check.py          # 117 pins, 0 failures expected
+python tools/unitcmp_check.py          # 206 pins, 0 failures expected
+python tools/reloc_audit.py --quiet    # 0 wrong branches expected
 ```
+
+**`tools/disasm.py` is how a unit gets written now.** It resolves
+branch targets to names, folds `lis`/`addi` pairs into the address
+they build, and prints `.word` for anything it cannot decode rather
+than guessing. It reads 100% of the instructions in the splits.
+`disasm.py --unit <unit>` then writing the source against it is the
+whole loop; `dwarf_lines.py --unit` and `dwarf_locals.py --unit` add
+the original's statement structure and register allocation when a
+function resists.
 
 Then one of these, in the order they are worth doing:
 
-1. **Write another unit.** `zBTNodeReference.cpp` went from nothing to four
-   of seven functions in one sitting, and the method is now routine: pick a
-   unit, run `dwarf_lines.py --unit` for the original's statement
-   structure, `dwarf_locals.py --unit` for each `this` and every local's
-   register, and resolve the branch and `lis`/`addi` targets from the
-   symbol table before writing a line. The candidates are small recovered
-   units that are not yet Matching -- `View.cpp` (4 functions, 336 bytes),
-   `zPOWObject.cpp` (3, 252), `zBTNodeSequence.cpp` (5, 468),
-   `zRandomModelList.cpp` (4, 424), `Renderable.cpp` (2, 224). This is the
-   only column that means decompiling and it is the one to move.
+1. **Write another unit.** This is the only column that means
+   decompiling and it is the one that moved most this session: 92
+   hand-written functions to 128. Seven units were written in one
+   sitting and five were byte-identical on the first compile. Units
+   within three functions of complete, measured after this session:
 
-1b. **Another shape.** `python tools/shape_census.py` still ranks what is
-   left, and the biggest row by far is `addi b` -- 97 functions, 776 bytes
-   -- of which 689 of the 787 image-wide are `@N@` MULTIPLE-INHERITANCE
-   ADJUSTOR THUNKS. The compiler emits those from a class declaration, so
-   the work is recovering an MI layout rather than writing a body. After
-   that: `lwz or or lwz or mtspr bcctr` (14, 392 B) is the event-wrapper
-   family, five of whose fourteen are in anonymous namespaces; `lfs stfs
-   bclr` (14, 168 B) is `update_tag_*`, free functions in an anonymous
-   namespace that `split_symbol` refuses. Anonymous-namespace support in
-   `split_symbol` would unlock several rows at once, and the unit is
-   already named after its blob, so the mangling would come out right.
+   | bytes | left | unit |
+   |---|---|---|
+   | 3,904 | 3 of 3 | `zSBPlayerCharacterProxyCollisionListener` |
+   | 2,672 | 3 of 3 | `SB/NG/Engine/WAD01_13` |
+   | 1,956 | 1 of 1 | `Graphics/Space` |
+   | 1,920 | 1 of 1 | `x/xModelOpt` |
+   | 1,584 | 3 of 3 | `zBTSet` |
+   | 1,468 | 2 of 2 | `x/xParabola` |
+   | 1,092 | 2 of 2 | `zAnimList` |
+   | 928 | 2 of 2 | `zPathFinderSearchMapLinkCostCalculator` |
 
-2. **Give a unit its data.** `dwarf_data_carve.py --survey` says 75 could
-   take theirs. It prints all three edits; make them as printed. Three
-   units carry data today and each cost one new lesson, all of them now in
-   the tool: cut the parent rather than extending it, force-active for
-   anything nothing references (`config.yml` for a global, `#pragma
-   force_active on` for an anonymous-namespace local), and the trailing
-   padding belongs to the unit.
+   Re-derive the list rather than trusting it: it is a query over
+   report.json for game units whose unmatched functions are few,
+   EXCLUDING any symbol named `pad_*`. Those are dtk's alignment
+   padding, there are 95 of them, and a ranking that leaves them in
+   claims 146 units are one function from complete when they are one
+   PADDING WORD from it.
 
-3. **The near misses.** Four are recorded with their exclusion lists, and
-   two of those lists are long enough that re-running them is waste. What
-   moved `keycode.cxx` from 5 words to 2 was the DWARF saying it had no
-   variable we had invented; that is the kind of thing worth asking again,
-   and `dwarf_lines.py` has only been pointed at two of the four.
+2. **Make a matched unit a linked one.** `complete` only moves when
+   `configure.py` marks the unit `Matching`; until then dtk links the
+   carved object and ours is merely compared. Three went through this
+   session and main.dol stayed byte-identical (25 -> 28 complete). The
+   ones that did not need their DATA: a linked unit has to SUPPLY its
+   file-scope statics, not just reference them, which is what
+   `dwarf_data_carve.py --survey` (75 units) is for. `zLaserScanner`
+   links but shifts main.dol -- it is the only one of the three with a
+   float literal, so its `.rodata` pool lands somewhere retail's does
+   not. ALWAYS read `main.dol: OK` after flipping one.
+
+3. **FixWmlType, if the cheap probe says yes.** 11,944 bytes in one
+   function. The case set is recovered; what is not established is
+   whether the dispatch can be reproduced, because the tree turns out
+   to depend on the BODIES as well. The next measurement is in that
+   section above and takes twenty minutes.
+
+4. **`CreateAnimTable`** -- 4,388 bytes, one function, almost
+   certainly a long run of `NewState` calls whose exact signature is
+   now recovered (see zPlayerAction). Same all-or-nothing shape as
+   FixWmlType with a far smaller space.
+
+5. **Another shape.** `tools/shape_census.py` still ranks what is
+   left. The biggest row is `addi b`, 97 functions and 776 bytes, of
+   which most are `@N@` multiple-inheritance adjustor thunks -- the
+   compiler emits those from a class declaration, so the work is
+   recovering an MI layout. Anonymous-namespace support in
+   `split_symbol` would unlock several rows at once and the units are
+   already named after their blobs.
 
 WHAT NOT TO DO. Do not read "the generators are exhausted" off
-`gen_accessors --survey` again. That is what it said before nine shapes
-were added on top of it, and what it actually measures is the shapes the
-tool already knows. `tools/shape_census.py` measures the population, and
-that is the one to ask.
+`gen_accessors --survey` again. That is what it said before ten shapes
+were added on top of it; it measures the shapes the tool already
+knows, and `shape_census.py` measures the population.
 
-AND RUN `tools/reloc_audit.py` after anything that generates a call.
-report.json cannot see a branch target at all, so a wrong one is silently
-counted -- it has found twelve of those once and a mangling bug once.
-
+AND RUN `tools/reloc_audit.py` after anything that emits a call.
+report.json cannot see a branch target at all, so a wrong one is
+silently counted as a match. It has found twelve of those once and a
+mangling bug once, and `unitcmp` catching a wrong symbol is what
+found the one word zPlayerAction::Update was out by.
 ## Open problems, in order of value
 
 1. **The data tier. THREE UNITS CARRY THEIR OWN DATA, 396 bytes.**

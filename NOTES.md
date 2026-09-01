@@ -7,18 +7,18 @@ numbers here, which move.
 ## State at time of writing
 
 ```
-Game Code:  25 of 498 files complete  16,936 / 2,115,452 bytes  961 / 10,559 fn
-            0.8006% of game code
+Game Code:  28 of 498 files complete  19,620 / 2,115,452 bytes  987 / 10,559 fn
+            0.9275% of game code
 
-Of those 961 functions, 869 are GENERATED -- machine-recognised
+Of those 987 functions, 864 are GENERATED -- machine-recognised
 shapes, not one of which is decompiling. They are real matched
 functions and the offsets and constants are recovered fact, but a
 count of them is not a count of decompiled code. HAND-WRITTEN IS
-92, across 32 units and 5,628 bytes, and that is the figure to
+123, across 39 units and 8,404 bytes, and that is the figure to
 compare against earlier ones.
 
 Data:       3 unit(s) carry their own, 396 bytes; 75 more could
-All:        1.94% matched              main.dol reproduces byte for byte
+All:        1.98% matched              main.dol reproduces byte for byte
 ```
 
 Every number above is written by `python tools/notes_state.py`,
@@ -84,6 +84,7 @@ r13 or r2.
 | `next_functions.py` | what is left ranked by functions rather than bytes |
 | `gen_rttid.py` | the RTTID_Fix<T> family -- 175 functions from one template; `--survey` |
 | `reloc_audit.py` | which already-matched functions branch somewhere retail does not |
+| `disasm.py` | read one retail function, symbols resolved; `--unit`. 100% of the splits decode |
 
 `pip install pyelftools` is required for all of them.
 
@@ -108,6 +109,95 @@ Each unity unit is now an alternating sequence of recovered files and
 
 Headers are deliberately NOT units: an inline emitted out-of-line belongs to
 the `.cpp` that used it, and dtk rejects the fiction anyway.
+
+## Writing units is routine now, and the disassembler is why
+
+Nothing here disassembled anything. `unitcmp -v` falls back to hex
+words when no PowerPC disassembler is importable and none is, so
+reading a 130-byte function meant decoding it by hand -- which is the
+part of writing a unit that should never be done by hand.
+
+`tools/disasm.py` resolves branch targets to names, folds `lis`/`addi`
+pairs into the address they build and looks that up, and refuses:
+an encoding it does not know prints as `.word` and is COUNTED, with
+the count stated. It decodes **1,664,209 of 1,664,209** instructions
+in the splits -- 100% -- and getting there found three things:
+
+  * a placeholder written as `150 + 1: None` in the opcode table
+    silently replaced `stwx`, and 2,615 instructions stopped decoding.
+    A sweep over the whole image is what said so.
+  * `psq_lx` and `psq_stx` are extended opcodes 6 and 7, read off the
+    image rather than a manual: 7 appears in prologues beside `stfd
+    f31,N(r1)` and 6 in epilogues beside `lfd`, which is the
+    two-halves save of a paired-single register.
+  * a label branched to twice was RENUMBERED on the second branch, so
+    two addresses printed the same name.
+
+SEVEN UNITS WERE WRITTEN WITH IT in one sitting, five of them
+byte-identical on the first compile: `zCombatAttack`, `zSoundReverb`,
+`zHitParameters`, `xScene`, `zLaserScanner`, `RTTID` and
+`zPlayerAction` -- the last being 25 functions of which 24 match.
+Hand-written went from 92 functions to 123 and from 5,628 bytes to
+8,404 -- the State block above owns those figures, not this line.
+
+Five compiler facts fell out, each costing one round:
+
+| what | the tell |
+|---|---|
+| every byte of a fourcc is masked, even the one the store truncates | `(v>>16)` alone gives a 16-bit mask, `& 0xFF` gives the 8-bit one retail has |
+| a loop counter compared `> 0` is UNSIGNED | signed gives `ble`, unsigned gives the `beq` after `addic.` |
+| a global read twice is reloaded | retail keeps it in r31 across a call, so the original read it into a variable |
+| the fall-through branch is the one NOT written as the early return | `if (p) return f(p);` tail-calls, `if (!p) return -1;` does not |
+| placement new null-checks its pointer | `addic. ; beq` that retail does not have, and no spelling suppresses it |
+
+## A matched unit is not a linked one, and the gap is DATA
+
+Six units came out fully byte-identical and `complete` did not move,
+because a unit is only linked when `configure.py` marks it `Matching`
+-- until then dtk links the carved object and ours is only compared.
+Flipping all six at once broke the link outright:
+
+    undefined: 'sxAnimTempTranPool'
+      Referenced from 'xSceneInit(xScene*)' in xScene.o
+
+which is the data tier arriving from the other direction. A unit that
+is linked has to SUPPLY its own statics, not just reference them.
+
+Three of the six went through and main.dol stayed byte-identical:
+`zCombatAttack`, `zHitParameters` and `RTTID` -- **complete units 25
+-> 28**, and the first hand-written units in the project to be linked
+rather than merely matched. The three that did not:
+
+  * `xScene` and `zSoundReverb` reference file-scope statics
+    (`sxAnimTempTranPool`, `sxAnimTempStatePool`, `reverbMgrInstance`)
+    that nothing in our object defines -- `dwarf_data_carve.py` is
+    exactly the tool for that, and it says 75 units could take theirs.
+  * `zLaserScanner` LINKS but changes main.dol. It is the only one of
+    the three with a float literal, so its `.rodata` pool is landing
+    somewhere retail's does not.
+
+So the route to `complete` is: write the unit, give it its data with
+`dwarf_data_carve.py`, then flip it in `configure.py` -- and read
+`main.dol: OK` afterwards, because the link is the only thing that
+can tell you the placement was right.
+
+## Two prizes measured but not taken
+
+**`FixWmlType__4SextFliPv` -- 11,944 bytes in ONE function**, which is
+0.56% of Game Code on its own. It is a `switch` on a type hash
+compiled to a binary search: 302 case values extracted, 150 distinct
+call targets, 253 of the bodies a three-instruction `((T*)p)->Fix(l)`
+and 49 something else. The case table is in hand.
+
+The reason it is not done is arithmetic, not difficulty: it is ONE
+function, so it pays 11,944 bytes or zero. Every other unit pays per
+function -- zPlayerAction landed 24 of 25 and kept the 24. One wrong
+case value anywhere in a compiler-generated search tree and the whole
+thing is worth nothing.
+
+**`CreateAnimTable__Q213zNPCUPGeneric4TypeFv` -- 4,388 bytes**, same
+shape of bet: one function, almost certainly a long run of `NewState`
+calls whose signature this session already recovered.
 
 ## report.json IS BLIND TO RELOCATION TARGETS
 

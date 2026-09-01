@@ -47,12 +47,16 @@ def main():
     ap.add_argument("--dry-run", action="store_true")
     args = ap.parse_args()
 
+    # EVERY unit with source, not only the generated ones. This looked at
+    # the generator banner alone, so a HAND-WRITTEN unit was never
+    # discovered and never pinned -- the column the checks exist to
+    # protect was the one column they did not cover. Seven units written
+    # in one sitting were all invisible to it.
     units = set(C.EXPECT)
-    for src in sorted((ROOT / "src").rglob("*.cpp")):
-        head = src.read_text(encoding="utf-8", errors="ignore")[:200]
-        if any(b in head for b in BANNERS):
+    for ext in ("*.cpp", "*.cxx", "*.c", "*.cc"):
+        for src in sorted((ROOT / "src").rglob(ext)):
             units.add(str(src.relative_to(ROOT / "src"))
-                      .replace(chr(92), "/")[:-4])
+                      .replace(chr(92), "/").rsplit(".", 1)[0])
 
     raised, added, same, refused, unmeasured, gone = [], [], 0, [], [], []
     new = {}

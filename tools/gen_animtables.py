@@ -319,9 +319,15 @@ class Merge(object):
             if d not in text:
                 text = text.replace(TRANS_SIG, TRANS_SIG + NL + d, 1)
         for cls, decls in self.class_decls.items():
-            head = "class %s {" % cls
-            if head in text:
-                i = text.index(head)
+            # The generated stub may carry a base clause -- `class
+            # zBoardPlayerHammerPowerupAttack : public zPlayerWalk {` --
+            # and a search for `class X {` misses it, appends a second
+            # stub, and retypes a definition whose declaration it never
+            # found: "redeclared".
+            hm = re.search(r"(?m)^class %s\b[^{;]*\{" % re.escape(cls), text)
+            head = hm.group(0) if hm else "class %s {" % cls
+            if hm:
+                i = hm.start()
                 j = text.index(NL + "};", i)
                 present = text[i:j]
                 add = [d for d in sorted(decls)

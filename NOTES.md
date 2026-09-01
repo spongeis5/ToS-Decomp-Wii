@@ -7,18 +7,18 @@ numbers here, which move.
 ## State at time of writing
 
 ```
-Game Code:  28 of 777 files complete  36,128 / 2,116,508 bytes  1,014 / 10,686 fn
-            1.7070% of game code
+Game Code:  28 of 777 files complete  46,356 / 2,116,508 bytes  1,032 / 10,686 fn
+            2.1902% of game code
 
-Of those 1,014 functions, 837 are GENERATED -- machine-recognised
+Of those 1,032 functions, 804 are GENERATED -- machine-recognised
 shapes, not one of which is decompiling. They are real matched
 functions and the offsets and constants are recovered fact, but a
 count of them is not a count of decompiled code. HAND-WRITTEN IS
-177, across 41 units and 25,536 bytes, and that is the figure to
+228, across 42 units and 36,964 bytes, and that is the figure to
 compare against earlier ones.
 
 Data:       3 unit(s) carry their own, 396 bytes; 134 more could
-All:        2.23% matched              main.dol reproduces byte for byte
+All:        2.38% matched              main.dol reproduces byte for byte
 ```
 
 Every number above is written by `python tools/notes_state.py`,
@@ -508,6 +508,32 @@ The two `AddActionTransitions` of zPlayerIdleSB and zPlayerWalkSB are
 not tables at all: 27 and 32 `bctrl` -- the manager's virtual
 `AddStandardTransitions` family -- and no direct call.
 
+**WAD01_28, the board player's tables: 18 of 23 match**, 51 of the
+unit's 57 written functions, Game Code 1.71% to 2.19%. The merger
+needed one more rule to get there -- a generated stub can carry a base
+clause, `class zBoardPlayerHammerPowerupAttack : public zPlayerWalk {`,
+and a search for `class X {` misses it, appends a second stub and
+retypes a definition whose declaration it never found. The five that
+do not match are each ONE WORD short, and it is one mechanism: ours
+loads both float constants off a single base register, retail gives
+each its own `lis`. The same string settings give the same 142 words
+in all three, so it is not the flag; it is where the literals land in
+our object relative to the pool. `GetRigidBodyHeight` in that unit
+was already the one accessor not matching before any of this -- its
+member reads at +0xAA8 against retail's +0xAA4 with no include at
+all -- and the pin, 33 of 34, already said so.
+
+**zCommonPlayerActions: two of its eight tables pass a callback the
+image cannot name.** The transition Run# -> RunFastStart01 passes
+`0x8001BED0`, an eight-byte weak `return 0` that dtk names
+`World::ShaderCodeBlobAsset::Create` -- the linker folded every
+identical weak body onto one, and the DWARF holds only that one
+subprogram at the address. So the callback's real name is gone from
+the image, the merger refuses (any correctly typed function would
+match the bytes, since the reference is relocated, and would be a
+lie for the link), and those two tables -- zPlayerRun and
+zPlayerFall -- wait for a source that names it.
+
 ## report.json IS BLIND TO RELOCATION TARGETS
 
 The oracle compares the BITS of a relocated field, and both sides hold
@@ -711,9 +737,11 @@ Then one of these, in the order they are worth doing:
    (`gen_poolprefix.py --whole`). `tools/gen_animtables.py` merges
    them; the transition-table shape matches, the NewState shape comes
    out permuted, and "calls only the table function" is not "is a
-   table" -- unitcmp decides. Next homes: `WAD01_28` (23 pure
-   transition tables, 16,184 bytes, generated source, needs its
-   `.pool.h`) and `zCommonPlayerActions` (8, 2,692 bytes).
+   table" -- unitcmp decides. WAD01_28 is done (18 of 23) and
+   zCommonPlayerActions half-blocked by a callback the linker folded;
+   what is left of the pure-transition shape is small. The larger
+   remainder is the NewState shape (permuted) and the tables with
+   statements between the calls, which are ordinary decompilation.
 
 5. **Another shape.** `tools/shape_census.py` still ranks what is
    left. The biggest row is `addi b`, 97 functions and 776 bytes, of

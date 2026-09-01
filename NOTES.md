@@ -235,7 +235,33 @@ What is now in hand for the write-up:
   * three cases with EMPTY bodies -- A590B346, DB45F4C1 and F93DDC98
     all branch straight to the epilogue.
 
-The remaining work is the bodies, not the dispatch.
+A FULL ATTEMPT WAS THEN GENERATED AND COMPILED -- 307 cases, 150 class
+stubs, 290 bodies translated mechanically and 15 written out by hand,
+1,481 lines, and it builds at 11,452 bytes against retail's 11,944.
+
+**And the tree agreement FELL from 303 of 307 to 63.** That is the
+finding, and it is the opposite of what the uniform-body probe
+implied: mwcc's choice of pivot depends on the BODIES as well as the
+case set. With every body two instructions long the tree came out
+almost exactly right; with the real bodies -- which run from three
+instructions to a forty-instruction loop -- the root moves again.
+
+So the earlier conclusion was too strong. The case set is recovered
+and that is solid; what is not established is that the dispatch can be
+reproduced independently of the bodies, and the probe that suggested
+it was measuring a case the real function does not present.
+
+The next thing to measure, and it is cheap: whether the pivot tracks
+body SIZE specifically. Generate the same 307 cases with bodies padded
+to the sizes retail's actually are and see whether the root returns.
+If it does, the remaining work is to get each body's size right, which
+the diff already localises. If it does not, the dependency is on
+something else and this function stays out of reach.
+
+The attempt itself was NOT committed: it is emitted by a scratch
+script rather than a tool in this repository, and a generated file
+nothing here can regenerate is the thing this project has a rule
+against. Rebuilding it is about twenty minutes given the above.
 ## Two prizes measured but not taken
 
 **`CreateAnimTable__Q213zNPCUPGeneric4TypeFv` -- 4,388 bytes**, one

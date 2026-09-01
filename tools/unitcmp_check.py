@@ -251,6 +251,7 @@ EXPECT = {
     "SB/NG/Source/Engine/Util/RTTID": (1, 1),
     "SB/NG/Source/Engine/Util/Sort/WAD02": (2, 5),
     "SB/NG/Source/Tools/Havok/source/Common/Base/keycode": (0, 1),
+    "SB/GM/Engine/Game/zNPCUPGeneric": (5, 7),
 }
 
 

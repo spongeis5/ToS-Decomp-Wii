@@ -7,18 +7,18 @@ numbers here, which move.
 ## State at time of writing
 
 ```
-Game Code:  28 of 498 files complete  19,620 / 2,115,452 bytes  987 / 10,559 fn
-            0.9275% of game code
+Game Code:  28 of 498 files complete  20,180 / 2,115,452 bytes  992 / 10,559 fn
+            0.9539% of game code
 
-Of those 987 functions, 864 are GENERATED -- machine-recognised
+Of those 992 functions, 864 are GENERATED -- machine-recognised
 shapes, not one of which is decompiling. They are real matched
 functions and the offsets and constants are recovered fact, but a
 count of them is not a count of decompiled code. HAND-WRITTEN IS
-123, across 39 units and 8,404 bytes, and that is the figure to
+128, across 40 units and 8,964 bytes, and that is the figure to
 compare against earlier ones.
 
 Data:       3 unit(s) carry their own, 396 bytes; 75 more could
-All:        1.98% matched              main.dol reproduces byte for byte
+All:        1.99% matched              main.dol reproduces byte for byte
 ```
 
 Every number above is written by `python tools/notes_state.py`,
@@ -181,24 +181,65 @@ So the route to `complete` is: write the unit, give it its data with
 `main.dol: OK` afterwards, because the link is the only thing that
 can tell you the placement was right.
 
+## FixWmlType: the search tree IS reproducible, and the case set is
+## three quarters recovered
+
+`FixWmlType__4SextFliPv` is **11,944 bytes in one function** -- 0.56%
+of Game Code by itself -- and it is a `switch` on a type hash that mwcc
+compiled to a binary search. It pays all of that or nothing, so the
+question worth answering first was whether the DISPATCH can be
+reproduced at all; two thirds of the function is dispatch.
+
+**It can, and the answer is cheap to check.** Feed mwcc the same case
+set with trivial bodies and compare the ordered list of values it
+compares against r4. Three things came out of doing that:
+
+1. **The tree depends only on the case SET.** Sorted order, body-address
+   order and reverse order all produce the identical comparison
+   sequence, so nothing has to be guessed about the original's source
+   order.
+
+2. **A `beq` need not follow its `cmpw`.** The very first comparison in
+   the function has three prologue instructions scheduled between the
+   two, so a scan that requires adjacency loses it. Looking ahead to the
+   next instruction that writes cr0 found it: 304 cases became 305.
+
+3. **Two comparisons have no `beq` at all, and they are a RANGE.** They
+   test -9065 and -9062 with only `bge`/`b`, which is how mwcc handles
+   contiguous cases that share a body: -9065, -9064 and -9063 are three
+   cases with one body and no equality test anywhere, so they are
+   invisible to any scan of branch targets.
+
+Adding those three took the probe from **304 comparisons to 307, which
+is exactly retail's count**, and the agreement between the two
+comparison sequences from 23 of 307 to **144 of 307**. The subtrees
+from the fifth comparison down already match.
+
+What is left is the top of the tree: the root is FFF4CC77 where retail
+has FE17E3AC, so a few values in the set are still wrong or missing.
+The sizes agree, so it is content and not count. The likely place to
+look is more hidden ranges of the same kind, or a compare whose
+register was built more than four instructions earlier.
+
+The bodies are already extracted and are 12 shapes over 302 targets:
+253 are `mr mr bl Fix__<T>Fl`, 25 are `lwz add stw b`, 9 are
+`mr addi bl`, and five are large one-offs including a nested chain of
+compares. Three of them recurse into FixWmlType itself.
+
 ## Two prizes measured but not taken
 
-**`FixWmlType__4SextFliPv` -- 11,944 bytes in ONE function**, which is
-0.56% of Game Code on its own. It is a `switch` on a type hash
-compiled to a binary search: 302 case values extracted, 150 distinct
-call targets, 253 of the bodies a three-instruction `((T*)p)->Fix(l)`
-and 49 something else. The case table is in hand.
+**`CreateAnimTable__Q213zNPCUPGeneric4TypeFv` -- 4,388 bytes**, one
+function, almost certainly a long run of `NewState` calls whose
+signature this session recovered from zPlayerAction. Same all-or-
+nothing shape as FixWmlType and a much smaller search space.
 
-The reason it is not done is arithmetic, not difficulty: it is ONE
-function, so it pays 11,944 bytes or zero. Every other unit pays per
-function -- zPlayerAction landed 24 of 25 and kept the 24. One wrong
-case value anywhere in a compiler-generated search tree and the whole
-thing is worth nothing.
-
-**`CreateAnimTable__Q213zNPCUPGeneric4TypeFv` -- 4,388 bytes**, same
-shape of bet: one function, almost certainly a long run of `NewState`
-calls whose signature this session already recovered.
-
+**`zNPCUPGeneric`'s other two.** `Activate` (536 bytes) and
+`SystemEvent` (200) are written and do not match yet; five of the
+seven readable functions in that unit do. `InitTypeParameters` needs
+`Memory::Creator<N,T,U>` with a function-local static, whose guard
+symbol has to come out as `@GUARD@...@_inst`, and `Initialize` calls
+`World::EntityManager::FindAsset` through a loaded address rather than
+a direct branch, which no plain call reproduces.
 ## report.json IS BLIND TO RELOCATION TARGETS
 
 The oracle compares the BITS of a relocated field, and both sides hold

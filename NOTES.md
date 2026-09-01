@@ -65,6 +65,7 @@ r13 or r2.
 | `dwarf_locals.py` | every local and parameter of a function: type, declaration line, and WHICH REGISTER or frame slot it got |
 | `dwarf_lines.py` | which source line and FILE each instruction came from; `--report` for the population |
 | `dwarf_data_decl.py` | attributes data to files by DECLARATION, where `dwarf_data.py` does it by reference |
+| `dwarf_data_carve.py` | the three edits that give a unit its data: definitions, split, `force_active`; `--survey` for who can |
 | `unitcmp.py` | compile ONE unit and compare each function by name against retail; `-v` for a word-by-word diff |
 | `unitcmp_check.py` | validates `unitcmp.py` against every unit it has a known answer for, and proves its drift guard fires |
 | `anon_blocked.py` | which units can never match while they are split out of their unity blob |
@@ -136,6 +137,21 @@ the `.cpp` that used it, and dtk rejects the fiction anyway.
    align 8 -- where `float[32]` packs it against `collBSPCount` and moves
    everything after. The element type is a guess; the SIZE and the
    ALIGNMENT are the recovered facts, and they are what decide the layout.
+
+   `tools/dwarf_data_carve.py` does the reading: it prints the
+   definitions, the splits edits and the force_active names for a unit,
+   and refuses rather than guessing. It surveys **54 units that could take
+   their data** -- 8 with no cut needed, 46 needing the parent cut -- and
+   refuses 31 for anonymous namespaces and 17 for alignment.
+
+   It also caught a mistake in `Env.cpp`, which was written before it. Those
+   three variables are `collBSPCount__19@unnamed@WAD00_cpp@` and friends in
+   retail -- an anonymous namespace -- and the source declares plain
+   globals. The PLACEMENT is right and main.dol is byte-identical, because
+   nothing outside the unit reaches them; the NAMES are not, so objdiff
+   reports `complete_data` 100% with no `matched_data`, and the three have
+   external linkage where retail's are internal. `Collide.cpp`'s six names
+   are exactly retail's, and it reports both.
 
    What is still blocked, and by what:
    - **The anonymous namespace, not alignment.** `Blobloids.cpp` was the

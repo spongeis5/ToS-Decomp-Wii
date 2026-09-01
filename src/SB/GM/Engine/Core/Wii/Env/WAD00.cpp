@@ -33,29 +33,39 @@
 // the failure look like a layout mistake. See Math/Collide.cpp, where that
 // cost the most time.
 //
-// THE NAMES HERE ARE WRONG, AND THE PLACEMENT IS RIGHT. Retail's three
-// symbols are `collBSPCount__19@unnamed@WAD00_cpp@` and the same for the
-// other two: an ANONYMOUS NAMESPACE, carrying the unity blob's basename.
-// These are plain globals. main.dol is byte-identical anyway, because
-// nothing outside this unit reaches them and the addresses come from the
-// split rather than from name matching -- but this is not what the
-// original said, and two things follow from that:
+// WHY THIS FILE IS CALLED WAD00.cpp. Retail's three symbols are
+// `collBSPCount__19@unnamed@WAD00_cpp@` and the same for the other two: an
+// ANONYMOUS NAMESPACE, and CodeWarrior mangles one with the TRANSLATION
+// UNIT's basename. A file called Env.cpp cannot produce that name whatever
+// it contains, so the file is named after the blob at a path that says
+// what it really is -- the same trick Util/Sort/WAD02.cpp uses for text,
+// used here for data.
 //
-//   * objdiff cannot pair the symbols, so this unit reports complete_data
-//     100% and NO matched_data, where Math/Collide.cpp -- whose six names
-//     are exactly retail's -- reports both;
-//   * these three now have EXTERNAL linkage where retail's are internal,
-//     so a later unit defining `collBSP` collides with this one.
-//
-// tools/dwarf_data_carve.py refuses this unit for exactly that reason, and
-// it was written after this file, which is how the mistake was found. The
-// faithful version needs the anonymous-namespace trick -- the source file
-// named after the blob at a different path, as Util/Sort/WAD02.cpp does --
-// and that renames the unit away from Env.cpp.
+// The first version of this unit declared the three as plain globals. It
+// linked, and main.dol was byte-identical, because nothing outside the
+// unit reaches them and the addresses come from the split rather than from
+// name matching. It was still wrong twice over: objdiff could not pair the
+// symbols, so the unit reported complete_data 100% with NO matched_data,
+// and the three had EXTERNAL linkage where retail's are internal, so a
+// later unit defining `collBSP` would have collided.
+// tools/dwarf_data_carve.py refuses that shape, which is how it was
+// found.
+
+// Nothing in the image references collBSP or rigidBodies, and inside
+// an anonymous namespace they are LOCAL symbols -- config.yml's
+// force_active cannot hold one, and the linker says so out loud:
+//   FORCEACTIVE symbol '@unnamed@WAD00_cpp@::rigidBodies' is either
+//   not a global symbol or doesn't exist.  Ignored.
+// so the compiler has to mark them instead.
+#pragma force_active on
+namespace {
 
 int collBSPCount;
 double collBSP[16];
 double rigidBodies[16];
+
+}  // namespace
+#pragma force_active off
 
 void EnvClearTriMeshList() {
     collBSPCount = 0;

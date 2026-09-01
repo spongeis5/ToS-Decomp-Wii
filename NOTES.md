@@ -144,14 +144,28 @@ the `.cpp` that used it, and dtk rejects the fiction anyway.
    their data** -- 8 with no cut needed, 46 needing the parent cut -- and
    refuses 31 for anonymous namespaces and 17 for alignment.
 
-   It also caught a mistake in `Env.cpp`, which was written before it. Those
+   It caught a mistake in `Env.cpp`, which was written before it. Those
    three variables are `collBSPCount__19@unnamed@WAD00_cpp@` and friends in
-   retail -- an anonymous namespace -- and the source declares plain
-   globals. The PLACEMENT is right and main.dol is byte-identical, because
-   nothing outside the unit reaches them; the NAMES are not, so objdiff
-   reports `complete_data` 100% with no `matched_data`, and the three have
-   external linkage where retail's are internal. `Collide.cpp`'s six names
-   are exactly retail's, and it reports both.
+   retail -- an anonymous namespace -- and the source declared plain
+   globals. The PLACEMENT was right and main.dol was byte-identical,
+   because nothing outside the unit reaches them; the NAMES were not, so
+   objdiff could not pair them and the three had external linkage where
+   retail's are internal.
+
+   **The anonymous-namespace trick works for DATA too**, which is what
+   fixed it. The unit is now `Core/Wii/Env/WAD00.cpp` -- named after the
+   blob, at a path that says what it is, the way `Util/Sort/WAD02.cpp`
+   already does for text -- and all three symbols come out exactly as
+   retail spells them, with main.dol still byte-identical. That took
+   `dwarf_data_carve.py --survey` from 54 units to **75**, since an
+   anonymous namespace is now an instruction rather than a refusal.
+
+   One thing that does NOT work: those symbols are LOCAL, so `force_active`
+   in config.yml cannot hold them, and the linker says so out loud --
+   `FORCEACTIVE symbol '@unnamed@WAD00_cpp@::rigidBodies' is either not a
+   global symbol or doesn't exist. Ignored.` **`#pragma force_active on`
+   around the definitions does it instead**, and that is the only reason
+   the unit links.
 
    What is still blocked, and by what:
    - **The anonymous namespace, not alignment.** `Blobloids.cpp` was the

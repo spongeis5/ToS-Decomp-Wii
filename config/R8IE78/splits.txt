@@ -194,7 +194,7 @@ SB/GM/Engine/Core/x/xWMLTypes.cpp:
 SB/GM/Engine/WAD00_26.cpp:
 	.text       start:0x8004C1C8 end:0x8004F270
 
-SB/GM/Engine/Core/Wii/Env.cpp:
+SB/GM/Engine/Core/Wii/Env/WAD00.cpp:
 	.text       start:0x8004F270 end:0x8004F280
 	.bss        start:0x8072DE70 end:0x8072DF78
 

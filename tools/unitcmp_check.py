@@ -39,7 +39,7 @@ EXPECT = {
     "SB/GM/Engine/Game/zLaser": (1, 1),
     # The second unit to carry its own data, and the first written
     # from scratch with it. One function, 264 bytes of .bss.
-    "SB/GM/Engine/Core/Wii/Env": (1, 1),
+    "SB/GM/Engine/Core/Wii/Env/WAD00": (1, 1),
     # A recorded near miss, listed at 0 of 1 on purpose. If it ever reads
     # 1 of 1 this check must say so rather than quietly agreeing.
     "SB/NG/Source/Tools/Havok/source/Common/Base/keycode.cxx": (0, 1),

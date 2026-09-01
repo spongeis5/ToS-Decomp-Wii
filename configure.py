@@ -453,7 +453,7 @@ config.libs = [
             Object(NonMatching, "SB/GM/Engine/WAD00_25.cpp"),
             Object(NonMatching, "SB/GM/Engine/Core/x/xWMLTypes.cpp"),
             Object(NonMatching, "SB/GM/Engine/WAD00_26.cpp"),
-            Object(Matching, "SB/GM/Engine/Core/Wii/Env.cpp"),
+            Object(Matching, "SB/GM/Engine/Core/Wii/Env/WAD00.cpp"),
             Object(NonMatching, "SB/GM/Engine/Core/Wii/iFMV.cpp"),
             Object(NonMatching, "SB/GM/Engine/WAD00_27.cpp"),
             Object(NonMatching, "SB/GM/Engine/Core/Wii/iMath3.cpp"),

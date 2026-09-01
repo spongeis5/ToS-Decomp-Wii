@@ -39,5 +39,7 @@ public:
 };
 
 
+#pragma dont_inline on
 zTikiCollisionListener::zTikiCollisionListener() {}
 MappedElectricity::MappedElectricity() : Electricity() {}
+#pragma dont_inline off

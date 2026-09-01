@@ -34,4 +34,6 @@ public:
 };
 
 
+#pragma dont_inline on
 zCollectibleSpawner::zCollectibleSpawner(World::EntityHandleBase* a0) : World::xOGEntity(a0) {}
+#pragma dont_inline off

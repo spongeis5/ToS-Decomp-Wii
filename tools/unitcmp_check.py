@@ -67,7 +67,7 @@ EXPECT = {
     "SB/GM/Engine/Game/zDecal": (1, 1),
     "SB/GM/Engine/Game/zJawFlapper": (2, 2),
     "SB/GM/Engine/Game/zPIDController": (1, 1),
-    "SB/GM/Engine/WAD00": (8, 8),
+    "SB/GM/Engine/WAD00": (183, 183),
     "SB/GM/Engine/WAD00_1": (2, 2),
     "SB/GM/Engine/WAD00_12": (2, 2),
     "SB/GM/Engine/WAD00_2": (10, 10),
@@ -165,6 +165,46 @@ EXPECT = {
 }
 
 
+# A unit whose object is all tail calls, so the branch-target check is the
+# ONLY thing measuring it. Before that check existed this read 183 of 183
+# with 175 of the words entirely masked.
+BRANCH_UNIT = "SB/GM/Engine/WAD00"
+
+
+def branch_guard():
+    """Prove the relocated-branch comparison is live. -> failures."""
+    before = U.compare(BRANCH_UNIT)
+    if isinstance(before, str):
+        print("  FAIL branch guard: %s did not build" % BRANCH_UNIT)
+        return 1
+    ok_before = sum(1 for v in before.values() if v[0] == 0)
+
+    byname, byaddr = U.retail_addrs()
+    moved = ({k: v + 4 for k, v in byname.items()},
+             {k + 4: v for k, v in byaddr.items()})
+    real = U.retail_addrs
+    U.retail_addrs = lambda: moved
+    try:
+        after = U.compare(BRANCH_UNIT)
+    finally:
+        U.retail_addrs = real
+    if isinstance(after, str):
+        print("  FAIL branch guard: %s did not build under mutation"
+              % BRANCH_UNIT)
+        return 1
+    ok_after = sum(1 for v in after.values() if v[0] == 0)
+
+    if ok_after >= ok_before:
+        print("  FAIL branch-target check is DEAD: %d/%d byte-identical "
+              "either way, so a branch to the wrong symbol would read as a "
+              "match" % (ok_before, ok_after))
+        return 1
+    print("  ok   branch-target check fired: %d byte-identical, %d once "
+          "every retail address is moved by four"
+          % (ok_before, ok_after))
+    return 0
+
+
 def main():
     fails = 0
     for unit, (want_ok, want_total) in sorted(EXPECT.items()):
@@ -179,6 +219,9 @@ def main():
         print("  %-4s %-40s %2d/%-2d  (expected %d/%d)"
               % ("ok" if good else "FAIL", unit.split("/")[-1],
                  ok, len(res), want_ok, want_total))
+
+    print("")
+    fails += branch_guard()
 
     print("")
     src = (Path(__file__).resolve().parent / "unitcmp.py").read_text()
@@ -197,7 +240,7 @@ def main():
               % str(e).splitlines()[0][:80])
 
     print("")
-    print("  %d failure(s) of %d check(s)" % (fails, len(EXPECT) + 1))
+    print("  %d failure(s) of %d check(s)" % (fails, len(EXPECT) + 2))
     return 1 if fails else 0
 
 

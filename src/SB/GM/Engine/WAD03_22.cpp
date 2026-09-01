@@ -68,7 +68,9 @@ public:
 };
 
 
+#pragma dont_inline on
 zSBPlayerAction::zSBPlayerAction() : zCommonPlayerAction() {}
 zPlayerLandSB::zPlayerLandSB() : zSBPlayerAction() {}
 zSBCastCollector::zSBCastCollector() : hkpClosestRayHitCollector() {}
 void zPlayerSingleCustomAnimSB::Reset() { f10 = 0; f1C = 0; }
+#pragma dont_inline off

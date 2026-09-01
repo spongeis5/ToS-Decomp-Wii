@@ -113,6 +113,7 @@ public:
 };
 
 
+#pragma dont_inline on
 hkpWorldRayCastInput::hkpWorldRayCastInput() { f20 = 0; f24 = 0; }
 hkpShapeRayCastInput::hkpShapeRayCastInput() { f20 = 0; f24 = 0; }
 int* zPlanktonShakeManager::GetShakeState(const xEnt* a0) { return &zPlanktonShakeManager::currentShakeState; }
@@ -125,3 +126,4 @@ unsigned char zPlayer::SkipCharacterProxyHavokUpdate() { return f208; }
 int* zPlayer::GetAttachDPos() { return &f234; }
 int zPlayer::GetSurface() const { return f6C; }
 void zPlayer::SetPlayerActivationState(ePlayerActivationState value) { f430 = (int)value; }
+#pragma dont_inline off

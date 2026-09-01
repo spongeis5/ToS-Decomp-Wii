@@ -148,18 +148,26 @@ def _reloc_name(t):
 
 
 def load(path, want_relocs):
-    """name -> (bytes, {word_index: mask_of_bits_a_relocation_writes})."""
+    """name -> (bytes, {word: mask}, {word: (symbol, addend)}).
+
+    The third element is only for the REL24 relocations -- a branch whose
+    whole field is masked, and therefore the one place where masking would
+    otherwise leave nothing measured at all.
+    """
     out = {}
     with open(path, "rb") as fh:
         f = ELFFile(fh)
         secs = list(f.iter_sections())
 
         relocs = {}
+        branches = {}
         if want_relocs:
             for sec in secs:
                 if not isinstance(sec, RelocationSection):
                     continue
                 d = relocs.setdefault(sec.header["sh_info"], {})
+                bd = branches.setdefault(sec.header["sh_info"], {})
+                symtab = f.get_section(sec.header["sh_link"])
                 for r in sec.iter_relocations():
                     nm = _reloc_name(r["r_info_type"])
                     if nm not in RELOC_BITS:
@@ -168,6 +176,11 @@ def load(path, want_relocs):
                             "to guess which bits it writes"
                             % (nm, r["r_offset"]))
                     d[r["r_offset"]] = d.get(r["r_offset"], 0) | RELOC_BITS[nm]
+                    if nm == "R_PPC_REL24":
+                        sym = symtab.get_symbol(r["r_info_sym"])
+                        bd[r["r_offset"]] = (
+                            sym.name, r["r_addend"] if "r_addend" in
+                            r.entry else 0)
 
         for sec in secs:
             if sec.header["sh_type"] != "SHT_SYMTAB":
@@ -184,7 +197,11 @@ def load(path, want_relocs):
                 for ro, mask in relocs.get(s["st_shndx"], {}).items():
                     if off <= ro < off + s["st_size"]:
                         m[(ro - off) // 4] = mask
-                out[s.name] = (body, m)
+                br = {}
+                for ro, ref in branches.get(s["st_shndx"], {}).items():
+                    if off <= ro < off + s["st_size"]:
+                        br[(ro - off) // 4] = ref
+                out[s.name] = (body, m, br)
     return out
 
 
@@ -214,6 +231,68 @@ def retail():
         pickle.dump((key, data), fh, protocol=4)
     _retail_cache["x"] = data
     return data
+
+
+_ADDR_CACHE = {}
+ADDRS = REPO / "build/retail_addrs.pickle"
+
+
+def retail_addrs():
+    """(name -> address, address -> name) for retail's functions.
+
+    Needed to answer what a resolved branch in the retail image points AT.
+    Cached beside the body cache and keyed the same way; a separate file
+    rather than a wider one, so an existing cache is never read as if it
+    held a field it does not.
+    """
+    import pickle
+    if "x" in _ADDR_CACHE:
+        return _ADDR_CACHE["x"]
+    st = RETAIL.stat()
+    key = (st.st_size, int(st.st_mtime))
+    if ADDRS.exists():
+        with open(ADDRS, "rb") as fh:
+            got, data = pickle.load(fh)
+        if got == key:
+            _ADDR_CACHE["x"] = data
+            return data
+
+    # LAST wins, exactly as retail() does for the bodies. A name the image
+    # carries twice would otherwise take its body from one copy and its
+    # address from the other, and every branch would resolve from the wrong
+    # base -- which is how this check first fired on correct input.
+    byname, byaddr = {}, {}
+    with open(RETAIL, "rb") as fh:
+        for sec in ELFFile(fh).iter_sections():
+            if sec.header["sh_type"] != "SHT_SYMTAB":
+                continue
+            for s in sec.iter_symbols():
+                if s["st_info"]["type"] == "STT_FUNC" and s["st_size"]:
+                    byname[s.name] = s["st_value"]
+                # EVERY named symbol goes in the target map, sized or not.
+                # _savegpr_29 and _restgpr_29 are interior labels of one
+                # routine and carry no size, so a sized-functions-only map
+                # has no name at the address every prologue branches to --
+                # and called two correct calls wrong.
+                if s.name:
+                    byaddr.setdefault(s["st_value"], set()).add(s.name)
+    data = (byname, byaddr)
+    ADDRS.parent.mkdir(parents=True, exist_ok=True)
+    with open(ADDRS, "wb") as fh:
+        pickle.dump((key, data), fh, protocol=4)
+    _ADDR_CACHE["x"] = data
+    return data
+
+
+def branch_target(addr, word):
+    """Where a resolved b/bl at `addr` goes, or None if it is not one."""
+    op = word >> 26
+    if op != 18:
+        return None
+    disp = word & 0x03FFFFFC
+    if disp & 0x02000000:
+        disp -= 0x04000000
+    return disp if word & 2 else addr + disp
 
 
 def words(b):
@@ -252,28 +331,58 @@ def compile_unit(unit, extra=()):
 
 
 def compare(unit, extra=()):
-    """unit -> {func_name: (words_differing, words_compared, words_masked)}.
+    """unit -> {name: (differing, compared, masked, unmeasured)}.
 
     words_differing is -1 for a function this object defines that retail does
     not have.  Returns the compiler's message as a plain STRING when the unit
     will not build, so a caller cannot read a failed compile as a clean sweep.
+
+    A masked REL24 is checked by NAME: our relocation says which symbol the
+    branch is to, retail's resolved displacement lands on one, and the two
+    have to agree.  `unmeasured` counts the masked words where even that was
+    not possible, so a function with nothing compared cannot read as a match.
     """
     obj, err = compile_unit(unit, extra)
     if err:
         return err
 
     mine, want = load(obj, True), retail()
+    byname, byaddr = retail_addrs()
     res = {}
-    for name, (got, masks) in mine.items():
+    for name, (got, masks, brs) in mine.items():
         if name not in want:
-            res[name] = (-1, 0, 0)
+            res[name] = (-1, 0, 0, 0)
             continue
         a, b = words(got), words(want[name][0])
         n = min(len(a), len(b))
         bad = sum(1 for i in range(n)
                   if (a[i] & ~masks.get(i, 0)) != (b[i] & ~masks.get(i, 0)))
+
+        here = byname.get(name)
+        unmeasured = 0
+        for i in range(n):
+            if i not in masks:
+                continue
+            ref = brs.get(i)
+            if ref is None:
+                continue          # not a branch; its other fields compared
+            tgt = branch_target(here + 4 * i, b[i]) if here is not None \
+                else None
+            if tgt is None or ref[1]:
+                # An addend, or a retail word that is not a branch at all.
+                # Nothing in this word was compared, so say so.
+                unmeasured += 1
+                continue
+            names = byaddr.get(tgt)
+            if not names:
+                # Nothing is named there, so there is nothing to compare
+                # this against. Not evidence of a wrong target.
+                unmeasured += 1
+                continue
+            if ref[0] not in names:
+                bad += 1
         res[name] = (bad + abs(len(a) - len(b)), n,
-                     len([i for i in range(n) if i in masks]))
+                     len([i for i in range(n) if i in masks]), unmeasured)
     return res
 
 
@@ -292,18 +401,28 @@ def main():
     obj, err = compile_unit(unit)
     mine, want = load(obj, True), retail()
 
-    total = ok = 0
+    total = ok = unmeas = 0
     for name in sorted(res, key=lambda n: -len(mine[n][0])):
-        bad, n, masked = res[name]
+        bad, n, masked, unmeasured = res[name]
         got = mine[name][0]
         total += 1
         if bad < 0:
             print("  %-6s %-5d %s   NOT IN RETAIL" % ("EXTRA", len(got), name))
             continue
+        if bad == 0 and unmeasured == n:
+            # Nothing was compared: every word is a relocated field whose
+            # target could not be resolved to a name. Reporting MATCH here
+            # is the benign value a failed measurement must never produce.
+            unmeas += 1
+            print("  %-6s %-5d %s   %d words, ALL masked and unresolvable"
+                  % ("UNMEAS", len(got), name, n))
+            continue
         if bad == 0:
             ok += 1
             print("  %-6s %-5d %s   %d words, %d masked by relocation"
-                  % ("MATCH", len(got), name, n, masked))
+                  "%s"
+                  % ("MATCH", len(got), name, n, masked,
+                     ", %d unmeasured" % unmeasured if unmeasured else ""))
             continue
         exp = want[name][0]
         print("  %-6s %-5d %s   %d of %d words differ "
@@ -326,6 +445,9 @@ def main():
                 print("      %-3d %-34s %-34s%s" % (i, x, y, tag))
 
     print("")
+    if unmeas:
+        print("  %d function(s) could not be measured at all -- every word a"
+              " relocated field with no name to check against." % unmeas)
     print("  %d of %d function(s) defined by the object are byte-identical"
           % (ok, total))
     print("  This is not the oracle: run `ninja` and read `main.dol: OK`.")

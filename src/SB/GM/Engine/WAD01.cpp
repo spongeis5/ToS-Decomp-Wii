@@ -190,6 +190,7 @@ public:
 };
 
 
+#pragma dont_inline on
 zBoardPlayerAction::zBoardPlayerAction() : zCommonPlayerAction() {}
 zCommonPlayerAction::zCommonPlayerAction() : zPlayerAction() {}
 zPlayerSkidStop::zPlayerSkidStop() : zCommonPlayerAction() {}
@@ -208,3 +209,4 @@ const int* zPlayer::GetFloorNormal() const { return &f160; }
 void zPlayerTurn180Board::Begin() { f1C = 0; }
 ProjectileCollisionDetails::ProjectileCollisionDetails() { f0 = 0; f4 = 0; f2C = 0; }
 void hkpCdBodyPairCollector::reset() { f4 = 0; }
+#pragma dont_inline off

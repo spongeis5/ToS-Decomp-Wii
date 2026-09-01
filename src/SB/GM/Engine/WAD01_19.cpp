@@ -54,6 +54,8 @@ public:
 };
 
 
+#pragma dont_inline on
 unsigned int zProjectile::GetExplosionHitSource() { return 0x00000002u; }
 zCombat::hkpCombatCdBodyPairCollectorNoBSP::hkpCombatCdBodyPairCollectorNoBSP() : zCombat::hkpCombatCdBodyPairCollector() {}
 void hkpAllCdBodyPairCollector::reset() { fC = 0; f4 = 0; }
+#pragma dont_inline off

@@ -94,6 +94,7 @@ public:
 };
 
 
+#pragma dont_inline on
 xEffectAttachIntf::xEffectAttachIntf(World::EntityHandleBase* a0) : World::xOGEntity(a0) {}
 int* zBreakawayPlatform::DriveGetCurMat(int a0) { return &f1B4; }
 const int* zBreakawayPlatform::GetSoundPosition() const { return &f1E4; }
@@ -102,3 +103,4 @@ void zBTAction::SetBTClient(zBTClient* value) { f8 = (int)value; }
 void zBTAction::SetAsset(const Sext::ActionBase* value) { f0 = (int)value; }
 void zBTNode::ChildIterator::Begin() { f8 = 0; }
 void zBTNodeAction::Setup(Sext::BTNodeBase* value) { f10 = (int)value; }
+#pragma dont_inline off

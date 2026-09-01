@@ -48,6 +48,8 @@ public:
 };
 
 
+#pragma dont_inline on
 void Graphics::LightPointSpot::SetViewportVisibleMask(unsigned short value) { f12 = value; }
 void Graphics::LightPointSpot::SetLightMask(unsigned short value) { f14 = value; }
 xLightEffectBase::xLightEffectBase(World::EntityHandleBase* a0) : World::xOGEntity(a0) {}
+#pragma dont_inline off

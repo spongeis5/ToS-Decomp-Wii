@@ -1104,7 +1104,14 @@ def main():
         g, s = candidates(raw, base, foff, syms, a, b)
         good += g
         skipped += s
-    if not good:
+    # The RTTID_Fix<T> family. It is a template rather than a per-function
+    # shape, so it lives in its own module -- imported here rather than at
+    # the top because that module imports this one for the mangler.
+    import gen_rttid
+    rt_rows, rt_skipped = gen_rttid.family(raw, base, foff, spans)
+    skipped += rt_skipped
+
+    if not good and not rt_rows:
         sys.exit("gen_accessors: nothing in %08X..%08X matches a shape -- "
                  "refusing to write an empty file" % (lo, hi))
 
@@ -1291,17 +1298,38 @@ def main():
                 L.append(d)
         L.append("")
 
+    # A base constructor DEFINED in this file gets inlined into the derived
+    # constructors that call it, and the call retail makes to the base then
+    # emits as a call to the base's OWN base instead. Twelve functions were
+    # counted as matched while branching to the wrong constructor, and
+    # report.json cannot see it -- a relocated field holds zero on both
+    # sides, so objdiff compares nothing. `tools/reloc_audit.py` is what
+    # found them and `unitcmp.py` is what can now tell.
+    ctors = any(c["shape"][0] == "basector" for c in good)
+    if ctors:
+        L.append("#pragma dont_inline on")
     for c in good:
         L.append(define(c, fields[(c["ns"], c["cls"])]))
+    if ctors:
+        L.append("#pragma dont_inline off")
+
+    rt_lines, rt_kept, rt_refused = gen_rttid.render(rt_rows, defined)
+    if rt_lines:
+        L.append("")
+        L += rt_lines
 
     Path(out).parent.mkdir(parents=True, exist_ok=True)
     Path(out).write_text(NL.join(L) + NL, encoding="utf-8")
 
-    total = len(good) + sum(skipped.values())
+    total = len(good) + len(rt_kept) + sum(skipped.values())
     by = Counter(c["shape"][0] for c in good)
+    if rt_kept:
+        by["rttid"] = len(rt_kept)
+    skipped += rt_refused
     print("  %s: %d function(s) emitted of %d short function(s) in "
           "%08X..%08X, %d bytes"
-          % (out, len(good), total, lo, hi, sum(c["size"] for c in good)))
+          % (out, len(good) + len(rt_kept), total, lo, hi,
+             sum(c["size"] for c in good) + 4 * len(rt_kept)))
     print("    " + ", ".join("%s %d" % (k, n) for k, n in by.most_common()))
     for why, n in skipped.most_common():
         print("    skipped %-54s %d" % (why, n))

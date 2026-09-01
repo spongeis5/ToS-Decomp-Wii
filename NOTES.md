@@ -7,10 +7,10 @@ numbers here, which move.
 ## State at time of writing
 
 ```
-Game Code:  25 of 498 files complete  13,444 / 2,115,452 bytes  620 / 10,559 fn
-            0.6355% of game code
+Game Code:  25 of 498 files complete  14,144 / 2,115,452 bytes  795 / 10,559 fn
+            0.6686% of game code
 
-Of those 620 functions, 528 are GENERATED -- machine-recognised
+Of those 795 functions, 703 are GENERATED -- machine-recognised
 shapes, not one of which is decompiling. They are real matched
 functions and the offsets and constants are recovered fact, but a
 count of them is not a count of decompiled code. HAND-WRITTEN IS
@@ -18,7 +18,7 @@ count of them is not a count of decompiled code. HAND-WRITTEN IS
 compare against earlier ones.
 
 Data:       3 unit(s) carry their own, 396 bytes; 75 more could
-All:        1.89% matched              main.dol reproduces byte for byte
+All:        1.90% matched              main.dol reproduces byte for byte
 ```
 
 Every number above is written by `python tools/notes_state.py`,
@@ -82,6 +82,8 @@ r13 or r2.
 | `written_vs_generated.py` | the split, from the banner in each source file |
 | `notes_state.py` | writes the State block at the top of this file; `--check` fails when it is stale |
 | `next_functions.py` | what is left ranked by functions rather than bytes |
+| `gen_rttid.py` | the RTTID_Fix<T> family -- 175 functions from one template; `--survey` |
+| `reloc_audit.py` | which already-matched functions branch somewhere retail does not |
 
 `pip install pyelftools` is required for all of them.
 
@@ -106,6 +108,81 @@ Each unity unit is now an alternating sequence of recovered files and
 
 Headers are deliberately NOT units: an inline emitted out-of-line belongs to
 the `.cpp` that used it, and dtk rejects the fiction anyway.
+
+## report.json IS BLIND TO RELOCATION TARGETS
+
+The oracle compares the BITS of a relocated field, and both sides hold
+zero there. So a function can branch to entirely the wrong place and
+still be counted, and for a four-byte tail call -- one word, all of it
+a REL24 field -- **nothing whatever is compared**.
+
+Measured, not reasoned: re-base one RTTID_Fix stub on the wrong class,
+so its single instruction calls a different function, rebuild, and
+report.json still says 100.0% and the byte count does not move.
+
+`unitcmp.py` now asks the other half of the question. Our object's
+relocation NAMES the symbol; retail's resolved displacement lands on
+one; the two have to agree. A masked word it still cannot resolve is
+counted as `unmeasured`, and a function where that is ALL of them
+reports UNMEAS rather than MATCH -- a measurement that did not happen
+must not read as a benign one.
+
+Three things that check found, in the order they were found:
+
+1. **Two bugs in the check itself, both caught by it firing on input
+   report.json calls correct.** The address map took the FIRST symbol
+   of a duplicated name where `retail()` takes the last, so bodies and
+   addresses came from different copies; and it held only sized
+   functions, so `_savegpr_29` and `_restgpr_29` -- interior labels of
+   one routine, no size -- had no name at the address every prologue
+   branches to. A guard that fires on correct input is worse than none,
+   and both were fixed before anything was believed.
+
+2. **Twelve functions were counted as matched while calling the wrong
+   constructor.** Eleven in WAD01, one in WAD03_22. The cause was ours:
+   a base constructor DEFINED in the same generated file gets inlined
+   into the derived constructors that call it, and the call then emits
+   to the base's own base instead. `#pragma dont_inline on` around the
+   definitions fixes it, `gen_accessors.py` emits that pragma whenever
+   a unit has a `basector`, and 21 generated units now carry it.
+
+3. **Nothing else.** `tools/reloc_audit.py` re-run afterwards: 0 wrong
+   branches of 799 game functions checked, out of the 1,578 report.json
+   calls matched -- the other 779 are in the 130 SDK and library units
+   `unitcmp` cannot build with the game flags, and they were NOT
+   audited rather than being assumed clean.
+
+The mutation test lives in `unitcmp_check.py` beside the flag-drift
+one: move every retail address by four and the byte-identical count
+MUST fall, or the comparison is dead.
+
+## The RTTID_Fix<T> family -- 175 functions from one template
+
+`shape_census.py` had been saying for a while that the commonest shape
+among unmatched game functions is a bare `b` -- 261 of them -- and that
+176 carry the name `RTTID_Fix<...>__4UtilFPvl_v`. NOTES said the
+generators were exhausted; what was exhausted was `gen_accessors`'
+SHAPE SET, and its symbol scan does not even look at four-byte
+functions. The census was pointing at the answer the whole time.
+
+    namespace Util {
+    template <class T> void RTTID_Fix(void* p, long l) { ((T*)p)->Fix(l); }
+    }
+
+compiles to exactly one word per instantiation, and mwcc spells the
+instantiation `RTTID_Fix<Q24Sext5Curve>__4UtilFPvl_v` -- retail's own
+symbol, checked before anything was generated.
+
+The difficulty is that the target is not always T's own Fix: 137 of the
+175 branch to `Fix__<T>Fl` and 38 branch to another class's, because T
+inherits it or the linker folded two identical bodies. Both are
+reproduced without deciding which: declare T as deriving from the class
+that owns the symbol retail branches to. Single inheritance at offset 0
+leaves r3 alone, so the body stays four bytes.
+
+One is refused and stays refused: `RTTID_Fix<Sext::CylinderAsset>`
+branches to `CustomFix__Q24Sext10xBaseAssetFl`, a differently NAMED
+method, which no derivation reaches.
 
 ## Where to pick up
 

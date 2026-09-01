@@ -121,6 +121,7 @@ public:
 };
 
 
+#pragma dont_inline on
 unsigned char zUI::GetBrightness() { return f84; }
 float zUI::GetRotation() { return f78; }
 float zUI::GetHeight() { return f64; }
@@ -143,3 +144,4 @@ int* zRunEntLaser::GetCurMatrixPtr() { return &f50; }
 unsigned int zPlayerSingleCustomAnimSB::GetID() { return 0x0000002Cu; }
 zPOWManager::zPOWManager() : zModule() {}
 zProjectileManager::zProjectileManager() : zModule() {}
+#pragma dont_inline off

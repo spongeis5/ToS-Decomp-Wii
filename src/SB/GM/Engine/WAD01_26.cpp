@@ -534,6 +534,7 @@ public:
 };
 
 
+#pragma dont_inline on
 int* zCamWorldDrivable::DriveGetCurMat(int a0) { return &f228; }
 unsigned int zNPCBTCondition::GetBTFamily() const { return 0x00000003u; }
 void zBTConditionPlayerIsInAction::Setup(const Sext::ConditionBase* value) { fC = (int)value; }
@@ -601,3 +602,4 @@ unsigned int zBTConditionFalse::GetTypeID() const { return 0x2EF3935Cu; }
 unsigned int zBTConditionTrue::GetTypeID() const { return 0x89176D7Du; }
 unsigned int zBTActionAlwaysFail::GetTypeID() const { return 0xFD239E46u; }
 unsigned int zBTActionAlwaysComplete::GetTypeID() const { return 0xF7756BA5u; }
+#pragma dont_inline off

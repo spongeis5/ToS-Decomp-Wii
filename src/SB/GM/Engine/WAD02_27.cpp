@@ -42,5 +42,7 @@ public:
 };
 
 
+#pragma dont_inline on
 zNPCGenericSpawner::zNPCGenericSpawner(World::EntityHandleBase* a0) : zNPCGeneric(a0) {}
 int zNPCGenericSwarm::GetNumberOfChildren() { return f240; }
+#pragma dont_inline off

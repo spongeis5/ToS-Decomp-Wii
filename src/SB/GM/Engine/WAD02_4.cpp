@@ -53,5 +53,7 @@ public:
 }  // namespace Particles
 }  // namespace FX
 
+#pragma dont_inline on
 FX::zFXSpawnWithSoundAssetMultiple::zFXSpawnWithSoundAssetMultiple(World::EntityHandleBase* a0) : FX::zFXSpawn(a0) {}
 void FX::Particles::Locator::Sphere::release_volume(FX::activity_data& a0) { f4 = 0; }
+#pragma dont_inline off

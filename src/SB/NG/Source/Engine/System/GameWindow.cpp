@@ -34,4 +34,6 @@ public:
 
 }  // namespace System
 
+#pragma dont_inline on
 System::GameWindowModule::GameWindowModule() : System::Module() {}
+#pragma dont_inline off

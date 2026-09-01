@@ -52,7 +52,9 @@ public:
 int zUIGetPauseType();
 void zUISetPauseType(Sext::ePauseType value);
 
+#pragma dont_inline on
 int* zTrigger::DriveGetCurMat(int a0) { return &f3C; }
 int zUIGetPauseType() { return pause_type; }
 void zUISetPauseType(Sext::ePauseType value) { pause_type = (int)value; }
 zUIGroup::zUIGroup(World::EntityHandleBase* a0) : World::xOGEntity(a0) {}
+#pragma dont_inline off

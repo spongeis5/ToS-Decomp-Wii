@@ -36,4 +36,6 @@ public:
 
 }  // namespace UI
 
+#pragma dont_inline on
 UI::TextureFont::TextureFont(World::EntityHandleBase* a0) : UI::Font(a0) {}
+#pragma dont_inline off

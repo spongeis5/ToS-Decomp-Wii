@@ -137,6 +137,7 @@ public:
 
 }  // namespace Graphics
 
+#pragma dont_inline on
 World::GeometryEntity::GeometryEntity(World::EntityHandleBase* a0) : World::Entity(a0) {}
 void Graphics::FixedVertexBuffer::Create() { fC = 0; f4 = 0; }
 World::BlobEntity::BlobEntity(World::EntityHandleBase* a0) : World::Entity(a0) {}
@@ -148,3 +149,4 @@ void Animate::Interpolator::SetTime(float value) { f0 = value; }
 int World::ComboAnimBlobEntity::GetV2() const { return f18; }
 float Animate::Interpolator::GetTime() const { return f0; }
 unsigned short Graphics::Model::GetChildTransformCount() const { return f32; }
+#pragma dont_inline off

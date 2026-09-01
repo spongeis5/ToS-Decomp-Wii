@@ -48,5 +48,7 @@ public:
 
 }  // namespace xRumble
 
+#pragma dont_inline on
 xRumble::emitterBase::emitterBase(World::EntityHandleBase* a0) : World::xOGEntity(a0) {}
 void xRumble::Manager::EnableRumbling(bool value) { f824 = value; }
+#pragma dont_inline off

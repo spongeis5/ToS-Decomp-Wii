@@ -63,7 +63,9 @@ public:
 };
 
 
+#pragma dont_inline on
 int zNPCBTClientBase::GetOwner() const { return f1A0; }
 Graphics::LightKitData::LightKitData() { f70 = 0; f74 = 0; f78 = 0; }
 zNPCManager::zNPCManager() : zModule() {}
 zNPCNinjaManager::zNPCNinjaManager() : zModule() {}
+#pragma dont_inline off

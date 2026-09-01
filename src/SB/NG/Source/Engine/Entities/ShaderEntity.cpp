@@ -36,4 +36,6 @@ public:
 
 }  // namespace World
 
+#pragma dont_inline on
 World::ShaderEntity::ShaderEntity(World::EntityHandleBase* a0) : World::Entity(a0) {}
+#pragma dont_inline off

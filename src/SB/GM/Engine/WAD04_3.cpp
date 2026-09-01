@@ -41,5 +41,7 @@ public:
 };
 
 
+#pragma dont_inline on
 zUIBox::zUIBox(World::EntityHandleBase* a0) : zUI(a0) {}
 zUIText::zUIText(World::EntityHandleBase* a0) : zUI(a0) {}
+#pragma dont_inline off

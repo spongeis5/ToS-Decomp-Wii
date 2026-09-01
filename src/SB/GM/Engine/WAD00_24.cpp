@@ -49,6 +49,8 @@ public:
 
 unsigned char xTRCPadIsControlsDisabled();
 
+#pragma dont_inline on
 _tagTRCPadInfo::_tagTRCPadInfo() { f0 = -1; }
 unsigned char xTRCPadIsControlsDisabled() { return gTrcControlsDisabled; }
 World::xOGStubEntity::xOGStubEntity(World::EntityHandleBase* a0) : World::Entity(a0) {}
+#pragma dont_inline off

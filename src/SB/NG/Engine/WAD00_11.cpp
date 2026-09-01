@@ -70,7 +70,9 @@ public:
 
 }  // namespace World
 
+#pragma dont_inline on
 void Graphics::Renderable3D::SetProjectShadowFlag(unsigned int value) { fF0 = value; }
 void World::UVMovementInstanceData::SetRows(float* value) { f5C = (int)value; }
 World::RenderCustomizerBaseEntity::RenderCustomizerBaseEntity(World::EntityHandleBase* a0) : World::Entity(a0) {}
 unsigned int World::UVMovementSettingsEntity::GetInstanceDataSize() { return 0x00000060u; }
+#pragma dont_inline off

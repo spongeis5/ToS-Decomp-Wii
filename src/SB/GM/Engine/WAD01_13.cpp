@@ -56,7 +56,9 @@ public:
 };
 
 
+#pragma dont_inline on
 float zCamDriver::getCurrentBasisTheta() const { return f1A0; }
 float zCamDriver::getCurrentBasisDist() const { return f1A8; }
 zCamFixed::zCamFixed(World::EntityHandleBase* a0) : World::xOGEntity(a0) {}
 zCamWorldFixed::zCamWorldFixed() {}
+#pragma dont_inline off

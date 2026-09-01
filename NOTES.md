@@ -7,18 +7,18 @@ numbers here, which move.
 ## State at time of writing
 
 ```
-Game Code:  28 of 777 files complete  29,376 / 2,116,508 bytes  996 / 10,686 fn
-            1.3879% of game code
+Game Code:  28 of 777 files complete  36,128 / 2,116,508 bytes  1,014 / 10,686 fn
+            1.7070% of game code
 
-Of those 996 functions, 837 are GENERATED -- machine-recognised
+Of those 1,014 functions, 837 are GENERATED -- machine-recognised
 shapes, not one of which is decompiling. They are real matched
 functions and the offsets and constants are recovered fact, but a
 count of them is not a count of decompiled code. HAND-WRITTEN IS
-159, across 41 units and 18,784 bytes, and that is the figure to
+177, across 41 units and 25,536 bytes, and that is the figure to
 compare against earlier ones.
 
 Data:       3 unit(s) carry their own, 396 bytes; 134 more could
-All:        2.13% matched              main.dol reproduces byte for byte
+All:        2.23% matched              main.dol reproduces byte for byte
 ```
 
 Every number above is written by `python tools/notes_state.py`,
@@ -423,7 +423,7 @@ CreateAnimTable above. `InitTypeParameters` needs
 symbol has to come out as `@GUARD@...@_inst`, and `Initialize` calls
 `World::EntityManager::FindAsset` through a loaded address rather than
 a direct branch, which no plain call reproduces.
-## The AnimTable vein, first cut: three tables of zSBPlayerActions match
+## The AnimTable vein: 21 tables of zSBPlayerActions match
 
 `zSBPlayerActions.cpp` became a unit in the second cut, 547 functions
 and 136,272 bytes, 173 of them branchless tables. The accessor
@@ -432,11 +432,13 @@ the tables name are the animcb shape -- so the tables are MERGED into
 that file and it is hand-owned now; `gen_units.py` holds it and
 reports, and a new accessor candidate is merged by hand.
 
-Six tables were merged from the image, 270 calls, every argument
-resolved. Three match: `AddInternalTransitions` of
-`zSBPlayerBungeeBall` (1,748 bytes), `zSBPlayerHammerPowerupAttack`
-(1,532) and `zSBPlayerPuckPowerupAttack` (1,528). Four things had to
-be true, each found by one diff:
+`tools/gen_animtables.py` merges tables from the image; 31 were
+merged, 400 calls, every argument resolved, and **21 match** -- 48 of
+the unit's 61 written functions, and Game Code 1.39% to 1.71%. The
+first three were `AddInternalTransitions` of `zSBPlayerBungeeBall`
+(1,748 bytes), `zSBPlayerHammerPowerupAttack` (1,532) and
+`zSBPlayerPuckPowerupAttack` (1,528); the other eighteen followed in
+one batch once four things were true, each found by one diff:
 
   * **The tables are `void`.** One instruction over in all three, and
     it was the `li r3,0` of a `return 0;` the emitter wrote. The
@@ -466,7 +468,14 @@ the callee-saved FPRs -- `fmr f3,f31` is how a table passes a float it
 keeps -- and the DWARF names that float: `AgingIdleBlendTime`, a local
 declared at line 999 of the original, mid-table.
 
-**Three do not match yet**, and they are three different things:
+**What does not match**, and it is three different things. First,
+four `AddActionTransitions` -- Cheat, Springboard, Jump, DoubleJump --
+came out at half their retail length: they call only
+xAnimTableNewTransition but carry other statements between the
+calls, so "calls only the table function" is not "is a table".
+They were removed rather than left half-written. Two more are one
+word short (`zSBPlayerHammerAttack` and `zPlayerWalkSB`
+AddInternalTransitions) and not yet looked at. Then the three below:
 
   * `zPlayerIdleSB::AddStates` (3,308) is not a pure table. It fills
     `extraIdleTable[k]`: `numVariants`, `noRepeats`, and each
@@ -480,8 +489,20 @@ declared at line 999 of the original, mid-table.
     shares a base for the floats instead; all eighteen callee-saved
     registers are in use on both sides, so this is the CreateAnimTable
     ordering question again, one register deep.
-  * `zPlayerRunSB::AddInternalTransitions` (2,928) is exact in length
-    and permuted throughout: same cause.
+  * `zPlayerRunSB::AddInternalTransitions` (2,928) and every
+    `AddStates` -- Run, Hit, Defeated -- are exact or near in length
+    and permuted throughout. RunSB::AddStates says it plainly: the
+    same three hoisted values, the pool base, the callback base and
+    the zero, take r27, r28, r29 in retail in that order and r29,
+    r27, r28 in ours. Ruled out, none moving a word: the zeros typed
+    as their parameter types, as NULL, and the long long alone; the
+    function first in the file and last; the callback DEFINED in the
+    file rather than declared; a pool string used by an earlier
+    function. And retail itself orders the same trio differently in
+    the Hammer table, which matches -- there the zero comes before
+    the pool. Whatever decides it is not in the source text that has
+    been varied, and NewState tables, whose first stack slot is a
+    callback, are the ones it bites.
 
 The two `AddActionTransitions` of zPlayerIdleSB and zPlayerWalkSB are
 not tables at all: 27 and 32 `bctrl` -- the manager's virtual
@@ -682,16 +703,17 @@ Then one of these, in the order they are worth doing:
    five re-loads and two orphaned branches; the section above lists
    the 64 things already ruled out, so do not start there.
 
-4. **The AnimTable family, open.** Three tables of `zSBPlayerActions.cpp`
-   MATCH (4,808 bytes) on top of `CreateAnimTable`, and the section
+4. **The AnimTable family, open.** 21 tables of `zSBPlayerActions.cpp`
+   MATCH on top of `CreateAnimTable`, and the section
    above says the four rules: the tables are `void`, a transition
    callback returns `unsigned int`, a pointer that names a symbol is
    that symbol, and the pool header carries the WHOLE pool
-   (`gen_poolprefix.py --whole`). 173 branchless tables sit in that unit
-   alone; merge them with the scratch merger a few at a time and let
-   unitcmp say which are pure. The three that are not -- AddStates
-   with its member stores, and two whose eighteen callee-saved
-   registers come out permuted -- are described there too.
+   (`gen_poolprefix.py --whole`). `tools/gen_animtables.py` merges
+   them; the transition-table shape matches, the NewState shape comes
+   out permuted, and "calls only the table function" is not "is a
+   table" -- unitcmp decides. Next homes: `WAD01_28` (23 pure
+   transition tables, 16,184 bytes, generated source, needs its
+   `.pool.h`) and `zCommonPlayerActions` (8, 2,692 bytes).
 
 5. **Another shape.** `tools/shape_census.py` still ranks what is
    left. The biggest row is `addi b`, 97 functions and 776 bytes, of

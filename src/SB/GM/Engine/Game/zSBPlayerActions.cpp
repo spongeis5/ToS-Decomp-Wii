@@ -19,6 +19,12 @@ class xAnimSingle;
 class xAnimTransition;
 unsigned int xAnimTableNewState(xAnimTable* table, const char* name, unsigned int a, unsigned int b, float c, float* d, float* e, float f, unsigned short* g, void* h, void (*i)(xAnimPlay*, xAnimState*, void*), void (*j)(xAnimPlay*, xAnimState*, void*), void (*k)(xAnimState*, xAnimSingle*, void*), void (*l)(xAnimPlay*, xQuat*, xVec3*, xVec3*, int), unsigned long long m, unsigned int n);
 unsigned int xAnimTableNewTransition(xAnimTable* table, const char* from, const char* to, unsigned int (*a)(xAnimTransition*, xAnimSingle*, void*), unsigned int (*b)(xAnimTransition*, xAnimSingle*, void*), unsigned int (*c)(xAnimTransition*, xAnimSingle*, void*), unsigned int d, unsigned int e, float f, float g, unsigned short h, unsigned short i, float j, unsigned short* k);
+void zRestoreFromHitByHammerBE(xAnimPlay*, xAnimState*, void*);
+void zHitByHammerBE(xAnimPlay*, xAnimState*, void*);
+void zGravestoneBE(xAnimPlay*, xAnimState*, void*);
+void zDefeatedFrozenBE(xAnimPlay*, xAnimState*, void*);
+void zDefeatedFragBobBE(xAnimPlay*, xAnimState*, void*);
+void zDefeatedDeathBonesBE(xAnimPlay*, xAnimState*, void*);
 void zSBAnimPackageBE(xAnimPlay*, xAnimState*, void*);
 void zSBAgingIdlePopOutBE(xAnimPlay*, xAnimState*, void*);
 void zSBAgingIdleBE(xAnimPlay*, xAnimState*, void*);
@@ -58,6 +64,13 @@ struct AnimCBSlot { unsigned char _pad[0x90]; void* owner; };
 struct AnimCBHolder { unsigned char _pad[0x4]; AnimCBSlot* slot; };
 
 
+class xAnimState;
+struct ExtraIdleTableEntry {
+    xAnimState* variants[17];
+    int numVariants;
+    int numValid;
+    bool noRepeats;
+};
 class zPlayerIdleSB {
 public:
     static unsigned int anExtraIdleCB(xAnimTransition* a0, xAnimSingle* a1, void* a2);
@@ -99,15 +112,21 @@ public:
     static unsigned int anTurnToFaceCameraCB(xAnimTransition*, xAnimSingle*, void*);
     void AddInternalTransitions(xAnimTable* table);
     void AddStates(xAnimTable* table);
+
+    unsigned char _pad0[0x2C];
+    ExtraIdleTableEntry extraIdleTable[6];
 };
 
 
 
 class zPlayerFallSB {
 public:
-    static bool anFallHighCheck(xAnimTransition* a0, xAnimSingle* a1, void* a2);
+    static unsigned int anFallHighCheck(xAnimTransition* a0, xAnimSingle* a1, void* a2);
     bool FallHighCheck(xAnimTransition* a0, xAnimSingle* a1);
 
+    static unsigned int anLandRunCheck(xAnimTransition*, xAnimSingle*, void*);
+    static unsigned int anLandWalkCheck(xAnimTransition*, xAnimSingle*, void*);
+    void AddInternalTransitions(xAnimTable* table);
 };
 
 
@@ -118,39 +137,46 @@ public:
 
     unsigned char _pad0[0x4];
     int f4;
+    void AddInternalTransitions(xAnimTable* table);
 };
 
 
 
 class zSBPlayerHammerAttack {
 public:
-    static bool anHammerInterruptMedCheck(xAnimTransition* a0, xAnimSingle* a1, void* a2);
+    static unsigned int anHammerInterruptMedCheck(xAnimTransition* a0, xAnimSingle* a1, void* a2);
     bool HammerInterruptMedCheck(xAnimTransition* a0, xAnimSingle* a1);
-    static bool anHammerSplashCB(xAnimTransition* a0, xAnimSingle* a1, void* a2);
+    static unsigned int anHammerSplashCB(xAnimTransition* a0, xAnimSingle* a1, void* a2);
     bool HammerSplashCB(xAnimTransition* a0, xAnimSingle* a1);
 
+    static unsigned int anHammerSetAttackStateCB(xAnimTransition*, xAnimSingle*, void*);
+    void AddInternalTransitions(xAnimTable* table);
 };
 
 
 
 class zSBPlayerPuckAttack {
 public:
-    static bool anAimPuckCheck(xAnimTransition* a0, xAnimSingle* a1, void* a2);
+    static unsigned int anAimPuckCheck(xAnimTransition* a0, xAnimSingle* a1, void* a2);
     bool AimPuckCheck(xAnimTransition* a0, xAnimSingle* a1);
-    static bool anFirePuckCB(xAnimTransition* a0, xAnimSingle* a1, void* a2);
+    static unsigned int anFirePuckCB(xAnimTransition* a0, xAnimSingle* a1, void* a2);
     bool FirePuckCB(xAnimTransition* a0, xAnimSingle* a1);
-    static bool anShootPuckCheck(xAnimTransition* a0, xAnimSingle* a1, void* a2);
+    static unsigned int anShootPuckCheck(xAnimTransition* a0, xAnimSingle* a1, void* a2);
     bool ShootPuckCheck(xAnimTransition* a0, xAnimSingle* a1);
 
+    void AddInternalTransitions(xAnimTable* table);
 };
 
 
 
 class zPlayerHitSB {
 public:
-    static bool anHammerHitCB(xAnimTransition* a0, xAnimSingle* a1, void* a2);
+    static unsigned int anHammerHitCB(xAnimTransition* a0, xAnimSingle* a1, void* a2);
     bool HammerHitCB(xAnimTransition* a0, xAnimSingle* a1);
 
+    void AddStates(xAnimTable* table);
+    static unsigned int anHammerTimerDone(xAnimTransition*, xAnimSingle*, void*);
+    void AddInternalTransitions(xAnimTable* table);
 };
 
 
@@ -179,18 +205,21 @@ public:
 
 class zSBPlayerKelpTrap {
 public:
-    static bool anKelpReleaseCheck(xAnimTransition* a0, xAnimSingle* a1, void* a2);
+    static unsigned int anKelpReleaseCheck(xAnimTransition* a0, xAnimSingle* a1, void* a2);
     bool KelpReleaseCheck(xAnimTransition* a0, xAnimSingle* a1);
 
+    void AddInternalTransitions(xAnimTable* table);
 };
 
 
 
 class zPlayerDefeatedSB {
 public:
-    static bool anFaceCameraCB(xAnimTransition* a0, xAnimSingle* a1, void* a2);
+    static unsigned int anFaceCameraCB(xAnimTransition* a0, xAnimSingle* a1, void* a2);
     bool FaceCameraCB(xAnimTransition* a0, xAnimSingle* a1);
 
+    void AddStates(xAnimTable* table);
+    void AddInternalTransitions(xAnimTable* table);
 };
 
 
@@ -203,6 +232,11 @@ public:
     unsigned char f10;
     unsigned char _pad1[0xB];
     unsigned char f1C;
+    static unsigned int anEarlyStopCheck(xAnimTransition*, xAnimSingle*, void*);
+    static unsigned int anStartAnimationCheck(xAnimTransition*, xAnimSingle*, void*);
+    static unsigned int anStartNewCustomAnimCB(xAnimTransition*, xAnimSingle*, void*);
+    void AddActionTransitions(xAnimTable* table);
+    void AddInternalTransitions(xAnimTable* table);
 };
 
 
@@ -219,19 +253,19 @@ unsigned int zPlayerIdleSB::anIdleAgingCrumbleCheck(xAnimTransition* a0, xAnimSi
 unsigned int zPlayerIdleSB::anIdleAgingOutCheck(xAnimTransition* a0, xAnimSingle* a1, void* a2) { return ((zPlayerIdleSB*)((AnimCBHolder*)a1)->slot->owner)->IdleAgingOutCheck(a0, a1); }
 unsigned int zPlayerIdleSB::anIdleAgingOutColdCheck(xAnimTransition* a0, xAnimSingle* a1, void* a2) { return ((zPlayerIdleSB*)((AnimCBHolder*)a1)->slot->owner)->IdleAgingOutColdCheck(a0, a1); }
 unsigned int zPlayerIdleSB::anResetExtraIdleVarsCB(xAnimTransition* a0, xAnimSingle* a1, void* a2) { return ((zPlayerIdleSB*)((AnimCBHolder*)a1)->slot->owner)->ResetExtraIdleVarsCB(a0, a1); }
-bool zPlayerFallSB::anFallHighCheck(xAnimTransition* a0, xAnimSingle* a1, void* a2) { return ((zPlayerFallSB*)((AnimCBHolder*)a1)->slot->owner)->FallHighCheck(a0, a1); }
+unsigned int zPlayerFallSB::anFallHighCheck(xAnimTransition* a0, xAnimSingle* a1, void* a2) { return ((zPlayerFallSB*)((AnimCBHolder*)a1)->slot->owner)->FallHighCheck(a0, a1); }
 void zPlayerLandHighSB::End() { ((zSBPlayer*)f4)->StopSBB3SmokeTrailFX(); }
-bool zSBPlayerHammerAttack::anHammerInterruptMedCheck(xAnimTransition* a0, xAnimSingle* a1, void* a2) { return ((zSBPlayerHammerAttack*)((AnimCBHolder*)a1)->slot->owner)->HammerInterruptMedCheck(a0, a1); }
-bool zSBPlayerHammerAttack::anHammerSplashCB(xAnimTransition* a0, xAnimSingle* a1, void* a2) { return ((zSBPlayerHammerAttack*)((AnimCBHolder*)a1)->slot->owner)->HammerSplashCB(a0, a1); }
-bool zSBPlayerPuckAttack::anAimPuckCheck(xAnimTransition* a0, xAnimSingle* a1, void* a2) { return ((zSBPlayerPuckAttack*)((AnimCBHolder*)a1)->slot->owner)->AimPuckCheck(a0, a1); }
-bool zSBPlayerPuckAttack::anShootPuckCheck(xAnimTransition* a0, xAnimSingle* a1, void* a2) { return ((zSBPlayerPuckAttack*)((AnimCBHolder*)a1)->slot->owner)->ShootPuckCheck(a0, a1); }
-bool zSBPlayerPuckAttack::anFirePuckCB(xAnimTransition* a0, xAnimSingle* a1, void* a2) { return ((zSBPlayerPuckAttack*)((AnimCBHolder*)a1)->slot->owner)->FirePuckCB(a0, a1); }
-bool zPlayerHitSB::anHammerHitCB(xAnimTransition* a0, xAnimSingle* a1, void* a2) { return ((zPlayerHitSB*)((AnimCBHolder*)a1)->slot->owner)->HammerHitCB(a0, a1); }
+unsigned int zSBPlayerHammerAttack::anHammerInterruptMedCheck(xAnimTransition* a0, xAnimSingle* a1, void* a2) { return ((zSBPlayerHammerAttack*)((AnimCBHolder*)a1)->slot->owner)->HammerInterruptMedCheck(a0, a1); }
+unsigned int zSBPlayerHammerAttack::anHammerSplashCB(xAnimTransition* a0, xAnimSingle* a1, void* a2) { return ((zSBPlayerHammerAttack*)((AnimCBHolder*)a1)->slot->owner)->HammerSplashCB(a0, a1); }
+unsigned int zSBPlayerPuckAttack::anAimPuckCheck(xAnimTransition* a0, xAnimSingle* a1, void* a2) { return ((zSBPlayerPuckAttack*)((AnimCBHolder*)a1)->slot->owner)->AimPuckCheck(a0, a1); }
+unsigned int zSBPlayerPuckAttack::anShootPuckCheck(xAnimTransition* a0, xAnimSingle* a1, void* a2) { return ((zSBPlayerPuckAttack*)((AnimCBHolder*)a1)->slot->owner)->ShootPuckCheck(a0, a1); }
+unsigned int zSBPlayerPuckAttack::anFirePuckCB(xAnimTransition* a0, xAnimSingle* a1, void* a2) { return ((zSBPlayerPuckAttack*)((AnimCBHolder*)a1)->slot->owner)->FirePuckCB(a0, a1); }
+unsigned int zPlayerHitSB::anHammerHitCB(xAnimTransition* a0, xAnimSingle* a1, void* a2) { return ((zPlayerHitSB*)((AnimCBHolder*)a1)->slot->owner)->HammerHitCB(a0, a1); }
 unsigned int zSBPlayerHammerPowerupAttack::anAttackPushCB(xAnimTransition* a0, xAnimSingle* a1, void* a2) { return ((zSBPlayerHammerPowerupAttack*)((AnimCBHolder*)a1)->slot->owner)->AttackPushCB(a0, a1); }
 unsigned int zSBPlayerHammerPowerupAttack::anSplashCB(xAnimTransition* a0, xAnimSingle* a1, void* a2) { return ((zSBPlayerHammerPowerupAttack*)((AnimCBHolder*)a1)->slot->owner)->SplashCB(a0, a1); }
 unsigned int zSBPlayerPuckPowerupAttack::anFirePuckCB(xAnimTransition* a0, xAnimSingle* a1, void* a2) { return ((zSBPlayerPuckPowerupAttack*)((AnimCBHolder*)a1)->slot->owner)->FirePuckCB(a0, a1); }
-bool zSBPlayerKelpTrap::anKelpReleaseCheck(xAnimTransition* a0, xAnimSingle* a1, void* a2) { return ((zSBPlayerKelpTrap*)((AnimCBHolder*)a1)->slot->owner)->KelpReleaseCheck(a0, a1); }
-bool zPlayerDefeatedSB::anFaceCameraCB(xAnimTransition* a0, xAnimSingle* a1, void* a2) { return ((zPlayerDefeatedSB*)((AnimCBHolder*)a1)->slot->owner)->FaceCameraCB(a0, a1); }
+unsigned int zSBPlayerKelpTrap::anKelpReleaseCheck(xAnimTransition* a0, xAnimSingle* a1, void* a2) { return ((zSBPlayerKelpTrap*)((AnimCBHolder*)a1)->slot->owner)->KelpReleaseCheck(a0, a1); }
+unsigned int zPlayerDefeatedSB::anFaceCameraCB(xAnimTransition* a0, xAnimSingle* a1, void* a2) { return ((zPlayerDefeatedSB*)((AnimCBHolder*)a1)->slot->owner)->FaceCameraCB(a0, a1); }
 void zPlayerSingleCustomAnimSB::Reset() { f10 = 0; f1C = 0; }
 
 class zSBPlayerAction {
@@ -240,11 +274,16 @@ public:
     static unsigned int anSBRunCheck(xAnimTransition*, xAnimSingle*, void*);
     static unsigned int anSBStopCheck(xAnimTransition*, xAnimSingle*, void*);
     static unsigned int anSBWalkCheck(xAnimTransition*, xAnimSingle*, void*);
+    static unsigned int anSBCandyBuffCheck(xAnimTransition*, xAnimSingle*, void*);
+    static unsigned int anSBCandyCheck(xAnimTransition*, xAnimSingle*, void*);
+    static unsigned int anSBLandCheck(xAnimTransition*, xAnimSingle*, void*);
+    static unsigned int anSBNotCandyCheck(xAnimTransition*, xAnimSingle*, void*);
 };
 
 class zCommonPlayerAction {
 public:
     static unsigned int anMoveCheck(xAnimTransition*, xAnimSingle*, void*);
+    static unsigned int anLandCheck(xAnimTransition*, xAnimSingle*, void*);
 };
 
 class zPlayerRunSB {
@@ -256,6 +295,7 @@ public:
     static unsigned int anRunSlipperyCheck(xAnimTransition*, xAnimSingle*, void*);
     static unsigned int anRunSuccessCheck(xAnimTransition*, xAnimSingle*, void*);
     void AddInternalTransitions(xAnimTable* table);
+    void AddStates(xAnimTable* table);
 };
 
 class zSBPlayerBungeeBall {
@@ -282,30 +322,41 @@ public:
 
 // zPlayerIdleSB::AddStates: 42 call(s)
 void zPlayerIdleSB::AddStates(xAnimTable* table) {
-    xAnimTableNewState(table, "Idle01", 64, 0x2004000, 1.0f, 0, 0, 0.0f, 0, this, zSBAnimPackageBE, 0, 0, 0, 0, 0);
-    xAnimTableNewState(table, "IdleExtra01", 64, 0x2000000, 1.0f, 0, 0, 0.0f, 0, this, 0, 0, 0, 0, 0, 2);
-    xAnimTableNewState(table, "IdleExtra02", 64, 0x2000000, 1.0f, 0, 0, 0.0f, 0, this, 0, 0, 0, 0, 0, 2);
-    xAnimTableNewState(table, "IdleExtra03", 64, 0x2000000, 1.0f, 0, 0, 0.0f, 0, this, 0, 0, 0, 0, 0, 2);
-    xAnimTableNewState(table, "IdleExtra04", 64, 0x2000000, 1.0f, 0, 0, 0.0f, 0, this, 0, 0, 0, 0, 0, 2);
-    xAnimTableNewState(table, "IdleExtra05", 64, 0x2000000, 1.0f, 0, 0, 0.0f, 0, this, 0, 0, 0, 0, 0, 2);
-    xAnimTableNewState(table, "IdleExtra06", 64, 0x2000000, 1.0f, 0, 0, 0.0f, 0, this, 0, 0, 0, 0, 0, 2);
-    xAnimTableNewState(table, "IdleExtraFaceCam01", 64, 0x2000000, 1.0f, 0, 0, 0.0f, 0, this, 0, 0, 0, 0, 0, 4);
-    xAnimTableNewState(table, "IdleExtraFaceCam02", 64, 0x2000000, 1.0f, 0, 0, 0.0f, 0, this, 0, 0, 0, 0, 0, 4);
-    xAnimTableNewState(table, "IdleExtraFaceCam03", 64, 0x2000000, 1.0f, 0, 0, 0.0f, 0, this, 0, 0, 0, 0, 0, 4);
-    xAnimTableNewState(table, "IdleExtraFaceCam04", 64, 0x2000000, 1.0f, 0, 0, 0.0f, 0, this, 0, 0, 0, 0, 0, 4);
-    xAnimTableNewState(table, "IdleExtraFaceCam05", 64, 0x2000000, 1.0f, 0, 0, 0.0f, 0, this, 0, 0, 0, 0, 0, 4);
-    xAnimTableNewState(table, "IdleExtraFaceCam07", 64, 0x2000000, 1.0f, 0, 0, 0.0f, 0, this, 0, 0, 0, 0, 0, 4);
-    xAnimTableNewState(table, "IdleExtraFaceCam08", 64, 0x2000000, 1.0f, 0, 0, 0.0f, 0, this, 0, 0, 0, 0, 0, 4);
-    xAnimTableNewState(table, "IdleExtraFaceCam09", 64, 0x2000000, 1.0f, 0, 0, 0.0f, 0, this, 0, 0, 0, 0, 0, 4);
-    xAnimTableNewState(table, "IdleExtraFaceCam10", 64, 0x2000000, 1.0f, 0, 0, 0.0f, 0, this, 0, 0, 0, 0, 0, 4);
-    xAnimTableNewState(table, "IdleExtraFaceCam11", 64, 0x2000000, 1.0f, 0, 0, 0.0f, 0, this, 0, 0, 0, 0, 0, 4);
-    xAnimTableNewState(table, "IdleExtraFaceCam12", 64, 0x2000000, 1.0f, 0, 0, 0.0f, 0, this, 0, 0, 0, 0, 0, 4);
-    xAnimTableNewState(table, "IdleExtraFaceCam13", 64, 0x2000000, 1.0f, 0, 0, 0.0f, 0, this, 0, 0, 0, 0, 0, 4);
-    xAnimTableNewState(table, "IdleExtraFaceCam14", 64, 0x2000000, 1.0f, 0, 0, 0.0f, 0, this, 0, 0, 0, 0, 0, 4);
-    xAnimTableNewState(table, "IdleExtraBuff01", 64, 0x2000000, 1.0f, 0, 0, 0.0f, 0, this, 0, 0, 0, 0, 0, 3);
-    xAnimTableNewState(table, "IdleExtraBuff02", 64, 0x2000000, 1.0f, 0, 0, 0.0f, 0, this, 0, 0, 0, 0, 0, 3);
-    xAnimTableNewState(table, "IdleExtraBuffFaceCam01", 64, 0x2000000, 1.0f, 0, 0, 0.0f, 0, this, 0, 0, 0, 0, 0, 5);
-    xAnimTableNewState(table, "IdleExtraBuffFaceCam02", 64, 0x2000000, 1.0f, 0, 0, 0.0f, 0, this, 0, 0, 0, 0, 0, 5);
+    extraIdleTable[0].variants[0] = (xAnimState*)xAnimTableNewState(table, "Idle01", 64, 0x2004000, 1.0f, 0, 0, 0.0f, 0, this, zSBAnimPackageBE, 0, 0, 0, 0, 0);
+    extraIdleTable[2].noRepeats = true;
+    extraIdleTable[2].numVariants = 6;
+    extraIdleTable[2].variants[0] = (xAnimState*)xAnimTableNewState(table, "IdleExtra01", 64, 0x2000000, 1.0f, 0, 0, 0.0f, 0, this, 0, 0, 0, 0, 0, 2);
+    extraIdleTable[2].variants[1] = (xAnimState*)xAnimTableNewState(table, "IdleExtra02", 64, 0x2000000, 1.0f, 0, 0, 0.0f, 0, this, 0, 0, 0, 0, 0, 2);
+    extraIdleTable[2].variants[2] = (xAnimState*)xAnimTableNewState(table, "IdleExtra03", 64, 0x2000000, 1.0f, 0, 0, 0.0f, 0, this, 0, 0, 0, 0, 0, 2);
+    extraIdleTable[2].variants[3] = (xAnimState*)xAnimTableNewState(table, "IdleExtra04", 64, 0x2000000, 1.0f, 0, 0, 0.0f, 0, this, 0, 0, 0, 0, 0, 2);
+    extraIdleTable[2].variants[4] = (xAnimState*)xAnimTableNewState(table, "IdleExtra05", 64, 0x2000000, 1.0f, 0, 0, 0.0f, 0, this, 0, 0, 0, 0, 0, 2);
+    extraIdleTable[2].variants[5] = (xAnimState*)xAnimTableNewState(table, "IdleExtra06", 64, 0x2000000, 1.0f, 0, 0, 0.0f, 0, this, 0, 0, 0, 0, 0, 2);
+    extraIdleTable[4].noRepeats = true;
+    extraIdleTable[4].numVariants = 13;
+    extraIdleTable[4].variants[0] = (xAnimState*)xAnimTableNewState(table, "IdleExtraFaceCam01", 64, 0x2000000, 1.0f, 0, 0, 0.0f, 0, this, 0, 0, 0, 0, 0, 4);
+    extraIdleTable[4].variants[1] = (xAnimState*)xAnimTableNewState(table, "IdleExtraFaceCam02", 64, 0x2000000, 1.0f, 0, 0, 0.0f, 0, this, 0, 0, 0, 0, 0, 4);
+    extraIdleTable[4].variants[2] = (xAnimState*)xAnimTableNewState(table, "IdleExtraFaceCam03", 64, 0x2000000, 1.0f, 0, 0, 0.0f, 0, this, 0, 0, 0, 0, 0, 4);
+    extraIdleTable[4].variants[3] = (xAnimState*)xAnimTableNewState(table, "IdleExtraFaceCam04", 64, 0x2000000, 1.0f, 0, 0, 0.0f, 0, this, 0, 0, 0, 0, 0, 4);
+    extraIdleTable[4].variants[4] = (xAnimState*)xAnimTableNewState(table, "IdleExtraFaceCam05", 64, 0x2000000, 1.0f, 0, 0, 0.0f, 0, this, 0, 0, 0, 0, 0, 4);
+    extraIdleTable[4].variants[5] = (xAnimState*)xAnimTableNewState(table, "IdleExtraFaceCam07", 64, 0x2000000, 1.0f, 0, 0, 0.0f, 0, this, 0, 0, 0, 0, 0, 4);
+    extraIdleTable[4].variants[6] = (xAnimState*)xAnimTableNewState(table, "IdleExtraFaceCam08", 64, 0x2000000, 1.0f, 0, 0, 0.0f, 0, this, 0, 0, 0, 0, 0, 4);
+    extraIdleTable[4].variants[7] = (xAnimState*)xAnimTableNewState(table, "IdleExtraFaceCam09", 64, 0x2000000, 1.0f, 0, 0, 0.0f, 0, this, 0, 0, 0, 0, 0, 4);
+    extraIdleTable[4].variants[8] = (xAnimState*)xAnimTableNewState(table, "IdleExtraFaceCam10", 64, 0x2000000, 1.0f, 0, 0, 0.0f, 0, this, 0, 0, 0, 0, 0, 4);
+    extraIdleTable[4].variants[9] = (xAnimState*)xAnimTableNewState(table, "IdleExtraFaceCam11", 64, 0x2000000, 1.0f, 0, 0, 0.0f, 0, this, 0, 0, 0, 0, 0, 4);
+    extraIdleTable[4].variants[10] = (xAnimState*)xAnimTableNewState(table, "IdleExtraFaceCam12", 64, 0x2000000, 1.0f, 0, 0, 0.0f, 0, this, 0, 0, 0, 0, 0, 4);
+    extraIdleTable[4].variants[11] = (xAnimState*)xAnimTableNewState(table, "IdleExtraFaceCam13", 64, 0x2000000, 1.0f, 0, 0, 0.0f, 0, this, 0, 0, 0, 0, 0, 4);
+    extraIdleTable[4].variants[12] = (xAnimState*)xAnimTableNewState(table, "IdleExtraFaceCam14", 64, 0x2000000, 1.0f, 0, 0, 0.0f, 0, this, 0, 0, 0, 0, 0, 4);
+    extraIdleTable[1].numVariants = 1;
+    extraIdleTable[1].variants[0] = extraIdleTable[0].variants[0];
+    extraIdleTable[3].noRepeats = true;
+    extraIdleTable[3].numVariants = 2;
+    extraIdleTable[1].noRepeats = false;
+    extraIdleTable[3].variants[0] = (xAnimState*)xAnimTableNewState(table, "IdleExtraBuff01", 64, 0x2000000, 1.0f, 0, 0, 0.0f, 0, this, 0, 0, 0, 0, 0, 3);
+    extraIdleTable[3].variants[1] = (xAnimState*)xAnimTableNewState(table, "IdleExtraBuff02", 64, 0x2000000, 1.0f, 0, 0, 0.0f, 0, this, 0, 0, 0, 0, 0, 3);
+    extraIdleTable[5].noRepeats = true;
+    extraIdleTable[5].numVariants = 2;
+    extraIdleTable[5].variants[0] = (xAnimState*)xAnimTableNewState(table, "IdleExtraBuffFaceCam01", 64, 0x2000000, 1.0f, 0, 0, 0.0f, 0, this, 0, 0, 0, 0, 0, 5);
+    extraIdleTable[5].variants[1] = (xAnimState*)xAnimTableNewState(table, "IdleExtraBuffFaceCam02", 64, 0x2000000, 1.0f, 0, 0, 0.0f, 0, this, 0, 0, 0, 0, 0, 5);
     xAnimTableNewState(table, "IdleShuffleLeft01", 32, 0x2008000, 1.0f, 0, 0, 0.0f, 0, this, zSBAnimPackageBE, 0, 0, 0, 0, 0);
     xAnimTableNewState(table, "IdleShuffleRight01", 32, 0x2008000, 1.0f, 0, 0, 0.0f, 0, this, zSBAnimPackageBE, 0, 0, 0, 0, 0);
     xAnimTableNewState(table, "IdleAgingIn01", 32, 0x2000000, 1.0f, 0, 0, 0.0f, 0, this, 0, 0, 0, 0, 0, 0);
@@ -573,4 +624,387 @@ void zSBPlayerPuckPowerupAttack::AddInternalTransitions(xAnimTable* table) {
     xAnimTableNewTransition(table, "PuckPowerupAttack_Run_Shoot", "PuckPowerupAttack_Idle_Shoot", 0, zSBPlayerAction::anSBStopCheck, 0, 32, 0, 0.0f, 0.0f, 1000, 0, 0.15000000596046448f, 0);
     xAnimTableNewTransition(table, "PuckPowerupAttack_Run_Charge", "PuckPowerupAttack_Walk_Charge_L", 0, zSBPlayerAction::anSBWalkCheck, 0, 32, 0, 0.0f, 0.0f, 1000, 0, 0.15000000596046448f, 0);
     xAnimTableNewTransition(table, "PuckPowerupAttack_Run_Shoot", "PuckPowerupAttack_Walk_Shoot_L", 0, zSBPlayerAction::anSBWalkCheck, 0, 32, 0, 0.0f, 0.0f, 1000, 0, 0.15000000596046448f, 0);
+}
+
+class zPlayerAction {
+public:
+    static unsigned int ActionChange(xAnimTransition*, xAnimSingle*, void*);
+};
+
+
+
+// zPlayerHitSB::AddStates: 20 call(s)
+void zPlayerHitSB::AddStates(xAnimTable* table) {
+    xAnimTableNewState(table, "HitFront01", 32, 32, 1.0f, 0, 0, 0.0f, 0, this, zSBAnimPackageBE, 0, 0, 0, 0, 0);
+    xAnimTableNewState(table, "HitBack01", 32, 32, 1.0f, 0, 0, 0.0f, 0, this, zSBAnimPackageBE, 0, 0, 0, 0, 0);
+    xAnimTableNewState(table, "HitSpinFront01", 32, 32, 1.0f, 0, 0, 0.0f, 0, this, zSBAnimPackageBE, 0, 0, 0, 0, 0);
+    xAnimTableNewState(table, "HitSpinBack01", 32, 32, 1.0f, 0, 0, 0.0f, 0, this, zSBAnimPackageBE, 0, 0, 0, 0, 0);
+    xAnimTableNewState(table, "HitPuckFront01", 32, 32, 1.0f, 0, 0, 0.0f, 0, this, zSBAnimPackageBE, 0, 0, 0, 0, 0);
+    xAnimTableNewState(table, "HitPuckBack01", 32, 32, 1.0f, 0, 0, 0.0f, 0, this, zSBAnimPackageBE, 0, 0, 0, 0, 0);
+    xAnimTableNewState(table, "HitGooFront01", 32, 32, 1.0f, 0, 0, 0.0f, 0, this, zSBAnimPackageBE, 0, 0, 0, 0, 0);
+    xAnimTableNewState(table, "HitGooBack01", 32, 32, 1.0f, 0, 0, 0.0f, 0, this, zSBAnimPackageBE, 0, 0, 0, 0, 0);
+    xAnimTableNewState(table, "HitSpongebuffFront01", 32, 32, 1.0f, 0, 0, 0.0f, 0, this, 0, 0, 0, 0, 0, 0);
+    xAnimTableNewState(table, "HitSpongebuffBack01", 32, 32, 1.0f, 0, 0, 0.0f, 0, this, 0, 0, 0, 0, 0, 0);
+    xAnimTableNewState(table, "HitElectricArc01", 16, 0x10020, 1.0f, 0, 0, 0.0f, 0, this, zSBAnimPackageBE, 0, 0, 0, 0, 0);
+    xAnimTableNewState(table, "HitByDOT01", 32, 32, 1.0f, 0, 0, 0.0f, 0, this, zSBAnimPackageBE, 0, 0, 0, 0, 0);
+    xAnimTableNewState(table, "HitPowerup01", 32, 32, 1.0f, 0, 0, 0.0f, 0, this, zSBAnimPackageBE, 0, 0, 0, 0, 0);
+    xAnimTableNewState(table, "HammerHitIn01", 32, 16416, 1.0f, 0, 0, 0.0f, 0, this, zHitByHammerBE, 0, 0, 0, 0, 0);
+    xAnimTableNewState(table, "HammerHitIn02", 32, 16416, 1.0f, 0, 0, 0.0f, 0, this, zHitByHammerBE, 0, 0, 0, 0, 0);
+    xAnimTableNewState(table, "HammerHitCycle01", 16, 49184, 1.0f, 0, 0, 0.0f, 0, this, zSBAnimPackageBE, 0, 0, 0, 0, 0);
+    xAnimTableNewState(table, "HammerHitCycle02", 16, 49184, 1.0f, 0, 0, 0.0f, 0, this, zSBAnimPackageBE, 0, 0, 0, 0, 0);
+    xAnimTableNewState(table, "HammerHitOut01", 32, 16416, 1.0f, 0, 0, 0.0f, 0, this, zSBAnimPackageBE, 0, 0, 0, 0, 0);
+    xAnimTableNewState(table, "HammerHitOut02", 32, 16416, 1.0f, 0, 0, 0.0f, 0, this, zSBAnimPackageBE, 0, 0, 0, 0, 0);
+    xAnimTableNewState(table, "HammerHitRecover01", 32, 16416, 1.0f, 0, 0, 0.0f, 0, this, zRestoreFromHitByHammerBE, 0, 0, 0, 0, 0);
+}
+
+// zPlayerDefeatedSB::AddStates: 19 call(s)
+void zPlayerDefeatedSB::AddStates(xAnimTable* table) {
+    xAnimTableNewState(table, "DefeatedBeginStand01", 0, 16416, 1.0f, 0, 0, 0.0f, 0, this, 0, 0, 0, 0, 0, 0);
+    xAnimTableNewState(table, "DefeatedBeginStand02", 32, 32, 1.0f, 0, 0, 0.0f, 0, this, 0, 0, 0, 0, 0, 0);
+    xAnimTableNewState(table, "DefeatedBeginStand03", 0, 16416, 1.0f, 0, 0, 0.0f, 0, this, 0, 0, 0, 0, 0, 0);
+    xAnimTableNewState(table, "DefeatedGravestoneSpecial01", 0, 16416, 1.0f, 0, 0, 0.0f, 0, this, zGravestoneBE, 0, 0, 0, 0, 0);
+    xAnimTableNewState(table, "DefeatedBeginFragBob01", 0, 16416, 1.0f, 0, 0, 0.0f, 0, this, zDefeatedFragBobBE, 0, 0, 0, 0, 0);
+    xAnimTableNewState(table, "DefeatedBeginGoo01", 0, 16416, 1.0f, 0, 0, 0.0f, 0, this, 0, 0, 0, 0, 0, 0);
+    xAnimTableNewState(table, "DefeatedBeginGoo02", 0, 16416, 1.0f, 0, 0, 0.0f, 0, this, 0, 0, 0, 0, 0, 0);
+    xAnimTableNewState(table, "DefeatedBeginAcid01", 0, 16416, 1.0f, 0, 0, 0.0f, 0, this, 0, 0, 0, 0, 0, 0);
+    xAnimTableNewState(table, "DefeatedBeginAcid02", 0, 16416, 1.0f, 0, 0, 0.0f, 0, this, 0, 0, 0, 0, 0, 0);
+    xAnimTableNewState(table, "DefeatedBeginFrozenGoo01", 32, 32, 1.0f, 0, 0, 0.0f, 0, this, 0, 0, 0, 0, 0, 0);
+    xAnimTableNewState(table, "DefeatedFrozenGooSpecial01", 0, 16416, 1.0f, 0, 0, 0.0f, 0, this, zDefeatedFrozenBE, 0, 0, 0, 0, 0);
+    xAnimTableNewState(table, "DefeatedFrozenVent01", 0, 0x18020, 1.0f, 0, 0, 0.0f, 0, this, zDefeatedFrozenBE, 0, 0, 0, 0, 0);
+    xAnimTableNewState(table, "DefeatedBeginKelpTrap01", 0, 16416, 1.0f, 0, 0, 0.0f, 0, this, zDefeatedDeathBonesBE, 0, 0, 0, 0, 0);
+    xAnimTableNewState(table, "DefeatedBeginLava01", 32, 32, 1.0f, 0, 0, 0.0f, 0, this, 0, 0, 0, 0, 0, 0);
+    xAnimTableNewState(table, "DefeatedLavaSpecial01", 0, 16416, 1.0f, 0, 0, 0.0f, 0, this, zDefeatedDeathBonesBE, 0, 0, 0, 0, 0);
+    xAnimTableNewState(table, "DefeatedBeginLava02", 32, 32, 1.0f, 0, 0, 0.0f, 0, this, 0, 0, 0, 0, 0, 0);
+    xAnimTableNewState(table, "DefeatedLavaSpecial02", 0, 16416, 1.0f, 0, 0, 0.0f, 0, this, zDefeatedDeathBonesBE, 0, 0, 0, 0, 0);
+    xAnimTableNewState(table, "DefeatedBeginLava03", 32, 32, 1.0f, 0, 0, 0.0f, 0, this, 0, 0, 0, 0, 0, 0);
+    xAnimTableNewState(table, "DefeatedLavaSpecial03", 0, 16416, 1.0f, 0, 0, 0.0f, 0, this, zDefeatedDeathBonesBE, 0, 0, 0, 0, 0);
+}
+
+// zPlayerRunSB::AddStates: 18 call(s)
+void zPlayerRunSB::AddStates(xAnimTable* table) {
+    xAnimTableNewState(table, "RunStart01", 32, 3, 1.0f, 0, 0, 0.0f, 0, this, zSBAnimPackageBE, 0, 0, 0, 0, 0);
+    xAnimTableNewState(table, "Run01", 16, 19, 1.0f, 0, 0, 0.0f, 0, this, zSBAnimPackageBE, 0, 0, 0, 0, 0);
+    xAnimTableNewState(table, "RunStop01", 32, 3, 1.0f, 0, 0, 0.0f, 0, this, zSBAnimPackageBE, 0, 0, 0, 0, 0);
+    xAnimTableNewState(table, "RunHappyStart01", 32, 3, 1.0f, 0, 0, 0.0f, 0, this, 0, 0, 0, 0, 0, 0);
+    xAnimTableNewState(table, "RunHappy01", 16, 19, 1.0f, 0, 0, 0.0f, 0, this, 0, 0, 0, 0, 0, 0);
+    xAnimTableNewState(table, "RunHappyStop01", 32, 3, 1.0f, 0, 0, 0.0f, 0, this, 0, 0, 0, 0, 0, 0);
+    xAnimTableNewState(table, "RunHappierStart01", 32, 3, 1.0f, 0, 0, 0.0f, 0, this, 0, 0, 0, 0, 0, 0);
+    xAnimTableNewState(table, "RunHappier01", 16, 19, 1.0f, 0, 0, 0.0f, 0, this, 0, 0, 0, 0, 0, 0);
+    xAnimTableNewState(table, "RunHappierStop01", 32, 3, 1.0f, 0, 0, 0.0f, 0, this, 0, 0, 0, 0, 0, 0);
+    xAnimTableNewState(table, "RunSlipperyStart01", 32, 3, 1.0f, 0, 0, 0.0f, 0, this, zSBAnimPackageBE, 0, 0, 0, 0, 0);
+    xAnimTableNewState(table, "RunSlippery01", 16, 19, 1.0f, 0, 0, 0.0f, 0, this, zSBAnimPackageBE, 0, 0, 0, 0, 0);
+    xAnimTableNewState(table, "RunSlipperyStop01", 32, 0x2000000, 1.0f, 0, 0, 0.0f, 0, this, zSBAnimPackageBE, 0, 0, 0, 0, 0);
+    xAnimTableNewState(table, "RunBraveStart01", 32, 3, 1.0f, 0, 0, 0.0f, 0, this, 0, 0, 0, 0, 0, 0);
+    xAnimTableNewState(table, "RunBrave01", 16, 19, 1.0f, 0, 0, 0.0f, 0, this, 0, 0, 0, 0, 0, 0);
+    xAnimTableNewState(table, "RunBraveStop01", 32, 0x2000000, 1.0f, 0, 0, 0.0f, 0, this, 0, 0, 0, 0, 0, 0);
+    xAnimTableNewState(table, "RunSuccessStart01", 32, 3, 1.0f, 0, 0, 0.0f, 0, this, 0, 0, 0, 0, 0, 0);
+    xAnimTableNewState(table, "RunSuccess01", 16, 19, 1.0f, 0, 0, 0.0f, 0, this, 0, 0, 0, 0, 0, 0);
+    xAnimTableNewState(table, "RunSuccessStop01", 32, 0x2000000, 1.0f, 0, 0, 0.0f, 0, this, 0, 0, 0, 0, 0, 0);
+}
+
+class zPlayerDoubleJumpSB {
+public:
+    static unsigned int anTransToFallCheck(xAnimTransition*, xAnimSingle*, void*);
+    void AddInternalTransitions(xAnimTable* table);
+};
+
+class zSBPlayerSpinAttack {
+public:
+    static unsigned int anFinishedQueueCheck(xAnimTransition*, xAnimSingle*, void*);
+    static unsigned int anNULLAttackCheck(xAnimTransition*, xAnimSingle*, void*);
+    static unsigned int anSpongebuffIdleSpinCheck(xAnimTransition*, xAnimSingle*, void*);
+    static unsigned int anSpongebuffMovingSpinCheck(xAnimTransition*, xAnimSingle*, void*);
+    void AddInternalTransitions(xAnimTable* table);
+};
+
+class zBoardPlayerHammerAttack {
+public:
+    static unsigned int anAirHammerLandCheck(xAnimTransition*, xAnimSingle*, void*);
+    static unsigned int anHammerInterruptHighCheck(xAnimTransition*, xAnimSingle*, void*);
+};
+
+class zPlayerJumpSB {
+public:
+    static unsigned int anApexCheck(xAnimTransition*, xAnimSingle*, void*);
+    void AddInternalTransitions(xAnimTable* table);
+};
+
+class zSBPlayerCandy {
+public:
+    void AddInternalTransitions(xAnimTable* table);
+};
+
+class zPlayerSpringboardSB {
+public:
+    void AddActionTransitions(xAnimTable* table);
+};
+
+class zPlayerCheat {
+public:
+    static unsigned int anCheatBeginCheck(xAnimTransition*, xAnimSingle*, void*);
+};
+
+class zPlayerCheatSB {
+public:
+    void AddActionTransitions(xAnimTable* table);
+};
+
+class zPlayerHitLaunchSB {
+public:
+    void AddInternalTransitions(xAnimTable* table);
+};
+
+class zPlayerWalkSB {
+public:
+    static unsigned int anWalkRegularCheck(xAnimTransition*, xAnimSingle*, void*);
+    static unsigned int anWalkSlipperyCheck(xAnimTransition*, xAnimSingle*, void*);
+    void AddInternalTransitions(xAnimTable* table);
+};
+
+class zSBPlayerGainPowerup {
+public:
+    static unsigned int anGainHammerPowerupCheck(xAnimTransition*, xAnimSingle*, void*);
+    static unsigned int anGainPuckPowerupCheck(xAnimTransition*, xAnimSingle*, void*);
+    static unsigned int anGainSpinPowerupCheck(xAnimTransition*, xAnimSingle*, void*);
+    void AddInternalTransitions(xAnimTable* table);
+};
+
+class zSBPlayerBombRoll {
+public:
+    static unsigned int anSBBombMoveCheck(xAnimTransition*, xAnimSingle*, void*);
+    static unsigned int anSBBombStopCheck(xAnimTransition*, xAnimSingle*, void*);
+    void AddInternalTransitions(xAnimTable* table);
+};
+
+class zPlayerFluidSpraySB {
+public:
+    static unsigned int anSpray25Check(xAnimTransition*, xAnimSingle*, void*);
+    static unsigned int anSpray50Check(xAnimTransition*, xAnimSingle*, void*);
+    static unsigned int anSpray75Check(xAnimTransition*, xAnimSingle*, void*);
+    void AddInternalTransitions(xAnimTable* table);
+};
+
+class zSBPlayerSpinPowerupAttack {
+public:
+    void AddInternalTransitions(xAnimTable* table);
+};
+
+class zSBPlayerQuicksandStuck {
+public:
+    void AddInternalTransitions(xAnimTable* table);
+};
+
+class zBoardPlayerFillWithGoo {
+public:
+    static unsigned int anTurnDoneCheck(xAnimTransition*, xAnimSingle*, void*);
+};
+
+class zSBPlayerFillWithGoo {
+public:
+    void AddInternalTransitions(xAnimTable* table);
+};
+
+
+
+// zSBPlayerSpinAttack::AddInternalTransitions: 16 call(s)
+void zSBPlayerSpinAttack::AddInternalTransitions(xAnimTable* table) {
+    xAnimTableNewTransition(table, "SpinAttackIn01", "SpinAttackCycle01", 0, zSBPlayerAction::anSBStopCheck, 0, 16, 0, 0.0f, 0.0f, 999, 0, 0.0f, 0);
+    xAnimTableNewTransition(table, "SpinAttackIn01", "SpinAttackCycleMoving01", 0, zSBPlayerAction::anSBMoveCheck, 0, 16, 0, 0.0f, 0.0f, 999, 0, 0.0f, 0);
+    xAnimTableNewTransition(table, "SpinAttackCycle01", "SpinAttackCycleMoving01", 0, zSBPlayerAction::anSBMoveCheck, 0, 32, 0, 0.0f, 0.0f, 1000, 0, 0.15f, 0);
+    xAnimTableNewTransition(table, "SpinAttackCycleMoving01", "SpinAttackCycle01", 0, zSBPlayerAction::anSBStopCheck, 0, 32, 0, 0.0f, 0.0f, 1000, 0, 0.15f, 0);
+    xAnimTableNewTransition(table, "SpinAttackCycle*", "SpinAttackOut01", 0, zSBPlayerSpinAttack::anFinishedQueueCheck, 0, 16, 0, 0.0f, 0.0f, 1000, 0, 0.0f, 0);
+    xAnimTableNewTransition(table, "SpinAttackIn01", "SpinSpongebuffCycle01", 0, zSBPlayerSpinAttack::anSpongebuffIdleSpinCheck, 0, 16, 0, 0.0f, 0.0f, 1000, 0, 0.0f, 0);
+    xAnimTableNewTransition(table, "SpinAttackIn01", "SpinSpongebuffCycleMoving01", 0, zSBPlayerSpinAttack::anSpongebuffMovingSpinCheck, 0, 16, 0, 0.0f, 0.0f, 1000, 0, 0.0f, 0);
+    xAnimTableNewTransition(table, "SpinSpongebuffCycle01", "SpinSpongebuffCycle01", 0, zSBPlayerSpinAttack::anSpongebuffIdleSpinCheck, 0, 16, 0, 0.0f, 0.0f, 1000, 0, 0.15f, 0);
+    xAnimTableNewTransition(table, "SpinSpongebuffCycleMoving01", "SpinSpongebuffCycleMoving01", 0, zSBPlayerSpinAttack::anSpongebuffMovingSpinCheck, 0, 16, 0, 0.0f, 0.0f, 1000, 0, 0.15f, 0);
+    xAnimTableNewTransition(table, "SpinSpongebuffCycle01", "SpinSpongebuffCycleMoving01", 0, zSBPlayerSpinAttack::anSpongebuffMovingSpinCheck, 0, 32, 0, 0.0f, 0.0f, 1000, 0, 0.15f, 0);
+    xAnimTableNewTransition(table, "SpinSpongebuffCycleMoving01", "SpinSpongebuffCycle01", 0, zSBPlayerSpinAttack::anSpongebuffIdleSpinCheck, 0, 32, 0, 0.0f, 0.0f, 1000, 0, 0.15f, 0);
+    xAnimTableNewTransition(table, "SpinSpongebuffCycle*", "SpinAttackOut01", 0, zSBPlayerSpinAttack::anFinishedQueueCheck, 0, 16, 0, 0.0f, 0.0f, 1001, 0, 0.0f, 0);
+    xAnimTableNewTransition(table, "SpinAttackCycle01", "SpinAttackNULL01", 0, zSBPlayerSpinAttack::anNULLAttackCheck, 0, 0, 0, 0.0f, 0.0f, 1000, 0, 0.15f, 0);
+    xAnimTableNewTransition(table, "SpinAttackCycleMoving01", "SpinAttackNULL01", 0, zSBPlayerSpinAttack::anNULLAttackCheck, 0, 0, 0, 0.0f, 0.0f, 1000, 0, 0.15f, 0);
+    xAnimTableNewTransition(table, "SpinSpongebuffCycle01", "SpinAttackNULL01", 0, zSBPlayerSpinAttack::anNULLAttackCheck, 0, 0, 0, 0.0f, 0.0f, 1000, 0, 0.15f, 0);
+    xAnimTableNewTransition(table, "SpinSpongebuffCycleMoving01", "SpinAttackNULL01", 0, zSBPlayerSpinAttack::anNULLAttackCheck, 0, 0, 0, 0.0f, 0.0f, 1000, 0, 0.15f, 0);
+}
+
+// zSBPlayerHammerAttack::AddInternalTransitions: 16 call(s)
+void zSBPlayerHammerAttack::AddInternalTransitions(xAnimTable* table) {
+    xAnimTableNewTransition(table, "HammerAttack01", "HammerAttackRecoilHigh", 0, zBoardPlayerHammerAttack::anHammerInterruptHighCheck, 0, 0, 0, 0.0f, 0.0f, 1000, 0, 0.05f, 0);
+    xAnimTableNewTransition(table, "HammerAttack01", "HammerAttackRecoilMed", 0, zSBPlayerHammerAttack::anHammerInterruptMedCheck, 0, 0, 0, 0.0f, 0.0f, 1000, 0, 0.05f, 0);
+    xAnimTableNewTransition(table, "HammerAttackAirCycle01", "HammerAttackRecoilHigh", 0, zBoardPlayerHammerAttack::anHammerInterruptHighCheck, 0, 0, 0, 0.0f, 0.0f, 1000, 0, 0.05f, 0);
+    xAnimTableNewTransition(table, "HammerAttackAirOut01", "HammerAttackRecoilHigh", 0, zBoardPlayerHammerAttack::anHammerInterruptHighCheck, 0, 0, 0, 0.0f, 0.0f, 1000, 0, 0.05f, 0);
+    xAnimTableNewTransition(table, "HammerAttackAirOut01", "HammerAttackRecoilMed", 0, zSBPlayerHammerAttack::anHammerInterruptMedCheck, 0, 0, 0, 0.0f, 0.0f, 1000, 0, 0.05f, 0);
+    xAnimTableNewTransition(table, "HammerSpongebuff01", "HammerAttackRecoilHigh", 0, zBoardPlayerHammerAttack::anHammerInterruptHighCheck, 0, 0, 0, 0.0f, 0.0f, 1000, 0, 0.05f, 0);
+    xAnimTableNewTransition(table, "HammerSpongebuff01", "HammerAttackRecoilMed", 0, zSBPlayerHammerAttack::anHammerInterruptMedCheck, 0, 0, 0, 0.0f, 0.0f, 1000, 0, 0.05f, 0);
+    xAnimTableNewTransition(table, "HammerSpongebuffAirCycle01", "HammerAttackRecoilHigh", 0, zBoardPlayerHammerAttack::anHammerInterruptHighCheck, 0, 0, 0, 0.0f, 0.0f, 1000, 0, 0.05f, 0);
+    xAnimTableNewTransition(table, "HammerSpongebuffAirOut01", "HammerAttackRecoilHigh", 0, zBoardPlayerHammerAttack::anHammerInterruptHighCheck, 0, 0, 0, 0.0f, 0.0f, 1000, 0, 0.05f, 0);
+    xAnimTableNewTransition(table, "HammerSpongebuffAirOut01", "HammerAttackRecoilMed", 0, zSBPlayerHammerAttack::anHammerInterruptMedCheck, 0, 0, 0, 0.0f, 0.0f, 1000, 0, 0.05f, 0);
+    xAnimTableNewTransition(table, "HammerAttackAirIn01", "HammerAttackAirCycle01", 0, 0, zSBPlayerHammerAttack::anHammerSetAttackStateCB, 16, 0, 0.0f, 0.0f, 1000, 0, 0.15f, 0);
+    xAnimTableNewTransition(table, "HammerAttackAirCycle01", "HammerAttackAirOut01", 0, zBoardPlayerHammerAttack::anAirHammerLandCheck, zSBPlayerHammerAttack::anHammerSplashCB, 0, 0, 0.0f, 0.0f, 1000, 0, 0.05f, 0);
+    xAnimTableNewTransition(table, "HammerAttack01", "HammerAttackRecover01", 0, 0, zSBPlayerHammerAttack::anHammerSplashCB, 16, 0, 0.0f, 0.0f, 1000, 0, 0.0f, 0);
+    xAnimTableNewTransition(table, "HammerSpongebuff01", "HammerSpongebuffRecover01", 0, 0, zSBPlayerHammerAttack::anHammerSplashCB, 16, 0, 0.0f, 0.0f, 1000, 0, 0.0f, 0);
+    xAnimTableNewTransition(table, "HammerSpongebuffAirIn01", "HammerSpongebuffAirCycle01", 0, 0, zSBPlayerHammerAttack::anHammerSetAttackStateCB, 16, 0, 0.0f, 0.0f, 1000, 0, 0.15f, 0);
+    xAnimTableNewTransition(table, "HammerSpongebuffAirCycle01", "HammerSpongebuffAirOut01", 0, zBoardPlayerHammerAttack::anAirHammerLandCheck, zSBPlayerHammerAttack::anHammerSplashCB, 0, 0, 0.0f, 0.0f, 1000, 0, 0.05f, 0);
+}
+
+
+
+// zSBPlayerCandy::AddInternalTransitions: 16 call(s)
+void zSBPlayerCandy::AddInternalTransitions(xAnimTable* table) {
+    xAnimTableNewTransition(table, "CandyGetOn", "CandyIdle", 0, zSBPlayerAction::anSBStopCheck, 0, 16, 0, 0.0f, 0.0f, 1000, 0, 0.15f, 0);
+    xAnimTableNewTransition(table, "CandyGetOn", "CandyWalk", 0, zSBPlayerAction::anSBMoveCheck, 0, 16, 0, 0.0f, 0.0f, 1000, 0, 0.15f, 0);
+    xAnimTableNewTransition(table, "CandyWalk", "CandyIdle", 0, zSBPlayerAction::anSBStopCheck, 0, 4, 0, 0.0f, 0.0f, 1000, 0, 0.15f, 0);
+    xAnimTableNewTransition(table, "CandyIdle", "CandyWalk", 0, zSBPlayerAction::anSBMoveCheck, 0, 4, 0, 0.0f, 0.0f, 1000, 0, 0.15f, 0);
+    xAnimTableNewTransition(table, "CandyWalk", "CandyGetOff", 0, zSBPlayerAction::anSBNotCandyCheck, 0, 4, 0, 0.0f, 0.0f, 1000, 0, 0.15f, 0);
+    xAnimTableNewTransition(table, "CandyIdle", "CandyGetOff", 0, zSBPlayerAction::anSBNotCandyCheck, 0, 4, 0, 0.0f, 0.0f, 1000, 0, 0.15f, 0);
+    xAnimTableNewTransition(table, "CandyGetOn", "CandyGetOff", 0, zSBPlayerAction::anSBNotCandyCheck, 0, 4, 0, 0.0f, 0.0f, 1000, 0, 0.15f, 0);
+    xAnimTableNewTransition(table, "CandyGetOff", "CandyGetOn", 0, zSBPlayerAction::anSBCandyCheck, 0, 4, 0, 0.0f, 0.0f, 1000, 0, 0.15f, 0);
+    xAnimTableNewTransition(table, "CandyBuffGetOn", "CandyBuffIdle", 0, zSBPlayerAction::anSBStopCheck, 0, 16, 0, 0.0f, 0.0f, 1000, 0, 0.15f, 0);
+    xAnimTableNewTransition(table, "CandyBuffGetOn", "CandyBuffWalk", 0, zSBPlayerAction::anSBMoveCheck, 0, 16, 0, 0.0f, 0.0f, 1000, 0, 0.15f, 0);
+    xAnimTableNewTransition(table, "CandyBuffWalk", "CandyBuffIdle", 0, zSBPlayerAction::anSBStopCheck, 0, 4, 0, 0.0f, 0.0f, 1000, 0, 0.15f, 0);
+    xAnimTableNewTransition(table, "CandyBuffIdle", "CandyBuffWalk", 0, zSBPlayerAction::anSBMoveCheck, 0, 4, 0, 0.0f, 0.0f, 1000, 0, 0.15f, 0);
+    xAnimTableNewTransition(table, "CandyBuffWalk", "CandyBuffGetOff", 0, zSBPlayerAction::anSBNotCandyCheck, 0, 4, 0, 0.0f, 0.0f, 1000, 0, 0.15f, 0);
+    xAnimTableNewTransition(table, "CandyBuffIdle", "CandyBuffGetOff", 0, zSBPlayerAction::anSBNotCandyCheck, 0, 4, 0, 0.0f, 0.0f, 1000, 0, 0.15f, 0);
+    xAnimTableNewTransition(table, "CandyBuffGetOn", "CandyBuffGetOff", 0, zSBPlayerAction::anSBNotCandyCheck, 0, 4, 0, 0.0f, 0.0f, 1000, 0, 0.15f, 0);
+    xAnimTableNewTransition(table, "CandyBuffGetOff", "CandyBuffGetOn", 0, zSBPlayerAction::anSBCandyBuffCheck, 0, 4, 0, 0.0f, 0.0f, 1000, 0, 0.15f, 0);
+}
+
+
+
+
+
+// zPlayerHitLaunchSB::AddInternalTransitions: 8 call(s)
+void zPlayerHitLaunchSB::AddInternalTransitions(xAnimTable* table) {
+    xAnimTableNewTransition(table, "LaunchFront01", "LaunchLandFront01", 0, zCommonPlayerAction::anLandCheck, 0, 0, 0, 0.0f, 0.0f, 1000, 0, 0.15f, 0);
+    xAnimTableNewTransition(table, "LaunchBack01", "LaunchLandBack01", 0, zCommonPlayerAction::anLandCheck, 0, 0, 0, 0.0f, 0.0f, 1000, 0, 0.15f, 0);
+    xAnimTableNewTransition(table, "LaunchKnockbackFront01", "LaunchLandKnockbackFront01", 0, zCommonPlayerAction::anLandCheck, 0, 0, 0, 0.0f, 0.0f, 1000, 0, 0.15f, 0);
+    xAnimTableNewTransition(table, "LaunchKnockbackBack01", "LaunchLandKnockbackBack01", 0, zCommonPlayerAction::anLandCheck, 0, 0, 0, 0.0f, 0.0f, 1000, 0, 0.15f, 0);
+    xAnimTableNewTransition(table, "LaunchGooFront01", "LaunchLandGooFront01", 0, zCommonPlayerAction::anLandCheck, 0, 0, 0, 0.0f, 0.0f, 1000, 0, 0.15f, 0);
+    xAnimTableNewTransition(table, "LaunchGooBack01", "LaunchLandGooBack01", 0, zCommonPlayerAction::anLandCheck, 0, 0, 0, 0.0f, 0.0f, 1000, 0, 0.15f, 0);
+    xAnimTableNewTransition(table, "LaunchRubberBandFront01", "LaunchLandRubberBandFront01", 0, zCommonPlayerAction::anLandCheck, 0, 0, 0, 0.0f, 0.0f, 1000, 0, 0.15f, 0);
+    xAnimTableNewTransition(table, "LaunchRubberBandBack01", "LaunchLandRubberBandBack01", 0, zCommonPlayerAction::anLandCheck, 0, 0, 0, 0.0f, 0.0f, 1000, 0, 0.15f, 0);
+}
+
+// zPlayerWalkSB::AddInternalTransitions: 6 call(s)
+void zPlayerWalkSB::AddInternalTransitions(xAnimTable* table) {
+    xAnimTableNewTransition(table, "Walk01", "WalkStop01", 0, zSBPlayerAction::anSBStopCheck, 0, 0, 0, 0.0f, 0.0f, 1000, 0, 0.1f, 0);
+    xAnimTableNewTransition(table, "WalkStop01", "Walk01", 0, zSBPlayerAction::anSBMoveCheck, 0, 0, 0, 0.0f, 0.0f, 1000, 0, 0.15f, 0);
+    xAnimTableNewTransition(table, "WalkSlippery01", "WalkSlipperyStop01", 0, zSBPlayerAction::anSBStopCheck, 0, 0, 0, 0.0f, 0.0f, 1000, 0, 0.15f, 0);
+    xAnimTableNewTransition(table, "WalkSlipperyStop01", "WalkSlippery01", 0, zSBPlayerAction::anSBMoveCheck, 0, 0, 0, 0.0f, 0.0f, 1000, 0, 0.15f, 0);
+    xAnimTableNewTransition(table, "Walk01 WalkStop01", "WalkSlippery01", 0, zPlayerWalkSB::anWalkSlipperyCheck, 0, 0, 0, 0.0f, 0.0f, 1000, 0, 0.15f, 0);
+    xAnimTableNewTransition(table, "WalkSlippery*", "Walk01", 0, zPlayerWalkSB::anWalkRegularCheck, 0, 0, 0, 0.0f, 0.0f, 1000, 0, 0.15f, 0);
+}
+
+// zSBPlayerGainPowerup::AddInternalTransitions: 6 call(s)
+void zSBPlayerGainPowerup::AddInternalTransitions(xAnimTable* table) {
+    xAnimTableNewTransition(table, "GainPowerup_In", "GainPowerup_Prop_Spin", 0, zSBPlayerGainPowerup::anGainSpinPowerupCheck, 0, 16, 0, 0.0f, 0.0f, 1000, 0, 0.0f, 0);
+    xAnimTableNewTransition(table, "GainPowerup_In", "GainPowerup_Prop_Hammer", 0, zSBPlayerGainPowerup::anGainHammerPowerupCheck, 0, 16, 0, 0.0f, 0.0f, 1000, 0, 0.0f, 0);
+    xAnimTableNewTransition(table, "GainPowerup_In", "GainPowerup_Prop_Puck", 0, zSBPlayerGainPowerup::anGainPuckPowerupCheck, 0, 16, 0, 0.0f, 0.0f, 1000, 0, 0.0f, 0);
+    xAnimTableNewTransition(table, "GainPowerup_Prop_Spin", "GainPowerup_Sidekick_Spin", 0, 0, 0, 16, 0, 0.0f, 0.0f, 1000, 0, 0.0f, 0);
+    xAnimTableNewTransition(table, "GainPowerup_Prop_Hammer", "GainPowerup_Sidekick_Hammer", 0, 0, 0, 16, 0, 0.0f, 0.0f, 1000, 0, 0.0f, 0);
+    xAnimTableNewTransition(table, "GainPowerup_Prop_Puck", "GainPowerup_Sidekick_Puck", 0, 0, 0, 16, 0, 0.0f, 0.0f, 1000, 0, 0.0f, 0);
+}
+
+// zPlayerFallSB::AddInternalTransitions: 6 call(s)
+void zPlayerFallSB::AddInternalTransitions(xAnimTable* table) {
+    xAnimTableNewTransition(table, "FallIdle01", "FallHighIdle01", 0, zPlayerFallSB::anFallHighCheck, 0, 0, 0, 0.0f, 0.0f, 1000, 0, 0.2f, 0);
+    xAnimTableNewTransition(table, "FallMoving01", "FallHighMoving01", 0, zPlayerFallSB::anFallHighCheck, 0, 0, 0, 0.0f, 0.0f, 1000, 0, 0.2f, 0);
+    xAnimTableNewTransition(table, "FallDoubleJumpIdle01", "FallHighIdle01", 0, zPlayerFallSB::anFallHighCheck, 0, 0, 0, 0.0f, 0.0f, 1000, 0, 0.2f, 0);
+    xAnimTableNewTransition(table, "FallDoubleJumpMoving01", "FallHighMoving01", 0, zPlayerFallSB::anFallHighCheck, 0, 0, 0, 0.0f, 0.0f, 1000, 0, 0.2f, 0);
+    xAnimTableNewTransition(table, "FallSprBoIdle01", "FallHighIdle01", 0, zPlayerFallSB::anFallHighCheck, 0, 0, 0, 0.0f, 0.0f, 1000, 0, 0.2f, 0);
+    xAnimTableNewTransition(table, "FallSprBoMoving01", "FallHighMoving01", 0, zPlayerFallSB::anFallHighCheck, 0, 0, 0, 0.0f, 0.0f, 1000, 0, 0.2f, 0);
+}
+
+// zPlayerHitSB::AddInternalTransitions: 5 call(s)
+void zPlayerHitSB::AddInternalTransitions(xAnimTable* table) {
+    xAnimTableNewTransition(table, "HammerHitIn01", "HammerHitCycle01", 0, 0, 0, 16, 0, 0.0f, 0.0f, 1000, 0, 0.15f, 0);
+    xAnimTableNewTransition(table, "HammerHitIn02", "HammerHitCycle02", 0, 0, 0, 16, 0, 0.0f, 0.0f, 1000, 0, 0.15f, 0);
+    xAnimTableNewTransition(table, "HammerHitCycle01", "HammerHitOut01", 0, zPlayerHitSB::anHammerTimerDone, 0, 0, 0, 0.0f, 0.0f, 1000, 0, 0.15f, 0);
+    xAnimTableNewTransition(table, "HammerHitCycle02", "HammerHitOut02", 0, zPlayerHitSB::anHammerTimerDone, 0, 0, 0, 0.0f, 0.0f, 1000, 0, 0.15f, 0);
+    xAnimTableNewTransition(table, "HammerHitOut#", "HammerHitRecover01", 0, 0, zPlayerHitSB::anHammerHitCB, 16, 0, 0.0f, 0.0f, 1000, 0, 0.0f, 0);
+}
+
+// zPlayerDefeatedSB::AddInternalTransitions: 5 call(s)
+void zPlayerDefeatedSB::AddInternalTransitions(xAnimTable* table) {
+    xAnimTableNewTransition(table, "DefeatedBeginFrozenGoo01", "DefeatedFrozenGooSpecial01", 0, 0, zPlayerDefeatedSB::anFaceCameraCB, 16, 0, 0.0f, 0.0f, 1000, 0, 0.0f, 0);
+    xAnimTableNewTransition(table, "DefeatedBeginStand02", "DefeatedGravestoneSpecial01", 0, 0, zPlayerDefeatedSB::anFaceCameraCB, 16, 0, 0.0f, 0.0f, 1000, 0, 0.0f, 0);
+    xAnimTableNewTransition(table, "DefeatedBeginLava01", "DefeatedLavaSpecial01", 0, 0, 0, 16, 0, 0.0f, 0.0f, 1000, 0, 0.0f, 0);
+    xAnimTableNewTransition(table, "DefeatedBeginLava02", "DefeatedLavaSpecial02", 0, 0, zPlayerDefeatedSB::anFaceCameraCB, 16, 0, 0.0f, 0.0f, 1000, 0, 0.0f, 0);
+    xAnimTableNewTransition(table, "DefeatedBeginLava03", "DefeatedLavaSpecial03", 0, 0, zPlayerDefeatedSB::anFaceCameraCB, 16, 0, 0.0f, 0.0f, 1000, 0, 0.0f, 0);
+}
+
+// zSBPlayerPuckAttack::AddInternalTransitions: 4 call(s)
+void zSBPlayerPuckAttack::AddInternalTransitions(xAnimTable* table) {
+    xAnimTableNewTransition(table, "PuckAttackIn01", "PuckAttackCharging01", 0, zSBPlayerPuckAttack::anAimPuckCheck, 0, 16, 0, 0.0f, 0.0f, 1000, 0, 0.15f, 0);
+    xAnimTableNewTransition(table, "PuckAttackIn01", "PuckAttackShoot01", 0, zSBPlayerPuckAttack::anShootPuckCheck, 0, 16, 0, 0.0f, 0.0f, 1000, 0, 0.15f, 0);
+    xAnimTableNewTransition(table, "PuckAttackCharging01", "PuckAttackShoot01", 0, zSBPlayerPuckAttack::anShootPuckCheck, 0, 0, 0, 0.0f, 0.0f, 1000, 0, 0.15f, 0);
+    xAnimTableNewTransition(table, "PuckAttackShoot01", "PuckAttackRecover01", 0, 0, zSBPlayerPuckAttack::anFirePuckCB, 16, 0, 0.0f, 0.0f, 1000, 0, 0.15f, 0);
+}
+
+// zSBPlayerBombRoll::AddInternalTransitions: 4 call(s)
+void zSBPlayerBombRoll::AddInternalTransitions(xAnimTable* table) {
+    xAnimTableNewTransition(table, "BombRollEnter", "BombRollIdle", 0, zSBPlayerBombRoll::anSBBombStopCheck, 0, 16, 0, 0.0f, 0.0f, 1000, 0, 0.15f, 0);
+    xAnimTableNewTransition(table, "BombRollEnter", "BombRollMoving", 0, zSBPlayerBombRoll::anSBBombMoveCheck, 0, 16, 0, 0.0f, 0.0f, 1000, 0, 0.15f, 0);
+    xAnimTableNewTransition(table, "BombRollIdle", "BombRollMoving", 0, zSBPlayerBombRoll::anSBBombMoveCheck, 0, 0, 0, 0.0f, 0.0f, 1000, 0, 0.15f, 0);
+    xAnimTableNewTransition(table, "BombRollMoving", "BombRollIdle", 0, zSBPlayerBombRoll::anSBBombStopCheck, 0, 0, 0, 0.0f, 0.0f, 1000, 0, 0.15f, 0);
+}
+
+// zPlayerFluidSpraySB::AddInternalTransitions: 3 call(s)
+void zPlayerFluidSpraySB::AddInternalTransitions(xAnimTable* table) {
+    xAnimTableNewTransition(table, "Spray100", "Spray75", 0, zPlayerFluidSpraySB::anSpray75Check, 0, 0, 0, 0.0f, 0.0f, 1000, 0, 0.15f, 0);
+    xAnimTableNewTransition(table, "Spray75", "Spray50", 0, zPlayerFluidSpraySB::anSpray50Check, 0, 0, 0, 0.0f, 0.0f, 1000, 0, 0.15f, 0);
+    xAnimTableNewTransition(table, "Spray50", "Spray25", 0, zPlayerFluidSpraySB::anSpray25Check, 0, 0, 0, 0.0f, 0.0f, 1000, 0, 0.15f, 0);
+}
+
+// zSBPlayerKelpTrap::AddInternalTransitions: 3 call(s)
+void zSBPlayerKelpTrap::AddInternalTransitions(xAnimTable* table) {
+    xAnimTableNewTransition(table, "KelpTrapStart", "KelpTrappedIdle", 0, 0, 0, 16, 0, 0.0f, 0.0f, 1100, 0, 0.15f, 0);
+    xAnimTableNewTransition(table, "KelpTrapStart", "KelpRelease", 0, zSBPlayerKelpTrap::anKelpReleaseCheck, 0, 0, 0, 0.0f, 0.0f, 1100, 0, 0.15f, 0);
+    xAnimTableNewTransition(table, "KelpTrappedIdle", "KelpRelease", 0, zSBPlayerKelpTrap::anKelpReleaseCheck, 0, 0, 0, 0.0f, 0.0f, 1100, 0, 0.15f, 0);
+}
+
+// zSBPlayerSpinPowerupAttack::AddInternalTransitions: 2 call(s)
+void zSBPlayerSpinPowerupAttack::AddInternalTransitions(xAnimTable* table) {
+    xAnimTableNewTransition(table, "SpinPowerupAttack", "SpinPowerupAttack_Moving", 0, zSBPlayerAction::anSBMoveCheck, 0, 32, 0, 0.0f, 0.0f, 1000, 0, 0.15f, 0);
+    xAnimTableNewTransition(table, "SpinPowerupAttack_Moving", "SpinPowerupAttack", 0, zSBPlayerAction::anSBStopCheck, 0, 32, 0, 0.0f, 0.0f, 1000, 0, 0.15f, 0);
+}
+
+// zPlayerSingleCustomAnimSB::AddInternalTransitions: 2 call(s)
+void zPlayerSingleCustomAnimSB::AddInternalTransitions(xAnimTable* table) {
+    xAnimTableNewTransition(table, "SingleCustom01", "SingleCustom02", 0, zPlayerSingleCustomAnimSB::anStartAnimationCheck, zPlayerSingleCustomAnimSB::anStartNewCustomAnimCB, 0, 0, 0.0f, 0.0f, 1000, 0, 0.15f, 0);
+    xAnimTableNewTransition(table, "SingleCustom02", "SingleCustom01", 0, zPlayerSingleCustomAnimSB::anStartAnimationCheck, zPlayerSingleCustomAnimSB::anStartNewCustomAnimCB, 0, 0, 0.0f, 0.0f, 1000, 0, 0.15f, 0);
+}
+
+// zSBPlayerQuicksandStuck::AddInternalTransitions: 2 call(s)
+void zSBPlayerQuicksandStuck::AddInternalTransitions(xAnimTable* table) {
+    xAnimTableNewTransition(table, "QuicksandStuckWalk", "QuicksandStuckIdle", 0, zSBPlayerAction::anSBStopCheck, 0, 4, 0, 0.0f, 0.0f, 1000, 0, 0.15f, 0);
+    xAnimTableNewTransition(table, "QuicksandStuckIdle", "QuicksandStuckWalk", 0, zSBPlayerAction::anSBMoveCheck, 0, 4, 0, 0.0f, 0.0f, 1000, 0, 0.15f, 0);
+}
+
+// zPlayerSingleCustomAnimSB::AddActionTransitions: 2 call(s)
+void zPlayerSingleCustomAnimSB::AddActionTransitions(xAnimTable* table) {
+    xAnimTableNewTransition(table, "SingleCustom*", "Idle01", 0, 0, zPlayerAction::ActionChange, 16, 0, 0.0f, 0.0f, 1000, 0, 0.15f, 0);
+    xAnimTableNewTransition(table, "SingleCustom*", "Idle01", 0, zPlayerSingleCustomAnimSB::anEarlyStopCheck, zPlayerAction::ActionChange, 0, 0, 0.0f, 0.0f, 1000, 0, 0.15f, 0);
+}
+
+// zPlayerDoubleJumpSB::AddInternalTransitions: 2 call(s)
+void zPlayerDoubleJumpSB::AddInternalTransitions(xAnimTable* table) {
+    xAnimTableNewTransition(table, "DoubleJumpInIdle01", "DoubleJumpCycleIdle01", 0, 0, 0, 16, 0, 0.0f, 0.0f, 1000, 0, 0.15f, 0);
+    xAnimTableNewTransition(table, "DoubleJumpInMoving01", "DoubleJumpCycleMoving01", 0, 0, 0, 16, 0, 0.0f, 0.0f, 1000, 0, 0.15f, 0);
+}
+
+// zPlayerLandHighSB::AddInternalTransitions: 2 call(s)
+void zPlayerLandHighSB::AddInternalTransitions(xAnimTable* table) {
+    xAnimTableNewTransition(table, "HighFallLandIdle01", "HighFallLandGetUp01", 0, 0, 0, 16, 0, 0.0f, 0.0f, 1000, 0, 0.15f, 0);
+    xAnimTableNewTransition(table, "HighFallLandMoving01", "HighFallLandGetUp01", 0, 0, 0, 16, 0, 0.0f, 0.0f, 1000, 0, 0.15f, 0);
+}
+
+// zPlayerJumpSB::AddInternalTransitions: 2 call(s)
+void zPlayerJumpSB::AddInternalTransitions(xAnimTable* table) {
+    xAnimTableNewTransition(table, "JumpStartIdle01", "JumpCycleIdle01", 0, 0, 0, 16, 0, 0.0f, 0.0f, 1000, 0, 0.0f, 0);
+    xAnimTableNewTransition(table, "JumpStartMoving01", "JumpCycleMoving01", 0, 0, 0, 16, 0, 0.0f, 0.0f, 1000, 0, 0.0f, 0);
+}
+
+// zSBPlayerFillWithGoo::AddInternalTransitions: 1 call(s)
+void zSBPlayerFillWithGoo::AddInternalTransitions(xAnimTable* table) {
+    xAnimTableNewTransition(table, "FillWithGooTurn01", "FillWithGooIn01", 0, zBoardPlayerFillWithGoo::anTurnDoneCheck, 0, 0, 0, 0.0f, 0.0f, 1000, 0, 0.15f, 0);
 }

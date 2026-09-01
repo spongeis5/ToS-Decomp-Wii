@@ -379,7 +379,10 @@ def show_calls(sym, callee):
             parts.append("f%d=%s" % (k, f[k]))
             unresolved += f[k] == "?"
         for k in sorted(st):
-            if 8 <= k < 64:
+            # Outgoing argument slots only. The caller's own link-register
+            # save is a stack store too (stw r0,52(r1)) and counted as an
+            # unresolved argument until this said which slots are which.
+            if 8 <= k < 36:
                 parts.append("st%d=%s" % (k, st[k]))
                 unresolved += st[k] == "?"
         print("    %08X  %s" % (a, "  ".join(parts)))

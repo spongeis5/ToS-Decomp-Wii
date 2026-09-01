@@ -13,6 +13,15 @@ force_active:
   - s_clamp__Q24Math11QuickCull15
   - s_scaleOffs__Q24Math11QuickCull15
   - s_unscaleOffs__Q24Math11QuickCull15
+  # PostRenderChannel's nine, less the one its function writes.
+  - uniqueValue0__Q28Graphics17PostRenderChannel
+  - head__Q38Graphics17PostRenderChannel7Batcher
+  - size__Q38Graphics17PostRenderChannel7Batcher
+  - commit__Q38Graphics17PostRenderChannel7Batcher
+  - uniqueValue1__Q28Graphics17PostRenderChannel
+  - uniqueValue2__Q28Graphics17PostRenderChannel
+  - uniqueValue3__Q28Graphics17PostRenderChannel
+  - uniqueValue4__Q28Graphics17PostRenderChannel
   # Env.cpp's two arrays; nothing in the image reaches them either.
 ldscript_template: config/R8IE78/ldscript.lcf
 # mw_comment_version: 14

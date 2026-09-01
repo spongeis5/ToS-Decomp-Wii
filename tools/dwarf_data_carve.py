@@ -216,6 +216,16 @@ class Carve(object):
         for sec, addrs in sorted(mine.items()):
             addrs.sort()
             lo, hi = addrs[0], addrs[-1] + self.d.sizes[addrs[-1]]
+            # THE TRAILING PADDING IS THIS UNIT'S. A one-byte variable at
+            # the end leaves the range ending odd, and dtk rejects the
+            # remainder that would then start there:
+            #   Invalid alignment for split: ... .bss 8:0x80779F99
+            # Rounding up to 4 is what it accepts, and the range must not
+            # reach whatever is declared next.
+            end4 = (hi + 3) // 4 * 4
+            nxt = min([a for a in self.d.vars
+                       if a >= hi and self.d.section_of(a) == sec] or [end4])
+            hi = min(end4, nxt)
             al = 1
             while al < 8 and lo % (al * 2) == 0:
                 al *= 2

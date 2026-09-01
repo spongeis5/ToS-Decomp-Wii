@@ -7,7 +7,7 @@ numbers here, which move.
 ## State at time of writing
 
 ```
-Game Code:  24 of 498 files complete  13,216 / 2,115,452 bytes  615 / 10,559 fn
+Game Code:  25 of 498 files complete  13,236 / 2,115,452 bytes  616 / 10,559 fn
             0.6240% of game code
 
 Of those 614 functions, 528 are GENERATED -- ten machine-recognised shapes,
@@ -104,7 +104,7 @@ the `.cpp` that used it, and dtk rejects the fiction anyway.
 
 ## Open problems, in order of value
 
-1. **The data tier. TWO UNITS NOW CARRY THEIR OWN DATA, 360 bytes.**
+1. **The data tier. THREE UNITS CARRY THEIR OWN DATA, 396 bytes.**
    `Collide.cpp` owns 96 bytes of `.bss` at `0x8077AAA8` -- six static data
    members of `Math::QuickCull20` and `Math::QuickCull15` -- and it links,
    at exactly those addresses, with `main.dol` still byte-identical. Game
@@ -166,6 +166,24 @@ the `.cpp` that used it, and dtk rejects the fiction anyway.
    global symbol or doesn't exist. Ignored.` **`#pragma force_active on`
    around the definitions does it instead**, and that is the only reason
    the unit links.
+
+   `PostRenderChannel.cpp` is the third and the first with INITIALISED
+   data -- 17 bytes of `.bss` and 16 of `.data`, whose values are read out
+   of the image (1, 2, 3, 4) rather than guessed, and being non-zero is
+   exactly why they are in `.data` where the other five are in `.bss`. Its
+   one function is `PostRenderChannel::buffer = Channel::buffer;`, which
+   the two addresses in it say outright.
+
+   It also found the last edge in the recipe: **the trailing padding
+   belongs to the unit**. `commit` is one byte at `80779F98`, so the range
+   ended at `F99` and the remainder started there --
+
+       Invalid alignment for split: ... .bss 8:0x80779F99
+
+   -- where retail's next variable is at `F9C` and the three bytes between
+   are this unit's own. `dwarf_data_carve.py` rounds the end up to 4 now,
+   without crossing whatever is declared next, and reproduces that range on
+   its own.
 
    What is still blocked, and by what:
    - **The anonymous namespace, not alignment.** `Blobloids.cpp` was the

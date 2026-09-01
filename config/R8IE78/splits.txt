@@ -1284,8 +1284,8 @@ SB/NG/Engine/WAD01_21.cpp:
 SB/NG/Engine/WAD02.cpp:
 	.text       start:0x801E4270 end:0x801E4440
 	.rodata     start:0x80693C08 end:0x80695AD0
-	.data       start:0x806CE7A8 end:0x806D0860
-	.bss        start:0x80779F70 end:0x8077AAA8
+	.data       start:0x806CE7A8 end:0x806CE7C0
+	.bss        start:0x80779F70 end:0x80779F88
 	.sdata      start:0x80819920 end:0x80819958
 	.sbss       start:0x8081BBC0 end:0x8081BBD8
 
@@ -1294,9 +1294,13 @@ SB/NG/Source/Engine/Graphics/Channel.cpp:
 
 SB/NG/Source/Engine/Graphics/PostRenderChannel.cpp:
 	.text       start:0x801E44A0 end:0x801E44B4
+	.data       start:0x806CE7C0 end:0x806CE7D0
+	.bss        start:0x80779F88 end:0x80779F9C
 
 SB/NG/Engine/WAD02_1.cpp:
 	.text       start:0x801E44B4 end:0x801E85C0
+	.data       start:0x806CE7D0 end:0x806D0860
+	.bss        start:0x80779F9C end:0x8077AAA8
 
 SB/NG/Source/Engine/Math/Collide.cpp:
 	.text       start:0x801E85C0 end:0x801E8664

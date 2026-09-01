@@ -84,6 +84,31 @@ public:
     CreatorI* extraModelCreator[2];
 };
 
+// THE LINE TABLE CONFIRMS THE STATEMENT ORDER, so that is not the
+// lever. tools/dwarf_lines.py gives the original's own line number
+// for every instruction:
+//
+//   28-32  the five parameter stores, in this order
+//   34     hasEntity = false -- and its `li` is hoisted to the very
+//          first instruction, which is where the shared zero comes
+//          from
+//   36-39  logicCreator, steeringCreator, perceptionCreator,
+//          fxCreator
+//   40     the `for`, with `i` declared IN it (dwarf_locals: line 40)
+//   41     extraModelCreator[i] = 0
+//
+// which is this function, statement for statement. Six more spellings
+// of the index were swept after reading that -- declared first,
+// declared last, initialised at the top, initialised in the for, in a
+// nested block, and assigned as its own statement -- and ALL SIX sit
+// at 11 of 19, the same as today.
+//
+// The eleven are entirely r9/r10-versus-r4 and the position of one
+// `mr`: retail sets the loop's offset register BEFORE storing the
+// parameters, while r4-r8 are still live, so the allocator has to
+// reach past them; ours sets it after r4 is dead and reuses r4. The
+// source text is right and the difference is the scheduler's -- the
+// same conclusion xOGModelRefPtr reached from the other direction.
 void zNPCType::Setup(eNPCType type, Sext::AnimationSet::eAnimSetType animSet,
                      const char* name,
                      zNPCBase* (*allocate)(World::EntityHandleBase*),

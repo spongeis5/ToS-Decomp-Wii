@@ -37,6 +37,9 @@ EXPECT = {
     "SB/NG/Source/Engine/AssetManager/Domains/Blobloids": (9, 9),
     "SB/GM/Engine/Game/zNPCBTConditionBuilder": (1, 1),
     "SB/GM/Engine/Game/zLaser": (1, 1),
+    # Four of seven. The three left are one compiler decision
+    # each -- see the file; six spellings of the switch tie.
+    "SB/GM/Engine/Game/zBTNodeReference": (4, 7),
     # The second unit to carry its own data, and the first written
     # from scratch with it. One function, 264 bytes of .bss.
     "SB/GM/Engine/Core/Wii/Env/WAD00": (1, 1),

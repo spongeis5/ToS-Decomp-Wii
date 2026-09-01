@@ -13,38 +13,29 @@
 // Members are non-virtual, and the padding is padding -- only the
 // offsets each function touches are known, not the fields between.
 
+namespace Graphics {
 
-class hkpRigidBody {
+class Renderable3D {
 public:
-    float getAngularDamping() const;
-    float getLinearDamping() const;
-    float getRestitution() const;
-    void setAngularDamping(float value);
-    void setLinearDamping(float value);
+    void SetProjectShadowFlag(unsigned int value);
 
-    unsigned char _pad0[0x90];
-    float f90;
-    unsigned char _pad1[0x100];
-    float f194;
-    float f198;
+    unsigned char _pad0[0xF0];
+    int fF0;
 };
 
+}  // namespace Graphics
 
 namespace World {
 
-class xOGModel {
+class UVMovementInstanceData {
 public:
-    int GetPrototype() const;
+    void SetRows(float* value);
 
-    unsigned char _pad0[0xDC];
-    int fDC;
+    unsigned char _pad0[0x5C];
+    int f5C;
 };
 
 }  // namespace World
 
-float hkpRigidBody::getRestitution() const { return f90; }
-float hkpRigidBody::getLinearDamping() const { return f194; }
-float hkpRigidBody::getAngularDamping() const { return f198; }
-void hkpRigidBody::setLinearDamping(float value) { f194 = value; }
-void hkpRigidBody::setAngularDamping(float value) { f198 = value; }
-int World::xOGModel::GetPrototype() const { return fDC; }
+void Graphics::Renderable3D::SetProjectShadowFlag(unsigned int value) { fF0 = value; }
+void World::UVMovementInstanceData::SetRows(float* value) { f5C = (int)value; }

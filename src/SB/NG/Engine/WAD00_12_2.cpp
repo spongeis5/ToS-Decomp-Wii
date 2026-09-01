@@ -13,38 +13,27 @@
 // Members are non-virtual, and the padding is padding -- only the
 // offsets each function touches are known, not the fields between.
 
-
-class hkpRigidBody {
-public:
-    float getAngularDamping() const;
-    float getLinearDamping() const;
-    float getRestitution() const;
-    void setAngularDamping(float value);
-    void setLinearDamping(float value);
-
-    unsigned char _pad0[0x90];
-    float f90;
-    unsigned char _pad1[0x100];
-    float f194;
-    float f198;
-};
-
-
 namespace World {
 
-class xOGModel {
+class TextureResourceEntity {
 public:
-    int GetPrototype() const;
+    void Deactivate();
+    void DeferDestroy();
 
-    unsigned char _pad0[0xDC];
-    int fDC;
 };
 
 }  // namespace World
 
-float hkpRigidBody::getRestitution() const { return f90; }
-float hkpRigidBody::getLinearDamping() const { return f194; }
-float hkpRigidBody::getAngularDamping() const { return f198; }
-void hkpRigidBody::setLinearDamping(float value) { f194 = value; }
-void hkpRigidBody::setAngularDamping(float value) { f198 = value; }
-int World::xOGModel::GetPrototype() const { return fDC; }
+namespace World {
+
+class VertexDeclEntity {
+public:
+    void Deactivate();
+    void DeferDestroy();
+
+};
+
+}  // namespace World
+
+void World::TextureResourceEntity::Deactivate() { DeferDestroy(); }
+void World::VertexDeclEntity::Deactivate() { DeferDestroy(); }

@@ -13,35 +13,25 @@
 // Members are non-virtual, and the padding is padding -- only the
 // offsets each function touches are known, not the fields between.
 
-class zNPCBase;
+namespace World { class EntityHandleBase; }
 
 
-class zDirection {
+class zNPCGeneric {
 public:
-    float GetYaw();
-
-    unsigned char _pad0[0x4C];
-    float f4C;
+    zNPCGeneric(World::EntityHandleBase* a0);
+    virtual void __vtable_anchor();
 };
 
 
 
-class zCommonPlayer {
+class zNPCGenericSpawner : public zNPCGeneric {
 public:
-    const int* GetFloorPosition() const;
-    void ZeroPointGrab(zNPCBase* value);
-    void ZeroPointResetState();
+    virtual void __vtable_anchor();
+    zNPCGenericSpawner(World::EntityHandleBase* a0);
 
-    unsigned char _pad0[0x154];
-    int f154;
-    unsigned char _pad1[0x650];
-    int f7A8;
-    int f7AC;
-    int f7B0;
 };
 
 
-float zDirection::GetYaw() { return f4C; }
-const int* zCommonPlayer::GetFloorPosition() const { return &f154; }
-void zCommonPlayer::ZeroPointGrab(zNPCBase* value) { f7A8 = (int)value; }
-void zCommonPlayer::ZeroPointResetState() { f7A8 = 0; f7AC = 0; f7B0 = 0; }
+#pragma dont_inline on
+zNPCGenericSpawner::zNPCGenericSpawner(World::EntityHandleBase* a0) : zNPCGeneric(a0) {}
+#pragma dont_inline off

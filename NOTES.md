@@ -7,8 +7,8 @@ numbers here, which move.
 ## State at time of writing
 
 ```
-Game Code:  28 of 498 files complete  24,568 / 2,115,452 bytes  993 / 10,559 fn
-            1.1614% of game code
+Game Code:  28 of 777 files complete  24,568 / 2,116,508 bytes  993 / 10,686 fn
+            1.1608% of game code
 
 Of those 993 functions, 864 are GENERATED -- machine-recognised
 shapes, not one of which is decompiling. They are real matched
@@ -17,7 +17,7 @@ count of them is not a count of decompiled code. HAND-WRITTEN IS
 129, across 40 units and 13,352 bytes, and that is the figure to
 compare against earlier ones.
 
-Data:       3 unit(s) carry their own, 396 bytes; 75 more could
+Data:       3 unit(s) carry their own, 396 bytes; 134 more could
 All:        2.06% matched              main.dol reproduces byte for byte
 ```
 
@@ -109,6 +109,77 @@ Each unity unit is now an alternating sequence of recovered files and
 
 Headers are deliberately NOT units: an inline emitted out-of-line belongs to
 the `.cpp` that used it, and dtk rejects the fiction anyway.
+
+## The unity builds, cut a second time: 164 files, 988,576 bytes
+
+The splitter refused any file with more than one run, and
+zSBPlayerActions.cpp had **62**. Every one of its 61 gaps held nothing
+but functions the DWARF files under zSBPlayerActions.h -- the inline
+callbacks between its transition tables, emitted out-of-line. The
+tool's own header says such a function belongs to the .cpp that used
+it and that a header is never a unit; it just never applied that to
+placement. So 139,880 bytes sat unreachable behind a rule the tool
+already stated. zBoardPlayerActions.cpp was 72 runs the same way, and
+zCommonPlayerActions.cpp 26: 71 of 71 and 25 of 25 gaps header-only.
+
+`absorb_headers` gives a header-attributed function to the .cpp whose
+nearest source-file neighbours on BOTH sides are the same file. One
+whose neighbours differ stays where the DWARF put it, because which
+side it belongs to is not known. **1,619 of 2,534** header functions
+move; .cpp files with exactly one run go from 259 to 421; **162 files
+and 985,656 bytes** become single-run -- nearly half of Game Code.
+
+Three more things had to change before `--apply` went through, each
+found by its refusal:
+
+  * A remainder chunk `<unit>_N.cpp` is a PARENT too: the second round
+    cuts inside what the first round left, and zSBPlayerActions lies
+    in WAD03_22.cpp, not WAD03.cpp. But only the chunks themselves,
+    directly under SB/GM/Engine and SB/NG/Engine -- `Core/Wii/Env/
+    WAD00.cpp` is a recovered unit NAMED after its blob, has no
+    remainder, and tripped the orphaned-data guard.
+  * A chunk consumed entirely by recovered files keeps its data
+    sections as a unit with no `.text` line, or goes away if it owns
+    none. The guard used to refuse instead; WAD02_18.cpp is such a
+    chunk.
+  * New chunk names skip every name already in use. `WAD00_1.cpp` from
+    the first round already existed, and dtk read the duplicate as a
+    cycle.
+
+Applied: **1,778 units, 777 of them game**, from 1,507 and 498.
+`main.dol: OK`, 0 failures in 179 build lines, and after
+`gen_units.py` re-derived the generated units for the new layout the
+matched figures came back to the byte: 24,568 and 993. Nothing was
+lost and nothing was gained yet -- every new unit starts NonMatching.
+What changed is reach: `zSBPlayerActions.cpp` (139,880 bytes) and
+`zCommonPlayerActions.cpp` (25,652) are units a file can be written
+for. zBoardPlayerActions.cpp is NOT: two runs survive absorption, and
+a file with two runs still needs two units of one name. That is the
+next rule to relax, with a suffix, and it is 100,252 bytes.
+
+What the checks said afterwards, and what each one cost:
+
+  * **Seven pins were lowered by hand**, which `unitcmp_pins` refuses
+    to do and is right to refuse. The seven remainder chunks lost 236
+    functions to 86 new units -- WAD00 alone went 183 to 6 -- and the
+    build-wide count stayed at 993, which is the evidence that nothing
+    was lost. The reason is written beside them in `unitcmp_check.py`,
+    which is the only place a pin is ever lowered.
+  * **The branch-target guard reported itself DEAD**, correctly: it
+    sampled WAD00, whose 183 tail-call forwarders were the whole point,
+    and WAD00 now holds six functions with no relocated branch at all.
+    It samples `WAD00_32` now, where 200 of the forwarders landed.
+  * **Two `unitcmp` consumers at once produce phantom relocations.** A
+    check run while the audit was still compiling into the same cache
+    aborted on `R_PPC_120 at 0x3be00000` -- a type that exists nowhere
+    and an offset that is an instruction word. Run alone it never
+    recurred, in 981 dtk objects and 203 of our own. Until the cache
+    is locked, run `unitcmp_pins`, `unitcmp_check` and `reloc_audit`
+    one after another, never side by side.
+  * `gen_poolprefix` counted seven unrelated constants from other units
+    as pool referrers, three of them mid-string; a reference is now an
+    offset added to a register holding the pool's EXACT base. Neither
+    prefix moved.
 
 ## Writing units is routine now, and the disassembler is why
 
@@ -547,13 +618,17 @@ Then one of these, in the order they are worth doing:
    five re-loads and two orphaned branches; the section above lists
    the 64 things already ruled out, so do not start there.
 
-4. **The AnimTable family.** `CreateAnimTable` MATCHES, 4,388 bytes,
-   and the section above says how: pooled strings and
-   `gen_poolprefix.py` for the unit's pool prefix. 395 symbols share
-   its shape, the largest 6,580 bytes, and each is one forward walk
-   over a branchless function plus one generated header. Any unit
-   that touches a string now needs its `.pool.h`; run the generator
-   before blaming the source.
+4. **The AnimTable family, now reachable.** `CreateAnimTable`
+   MATCHES, 4,388 bytes: pooled strings plus `gen_poolprefix.py` for
+   the unit's pool prefix. 314 branchless functions and 143,664 bytes
+   share its shape, and after the second cut the two biggest homes are
+   units: `zSBPlayerActions.cpp` (66 KB of tables among 139,880) and
+   `zCommonPlayerActions.cpp`. Each function is one forward walk --
+   the scratch extractor recovered all 106 calls of the 6,580-byte
+   `AddInternalTransitions` -- plus the unit's `.pool.h`. The callbacks
+   the tables name are `scope:weak` inline members, so a table needs
+   only their declarations. Run the pool generator before blaming
+   the source.
 
 5. **Another shape.** `tools/shape_census.py` still ranks what is
    left. The biggest row is `addi b`, 97 functions and 776 bytes, of

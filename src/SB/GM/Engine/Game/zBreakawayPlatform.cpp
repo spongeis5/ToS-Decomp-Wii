@@ -15,27 +15,40 @@
 
 namespace World { class EntityHandleBase; }
 
-namespace FX {
+namespace World {
 
-class zFXSpawn {
+class xOGEntity {
 public:
-    zFXSpawn(World::EntityHandleBase* a0);
+    xOGEntity(World::EntityHandleBase* a0);
     virtual void __vtable_anchor();
 };
 
-}  // namespace FX
+}  // namespace World
 
-namespace FX {
 
-class zFXSpawnWithSoundAssetMultiple : public FX::zFXSpawn {
+class xEffectAttachIntf : public World::xOGEntity {
 public:
     virtual void __vtable_anchor();
-    zFXSpawnWithSoundAssetMultiple(World::EntityHandleBase* a0);
+    xEffectAttachIntf(World::EntityHandleBase* a0);
 
 };
 
-}  // namespace FX
+
+
+class zBreakawayPlatform {
+public:
+    int* DriveGetCurMat(int a0);
+    const int* GetSoundPosition() const;
+
+    unsigned char _pad0[0x1B4];
+    int f1B4;
+    unsigned char _pad1[0x2C];
+    int f1E4;
+};
+
 
 #pragma dont_inline on
-FX::zFXSpawnWithSoundAssetMultiple::zFXSpawnWithSoundAssetMultiple(World::EntityHandleBase* a0) : FX::zFXSpawn(a0) {}
+xEffectAttachIntf::xEffectAttachIntf(World::EntityHandleBase* a0) : World::xOGEntity(a0) {}
+int* zBreakawayPlatform::DriveGetCurMat(int a0) { return &f1B4; }
+const int* zBreakawayPlatform::GetSoundPosition() const { return &f1E4; }
 #pragma dont_inline off

@@ -13,35 +13,21 @@
 // Members are non-virtual, and the padding is padding -- only the
 // offsets each function touches are known, not the fields between.
 
-class zNPCBase;
+class xAnimSingle;
+class xAnimTransition;
 
 
-class zDirection {
+class zSpringboard {
 public:
-    float GetYaw();
+    static bool anCompressCheck(xAnimTransition* a0, xAnimSingle* a1, void* a2);
+    static bool anFailCheck(xAnimTransition* a0, xAnimSingle* a1, void* a2);
+    static bool anLaunchCheck(xAnimTransition* a0, xAnimSingle* a1, void* a2);
 
-    unsigned char _pad0[0x4C];
-    float f4C;
+    unsigned char _pad0[0xC0];
+    int fC0;
 };
 
 
-
-class zCommonPlayer {
-public:
-    const int* GetFloorPosition() const;
-    void ZeroPointGrab(zNPCBase* value);
-    void ZeroPointResetState();
-
-    unsigned char _pad0[0x154];
-    int f154;
-    unsigned char _pad1[0x650];
-    int f7A8;
-    int f7AC;
-    int f7B0;
-};
-
-
-float zDirection::GetYaw() { return f4C; }
-const int* zCommonPlayer::GetFloorPosition() const { return &f154; }
-void zCommonPlayer::ZeroPointGrab(zNPCBase* value) { f7A8 = (int)value; }
-void zCommonPlayer::ZeroPointResetState() { f7A8 = 0; f7AC = 0; f7B0 = 0; }
+bool zSpringboard::anCompressCheck(xAnimTransition* a0, xAnimSingle* a1, void* a2) { return ((zSpringboard*)a2)->fC0 == 1; }
+bool zSpringboard::anLaunchCheck(xAnimTransition* a0, xAnimSingle* a1, void* a2) { return ((zSpringboard*)a2)->fC0 == 3; }
+bool zSpringboard::anFailCheck(xAnimTransition* a0, xAnimSingle* a1, void* a2) { return ((zSpringboard*)a2)->fC0 == 4; }

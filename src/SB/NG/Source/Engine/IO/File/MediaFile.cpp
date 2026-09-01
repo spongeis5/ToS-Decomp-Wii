@@ -13,35 +13,22 @@
 // Members are non-virtual, and the padding is padding -- only the
 // offsets each function touches are known, not the fields between.
 
-class zNPCBase;
+namespace IO {
 
-
-class zDirection {
+class MediaFile {
 public:
-    float GetYaw();
+    int GetSize();
+    void Reset();
 
-    unsigned char _pad0[0x4C];
-    float f4C;
+    int f0;
+    unsigned char _pad1[0x54];
+    int f58;
+    unsigned char _pad2[0x4];
+    int f60;
+    int f64;
 };
 
+}  // namespace IO
 
-
-class zCommonPlayer {
-public:
-    const int* GetFloorPosition() const;
-    void ZeroPointGrab(zNPCBase* value);
-    void ZeroPointResetState();
-
-    unsigned char _pad0[0x154];
-    int f154;
-    unsigned char _pad1[0x650];
-    int f7A8;
-    int f7AC;
-    int f7B0;
-};
-
-
-float zDirection::GetYaw() { return f4C; }
-const int* zCommonPlayer::GetFloorPosition() const { return &f154; }
-void zCommonPlayer::ZeroPointGrab(zNPCBase* value) { f7A8 = (int)value; }
-void zCommonPlayer::ZeroPointResetState() { f7A8 = 0; f7AC = 0; f7B0 = 0; }
+void IO::MediaFile::Reset() { f60 = 0; f64 = 0; f0 = 0; }
+int IO::MediaFile::GetSize() { return f58; }

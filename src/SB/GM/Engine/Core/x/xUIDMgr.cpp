@@ -13,38 +13,29 @@
 // Members are non-virtual, and the padding is padding -- only the
 // offsets each function touches are known, not the fields between.
 
-
-class hkpRigidBody {
-public:
-    float getAngularDamping() const;
-    float getLinearDamping() const;
-    float getRestitution() const;
-    void setAngularDamping(float value);
-    void setLinearDamping(float value);
-
-    unsigned char _pad0[0x90];
-    float f90;
-    unsigned char _pad1[0x100];
-    float f194;
-    float f198;
-};
-
+namespace World { class EntityHandleBase; }
 
 namespace World {
 
-class xOGModel {
+class Entity {
 public:
-    int GetPrototype() const;
-
-    unsigned char _pad0[0xDC];
-    int fDC;
+    Entity(World::EntityHandleBase* a0);
+    virtual void __vtable_anchor();
 };
 
 }  // namespace World
 
-float hkpRigidBody::getRestitution() const { return f90; }
-float hkpRigidBody::getLinearDamping() const { return f194; }
-float hkpRigidBody::getAngularDamping() const { return f198; }
-void hkpRigidBody::setLinearDamping(float value) { f194 = value; }
-void hkpRigidBody::setAngularDamping(float value) { f198 = value; }
-int World::xOGModel::GetPrototype() const { return fDC; }
+namespace World {
+
+class xOGStubEntity : public World::Entity {
+public:
+    virtual void __vtable_anchor();
+    xOGStubEntity(World::EntityHandleBase* a0);
+
+};
+
+}  // namespace World
+
+#pragma dont_inline on
+World::xOGStubEntity::xOGStubEntity(World::EntityHandleBase* a0) : World::Entity(a0) {}
+#pragma dont_inline off

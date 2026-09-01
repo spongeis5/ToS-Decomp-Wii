@@ -92,10 +92,14 @@ def first_referrers(raw, secs, funcs, base, size, lo, hi):
                 imm = imm - 0x10000 if imm & 0x8000 else imm
                 if s in regs:
                     v = (regs[s] + imm) & 0xFFFFFFFF
-                    if base <= v < base + size:
-                        off = v - base
-                        if off not in first or a < first[off]:
-                            first[off] = a
+                    # A reference is an offset added to a register that
+                    # holds the pool's EXACT base. Accepting any folded
+                    # address that lands inside the pool counted seven
+                    # unrelated constants from other units as referrers,
+                    # three of them mid-string and one at an empty slot.
+                    if regs[s] == base and 0 <= imm < size:
+                        if imm not in first or a < first[imm]:
+                            first[imm] = a
                     regs[d] = v
                 else:
                     regs.pop(d, None)
@@ -158,7 +162,7 @@ def main():
     tu_lo, tu_hi = min(ref.values()), max(ref.values())
     wads = sorted({n for s, _e, n in us if tu_lo <= s <= tu_hi
                    and re.search(r"/WAD\d+(_\d+)?\.cpp$", n)})
-    wad = (wads[0].rsplit("/", 1)[1].split("_")[0] + ".cpp") if wads \
+    wad = (wads[0].rsplit("/", 1)[1][:-4].split("_")[0] + ".cpp") if wads \
         else "(no WAD chunk)"
     lo, hi = tu_lo, tu_hi
     strings = pool_strings(raw, secs, base, size)

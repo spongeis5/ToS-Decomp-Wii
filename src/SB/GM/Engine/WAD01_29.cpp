@@ -13,35 +13,24 @@
 // Members are non-virtual, and the padding is padding -- only the
 // offsets each function touches are known, not the fields between.
 
-class zNPCBase;
 
-
-class zDirection {
+class hkpCdBodyPairCollector {
 public:
-    float GetYaw();
+    void reset();
 
-    unsigned char _pad0[0x4C];
-    float f4C;
+    unsigned char _pad0[0x4];
+    unsigned char f4;
 };
 
 
 
-class zCommonPlayer {
+class zBombManager {
 public:
-    const int* GetFloorPosition() const;
-    void ZeroPointGrab(zNPCBase* value);
-    void ZeroPointResetState();
+    void SceneInit();
+    void SceneReset();
 
-    unsigned char _pad0[0x154];
-    int f154;
-    unsigned char _pad1[0x650];
-    int f7A8;
-    int f7AC;
-    int f7B0;
 };
 
 
-float zDirection::GetYaw() { return f4C; }
-const int* zCommonPlayer::GetFloorPosition() const { return &f154; }
-void zCommonPlayer::ZeroPointGrab(zNPCBase* value) { f7A8 = (int)value; }
-void zCommonPlayer::ZeroPointResetState() { f7A8 = 0; f7AC = 0; f7B0 = 0; }
+void hkpCdBodyPairCollector::reset() { f4 = 0; }
+void zBombManager::SceneInit() { SceneReset(); }

@@ -15,27 +15,50 @@
 
 namespace World { class EntityHandleBase; }
 
-namespace FX {
+namespace World {
 
-class zFXSpawn {
+class Entity {
 public:
-    zFXSpawn(World::EntityHandleBase* a0);
+    Entity(World::EntityHandleBase* a0);
     virtual void __vtable_anchor();
 };
 
-}  // namespace FX
+}  // namespace World
 
-namespace FX {
+namespace World {
 
-class zFXSpawnWithSoundAssetMultiple : public FX::zFXSpawn {
+class RenderCustomizerBaseEntity : public World::Entity {
 public:
     virtual void __vtable_anchor();
-    zFXSpawnWithSoundAssetMultiple(World::EntityHandleBase* a0);
+    RenderCustomizerBaseEntity(World::EntityHandleBase* a0);
 
 };
 
-}  // namespace FX
+}  // namespace World
+
+namespace World {
+
+class UVMovementSettingsEntity {
+public:
+    unsigned int GetInstanceDataSize();
+
+};
+
+}  // namespace World
+
+namespace World {
+
+class DTRFrontBufferEntity {
+public:
+    void Deactivate();
+    void DeferDestroy();
+
+};
+
+}  // namespace World
 
 #pragma dont_inline on
-FX::zFXSpawnWithSoundAssetMultiple::zFXSpawnWithSoundAssetMultiple(World::EntityHandleBase* a0) : FX::zFXSpawn(a0) {}
+World::RenderCustomizerBaseEntity::RenderCustomizerBaseEntity(World::EntityHandleBase* a0) : World::Entity(a0) {}
+unsigned int World::UVMovementSettingsEntity::GetInstanceDataSize() { return 0x00000060u; }
+void World::DTRFrontBufferEntity::Deactivate() { DeferDestroy(); }
 #pragma dont_inline off

@@ -13,35 +13,21 @@
 // Members are non-virtual, and the padding is padding -- only the
 // offsets each function touches are known, not the fields between.
 
-class zNPCBase;
 
-
-class zDirection {
+class zSearchMapCreatorNavMesh {
 public:
-    float GetYaw();
+    unsigned int GetSourceAssetType() const;
 
-    unsigned char _pad0[0x4C];
-    float f4C;
 };
 
 
 
-class zCommonPlayer {
+class zSearchMapCreatorNavMeshGroup {
 public:
-    const int* GetFloorPosition() const;
-    void ZeroPointGrab(zNPCBase* value);
-    void ZeroPointResetState();
+    unsigned int GetSourceAssetType() const;
 
-    unsigned char _pad0[0x154];
-    int f154;
-    unsigned char _pad1[0x650];
-    int f7A8;
-    int f7AC;
-    int f7B0;
 };
 
 
-float zDirection::GetYaw() { return f4C; }
-const int* zCommonPlayer::GetFloorPosition() const { return &f154; }
-void zCommonPlayer::ZeroPointGrab(zNPCBase* value) { f7A8 = (int)value; }
-void zCommonPlayer::ZeroPointResetState() { f7A8 = 0; f7AC = 0; f7B0 = 0; }
+unsigned int zSearchMapCreatorNavMesh::GetSourceAssetType() const { return 0x00000062u; }
+unsigned int zSearchMapCreatorNavMeshGroup::GetSourceAssetType() const { return 0x000000B1u; }

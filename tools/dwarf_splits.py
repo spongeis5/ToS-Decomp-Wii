@@ -123,6 +123,50 @@ def runs_of(funcs):
     return runs
 
 
+SRC_EXT = (".c", ".cpp", ".cxx", ".cc")
+
+
+def absorb_headers(funcs):
+    """Give a header-attributed function to the .cpp that brackets it.
+
+    An inline emitted out-of-line belongs to the .cpp that used it, not to
+    the .h it was written in -- that is why headers are never units. But the
+    DWARF still files it under the .h, and left there it BREAKS the .cpp
+    into runs: zSBPlayerActions.cpp came out as 62 runs, and every one of
+    its 61 gaps held nothing but functions from zSBPlayerActions.h. A file
+    with two runs is refused, so 139,880 bytes sat unreachable behind a
+    rule this tool already states.
+
+    A header function whose nearest source-file neighbours on BOTH sides
+    are the same .cpp is given to that .cpp. One whose neighbours differ
+    stays where the DWARF put it: which side it belongs to is not known,
+    and guessing would attach it to the wrong unit silently.
+
+    -> (funcs, moved, total_header)
+    """
+    fns = sorted(funcs)
+    out = list(fns)
+    n = len(fns)
+    moved = total = 0
+    i = 0
+    while i < n:
+        if fns[i][2].lower().endswith(SRC_EXT):
+            i += 1
+            continue
+        j = i
+        while j < n and not fns[j][2].lower().endswith(SRC_EXT):
+            j += 1
+        total += j - i
+        left = fns[i - 1][2] if i > 0 else None
+        right = fns[j][2] if j < n else None
+        if left is not None and left == right:
+            for k in range(i, j):
+                out[k] = (fns[k][0], fns[k][1], left)
+            moved += j - i
+        i = j
+    return out, moved, total
+
+
 _IMG = None
 
 def read_pointer(va):
@@ -202,7 +246,16 @@ def plan(units, runs, limit):
     """
     inside = OrderedDict()
     for name, secs in units.items():
-        if not any(name.endswith(u) for u in UNITY):
+        # A remainder chunk `<unit>_N.cpp` is as much a parent as the head
+        # chunk: it is the unattributed stretch a recovered file has to be
+        # cut OUT of, and zSBPlayerActions.cpp's 139,880 bytes lie inside
+        # WAD03_22.cpp, not WAD03.cpp.
+        # ... but only the chunks themselves, which live directly under
+        # SB/GM/Engine/ and SB/NG/Engine/. A recovered unit may be NAMED
+        # after its blob -- Core/Wii/Env/WAD00.cpp is, so its anonymous
+        # namespace mangles as retail's -- and that one has no remainder,
+        # so treating it as a parent trips the orphaned-data guard.
+        if not re.match(r"^SB/(GM|NG)/Engine/WAD\d+(_\d+)*\.cpp$", name):
             continue
         for sec, lo, hi, _raw in secs:
             if sec == ".text":
@@ -261,14 +314,16 @@ def main(argv=None):
     a = ap.parse_args(argv)
 
     funcs = dwarf_functions()
+    funcs, moved, hdr = absorb_headers(funcs)
     runs = runs_of(funcs)
     units = parse_splits()
     got, inside = plan(units, runs, a.limit)
 
     named = [g for g in got if g[4]]
     chunks = [g for g in got if not g[4]]
-    print("%d function(s) placed by DWARF, %d contiguous run(s)"
-          % (len(funcs), len(runs)))
+    print("%d function(s) placed by DWARF; %d of the %d header-attributed "
+          "ones given to the .cpp bracketing them; %d contiguous run(s)"
+          % (len(funcs), moved, hdr, len(runs)))
     print("%d source file(s) recovered as their own unit, plus %d unattributed"
           % (len(named), len(chunks)))
     print("remainder chunk(s) named <unit>_N.cpp:")
@@ -302,6 +357,7 @@ def main(argv=None):
         by_parent.setdefault(name, []).append((lo, hi, n, src))
 
     ordered = OrderedDict()
+    taken = set(units)                 # every unit name already in use
     for parent, segs in by_parent.items():
         segs.sort()
         used_parent = False
@@ -315,13 +371,24 @@ def main(argv=None):
                 rows.append((parent, lo, hi, False))
                 used_parent = True
             else:
-                idx += 1
-                rows.append(("%s_%d.cpp" % (parent[:-4], idx), lo, hi, False))
+                # The second round cuts INSIDE chunks the first round
+                # made, so `<parent>_N` from 1 collides with them --
+                # WAD00.cpp's new remainder would be WAD00_1.cpp, which
+                # exists. Skip every name already in use.
+                while True:
+                    idx += 1
+                    name = "%s_%d.cpp" % (parent[:-4], idx)
+                    if name not in taken:
+                        break
+                taken.add(name)
+                rows.append((name, lo, hi, False))
         if not used_parent:
-            print("   %s has no remainder chunk; its data sections would be"
-                  % parent)
-            print("   orphaned. REFUSING to apply.")
-            return 1
+            # Every byte of the chunk's text went to recovered files. Its
+            # data sections are still unattributed and must not be
+            # orphaned, so the parent stays as a unit WITHOUT a .text line
+            # and keeps them; if it has none it simply goes away. This
+            # replaced a refusal that fired on WAD02_18.cpp.
+            rows.append((parent, None, None, False))
         ordered[parent] = rows
 
     text = SPLITS.read_text(encoding="utf-8")
@@ -354,6 +421,8 @@ def main(argv=None):
                 tgt = read_pointer(slo)
                 owner = None
                 for unit, lo, hi, _s in rows:
+                    if lo is None:
+                        continue                  # the text-less parent
                     if tgt is not None and lo <= tgt < hi:
                         owner = unit
                         break
@@ -364,11 +433,19 @@ def main(argv=None):
         old_block = "%s:\n%s" % (parent,
                                  "\n".join(raw for _s, _l, _h, raw
                                            in units[parent]))
+        # A text-less parent that owns no data either is nothing: drop it
+        # here, and the configure.py pass below then replaces its Object
+        # line with the recovered units' alone.
+        if any(lo is None for _u, lo, _h, _s in rows) and not other \
+                and not ctors_for.get(parent):
+            rows = [r for r in rows if r[1] is not None]
+            ordered[parent] = rows
         block = []
         for unit, lo, hi, _is_src in rows:
             block.append("%s:" % unit)
-            block.append("%s.text       start:0x%08X end:0x%08X"
-                         % (TAB, lo, hi))
+            if lo is not None:
+                block.append("%s.text       start:0x%08X end:0x%08X"
+                             % (TAB, lo, hi))
             if unit == parent:
                 block.extend(other)
             block.extend(ctors_for.get(unit, []))

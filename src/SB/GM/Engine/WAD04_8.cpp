@@ -23,37 +23,4 @@ public:
 };
 
 
-
-class zSearchMapCreatorNavMesh {
-public:
-    unsigned int GetSourceAssetType() const;
-
-};
-
-
-
-class zSearchMapCreatorNavMeshGroup {
-public:
-    unsigned int GetSourceAssetType() const;
-
-};
-
-
-
-class zSearchStrategyAStar {
-public:
-    unsigned char IsDone() const;
-    void Reset();
-
-    unsigned char _pad0[0x28];
-    int f28;
-    unsigned char _pad1[0x4];
-    unsigned char f30;
-};
-
-
 zScheduler::zScheduler() { f31 = 0; }
-unsigned int zSearchMapCreatorNavMesh::GetSourceAssetType() const { return 0x00000062u; }
-unsigned int zSearchMapCreatorNavMeshGroup::GetSourceAssetType() const { return 0x000000B1u; }
-void zSearchStrategyAStar::Reset() { f30 = 0; f28 = 0; }
-unsigned char zSearchStrategyAStar::IsDone() const { return f30; }

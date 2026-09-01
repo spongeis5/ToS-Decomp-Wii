@@ -538,6 +538,20 @@ The other six went in: **five match** -- CustomAnim, Idle,
 FallToDeath, Dash, Land -- and Ledge is one word short in the same
 way the five in WAD01_28 are. 25 of the unit's 26 written functions.
 
+**The one-word misses, read to the bottom.** Ours addresses the float
+literals SECTION-RELATIVE -- `lfs f1,1580(r26)` with r26 the .rodata
+section base, `lfs f3,1584(r26)` off the same register -- where retail
+gives each literal its own `lis`. Retail saves eight callee-saved
+registers in WalkBoard and ours seven: ours spent one register fewer
+by sharing the base, retail spent the register. The tables that match
+have two distinct floats; the six that miss have three or more. It is
+not the pool table's section -- moving it to .data changed nothing in
+any of five units -- and not the strings flag. It is the allocator
+deciding to fold under pressure, the same family as the r27/r28/r29
+permutation, recorded and left. zPlanktonPlayer's one table (1,576
+bytes) came out 20 bytes short with 392 words differing and was
+taken back out; its unit stays 4 of 4.
+
 ## report.json IS BLIND TO RELOCATION TARGETS
 
 The oracle compares the BITS of a relocated field, and both sides hold

@@ -552,6 +552,21 @@ permutation, recorded and left. zPlanktonPlayer's one table (1,576
 bytes) came out 20 bytes short with 392 words differing and was
 taken back out; its unit stays 4 of 4.
 
+zShootingPlayer's one table (1,392 bytes, callbacks borrowed from
+zPlayerIdlePlankton) came out the same way and was not kept either.
+
+**The next shape is read and not yet written: 48 branchless functions,
+24,080 bytes, dispatch through `bctrl`**, 38 of them in zSBPlayerActions.
+`zPlayerCheatSB::AddActionTransitions` shows it whole: one direct
+xAnimTableNewTransition, then each further transition is a VIRTUAL
+call -- `lwz r3,0(this)`, `lwz r3,0(r3)`, `lwz r3,112(r3)`, vptr at
++12, slot 3 -- with (table, name, cb, 0, 1000, 0.0f, 0, 0, 0) in the
+argument registers and one stack slot. Slot 3 of zPlayerAction's
+virtuals is `AddTransitions` by the order zPlayerAction.cpp already
+declares, and the arguments are that signature exactly. The extractor
+needs to follow a load chain from `this` and map a vtable slot to a
+name; everything else it already does.
+
 ## report.json IS BLIND TO RELOCATION TARGETS
 
 The oracle compares the BITS of a relocated field, and both sides hold

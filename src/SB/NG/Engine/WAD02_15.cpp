@@ -13,6 +13,29 @@
 // Members are non-virtual, and the padding is padding -- only the
 // offsets each function touches are known, not the fields between.
 
+namespace Scaleform {
+
+// A base only in the sense that r3 reaches it unchanged:
+// the branch is four bytes and names nothing else.
+class Coordinator {
+public:
+    void ClearCustomText();
+};
+
+}  // namespace Scaleform
+
+namespace Scaleform {
+
+class ScaleformModule {
+public:
+    void ClearCustomText();
+
+    unsigned char _pad0[0x9C];
+    int f9C;
+};
+
+}  // namespace Scaleform
+
 
 class GTextureWiiImpl {
 public:
@@ -34,5 +57,6 @@ public:
 
 }  // namespace System
 
+void Scaleform::ScaleformModule::ClearCustomText() { ((Scaleform::Coordinator*)f9C)->ClearCustomText(); }
 int GTextureWiiImpl::GetRenderer() const { return f1C; }
 System::CoreJobProcessor::CoreJobProcessor() {}

@@ -22,6 +22,43 @@ public:
 
 
 
+class zInteractionUP {
+public:
+    virtual void _v0() const;
+    virtual void _v1() const;
+    virtual void _v2() const;
+    virtual void _v3() const;
+    virtual void _v4() const;
+    virtual void _v5() const;
+    virtual void _v6() const;
+    virtual void _v7() const;
+    virtual void _v8() const;
+    virtual void _v9() const;
+    virtual void _v10() const;
+    virtual void _v11() const;
+    virtual void _v12() const;
+    virtual void _v13() const;
+    virtual void _v14() const;
+    virtual void _v15() const;
+    virtual void _v16() const;
+    virtual void _v17() const;
+    virtual void _v18() const;
+    virtual void _v19() const;
+    virtual void _v20() const;
+    virtual void _v21() const;
+    virtual void _v22() const;
+    virtual void _v23() const;
+    virtual void _v24() const;
+    virtual void _v25() const;
+    virtual void _v26() const;
+    void GetCurrentPos();
+    void GetOriginalMat();
+    void GetOriginalPos();
+
+};
+
+
+
 class zNPCBTClientBase {
 public:
     int GetOwner() const;
@@ -122,6 +159,9 @@ public:
 
 
 #pragma dont_inline on
+void zInteractionUP::GetOriginalPos() { _v26(); }
+void zInteractionUP::GetCurrentPos() { _v22(); }
+void zInteractionUP::GetOriginalMat() { _v25(); }
 int zNPCBTClientBase::GetOwner() const { return f1A0; }
 Graphics::LightKitData::LightKitData() { f70 = 0; f74 = 0; f78 = 0; }
 zNPCManager::zNPCManager() : zModule() {}

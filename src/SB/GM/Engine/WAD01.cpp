@@ -15,6 +15,17 @@
 
 class xAnimSingle;
 class xAnimTransition;
+class xEntFrame;
+class xScene;
+
+
+// A base only in the sense that r3 reaches it unchanged:
+// the branch is four bytes and names nothing else.
+class zPlayerWalk {
+public:
+    void Update(float a0);
+};
+
 
 
 class zPlayerAction {
@@ -23,6 +34,143 @@ public:
     unsigned char _pad[0xC];
 };
 
+
+// Each class below stands in for one a member points at.
+// Nothing NAMES that class -- these five words carry no
+// relocation -- so it is named after where it was found,
+// and holds virtuals only up to the slot that is called.
+class zPlayerLandHighBoard_m4 {
+public:
+    virtual void _v0() const;
+    virtual void _v1() const;
+    virtual void _v2() const;
+    virtual void _v3() const;
+    virtual void _v4() const;
+    virtual void _v5() const;
+    virtual void _v6() const;
+    virtual void _v7() const;
+    virtual void _v8() const;
+    virtual void _v9() const;
+    virtual void _v10() const;
+    virtual void _v11() const;
+    virtual void _v12() const;
+    virtual void _v13() const;
+    virtual void _v14() const;
+    virtual void _v15() const;
+    virtual void _v16() const;
+    virtual void _v17() const;
+    virtual void _v18() const;
+    virtual void _v19() const;
+    virtual void _v20() const;
+    virtual void _v21() const;
+    virtual void _v22() const;
+    virtual void _v23() const;
+    virtual void _v24() const;
+    virtual void _v25() const;
+    virtual void _v26() const;
+    virtual void _v27() const;
+    virtual void _v28() const;
+    virtual void _v29() const;
+    virtual void _v30() const;
+    virtual void _v31() const;
+    virtual void _v32() const;
+    virtual void _v33() const;
+    virtual void _v34() const;
+    virtual void _v35() const;
+    virtual void _v36() const;
+    virtual void _v37() const;
+    virtual void _v38() const;
+    virtual void _v39() const;
+    virtual void _v40() const;
+    virtual void _v41() const;
+    virtual void _v42() const;
+    virtual void _v43() const;
+    virtual void _v44() const;
+    virtual void _v45() const;
+    virtual void _v46() const;
+    virtual void _v47() const;
+    virtual void _v48() const;
+    virtual void _v49() const;
+    virtual void _v50() const;
+    virtual void _v51() const;
+    virtual void _v52() const;
+    virtual void _v53() const;
+    virtual void _v54() const;
+    virtual void _v55() const;
+    virtual void _v56() const;
+    virtual void _v57() const;
+    virtual void _v58() const;
+    virtual void _v59() const;
+    virtual void _v60() const;
+    virtual void _v61() const;
+    virtual void _v62() const;
+    virtual void _v63() const;
+    virtual void _v64() const;
+    virtual void _v65() const;
+    virtual void _v66() const;
+    virtual void _v67() const;
+    virtual void _v68() const;
+    virtual void _v69() const;
+    virtual void _v70() const;
+    virtual void _v71() const;
+    virtual void _v72() const;
+    virtual void _v73() const;
+    virtual void _v74() const;
+    virtual void _v75() const;
+    virtual void _v76() const;
+    virtual void _v77() const;
+    virtual void _v78() const;
+    virtual void _v79() const;
+    virtual void _v80() const;
+    virtual void _v81() const;
+    virtual void _v82() const;
+    virtual void _v83() const;
+    virtual void _v84() const;
+    virtual void _v85() const;
+    virtual void _v86() const;
+    virtual void _v87() const;
+    virtual void _v88() const;
+    virtual void _v89() const;
+    virtual void _v90() const;
+    virtual void _v91() const;
+    virtual void _v92() const;
+    virtual void _v93() const;
+    virtual void _v94() const;
+    virtual void _v95() const;
+    virtual void _v96() const;
+    virtual void _v97() const;
+    virtual void _v98() const;
+    virtual void _v99() const;
+    virtual void _v100() const;
+    virtual void _v101() const;
+    virtual void _v102() const;
+    virtual void _v103() const;
+    virtual void _v104() const;
+    virtual void _v105() const;
+    virtual void _v106() const;
+    virtual void _v107() const;
+    virtual void _v108() const;
+    virtual void _v109() const;
+    virtual void _v110() const;
+    virtual void _v111() const;
+    virtual void _v112() const;
+    virtual void _v113() const;
+    virtual void _v114() const;
+    virtual void _v115() const;
+    virtual void _v116() const;
+    virtual void _v117() const;
+    virtual void _v118() const;
+    virtual void _v119() const;
+    virtual void _v120() const;
+    virtual void _v121() const;
+    virtual void _v122() const;
+    virtual void _v123() const;
+    virtual void _v124() const;
+    virtual void _v125() const;
+    virtual void _v126() const;
+    virtual void _v127() const;
+    virtual void _v128(xScene* a0, float a1, xEntFrame* a2) const;
+};
 
 // The two dereferences every animation callback makes.
 // Nothing in the image NAMES either type, so both are
@@ -151,6 +299,169 @@ public:
 
 class zBoardPlayer {
 public:
+    virtual void _v0() const;
+    virtual void _v1() const;
+    virtual void _v2() const;
+    virtual void _v3() const;
+    virtual void _v4() const;
+    virtual void _v5() const;
+    virtual void _v6() const;
+    virtual void _v7() const;
+    virtual void _v8() const;
+    virtual void _v9() const;
+    virtual void _v10() const;
+    virtual void _v11() const;
+    virtual void _v12() const;
+    virtual void _v13() const;
+    virtual void _v14() const;
+    virtual void _v15() const;
+    virtual void _v16() const;
+    virtual void _v17() const;
+    virtual void _v18() const;
+    virtual void _v19() const;
+    virtual void _v20() const;
+    virtual void _v21() const;
+    virtual void _v22() const;
+    virtual void _v23() const;
+    virtual void _v24() const;
+    virtual void _v25() const;
+    virtual void _v26() const;
+    virtual void _v27() const;
+    virtual void _v28() const;
+    virtual void _v29() const;
+    virtual void _v30() const;
+    virtual void _v31() const;
+    virtual void _v32() const;
+    virtual void _v33() const;
+    virtual void _v34() const;
+    virtual void _v35() const;
+    virtual void _v36() const;
+    virtual void _v37() const;
+    virtual void _v38() const;
+    virtual void _v39() const;
+    virtual void _v40() const;
+    virtual void _v41() const;
+    virtual void _v42() const;
+    virtual void _v43() const;
+    virtual void _v44() const;
+    virtual void _v45() const;
+    virtual void _v46() const;
+    virtual void _v47() const;
+    virtual void _v48() const;
+    virtual void _v49() const;
+    virtual void _v50() const;
+    virtual void _v51() const;
+    virtual void _v52() const;
+    virtual void _v53() const;
+    virtual void _v54() const;
+    virtual void _v55() const;
+    virtual void _v56() const;
+    virtual void _v57() const;
+    virtual void _v58() const;
+    virtual void _v59() const;
+    virtual void _v60() const;
+    virtual void _v61() const;
+    virtual void _v62() const;
+    virtual void _v63() const;
+    virtual void _v64() const;
+    virtual void _v65() const;
+    virtual void _v66() const;
+    virtual void _v67() const;
+    virtual void _v68() const;
+    virtual void _v69() const;
+    virtual void _v70() const;
+    virtual void _v71() const;
+    virtual void _v72() const;
+    virtual void _v73() const;
+    virtual void _v74() const;
+    virtual void _v75() const;
+    virtual void _v76() const;
+    virtual void _v77() const;
+    virtual void _v78() const;
+    virtual void _v79() const;
+    virtual void _v80() const;
+    virtual void _v81() const;
+    virtual void _v82() const;
+    virtual void _v83() const;
+    virtual void _v84() const;
+    virtual void _v85() const;
+    virtual void _v86() const;
+    virtual void _v87() const;
+    virtual void _v88() const;
+    virtual void _v89() const;
+    virtual void _v90() const;
+    virtual void _v91() const;
+    virtual void _v92() const;
+    virtual void _v93() const;
+    virtual void _v94() const;
+    virtual void _v95() const;
+    virtual void _v96() const;
+    virtual void _v97() const;
+    virtual void _v98() const;
+    virtual void _v99() const;
+    virtual void _v100() const;
+    virtual void _v101() const;
+    virtual void _v102() const;
+    virtual void _v103() const;
+    virtual void _v104() const;
+    virtual void _v105() const;
+    virtual void _v106() const;
+    virtual void _v107() const;
+    virtual void _v108() const;
+    virtual void _v109() const;
+    virtual void _v110() const;
+    virtual void _v111() const;
+    virtual void _v112() const;
+    virtual void _v113() const;
+    virtual void _v114() const;
+    virtual void _v115() const;
+    virtual void _v116() const;
+    virtual void _v117() const;
+    virtual void _v118() const;
+    virtual void _v119() const;
+    virtual void _v120() const;
+    virtual void _v121() const;
+    virtual void _v122() const;
+    virtual void _v123() const;
+    virtual void _v124() const;
+    virtual void _v125() const;
+    virtual void _v126() const;
+    virtual void _v127() const;
+    virtual void _v128() const;
+    virtual void _v129() const;
+    virtual void _v130() const;
+    virtual void _v131() const;
+    virtual void _v132() const;
+    virtual void _v133() const;
+    virtual void _v134() const;
+    virtual void _v135() const;
+    virtual void _v136() const;
+    virtual void _v137() const;
+    virtual void _v138() const;
+    virtual void _v139() const;
+    virtual void _v140() const;
+    virtual void _v141() const;
+    virtual void _v142() const;
+    virtual void _v143() const;
+    virtual void _v144() const;
+    virtual void _v145() const;
+    virtual void _v146() const;
+    virtual void _v147() const;
+    virtual void _v148() const;
+    virtual void _v149() const;
+    virtual void _v150() const;
+    virtual void _v151() const;
+    virtual void _v152() const;
+    virtual void _v153() const;
+    virtual void _v154() const;
+    virtual void _v155() const;
+    virtual void _v156() const;
+    virtual void _v157() const;
+    virtual void _v158() const;
+    virtual void _v159() const;
+    virtual void _v160() const;
+    virtual void _v161(float a0, float a1, float a2) const;
+    void AbsControl(float a0, float a1, float a2);
     float GetRigidBodyHeight();
 
     unsigned char _pad0[0xAA4];
@@ -171,10 +482,10 @@ public:
 
 class zPlayerIdleBoard {
 public:
-    static void anExtraIdleCB(xAnimTransition* a0, xAnimSingle* a1, void* a2);
-    void ExtraIdleCB(xAnimTransition* a0, xAnimSingle* a1);
-    static void anExtraIdleCheck(xAnimTransition* a0, xAnimSingle* a1, void* a2);
-    void ExtraIdleCheck(xAnimTransition* a0, xAnimSingle* a1);
+    static bool anExtraIdleCB(xAnimTransition* a0, xAnimSingle* a1, void* a2);
+    bool ExtraIdleCB(xAnimTransition* a0, xAnimSingle* a1);
+    static bool anExtraIdleCheck(xAnimTransition* a0, xAnimSingle* a1, void* a2);
+    bool ExtraIdleCheck(xAnimTransition* a0, xAnimSingle* a1);
 
 };
 
@@ -192,17 +503,27 @@ public:
 
 class zPlayerFallBoard {
 public:
-    static void anFallHighCheck(xAnimTransition* a0, xAnimSingle* a1, void* a2);
-    void FallHighCheck(xAnimTransition* a0, xAnimSingle* a1);
+    static bool anFallHighCheck(xAnimTransition* a0, xAnimSingle* a1, void* a2);
+    bool FallHighCheck(xAnimTransition* a0, xAnimSingle* a1);
 
+};
+
+
+
+class zPlayerLandHighBoard {
+public:
+    void Move(xScene* a0, float a1, xEntFrame* a2);
+
+    unsigned char _pad0[0x4];
+    int f4;
 };
 
 
 
 class zBoardPlayerHammerAttack {
 public:
-    static void anSpongebuffHammerSplashCB(xAnimTransition* a0, xAnimSingle* a1, void* a2);
-    void SpongebuffHammerSplashCB(xAnimTransition* a0, xAnimSingle* a1);
+    static bool anSpongebuffHammerSplashCB(xAnimTransition* a0, xAnimSingle* a1, void* a2);
+    bool SpongebuffHammerSplashCB(xAnimTransition* a0, xAnimSingle* a1);
 
 };
 
@@ -210,12 +531,12 @@ public:
 
 class zBoardPlayerPuckAttack {
 public:
-    static void anAimPuckCheck(xAnimTransition* a0, xAnimSingle* a1, void* a2);
-    void AimPuckCheck(xAnimTransition* a0, xAnimSingle* a1);
-    static void anFirePuckCB(xAnimTransition* a0, xAnimSingle* a1, void* a2);
-    void FirePuckCB(xAnimTransition* a0, xAnimSingle* a1);
-    static void anShootPuckCheck(xAnimTransition* a0, xAnimSingle* a1, void* a2);
-    void ShootPuckCheck(xAnimTransition* a0, xAnimSingle* a1);
+    static bool anAimPuckCheck(xAnimTransition* a0, xAnimSingle* a1, void* a2);
+    bool AimPuckCheck(xAnimTransition* a0, xAnimSingle* a1);
+    static bool anFirePuckCB(xAnimTransition* a0, xAnimSingle* a1, void* a2);
+    bool FirePuckCB(xAnimTransition* a0, xAnimSingle* a1);
+    static bool anShootPuckCheck(xAnimTransition* a0, xAnimSingle* a1, void* a2);
+    bool ShootPuckCheck(xAnimTransition* a0, xAnimSingle* a1);
 
 };
 
@@ -223,19 +544,20 @@ public:
 
 class zPlayerHitBoard {
 public:
-    static void anHammerHitCB(xAnimTransition* a0, xAnimSingle* a1, void* a2);
-    void HammerHitCB(xAnimTransition* a0, xAnimSingle* a1);
+    static bool anHammerHitCB(xAnimTransition* a0, xAnimSingle* a1, void* a2);
+    bool HammerHitCB(xAnimTransition* a0, xAnimSingle* a1);
 
 };
 
 
 
-class zBoardPlayerHammerPowerupAttack {
+class zBoardPlayerHammerPowerupAttack : public zPlayerWalk {
 public:
-    static void anAttackPushCB(xAnimTransition* a0, xAnimSingle* a1, void* a2);
-    void AttackPushCB(xAnimTransition* a0, xAnimSingle* a1);
-    static void anSplashCB(xAnimTransition* a0, xAnimSingle* a1, void* a2);
-    void SplashCB(xAnimTransition* a0, xAnimSingle* a1);
+    void Update(float a0);
+    static bool anAttackPushCB(xAnimTransition* a0, xAnimSingle* a1, void* a2);
+    bool AttackPushCB(xAnimTransition* a0, xAnimSingle* a1);
+    static bool anSplashCB(xAnimTransition* a0, xAnimSingle* a1, void* a2);
+    bool SplashCB(xAnimTransition* a0, xAnimSingle* a1);
 
 };
 
@@ -243,8 +565,8 @@ public:
 
 class zBoardPlayerPuckPowerupAttack {
 public:
-    static void anFirePuckCB(xAnimTransition* a0, xAnimSingle* a1, void* a2);
-    void FirePuckCB(xAnimTransition* a0, xAnimSingle* a1);
+    static bool anFirePuckCB(xAnimTransition* a0, xAnimSingle* a1, void* a2);
+    bool FirePuckCB(xAnimTransition* a0, xAnimSingle* a1);
 
 };
 
@@ -252,8 +574,8 @@ public:
 
 class zBoardPlayerKelpTrap {
 public:
-    static void anKelpReleaseCheck(xAnimTransition* a0, xAnimSingle* a1, void* a2);
-    void KelpReleaseCheck(xAnimTransition* a0, xAnimSingle* a1);
+    static bool anKelpReleaseCheck(xAnimTransition* a0, xAnimSingle* a1, void* a2);
+    bool KelpReleaseCheck(xAnimTransition* a0, xAnimSingle* a1);
 
 };
 
@@ -261,12 +583,12 @@ public:
 
 class zPlayerSlide {
 public:
-    static void anSlideJumpApexCheck(xAnimTransition* a0, xAnimSingle* a1, void* a2);
-    void SlideJumpApexCheck(xAnimTransition* a0, xAnimSingle* a1);
-    static void anSlideJumpCheck(xAnimTransition* a0, xAnimSingle* a1, void* a2);
-    void SlideJumpCheck(xAnimTransition* a0, xAnimSingle* a1);
-    static void anSlideLandCheck(xAnimTransition* a0, xAnimSingle* a1, void* a2);
-    void SlideLandCheck(xAnimTransition* a0, xAnimSingle* a1);
+    static bool anSlideJumpApexCheck(xAnimTransition* a0, xAnimSingle* a1, void* a2);
+    bool SlideJumpApexCheck(xAnimTransition* a0, xAnimSingle* a1);
+    static bool anSlideJumpCheck(xAnimTransition* a0, xAnimSingle* a1, void* a2);
+    bool SlideJumpCheck(xAnimTransition* a0, xAnimSingle* a1);
+    static bool anSlideLandCheck(xAnimTransition* a0, xAnimSingle* a1, void* a2);
+    bool SlideLandCheck(xAnimTransition* a0, xAnimSingle* a1);
 
 };
 
@@ -293,6 +615,15 @@ public:
 };
 
 
+
+class zBombManager {
+public:
+    void SceneInit();
+    void SceneReset();
+
+};
+
+
 #pragma dont_inline on
 zBoardPlayerAction::zBoardPlayerAction() : zCommonPlayerAction() {}
 zCommonPlayerAction::zCommonPlayerAction() : zPlayerAction() {}
@@ -307,24 +638,28 @@ zCommonPlayerDash::zCommonPlayerDash() : zCommonPlayerAction() {}
 zPlayerWalkStart::zPlayerWalkStart() : zCommonPlayerAction() {}
 zPlayerCustomAnim::zPlayerCustomAnim() : zCommonPlayerAction() {}
 zPlayerCheat::zPlayerCheat() : zCommonPlayerAction() {}
+void zBoardPlayer::AbsControl(float a0, float a1, float a2) { _v161(a0, a1, a2); }
 float zBoardPlayer::GetRigidBodyHeight() { return fAA4; }
 const int* zPlayer::GetFloorNormal() const { return &f160; }
-void zPlayerIdleBoard::anExtraIdleCB(xAnimTransition* a0, xAnimSingle* a1, void* a2) { ((zPlayerIdleBoard*)((AnimCBHolder*)a1)->slot->owner)->ExtraIdleCB(a0, a1); }
-void zPlayerIdleBoard::anExtraIdleCheck(xAnimTransition* a0, xAnimSingle* a1, void* a2) { ((zPlayerIdleBoard*)((AnimCBHolder*)a1)->slot->owner)->ExtraIdleCheck(a0, a1); }
+bool zPlayerIdleBoard::anExtraIdleCB(xAnimTransition* a0, xAnimSingle* a1, void* a2) { return ((zPlayerIdleBoard*)((AnimCBHolder*)a1)->slot->owner)->ExtraIdleCB(a0, a1); }
+bool zPlayerIdleBoard::anExtraIdleCheck(xAnimTransition* a0, xAnimSingle* a1, void* a2) { return ((zPlayerIdleBoard*)((AnimCBHolder*)a1)->slot->owner)->ExtraIdleCheck(a0, a1); }
 void zPlayerTurn180Board::Begin() { f1C = 0; }
-void zPlayerFallBoard::anFallHighCheck(xAnimTransition* a0, xAnimSingle* a1, void* a2) { ((zPlayerFallBoard*)((AnimCBHolder*)a1)->slot->owner)->FallHighCheck(a0, a1); }
-void zBoardPlayerHammerAttack::anSpongebuffHammerSplashCB(xAnimTransition* a0, xAnimSingle* a1, void* a2) { ((zBoardPlayerHammerAttack*)((AnimCBHolder*)a1)->slot->owner)->SpongebuffHammerSplashCB(a0, a1); }
-void zBoardPlayerPuckAttack::anAimPuckCheck(xAnimTransition* a0, xAnimSingle* a1, void* a2) { ((zBoardPlayerPuckAttack*)((AnimCBHolder*)a1)->slot->owner)->AimPuckCheck(a0, a1); }
-void zBoardPlayerPuckAttack::anShootPuckCheck(xAnimTransition* a0, xAnimSingle* a1, void* a2) { ((zBoardPlayerPuckAttack*)((AnimCBHolder*)a1)->slot->owner)->ShootPuckCheck(a0, a1); }
-void zBoardPlayerPuckAttack::anFirePuckCB(xAnimTransition* a0, xAnimSingle* a1, void* a2) { ((zBoardPlayerPuckAttack*)((AnimCBHolder*)a1)->slot->owner)->FirePuckCB(a0, a1); }
-void zPlayerHitBoard::anHammerHitCB(xAnimTransition* a0, xAnimSingle* a1, void* a2) { ((zPlayerHitBoard*)((AnimCBHolder*)a1)->slot->owner)->HammerHitCB(a0, a1); }
-void zBoardPlayerHammerPowerupAttack::anAttackPushCB(xAnimTransition* a0, xAnimSingle* a1, void* a2) { ((zBoardPlayerHammerPowerupAttack*)((AnimCBHolder*)a1)->slot->owner)->AttackPushCB(a0, a1); }
-void zBoardPlayerHammerPowerupAttack::anSplashCB(xAnimTransition* a0, xAnimSingle* a1, void* a2) { ((zBoardPlayerHammerPowerupAttack*)((AnimCBHolder*)a1)->slot->owner)->SplashCB(a0, a1); }
-void zBoardPlayerPuckPowerupAttack::anFirePuckCB(xAnimTransition* a0, xAnimSingle* a1, void* a2) { ((zBoardPlayerPuckPowerupAttack*)((AnimCBHolder*)a1)->slot->owner)->FirePuckCB(a0, a1); }
-void zBoardPlayerKelpTrap::anKelpReleaseCheck(xAnimTransition* a0, xAnimSingle* a1, void* a2) { ((zBoardPlayerKelpTrap*)((AnimCBHolder*)a1)->slot->owner)->KelpReleaseCheck(a0, a1); }
-void zPlayerSlide::anSlideJumpCheck(xAnimTransition* a0, xAnimSingle* a1, void* a2) { ((zPlayerSlide*)((AnimCBHolder*)a1)->slot->owner)->SlideJumpCheck(a0, a1); }
-void zPlayerSlide::anSlideJumpApexCheck(xAnimTransition* a0, xAnimSingle* a1, void* a2) { ((zPlayerSlide*)((AnimCBHolder*)a1)->slot->owner)->SlideJumpApexCheck(a0, a1); }
-void zPlayerSlide::anSlideLandCheck(xAnimTransition* a0, xAnimSingle* a1, void* a2) { ((zPlayerSlide*)((AnimCBHolder*)a1)->slot->owner)->SlideLandCheck(a0, a1); }
+bool zPlayerFallBoard::anFallHighCheck(xAnimTransition* a0, xAnimSingle* a1, void* a2) { return ((zPlayerFallBoard*)((AnimCBHolder*)a1)->slot->owner)->FallHighCheck(a0, a1); }
+void zPlayerLandHighBoard::Move(xScene* a0, float a1, xEntFrame* a2) { ((zPlayerLandHighBoard_m4*)f4)->_v128(a0, a1, a2); }
+bool zBoardPlayerHammerAttack::anSpongebuffHammerSplashCB(xAnimTransition* a0, xAnimSingle* a1, void* a2) { return ((zBoardPlayerHammerAttack*)((AnimCBHolder*)a1)->slot->owner)->SpongebuffHammerSplashCB(a0, a1); }
+bool zBoardPlayerPuckAttack::anAimPuckCheck(xAnimTransition* a0, xAnimSingle* a1, void* a2) { return ((zBoardPlayerPuckAttack*)((AnimCBHolder*)a1)->slot->owner)->AimPuckCheck(a0, a1); }
+bool zBoardPlayerPuckAttack::anShootPuckCheck(xAnimTransition* a0, xAnimSingle* a1, void* a2) { return ((zBoardPlayerPuckAttack*)((AnimCBHolder*)a1)->slot->owner)->ShootPuckCheck(a0, a1); }
+bool zBoardPlayerPuckAttack::anFirePuckCB(xAnimTransition* a0, xAnimSingle* a1, void* a2) { return ((zBoardPlayerPuckAttack*)((AnimCBHolder*)a1)->slot->owner)->FirePuckCB(a0, a1); }
+bool zPlayerHitBoard::anHammerHitCB(xAnimTransition* a0, xAnimSingle* a1, void* a2) { return ((zPlayerHitBoard*)((AnimCBHolder*)a1)->slot->owner)->HammerHitCB(a0, a1); }
+bool zBoardPlayerHammerPowerupAttack::anAttackPushCB(xAnimTransition* a0, xAnimSingle* a1, void* a2) { return ((zBoardPlayerHammerPowerupAttack*)((AnimCBHolder*)a1)->slot->owner)->AttackPushCB(a0, a1); }
+bool zBoardPlayerHammerPowerupAttack::anSplashCB(xAnimTransition* a0, xAnimSingle* a1, void* a2) { return ((zBoardPlayerHammerPowerupAttack*)((AnimCBHolder*)a1)->slot->owner)->SplashCB(a0, a1); }
+void zBoardPlayerHammerPowerupAttack::Update(float a0) { zPlayerWalk::Update(a0); }
+bool zBoardPlayerPuckPowerupAttack::anFirePuckCB(xAnimTransition* a0, xAnimSingle* a1, void* a2) { return ((zBoardPlayerPuckPowerupAttack*)((AnimCBHolder*)a1)->slot->owner)->FirePuckCB(a0, a1); }
+bool zBoardPlayerKelpTrap::anKelpReleaseCheck(xAnimTransition* a0, xAnimSingle* a1, void* a2) { return ((zBoardPlayerKelpTrap*)((AnimCBHolder*)a1)->slot->owner)->KelpReleaseCheck(a0, a1); }
+bool zPlayerSlide::anSlideJumpCheck(xAnimTransition* a0, xAnimSingle* a1, void* a2) { return ((zPlayerSlide*)((AnimCBHolder*)a1)->slot->owner)->SlideJumpCheck(a0, a1); }
+bool zPlayerSlide::anSlideJumpApexCheck(xAnimTransition* a0, xAnimSingle* a1, void* a2) { return ((zPlayerSlide*)((AnimCBHolder*)a1)->slot->owner)->SlideJumpApexCheck(a0, a1); }
+bool zPlayerSlide::anSlideLandCheck(xAnimTransition* a0, xAnimSingle* a1, void* a2) { return ((zPlayerSlide*)((AnimCBHolder*)a1)->slot->owner)->SlideLandCheck(a0, a1); }
 ProjectileCollisionDetails::ProjectileCollisionDetails() { f0 = 0; f4 = 0; f2C = 0; }
 void hkpCdBodyPairCollector::reset() { f4 = 0; }
+void zBombManager::SceneInit() { SceneReset(); }
 #pragma dont_inline off

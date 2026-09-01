@@ -13,6 +13,20 @@
 // Members are non-virtual, and the padding is padding -- only the
 // offsets each function touches are known, not the fields between.
 
+namespace Graphics { class Geometry; }
+
+namespace Graphics {
+
+// A base only in the sense that r3 reaches it unchanged:
+// the branch is four bytes and names nothing else.
+class Node {
+public:
+    void Attach();
+    void Detach();
+};
+
+}  // namespace Graphics
+
 namespace Graphics {
 
 class Viewport {
@@ -42,6 +56,19 @@ public:
 
 }  // namespace Graphics
 
+namespace Graphics {
+
+class SkinBuilder {
+public:
+    void AttachGeometry(Graphics::Geometry* a0) const;
+    void DetachGeometry(Graphics::Geometry* a0) const;
+
+};
+
+}  // namespace Graphics
+
 void Graphics::Viewport::SetRendering(bool value) { f1D = value; }
 void Graphics::Viewport::SetLodEnabled(bool value) { f1C = value; }
 void Graphics::FixedIndexBuffer::Create() { f10 = 0; f4 = 0; f8 = 0; }
+void Graphics::SkinBuilder::AttachGeometry(Graphics::Geometry* a0) const { ((Graphics::Node*)a0)->Attach(); }
+void Graphics::SkinBuilder::DetachGeometry(Graphics::Geometry* a0) const { ((Graphics::Node*)a0)->Detach(); }

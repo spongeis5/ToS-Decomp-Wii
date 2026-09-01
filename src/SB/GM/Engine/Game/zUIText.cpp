@@ -13,27 +13,23 @@
 // Members are non-virtual, and the padding is padding -- only the
 // offsets each function touches are known, not the fields between.
 
+class zUIMotionFrame;
+
 
 // A base only in the sense that r3 reaches it unchanged:
 // the branch is four bytes and names nothing else.
-class zPlayerInputPadMgr {
+class zUI {
 public:
-    void GetDebugPad();
-    void UserSceneReset();
+    void DoApplyMotionFrame(const zUIMotionFrame* a0);
 };
 
 
 
-class zPlayerInputNS {
+class zUIText : public zUI {
 public:
-    static int padManager;
-    void GetDebugPad();
-    int* GetPadManager();
-    void UserSceneReset();
+    void DoApplyMotionFrame(const zUIMotionFrame* a0);
 
 };
 
 
-int* zPlayerInputNS::GetPadManager() { return &zPlayerInputNS::padManager; }
-void zPlayerInputNS::GetDebugPad() { ((zPlayerInputPadMgr*)&zPlayerInputNS::padManager)->GetDebugPad(); }
-void zPlayerInputNS::UserSceneReset() { ((zPlayerInputPadMgr*)&zPlayerInputNS::padManager)->UserSceneReset(); }
+void zUIText::DoApplyMotionFrame(const zUIMotionFrame* a0) { zUI::DoApplyMotionFrame(a0); }

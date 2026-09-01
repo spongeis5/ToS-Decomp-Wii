@@ -7,10 +7,10 @@ numbers here, which move.
 ## State at time of writing
 
 ```
-Game Code:  25 of 498 files complete  15,552 / 2,115,452 bytes  856 / 10,559 fn
-            0.7352% of game code
+Game Code:  25 of 498 files complete  16,936 / 2,115,452 bytes  961 / 10,559 fn
+            0.8006% of game code
 
-Of those 856 functions, 764 are GENERATED -- machine-recognised
+Of those 961 functions, 869 are GENERATED -- machine-recognised
 shapes, not one of which is decompiling. They are real matched
 functions and the offsets and constants are recovered fact, but a
 count of them is not a count of decompiled code. HAND-WRITTEN IS
@@ -18,7 +18,7 @@ count of them is not a count of decompiled code. HAND-WRITTEN IS
 compare against earlier ones.
 
 Data:       3 unit(s) carry their own, 396 bytes; 75 more could
-All:        1.92% matched              main.dol reproduces byte for byte
+All:        1.94% matched              main.dol reproduces byte for byte
 ```
 
 Every number above is written by `python tools/notes_state.py`,
@@ -156,6 +156,61 @@ The mutation test lives in `unitcmp_check.py` beside the flag-drift
 one: move every retail address by four and the byte-identical count
 MUST fall, or the comparison is dead.
 
+## The generators were not exhausted; the SHAPE SET was
+
+NOTES said the generators were finished because `gen_accessors
+--survey` reported one candidate left. That survey asks about the ten
+shapes the tool knew, and its symbol scan only looked at functions of
+8, 12, 16, 20 or 60 bytes -- so a four-byte function was invisible to
+it, and 261 of them were sitting in `shape_census` as the single
+commonest unmatched shape in the game.
+
+Nine shapes were added in one sitting and every one of them was read
+out of the population first -- how many carry it, how many register
+assignments they use, what varies. None was guessed at from one
+example. They took Game Code from 0.6355% to 0.8006%.
+
+| shape | what it is | found |
+|---|---|---|
+| `rttid` | `RTTID_Fix<T>` -- one template, 175 instantiations | 700 B |
+| `animcb` | a static callback forwarding through `xAnimSingle` | 1,296 B |
+| `animcbdata` | the same, with the object taken from the `void*` | 432 B |
+| `eqconst` | `return fX == K;` -- the one row with no relocation | 300 B |
+| `vcall` | `this->V(args)` through the vtable | 208 B |
+| `vcallm` | `fX->V(args)` through the vtable | 340 B |
+| `basefwd` | a bare `b`: a member call with nothing moved | ~200 B |
+| `memfwd` | the same through a member: `fX->G(args)` | ~96 B |
+| `gcall` | `GLOBAL.M(args)` -- an address built, then a tail call | ~96 B |
+| `argcall` | `mr r3,r4`: an argument becomes the object | ~48 B |
+
+The vtable ones need no relocation at all, which is the point: the
+slot is a plain immediate, so nothing NAMES the method and nothing has
+to. What must be reproduced is the INDEX, and mwcc puts the Nth
+virtual at 8 + 4N -- compiled and compared before any of it was
+written. The class then gets index+1 virtuals, DECLARED and never
+defined, so no vtable lands in the object; that was checked too,
+because a vtable of undefined entries in a unit that links would break
+the link.
+
+Three things the compiler and the audit caught, in order:
+
+1. **Two shapes disagreed about one method.** `zPlantTrap::HitCheck`
+   is the target of a callback AND has its own `return f5C == 5;`, so
+   one shape declared it `void` and the other `bool`. Callbacks are
+   `bool` now and return -- the return type is not in a CodeWarrior
+   symbol and does not change a tail call's bytes -- and a callback
+   does not re-declare a method the class declares for another reason.
+2. **A scope that is also a class.** Every qualified name is emitted
+   as nested namespaces, and `World::TextureResourceEntity::TextureContainer`
+   is nested in a CLASS. mwcc says `illegal namespace`; the nested one
+   is refused rather than guessed at.
+3. **`__ct__` is a spelling, not a name.** A forwarding call whose
+   target is a constructor emitted a method literally called `__ct__`,
+   which mangles to `__ct____Q24Math8Matrix33Fv` -- one `__` too many.
+   `main.dol` was still byte-identical and report.json still said
+   100%, because a relocated field holds zero on both sides.
+   `tools/reloc_audit.py` is the only thing that could have found it.
+
 ## The RTTID_Fix<T> family -- 175 functions from one template
 
 `shape_census.py` had been saying for a while that the commonest shape
@@ -208,6 +263,18 @@ Then one of these, in the order they are worth doing:
    `zRandomModelList.cpp` (4, 424), `Renderable.cpp` (2, 224). This is the
    only column that means decompiling and it is the one to move.
 
+1b. **Another shape.** `python tools/shape_census.py` still ranks what is
+   left, and the biggest row by far is `addi b` -- 97 functions, 776 bytes
+   -- of which 689 of the 787 image-wide are `@N@` MULTIPLE-INHERITANCE
+   ADJUSTOR THUNKS. The compiler emits those from a class declaration, so
+   the work is recovering an MI layout rather than writing a body. After
+   that: `lwz or or lwz or mtspr bcctr` (14, 392 B) is the event-wrapper
+   family, five of whose fourteen are in anonymous namespaces; `lfs stfs
+   bclr` (14, 168 B) is `update_tag_*`, free functions in an anonymous
+   namespace that `split_symbol` refuses. Anonymous-namespace support in
+   `split_symbol` would unlock several rows at once, and the unit is
+   already named after its blob, so the mangling would come out right.
+
 2. **Give a unit its data.** `dwarf_data_carve.py --survey` says 75 could
    take theirs. It prints all three edits; make them as printed. Three
    units carry data today and each cost one new lesson, all of them now in
@@ -222,11 +289,15 @@ Then one of these, in the order they are worth doing:
    variable we had invented; that is the kind of thing worth asking again,
    and `dwarf_lines.py` has only been pointed at two of the four.
 
-WHAT NOT TO DO. The generators are exhausted -- `gen_accessors --survey`
-reports one candidate left in the whole game library, and the census rows
-that remain are tail calls into functions whose signatures do not match,
-or multiple-inheritance thunks the compiler emits from a class declaration
-rather than from a generator. Chasing those is how an afternoon goes.
+WHAT NOT TO DO. Do not read "the generators are exhausted" off
+`gen_accessors --survey` again. That is what it said before nine shapes
+were added on top of it, and what it actually measures is the shapes the
+tool already knows. `tools/shape_census.py` measures the population, and
+that is the one to ask.
+
+AND RUN `tools/reloc_audit.py` after anything that generates a call.
+report.json cannot see a branch target at all, so a wrong one is silently
+counted -- it has found twelve of those once and a mangling bug once.
 
 ## Open problems, in order of value
 

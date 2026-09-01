@@ -136,9 +136,18 @@ public:
 class zPlayer {
 public:
     float GetLastLand();
+    void LoadCheckPoint();
 
     unsigned char _pad0[0x400];
     float f400;
+};
+
+
+
+class zCommonPlayer : public zPlayer {
+public:
+    void LoadCheckPoint();
+
 };
 
 
@@ -555,6 +564,7 @@ unsigned int zBTActionWriteVariable::GetTypeID() const { return 0xFC57E1DAu; }
 unsigned int zBTActionHandleEvent::GetTypeID() const { return 0xC65A85F5u; }
 unsigned int zBTActionSendEvent::GetTypeID() const { return 0xD0762FE1u; }
 float zPlayer::GetLastLand() { return f400; }
+void zCommonPlayer::LoadCheckPoint() { zPlayer::LoadCheckPoint(); }
 unsigned int zPlayerSlide::GetID() { return 0x0000002Bu; }
 unsigned int zPlayerCelebrationBoard::GetID() { return 0x0000002Au; }
 unsigned int zPlayerDefeatedBoard::GetID() { return 0x0000000Du; }

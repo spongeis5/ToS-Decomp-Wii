@@ -49,6 +49,42 @@ public:
 
 }  // namespace Graphics
 
+namespace Domains {
+
+class ActUnloadAll {
+public:
+    bool IsDone();
+
+    unsigned char _pad0[0x8];
+    int f8;
+};
+
+}  // namespace Domains
+
+namespace Domains {
+
+class ActRegisterEnts {
+public:
+    bool IsDone();
+
+    unsigned char _pad0[0x8];
+    int f8;
+};
+
+}  // namespace Domains
+
+namespace Domains {
+
+class ActLoadParcel {
+public:
+    bool IsDone();
+
+    unsigned char _pad0[0x8];
+    int f8;
+};
+
+}  // namespace Domains
+
 namespace Configs {
 
 class MemCB_INIData {
@@ -151,6 +187,9 @@ public:
 int* World::GenericShaderEntity::GetShader() { return &f30; }
 int World::UVMovementInstanceData::GetRows() { return f5C; }
 int Graphics::SkinBuilder::GetMaterial() const { return f14; }
+bool Domains::ActUnloadAll::IsDone() { return f8 == 4; }
+bool Domains::ActRegisterEnts::IsDone() { return f8 == 3; }
+bool Domains::ActLoadParcel::IsDone() { return f8 == 5; }
 Configs::MemCB_INIData::MemCB_INIData() {}
 Configs::MemCB_HingeConfig::MemCB_HingeConfig() {}
 Domains::BlobMemCB::BlobMemCB() {}

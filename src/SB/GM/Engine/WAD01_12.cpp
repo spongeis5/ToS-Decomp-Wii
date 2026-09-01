@@ -16,6 +16,23 @@
 extern float sCamTweakPivotHeightCur;
 
 
+// A base only in the sense that r3 reaches it unchanged:
+// the branch is four bytes and names nothing else.
+class xCam {
+public:
+    void stop();
+};
+
+
+
+class zCam2Player : public xCam {
+public:
+    void stop();
+
+};
+
+
+
 class zCamDriver {
 public:
     float getCurrentDefaultHeight();
@@ -23,4 +40,5 @@ public:
 };
 
 
+void zCam2Player::stop() { xCam::stop(); }
 float zCamDriver::getCurrentDefaultHeight() { return sCamTweakPivotHeightCur; }

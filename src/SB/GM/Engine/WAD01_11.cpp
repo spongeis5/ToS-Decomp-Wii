@@ -17,10 +17,14 @@
 class zBungeeBall {
 public:
     int* DriveGetCurMat(int a0);
+    bool IsReturning();
 
     unsigned char _pad0[0x80];
     int f80;
+    unsigned char _pad1[0x48];
+    int fCC;
 };
 
 
+bool zBungeeBall::IsReturning() { return fCC == 2; }
 int* zBungeeBall::DriveGetCurMat(int a0) { return &f80; }

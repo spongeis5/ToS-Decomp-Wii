@@ -15,6 +15,9 @@
 
 enum ePlayerActivationState { ePlayerActivationState_ = 0x7FFFFFFF };
 namespace World { class EntityHandleBase; }
+class hkpPhantom;
+class xAnimSingle;
+class xAnimTransition;
 class xEnt;
 
 
@@ -22,6 +25,29 @@ class xEnt {
 public:
     xEnt(World::EntityHandleBase* a0);
     virtual void __vtable_anchor();
+};
+
+
+
+class zPlanktonTargetListener {
+public:
+    virtual void _v0() const;
+    virtual void _v1() const;
+    virtual void _v2() const;
+    virtual void _v3() const;
+    virtual void _v4() const;
+    virtual void _v5() const;
+    virtual void _v6() const;
+    virtual void _v7() const;
+    virtual void _v8() const;
+    virtual void _v9() const;
+    virtual void _v10() const;
+    virtual void _v11() const;
+    virtual void _v12() const;
+    virtual void _v13() const;
+    virtual void _v14(hkpPhantom* a0) const;
+    void phantomDeletedCallback(hkpPhantom* a0);
+
 };
 
 
@@ -61,8 +87,33 @@ public:
 class zPlantTrap {
 public:
     int* GetAttachDPos();
+    bool HitCheck(xAnimTransition* a0, xAnimSingle* a1);
+    static bool anDoneChewCheck(xAnimTransition* a0, xAnimSingle* a1, void* a2);
+    bool DoneChewCheck(xAnimTransition* a0, xAnimSingle* a1);
+    static bool anEatCheck(xAnimTransition* a0, xAnimSingle* a1, void* a2);
+    bool EatCheck(xAnimTransition* a0, xAnimSingle* a1);
+    static bool anGoToSpitCheck(xAnimTransition* a0, xAnimSingle* a1, void* a2);
+    bool GoToSpitCheck(xAnimTransition* a0, xAnimSingle* a1);
+    static bool anHitCheck(xAnimTransition* a0, xAnimSingle* a1, void* a2);
+    static bool anIdleCheck(xAnimTransition* a0, xAnimSingle* a1, void* a2);
+    bool IdleCheck(xAnimTransition* a0, xAnimSingle* a1);
+    static bool anProneCheck(xAnimTransition* a0, xAnimSingle* a1, void* a2);
+    static bool anProneOutCheck(xAnimTransition* a0, xAnimSingle* a1, void* a2);
+    bool ProneOutCheck(xAnimTransition* a0, xAnimSingle* a1);
+    static bool anReleaseCheck(xAnimTransition* a0, xAnimSingle* a1, void* a2);
+    bool ReleaseCheck(xAnimTransition* a0, xAnimSingle* a1);
+    static bool anSnapCheck(xAnimTransition* a0, xAnimSingle* a1, void* a2);
+    bool SnapCheck(xAnimTransition* a0, xAnimSingle* a1);
+    static bool anSnapEntityCheck(xAnimTransition* a0, xAnimSingle* a1, void* a2);
+    bool SnapEntityCheck(xAnimTransition* a0, xAnimSingle* a1);
+    static bool anSpitCheck(xAnimTransition* a0, xAnimSingle* a1, void* a2);
+    bool SpitCheck(xAnimTransition* a0, xAnimSingle* a1);
+    static bool anWarnCheck(xAnimTransition* a0, xAnimSingle* a1, void* a2);
+    bool WarnCheck(xAnimTransition* a0, xAnimSingle* a1);
 
-    unsigned char _pad0[0x90];
+    unsigned char _pad0[0x5C];
+    int f5C;
+    unsigned char _pad1[0x30];
     int f90;
 };
 
@@ -114,10 +165,24 @@ public:
 
 
 #pragma dont_inline on
+void zPlanktonTargetListener::phantomDeletedCallback(hkpPhantom* a0) { _v14(a0); }
 hkpWorldRayCastInput::hkpWorldRayCastInput() { f20 = 0; f24 = 0; }
 hkpShapeRayCastInput::hkpShapeRayCastInput() { f20 = 0; f24 = 0; }
 int* zPlanktonShakeManager::GetShakeState(const xEnt* a0) { return &zPlanktonShakeManager::currentShakeState; }
 int* zPlantTrap::GetAttachDPos() { return &f90; }
+bool zPlantTrap::anWarnCheck(xAnimTransition* a0, xAnimSingle* a1, void* a2) { return ((zPlantTrap*)a2)->WarnCheck(a0, a1); }
+bool zPlantTrap::anProneOutCheck(xAnimTransition* a0, xAnimSingle* a1, void* a2) { return ((zPlantTrap*)a2)->ProneOutCheck(a0, a1); }
+bool zPlantTrap::anSnapCheck(xAnimTransition* a0, xAnimSingle* a1, void* a2) { return ((zPlantTrap*)a2)->SnapCheck(a0, a1); }
+bool zPlantTrap::anSnapEntityCheck(xAnimTransition* a0, xAnimSingle* a1, void* a2) { return ((zPlantTrap*)a2)->SnapEntityCheck(a0, a1); }
+bool zPlantTrap::anReleaseCheck(xAnimTransition* a0, xAnimSingle* a1, void* a2) { return ((zPlantTrap*)a2)->ReleaseCheck(a0, a1); }
+bool zPlantTrap::anEatCheck(xAnimTransition* a0, xAnimSingle* a1, void* a2) { return ((zPlantTrap*)a2)->EatCheck(a0, a1); }
+bool zPlantTrap::anHitCheck(xAnimTransition* a0, xAnimSingle* a1, void* a2) { return ((zPlantTrap*)a2)->HitCheck(a0, a1); }
+bool zPlantTrap::anGoToSpitCheck(xAnimTransition* a0, xAnimSingle* a1, void* a2) { return ((zPlantTrap*)a2)->GoToSpitCheck(a0, a1); }
+bool zPlantTrap::anDoneChewCheck(xAnimTransition* a0, xAnimSingle* a1, void* a2) { return ((zPlantTrap*)a2)->DoneChewCheck(a0, a1); }
+bool zPlantTrap::anProneCheck(xAnimTransition* a0, xAnimSingle* a1, void* a2) { return ((zPlantTrap*)a2)->f5C == 9; }
+bool zPlantTrap::anSpitCheck(xAnimTransition* a0, xAnimSingle* a1, void* a2) { return ((zPlantTrap*)a2)->SpitCheck(a0, a1); }
+bool zPlantTrap::anIdleCheck(xAnimTransition* a0, xAnimSingle* a1, void* a2) { return ((zPlantTrap*)a2)->IdleCheck(a0, a1); }
+bool zPlantTrap::HitCheck(xAnimTransition* a0, xAnimSingle* a1) { return f5C == 5; }
 zEnt::zEnt(World::EntityHandleBase* a0) : xEnt(a0) {}
 void Graphics::Renderable3D::SetShadowCastDepth(float value) { fB0 = value; }
 int zPlayer::GetCombat() { return f21C; }

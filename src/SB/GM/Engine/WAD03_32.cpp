@@ -13,11 +13,38 @@
 // Members are non-virtual, and the padding is padding -- only the
 // offsets each function touches are known, not the fields between.
 
+class xAnimSingle;
+class xAnimTransition;
+
 
 class Electricity {
 public:
     Electricity();
     unsigned char _pad[0x4];
+};
+
+
+
+class zSpinner {
+public:
+    static bool anIdleToSpinCheck(xAnimTransition* a0, xAnimSingle* a1, void* a2);
+    bool IdleToSpinCheck(xAnimTransition* a0, xAnimSingle* a1);
+    static bool anSpinToSpinCheck(xAnimTransition* a0, xAnimSingle* a1, void* a2);
+    bool SpinToSpinCheck(xAnimTransition* a0, xAnimSingle* a1);
+
+};
+
+
+
+class zTiki {
+public:
+    static bool anFluidFillCheck(xAnimTransition* a0, xAnimSingle* a1, void* a2);
+    static bool anHitCheck(xAnimTransition* a0, xAnimSingle* a1, void* a2);
+    bool HitCheck(xAnimTransition* a0, xAnimSingle* a1);
+    static bool anIdleActiveCheck(xAnimTransition* a0, xAnimSingle* a1, void* a2);
+
+    unsigned char _pad0[0x3C];
+    int f3C;
 };
 
 
@@ -39,7 +66,27 @@ public:
 };
 
 
+
+class zSpringboard {
+public:
+    static bool anCompressCheck(xAnimTransition* a0, xAnimSingle* a1, void* a2);
+    static bool anFailCheck(xAnimTransition* a0, xAnimSingle* a1, void* a2);
+    static bool anLaunchCheck(xAnimTransition* a0, xAnimSingle* a1, void* a2);
+
+    unsigned char _pad0[0xC0];
+    int fC0;
+};
+
+
 #pragma dont_inline on
+bool zSpinner::anIdleToSpinCheck(xAnimTransition* a0, xAnimSingle* a1, void* a2) { return ((zSpinner*)a2)->IdleToSpinCheck(a0, a1); }
+bool zSpinner::anSpinToSpinCheck(xAnimTransition* a0, xAnimSingle* a1, void* a2) { return ((zSpinner*)a2)->SpinToSpinCheck(a0, a1); }
+bool zTiki::anIdleActiveCheck(xAnimTransition* a0, xAnimSingle* a1, void* a2) { return ((zTiki*)a2)->f3C == 1; }
+bool zTiki::anHitCheck(xAnimTransition* a0, xAnimSingle* a1, void* a2) { return ((zTiki*)a2)->HitCheck(a0, a1); }
+bool zTiki::anFluidFillCheck(xAnimTransition* a0, xAnimSingle* a1, void* a2) { return ((zTiki*)a2)->f3C == 4; }
 zTikiCollisionListener::zTikiCollisionListener() {}
 MappedElectricity::MappedElectricity() : Electricity() {}
+bool zSpringboard::anCompressCheck(xAnimTransition* a0, xAnimSingle* a1, void* a2) { return ((zSpringboard*)a2)->fC0 == 1; }
+bool zSpringboard::anLaunchCheck(xAnimTransition* a0, xAnimSingle* a1, void* a2) { return ((zSpringboard*)a2)->fC0 == 3; }
+bool zSpringboard::anFailCheck(xAnimTransition* a0, xAnimSingle* a1, void* a2) { return ((zSpringboard*)a2)->fC0 == 4; }
 #pragma dont_inline off

@@ -29,11 +29,14 @@ public:
 class zCollectibleSpawner : public World::xOGEntity {
 public:
     virtual void __vtable_anchor();
+    void DebugReset();
     zCollectibleSpawner(World::EntityHandleBase* a0);
+    void Reset();
 
 };
 
 
 #pragma dont_inline on
 zCollectibleSpawner::zCollectibleSpawner(World::EntityHandleBase* a0) : World::xOGEntity(a0) {}
+void zCollectibleSpawner::DebugReset() { Reset(); }
 #pragma dont_inline off

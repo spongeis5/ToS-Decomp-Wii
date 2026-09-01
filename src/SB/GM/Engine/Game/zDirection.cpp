@@ -13,40 +13,34 @@
 // Members are non-virtual, and the padding is padding -- only the
 // offsets each function touches are known, not the fields between.
 
-// Each class below stands in for one a member points at.
-// Nothing NAMES that class -- these five words carry no
-// relocation -- so it is named after where it was found,
-// and holds virtuals only up to the slot that is called.
-class hkpMoppBvTreeShape_m34 {
+
+class zDirection {
 public:
     virtual void _v0() const;
     virtual void _v1() const;
     virtual void _v2() const;
     virtual void _v3() const;
     virtual void _v4() const;
+    virtual void _v5() const;
+    virtual void _v6() const;
+    virtual void _v7() const;
+    virtual void _v8() const;
+    virtual void _v9() const;
+    virtual void _v10() const;
+    virtual void _v11() const;
+    virtual void _v12() const;
+    virtual void _v13() const;
+    virtual void _v14() const;
+    virtual void _v15() const;
+    virtual void _v16() const;
+    virtual void _v17() const;
+    virtual void _v18() const;
+    virtual void _v19() const;
+    virtual void _v20() const;
+    virtual void _v21() const;
+    void DebugReset();
+
 };
 
 
-class hkpMoppBvTreeShape {
-public:
-    void getContainer() const;
-
-    unsigned char _pad0[0x34];
-    int f34;
-};
-
-
-namespace Scaleform {
-
-class CustomTextRenderer {
-public:
-    void SetTextChanged();
-
-    unsigned char _pad0[0x4688];
-    unsigned char f4688;
-};
-
-}  // namespace Scaleform
-
-void hkpMoppBvTreeShape::getContainer() const { ((hkpMoppBvTreeShape_m34*)f34)->_v4(); }
-void Scaleform::CustomTextRenderer::SetTextChanged() { f4688 = 1; }
+void zDirection::DebugReset() { _v21(); }

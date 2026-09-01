@@ -19,6 +19,17 @@ enum PadType { PadType_ = 0x7FFFFFFF };
 
 namespace Math { extern int vec4Zero; }
 
+namespace IO {
+
+// A base only in the sense that r3 reaches it unchanged:
+// the branch is four bytes and names nothing else.
+class Pad {
+public:
+    void ResetZeroPoint();
+};
+
+}  // namespace IO
+
 
 class zModule {
 public:
@@ -67,15 +78,17 @@ public:
     int GetPadType();
     unsigned char IsPadDisabled();
     unsigned char NunchukConnected();
+    void ResetZeroPoint();
     void SetPadType(zPlayerInputNS::PadType value);
     unsigned char WiiClassicControllerConnected();
     unsigned char WiiRemoteConnected();
 
     unsigned char _pad0[0x2C];
     int f2C;
-    unsigned char _pad1[0x8];
+    int f30;
+    unsigned char _pad2[0x4];
     unsigned char f38;
-    unsigned char _pad2[0x1D7];
+    unsigned char _pad3[0x1D7];
     unsigned char f210;
     unsigned char f211;
     unsigned char f212;
@@ -139,6 +152,7 @@ unsigned char zPlayerInputHuman::IsPadDisabled() { return f38; }
 void zPlayerInputHuman::DisablePad() { f38 = 1; }
 void zPlayerInputHuman::SetPadType(zPlayerInputNS::PadType value) { f2C = (int)value; }
 int zPlayerInputHuman::GetPadType() { return f2C; }
+void zPlayerInputHuman::ResetZeroPoint() { ((IO::Pad*)f30)->ResetZeroPoint(); }
 int* zRunEntLaser::GetDPos() { return &fA8; }
 int* zRunEntLaser::GetCurMatrixPtr() { return &f50; }
 unsigned int zPlayerSingleCustomAnimSB::GetID() { return 0x0000002Cu; }

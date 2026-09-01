@@ -363,6 +363,11 @@ def split_symbol(sym):
 # The bodies.
 # --------------------------------------------------------------------------
 
+def mr(a, s):
+    """The word for `mr rA, rS` -- `or rA, rS, rS`."""
+    return 0x7C000000 | (s << 21) | (a << 16) | (s << 11) | (444 << 1)
+
+
 def decode(body):
     """-> a shape tuple, or None.
 
@@ -370,9 +375,22 @@ def decode(body):
     ("constret", value) / ("constset", value, (off, ...))
     """
     n = len(body)
-    if n % 4 or n < 8:
+    if n % 4 or n < 4:
         return None
     ws = [struct.unpack_from(">I", body, i)[0] for i in range(0, n, 4)]
+
+    if n == 24 and all((w >> 26) == 31 and ((w >> 1) & 0x3FF) == 444
+                       for w in ws[:5]) and (ws[5] >> 26) == 18:
+        # The same forwarding with the object taken straight from the third
+        # parameter. One register assignment across all 18 in the image, so
+        # it is required exactly rather than parsed.
+        if ([mr(6, 3), mr(0, 4), mr(3, 5), mr(4, 6), mr(5, 0)] == ws[:5]
+                and (ws[5] & 3) == 0):
+            rel = ws[5] & 0x03FFFFFC
+            if rel & 0x02000000:
+                rel -= 0x04000000
+            return ("animcbdata", rel)
+        return None
 
     if n == 24:
         # An animation callback: a static member forwarding to a member
@@ -392,6 +410,58 @@ def decode(body):
                 rel -= 0x04000000
             return ("animcb", rel, ws[0] & 0xFFFF, ws[3] & 0xFFFF)
         return None
+
+    if (n == 20 and ws[1] == 0x81830000 and ws[3] == 0x7D8903A6 and ws[4] == 0x4E800420
+            and (ws[0] >> 26) == 32 and ((ws[0] >> 21) & 31) == 3
+            and ((ws[0] >> 16) & 31) == 3 and not ws[0] & 0x8000
+            and (ws[2] >> 26) == 32 and ((ws[2] >> 21) & 31) == 12
+            and ((ws[2] >> 16) & 31) == 12 and not ws[2] & 0x8000):
+        # this->fX->V(args), tail-called through the vtable.
+        return ("vcallm", ws[0] & 0xFFFF, ws[2] & 0xFFFF)
+
+    if (n == 16 and ws[0] == 0x81830000 and ws[2] == 0x7D8903A6 and ws[3] == 0x4E800420
+            and (ws[1] >> 26) == 32 and ((ws[1] >> 21) & 31) == 12
+            and ((ws[1] >> 16) & 31) == 12 and not ws[1] & 0x8000):
+        # this->V(args), tail-called through the vtable.
+        return ("vcall", ws[1] & 0xFFFF)
+
+    if n == 4 and (ws[0] >> 26) == 18 and (ws[0] & 3) == 0:
+        # One unconditional branch and nothing else: everything arrives at
+        # the target exactly as it arrived here.
+        rel = ws[0] & 0x03FFFFFC
+        if rel & 0x02000000:
+            rel -= 0x04000000
+        return ("basefwd", rel)
+
+    if (n == 8 and (ws[1] >> 26) == 18 and (ws[1] & 3) == 0
+            and (ws[0] >> 26) == 32 and ((ws[0] >> 21) & 31) == 3
+            and ((ws[0] >> 16) & 31) == 3 and not ws[0] & 0x8000):
+        # lwz r3,X(r3) ; b TARGET -- forwarded through a member, with
+        # every other argument already where the target wants it.
+        rel = ws[1] & 0x03FFFFFC
+        if rel & 0x02000000:
+            rel -= 0x04000000
+        return ("memfwd", rel, ws[0] & 0xFFFF)
+
+    if (n == 12 and (ws[0] >> 26) == 15 and ((ws[0] >> 16) & 31) == 0
+            and (ws[1] >> 26) == 14 and (ws[2] >> 26) == 18
+            and (ws[2] & 3) == 0
+            and ((ws[0] >> 21) & 31) == 3
+            and ((ws[1] >> 21) & 31) == 3 and ((ws[1] >> 16) & 31) == 3):
+        lo = ws[1] & 0xFFFF
+        v = (((ws[0] & 0xFFFF) << 16)
+             + (lo - 0x10000 if lo & 0x8000 else lo)) & 0xFFFFFFFF
+        rel = ws[2] & 0x03FFFFFC
+        if rel & 0x02000000:
+            rel -= 0x04000000
+        return ("gcall", v, rel)
+
+    if (n == 8 and ws[0] == mr(3, 4) and (ws[1] >> 26) == 18
+            and (ws[1] & 3) == 0):
+        rel = ws[1] & 0x03FFFFFC
+        if rel & 0x02000000:
+            rel -= 0x04000000
+        return ("argcall", rel)
 
     if ws[-1] != BLR:
         return None
@@ -472,6 +542,16 @@ def decode(body):
                     if ok:
                         return ("gset", ctype, v, d, dd)
 
+    if (n == 16 and (ws[0] >> 26) == 32 and (ws[1] >> 26) == 31
+            and ((ws[1] >> 1) & 0x3FF) == 266 and (ws[2] >> 26) == 36
+            and ((ws[0] >> 21) & 31) == 0 and ((ws[0] >> 16) & 31) == 3
+            and ws[1] == (31 << 26) | (266 << 1) | (4 << 11)
+            and ((ws[2] >> 21) & 31) == 0 and ((ws[2] >> 16) & 31) == 3
+            and (ws[0] & 0xFFFF) == (ws[2] & 0xFFFF)
+            and not ws[0] & 0x8000):
+        # lwz r0,X(r3) ; add r0,r0,r4 ; stw r0,X(r3) ; blr -- `fX += v`.
+        return ("addmem", ws[0] & 0xFFFF)
+
     if n == 16:
         # lis rD, HI ; addi rD, rD, LO ; stw rD, N(r3) ; blr -- a constructor
         # storing its own vtable pointer. Whether the address really is this
@@ -488,6 +568,18 @@ def decode(body):
             if not off & 0x8000:
                 v = ((hi << 16) + (lo - 0x10000 if lo & 0x8000 else lo))
                 return ("vtable", v & 0xFFFFFFFF, off, d)
+
+    if n == 20 and ws[2] == 0x7C000034 and ws[3] == 0x5403D97E:
+        # lwz r3, X(rB) ; addi r0, r3, -K ; cntlzw ; rlwinm 27,5,31 ; blr
+        # -- `rB->fX == K`, and the only row in the census that carries no
+        # relocation at all. Which object rB is depends on the symbol and
+        # is settled in candidates().
+        if ((ws[0] >> 26) == 32 and ((ws[0] >> 21) & 31) == 3
+                and not ws[0] & 0x8000
+                and (ws[1] >> 26) == 14 and ((ws[1] >> 21) & 31) == 0
+                and ((ws[1] >> 16) & 31) == 3 and ws[1] & 0x8000):
+            k = 0x10000 - (ws[1] & 0xFFFF)
+            return ("eqconst", ws[0] & 0xFFFF, k, (ws[0] >> 16) & 31)
 
     # li r0, K then one or more stw r0, N(r3)
     li = ws[0]
@@ -515,6 +607,42 @@ def decode(body):
 
 def reencode(shape):
     kind = shape[0]
+    if kind == "addmem":
+        off = shape[1]
+        return struct.pack(">IIII",
+                           (32 << 26) | (3 << 16) | off,
+                           (31 << 26) | (266 << 1) | (4 << 11),
+                           (36 << 26) | (3 << 16) | off, BLR)
+    if kind == "argcall":
+        return struct.pack(">II", mr(3, 4),
+                           0x48000000 | (shape[1] & 0x03FFFFFC))
+    if kind == "gcall":
+        v = shape[1]
+        lo, hi = v & 0xFFFF, (v >> 16) & 0xFFFF
+        if lo & 0x8000:
+            hi = (hi + 1) & 0xFFFF
+        return struct.pack(">III", 0x3C600000 | hi, 0x38630000 | lo,
+                           0x48000000 | (shape[2] & 0x03FFFFFC))
+    if kind == "basefwd":
+        return struct.pack(">I", 0x48000000 | (shape[1] & 0x03FFFFFC))
+    if kind == "memfwd":
+        return struct.pack(">II", (32 << 26) | (3 << 21) | (3 << 16)
+                           | shape[2], 0x48000000 | (shape[1] & 0x03FFFFFC))
+    if kind == "vcall":
+        return struct.pack(">IIII", 0x81830000, 0x818C0000 | shape[1], 0x7D8903A6, 0x4E800420)
+    if kind == "vcallm":
+        return struct.pack(">IIIII", 0x80630000 | shape[1], 0x81830000,
+                           0x818C0000 | shape[2], 0x7D8903A6, 0x4E800420)
+    if kind == "eqconst":
+        off, k, breg = shape[1], shape[2], shape[3]
+        return struct.pack(">IIIII",
+                           (32 << 26) | (3 << 21) | (breg << 16) | off,
+                           (14 << 26) | (3 << 16) | ((-k) & 0xFFFF),
+                           0x7C000034, 0x5403D97E, BLR)
+    if kind == "animcbdata":
+        return struct.pack(">IIIIII", mr(6, 3), mr(0, 4), mr(3, 5),
+                           mr(4, 6), mr(5, 0),
+                           0x48000000 | (shape[1] & 0x03FFFFFC))
     if kind == "animcb":
         rel, holder, slot = shape[1], shape[2], shape[3]
         return struct.pack(">IIIIII",
@@ -622,7 +750,7 @@ def symbols():
                 continue
             for s in sec.iter_symbols():
                 if (s["st_info"]["type"] == "STT_FUNC"
-                        and s["st_size"] in (8, 12, 16, 20, 24, 60)):
+                        and s["st_size"] in (4, 8, 12, 16, 20, 24, 60)):
                     out.append((s["st_value"], s["st_size"], s.name))
     out.sort()
     return out
@@ -803,7 +931,170 @@ def candidates(raw, base, foff, syms, lo, hi):
             if base_cls == (tuple(ns), cls):
                 skipped["a class cannot be its own base"] += 1
                 continue
-        elif shape[0] == "animcb":
+        elif shape[0] == "addmem":
+            if cls is None or method == "__ct__" or len(params) != 1:
+                skipped["a compound assignment on a member takes one "
+                        "argument"] += 1
+                continue
+            if value_width(params[0]) != 4 or base_kind(params[0]) == "ref":
+                skipped["the argument is not a four-byte value"] += 1
+                continue
+        elif shape[0] == "argcall":
+            if cls is None:
+                skipped["a forwarding call needs a class to forward "
+                        "from"] += 1
+                continue
+            tname = function_symbols().get((addr + 4 + shape[1])
+                                           & 0xFFFFFFFF)
+            them = split_symbol(tname) if tname else None
+            if them is None or them[1] is None:
+                skipped["the branch target is not a member function"] += 1
+                continue
+            if not usable(list(them[0]) + [them[1], them[2]]):
+                skipped["the target's name is not a plain identifier"] += 1
+                continue
+            if them[2].startswith("__"):
+                # A constructor or destructor: `__ct__` is a spelling of
+                # the symbol, not a name a call can use, and declaring a
+                # method of that name mangles to __ct____Q2... instead.
+                # tools/reloc_audit.py caught this; nothing else could.
+                skipped["the target is a constructor or destructor"] += 1
+                continue
+            ours = parse_params(args)
+            theirs = parse_params(them[4])
+            if ours is None or theirs is None or not ours:
+                skipped["a forwarding call needs both argument lists"] += 1
+                continue
+            # r3 becomes whatever was in r4, and r4 upward do not move.
+            # For a non-static member r4 held a0, so the object is a0 and
+            # the target reads a0 onward; for a STATIC one r3 held a0 and
+            # r4 held a1, so the object is a1 and it reads a1 onward.
+            #
+            # Both readings can fit, because every four-byte parameter is
+            # castable to every other. An EXACT match of the types decides
+            # it when there is one, and only then does a cast get to.
+            def fits(k, exact):
+                run = ours[k:k + len(theirs)]
+                if len(run) != len(theirs):
+                    return False
+                if exact:
+                    return all(mangle_type(x) == mangle_type(y)
+                               for x, y in zip(run, theirs))
+                return castable_nodes(run, theirs)
+
+            which = None
+            for exact in (True, False):
+                for k in (0, 1):
+                    if which is None and fits(k, exact):
+                        which = k
+            if which is None:
+                skipped["the branch target takes different arguments"] += 1
+                continue
+            shape = ("argcall", shape[1], (tuple(them[0]), them[1]),
+                     them[2], them[3], theirs, which)
+        elif shape[0] == "gcall":
+            glob = split_data_symbol(data_symbols().get(shape[1]) or "")
+            if glob is None:
+                skipped["the address is not a nameable global"] += 1
+                continue
+            tname = function_symbols().get((addr + 8 + shape[2])
+                                           & 0xFFFFFFFF)
+            them = split_symbol(tname) if tname else None
+            if them is None or them[1] is None:
+                skipped["the branch target is not a member function"] += 1
+                continue
+            theirs = None
+            if them[4] != args:
+                theirs = castable(args, them[4])
+                if theirs is None:
+                    skipped["the branch target takes different "
+                            "arguments"] += 1
+                    continue
+            if not usable(list(them[0]) + [them[1], them[2]]):
+                skipped["the target's name is not a plain identifier"] += 1
+                continue
+            if them[2].startswith("__"):
+                # A constructor or destructor: `__ct__` is a spelling of
+                # the symbol, not a name a call can use, and declaring a
+                # method of that name mangles to __ct____Q2... instead.
+                # tools/reloc_audit.py caught this; nothing else could.
+                skipped["the target is a constructor or destructor"] += 1
+                continue
+            shape = ("gcall", shape[1], shape[2],
+                     (tuple(them[0]), them[1]), them[2], them[3], theirs)
+        elif shape[0] in ("basefwd", "memfwd"):
+            if cls is None or method == "__ct__":
+                skipped["a forwarding call needs a class to forward "
+                        "from"] += 1
+                continue
+            step = 4 if shape[0] == "memfwd" else 0
+            tname = function_symbols().get(
+                (addr + step + shape[1]) & 0xFFFFFFFF)
+            them = split_symbol(tname) if tname else None
+            if them is None or them[1] is None:
+                skipped["the branch target is not a member function"] += 1
+                continue
+            theirs = None
+            if them[4] != args:
+                theirs = castable(args, them[4])
+                if theirs is None:
+                    skipped["the branch target takes different "
+                            "arguments"] += 1
+                    continue
+            if them[3] != is_const:
+                skipped["the branch target's constness differs"] += 1
+                continue
+            if not usable(list(them[0]) + [them[1], them[2]]):
+                skipped["the target's name is not a plain identifier"] += 1
+                continue
+            if them[2].startswith("__"):
+                # A constructor or destructor: `__ct__` is a spelling of
+                # the symbol, not a name a call can use, and declaring a
+                # method of that name mangles to __ct____Q2... instead.
+                # tools/reloc_audit.py caught this; nothing else could.
+                skipped["the target is a constructor or destructor"] += 1
+                continue
+            same = (tuple(them[0]), them[1]) == (tuple(ns), cls)
+            if same and them[2] == method:
+                # A branch to its own symbol is recursion, not forwarding.
+                skipped["a method cannot forward to itself"] += 1
+                continue
+            if same and shape[0] == "memfwd":
+                # `this->fX` is another object of the same class, which is
+                # possible but not what the four bytes say. Refused.
+                skipped["a member forward into the same class"] += 1
+                continue
+            if shape[0] == "memfwd":
+                shape = ("memfwd", shape[1], shape[2],
+                         (tuple(them[0]), them[1]), them[2], theirs)
+            else:
+                shape = ("basefwd", shape[1], (tuple(them[0]), them[1]),
+                         them[2], theirs)
+        elif shape[0] in ("vcall", "vcallm"):
+            if cls is None or method == "__ct__":
+                skipped["a forwarded virtual call needs a class"] += 1
+                continue
+            vt = shape[1] if shape[0] == "vcall" else shape[2]
+            if vt < 8 or (vt - 8) % 4:
+                skipped["the vtable slot is not 8 + 4N"] += 1
+                continue
+            shape = shape + ((vt - 8) // 4,)
+        elif shape[0] == "eqconst":
+            if cls is None or method == "__ct__":
+                skipped["a predicate on a member needs a class"] += 1
+                continue
+            if shape[3] == 5:
+                # r5 is the third argument, which for a callback with this
+                # signature is the object -- exactly what animcbdata walks.
+                if args != "P15xAnimTransitionP11xAnimSinglePv":
+                    skipped["a predicate reading r5 is only known to be "
+                            "the callback's own object"] += 1
+                    continue
+            elif shape[3] != 3:
+                skipped["a predicate on a register that is neither this "
+                        "nor the callback's object"] += 1
+                continue
+        elif shape[0] in ("animcb", "animcbdata"):
             if cls is None or not method.startswith("an") or len(method) < 3:
                 skipped["an animation callback is a member whose name "
                         "starts with an"] += 1
@@ -1026,6 +1317,40 @@ def field_types(good, skipped):
             skipped["a vtable at an offset on a class whose layout is also "
                     "measured"] += 1
             continue
+        if c["shape"][0] == "basefwd":
+            fam = [o for o in good if (o["ns"], o["cls"]) == key]
+            bases = {o["shape"][2] for o in fam
+                     if o["shape"][0] == "basefwd"
+                     and o["shape"][2] != key}
+            bases |= {o["base"] for o in fam if o["shape"][0] == "basector"}
+            if len(bases) > 1:
+                skipped["two forwarding calls name different base "
+                        "classes"] += 1
+                continue
+            if bases and key in laid_out:
+                # The members measured for this class are offsets into the
+                # whole object, and a base subobject sits in front of them.
+                skipped["a forwarding call on a class whose layout is also "
+                        "measured"] += 1
+                continue
+        if c["shape"][0] in ("vcall", "vcallm"):
+            fam = [o for o in good if (o["ns"], o["cls"]) == key]
+            if any(o["shape"][0] in ("vtable", "basector") for o in fam):
+                # That class already carries __vtable_anchor, which takes
+                # slot 0 and moves every index measured here.
+                skipped["a forwarded virtual call on a class that also "
+                        "stores its own vtable"] += 1
+                continue
+            if c["shape"][0] == "vcall":
+                same = [o for o in fam if o["shape"][0] == "vcall"]
+            else:
+                same = [o for o in fam if o["shape"][0] == "vcallm"
+                        and o["shape"][1] == c["shape"][1]]
+            _sl, clash = virtual_slots(same, (c["shape"][0],))
+            if c["shape"][-1] in clash:
+                skipped["two forwarded calls want one vtable slot with "
+                        "different arguments"] += 1
+                continue
         if any((key, off) in bad for off, _t in offsets_of(c["shape"])):
             skipped["the class cannot be laid out from what was measured"] += 1
             continue
@@ -1064,6 +1389,37 @@ def global_types(good, skipped):
     return types, keep
 
 
+def castable_nodes(ours, yours):
+    """True when only casts separate two parameter lists."""
+    if len(ours) != len(yours):
+        return False
+    for a, b in zip(ours, yours):
+        if mangle_type(a) == mangle_type(b):
+            continue
+        if value_width(a) != 4 or value_width(b) != 4:
+            return False
+    return True
+
+
+def castable(mine, theirs):
+    """-> the target's parameter nodes when a cast is all that differs.
+
+    Same count, and every pair either identical or both four bytes wide --
+    a pointer, a reference, an int or an enum, all of which arrive in the
+    same register whatever they are declared as.
+    """
+    ours = parse_params(mine)
+    yours = parse_params(theirs)
+    if ours is None or yours is None or len(ours) != len(yours):
+        return None
+    for a, b in zip(ours, yours):
+        if mangle_type(a) == mangle_type(b):
+            continue
+        if value_width(a) != 4 or value_width(b) != 4:
+            return None
+    return yours
+
+
 def offsets_of(shape):
     """-> [(offset, ctype or None)] the shape proves about the class."""
     if shape[0] in ("get", "set"):
@@ -1074,11 +1430,49 @@ def offsets_of(shape):
         return [(off, ctype) for ctype, off in shape[2]]
     if shape[0] == "gstore":
         return [(shape[2], "int")]
+    if shape[0] == "eqconst":
+        return [(shape[1], "int")]
+    if shape[0] == "vcallm":
+        return [(shape[1], "int")]
+    if shape[0] == "memfwd":
+        return [(shape[2], "int")]
     return []
 
 
 def has_vtable(cands):
     return any(c["shape"][0] in ("vtable", "basector") for c in cands)
+
+
+def stub_name(key, off):
+    """The name for the class a `vcallm` reaches through a member.
+
+    Nothing in the image names it -- there is no relocation in these five
+    words -- so it is named after where it was found. It declares virtuals
+    and defines nothing, so it emits no symbol of any kind.
+    """
+    return "".join(list(key[0]) + [key[1]]) + "_m%X" % off
+
+
+def virtual_slots(cands, kinds):
+    """-> {index: params} for the shapes that call through a vtable.
+
+    Two candidates that need the same slot with different arguments cannot
+    both be right and nothing here can say which is, so both go -- the same
+    rule the member offsets get.
+    """
+    slots, seen, bad = {}, {}, set()
+    for c in cands:
+        if c["shape"][0] not in kinds:
+            continue
+        idx = c["shape"][-1]
+        want = tuple(mangle_type(x) for x in c["params"])
+        if idx in seen and seen[idx] != want:
+            bad.add(idx)
+        seen[idx] = want
+        slots[idx] = c["params"]
+    for i in bad:
+        del slots[i]
+    return slots, bad
 
 
 def vptr_pad(cands):
@@ -1098,6 +1492,10 @@ def base_of(cands):
     for c in cands:
         if c["shape"][0] == "basector":
             return c["base"]
+    for c in cands:
+        if (c["shape"][0] == "basefwd"
+                and c["shape"][2] != (c["ns"], c["cls"])):
+            return c["shape"][2]
     return None
 
 
@@ -1182,6 +1580,27 @@ def main():
         sys.exit("gen_accessors: nothing in %08X..%08X matches a shape -- "
                  "refusing to write an empty file" % (lo, hi))
 
+    # A qualified name is emitted as `namespace A { namespace B { class C`,
+    # so a scope that is ALSO a class this file declares does not compile:
+    # World::TextureResourceEntity::TextureContainer is nested inside a
+    # class, not inside a namespace, and mwcc says `illegal namespace`.
+    # Nothing here knows which scopes were classes in the original, so the
+    # nested one is refused rather than guessed at.
+    classes = {(c["ns"], c["cls"]) for c in good}
+    classes |= {c["base"] for c in good if c["shape"][0] == "basector"}
+    classes |= {c["shape"][2] for c in good if c["shape"][0] == "basefwd"}
+    classes |= {c["shape"][3] for c in good if c["shape"][0] == "memfwd"}
+    classes |= {c["shape"][3] for c in good if c["shape"][0] == "gcall"}
+    classes |= {c["shape"][2] for c in good if c["shape"][0] == "argcall"}
+    kept = []
+    for c in good:
+        ns = c["ns"]
+        if any((ns[:i], ns[i]) in classes for i in range(len(ns))):
+            skipped["a scope that is also a class declared here"] += 1
+            continue
+        kept.append(c)
+    good = kept
+
     fields, good = field_types(good, skipped)
     globs, good = global_types(good, skipped)
 
@@ -1199,6 +1618,13 @@ def main():
     # Graphics::Node::NodeTypeEnum, and `namespace Node` beside
     # `class Node` does not compile.
     defined |= {c["base"] for c in good if c["shape"][0] == "basector"}
+    # A forwarding call declares the class it reaches, too. Graphics::Node
+    # taught this lesson once already: a name that is a class here cannot
+    # also be a namespace for somebody's parameter type.
+    defined |= {c["shape"][2] for c in good if c["shape"][0] == "basefwd"}
+    defined |= {c["shape"][3] for c in good if c["shape"][0] == "memfwd"}
+    defined |= {c["shape"][3] for c in good if c["shape"][0] == "gcall"}
+    defined |= {c["shape"][2] for c in good if c["shape"][0] == "argcall"}
 
     def collides(parts, is_value):
         scopes = [parts[:i + 1] for i in range(len(parts) - 1)]
@@ -1289,12 +1715,61 @@ def main():
     # vtable offset says which kind: at 0 the base shares the pointer and is
     # polymorphic, above 0 it sits in front of it and is that many bytes.
     stubs = {}
+    fwd_stubs = {}
+    # A basefwd's base may be a class this file already declares for some
+    # other shape. It will not carry the method the branch reaches, so the
+    # declaration has to be added to it rather than to a stub -- and only
+    # when that class does not already name the method for a reason of its
+    # own, which would be an overload rather than a repeat.
+    fwd_extra = {}
+    for key, cands in methods.items():
+        for x in cands:
+            if x["shape"][0] == "basefwd":
+                b, name = x["shape"][2], x["shape"][3]
+            elif x["shape"][0] in ("memfwd", "gcall"):
+                b, name = x["shape"][3], x["shape"][4]
+            elif x["shape"][0] == "argcall":
+                b, name = x["shape"][2], x["shape"][3]
+            else:
+                continue
+            tconst = ({"gcall": 5, "argcall": 4}.get(x["shape"][0]))
+            tconst = (x["shape"][tconst] if tconst is not None
+                      else x["const"])
+            theirs = x["shape"][{"gcall": 6, "basefwd": 4, "memfwd": 5,
+                                 "argcall": 5}[x["shape"][0]]]
+            decl = ("    void %s(%s)%s;"
+                    % (name, param_decls(theirs if theirs is not None
+                                         else x["params"], False),
+                       " const" if tconst else ""))
+            if b not in methods:
+                fwd_stubs.setdefault(b, set()).add(decl)
+                continue
+            if any(o["method"] == name for o in methods[b]):
+                continue
+            fwd_extra.setdefault(b, set()).add(decl)
     for key, cands in methods.items():
         b = base_of(cands)
         if b is None or b in methods:
             continue
-        c = next(x for x in cands if x["shape"][0] == "basector")
-        stubs.setdefault(b, (c["shape"][3], c["params"]))
+        ctor = [x for x in cands if x["shape"][0] == "basector"]
+        if ctor:
+            stubs.setdefault(b, (ctor[0]["shape"][3], ctor[0]["params"]))
+    for b in sorted(fwd_stubs):
+        bns, bcls = list(b[0]), b[1]
+        for n in bns:
+            L.append("namespace %s {" % n)
+        L.append("")
+        L.append("// A base only in the sense that r3 reaches it unchanged:")
+        L.append("// the branch is four bytes and names nothing else.")
+        L.append("class %s {" % bcls)
+        L.append("public:")
+        L += sorted(fwd_stubs[b])
+        L.append("};")
+        L.append("")
+        for n in reversed(bns):
+            L.append("}  // namespace %s" % n)
+        L.append("")
+
     for b in sorted(stubs):
         voff, params = stubs[b]
         bns, bcls = list(b[0]), b[1]
@@ -1317,7 +1792,31 @@ def main():
     poly = {(c["ns"], c["cls"]) for c in good
             if c["shape"][0] == "vtable" and not c["shape"][2]}
 
+    # A `vcallm` reaches a virtual through a member whose type nothing in
+    # the image names. Each gets a stub carrying just enough virtuals to
+    # put the one that is called at the slot that was measured.
+    stubs = {}
+    for c in good:
+        if c["shape"][0] == "vcallm":
+            stubs.setdefault(((c["ns"], c["cls"]), c["shape"][1]), []).append(c)
+    if stubs:
+        L.append("// Each class below stands in for one a member points at.")
+        L.append("// Nothing NAMES that class -- these five words carry no")
+        L.append("// relocation -- so it is named after where it was found,")
+        L.append("// and holds virtuals only up to the slot that is called.")
+        for (key, off), cands in sorted(stubs.items(),
+                                        key=lambda kv: str(kv[0])):
+            slots, _bad = virtual_slots(cands, ("vcallm",))
+            L.append("class %s {" % stub_name(key, off))
+            L.append("public:")
+            for i in range(max(slots) + 1):
+                L.append("    virtual void _v%d(%s) const;"
+                         % (i, param_decls(slots.get(i, []), False)))
+            L.append("};")
+        L.append("")
+
     cbs = [c for c in good if c["shape"][0] == "animcb"]
+    # animcbdata walks nothing, so it needs no layout of its own.
     if cbs:
         holder = {c["shape"][2] for c in cbs}
         slot = {c["shape"][3] for c in cbs}
@@ -1350,6 +1849,10 @@ def main():
         L.append("public:")
         for name, ctype in sorted(statics.get(key, [])):
             L.append("    static %s %s;" % (ctype, name))
+        own, _bad = virtual_slots(methods[key], ("vcall",))
+        for i in range(max(own) + 1) if own else ():
+            L.append("    virtual void _v%d(%s) const;"
+                     % (i, param_decls(own.get(i, []), False)))
         vpad = vptr_pad(methods[key])
         if has_vtable(methods[key]) and not vpad:
             # One virtual is all it takes to make the compiler emit
@@ -1360,11 +1863,13 @@ def main():
             L.append("    virtual void __vtable_anchor();")
         seen = set()
         for c in sorted(methods[key], key=lambda c: (c["method"], c["addr"])):
-            decl = declare(c, fields[key])
+            decl = declare(c, fields[key],
+                           {o["method"] for o in methods[key] if o is not c})
             if decl in seen:
                 continue
             seen.add(decl)
             L.append(decl)
+        L += sorted(fwd_extra.get(key, ()))
         L.append("")
         if vpad:
             # The vptr is at vpad, so vpad bytes of something precede it.
@@ -1461,6 +1966,9 @@ def return_type(c):
 def declare_free(c):
     """The file-scope declaration for a free function."""
     kind = c["shape"][0]
+    if kind == "gcall":
+        return "void %s(%s);" % (c["method"],
+                                 param_decls(c["params"], False))
     if kind == "gset":
         return "void %s(%s);" % (c["method"],
                                  param_decls(c["params"], True))
@@ -1468,8 +1976,12 @@ def declare_free(c):
                            param_decls(c["params"], False))
 
 
-def declare(c, flds):
-    """The in-class declaration for one candidate."""
+def declare(c, flds, others=()):
+    """The in-class declaration for one candidate.
+
+    `others` is the set of method names this class declares for some other
+    candidate, so a shape that would name one of them again can stand down.
+    """
     kind = c["shape"][0]
     cst = " const" if c["const"] else ""
     if kind in ("gref", "gget"):
@@ -1498,11 +2010,43 @@ def declare(c, flds):
         t = ref_type(c, flds)
         return "    %s* %s(%s)%s;" % (t, c["method"],
                                       param_decls(c["params"], False), cst)
-    if kind == "animcb":
-        return ("    static void %s(%s);" + chr(10)
-                + "    void %s(%s);") % (
-            c["method"], param_decls(c["params"], False),
-            c["shape"][4], param_decls(c["params"][:-1], False))
+    if kind == "argcall":
+        if c["shape"][6]:
+            return "    static void %s(%s);" % (
+                c["method"], param_decls(c["params"], False))
+        return "    void %s(%s)%s;" % (c["method"],
+                                       param_decls(c["params"], False), cst)
+    if kind == "gcall":
+        if c["cls"] is None:
+            return None
+        return "    void %s(%s)%s;" % (c["method"],
+                                       param_decls(c["params"], False), cst)
+    if kind in ("addmem", "basefwd", "memfwd"):
+        return "    void %s(%s)%s;" % (c["method"],
+                                       param_decls(c["params"], False), cst)
+    if kind in ("vcall", "vcallm"):
+        return "    void %s(%s)%s;" % (c["method"],
+                                       param_decls(c["params"], False), cst)
+    if kind == "eqconst":
+        if c["shape"][3] == 3:
+            return "    bool %s(%s)%s;" % (
+                c["method"], param_decls(c["params"], False), cst)
+        return "    static bool %s(%s);" % (
+            c["method"], param_decls(c["params"], False))
+    if kind in ("animcb", "animcbdata"):
+        # `bool`, not `void`: the return type is not in the symbol and does
+        # not change a tail call's bytes, and bool is what eqconst -- the
+        # one shape that does measure a return -- says these are.
+        head = "    static bool %s(%s);" % (c["method"],
+                                            param_decls(c["params"], False))
+        if c["shape"][-1] in others:
+            # The class declares that method for another shape, which knows
+            # more about it than this does -- its constness, its real
+            # arguments. A second declaration would overload rather than
+            # repeat.
+            return head
+        return head + chr(10) + "    bool %s(%s);" % (
+            c["shape"][-1], param_decls(c["params"][:-1], False))
     if kind == "constret":
         return "    unsigned int %s(%s)%s;" % (
             c["method"], param_decls(c["params"], False), cst)
@@ -1510,6 +2054,19 @@ def declare(c, flds):
         return "    void %s(%s)%s;" % (c["method"],
                                        param_decls(c["params"], False), cst)
     raise AssertionError(kind)
+
+
+def fwd_args(c, theirs):
+    """`a0, a1, ...`, each cast when the target declares it differently."""
+    if theirs is None:
+        return ", ".join("a%d" % i for i in range(len(c["params"])))
+    out = []
+    for i, (mine, yours) in enumerate(zip(c["params"], theirs)):
+        if mangle_type(mine) == mangle_type(yours):
+            out.append("a%d" % i)
+        else:
+            out.append("(%s)a%d" % (render_type(yours), i))
+    return ", ".join(out)
 
 
 def define(c, flds):
@@ -1548,11 +2105,76 @@ def define(c, flds):
                         for _ctype, off in c["shape"][2])
         return "%s::%s(%s) { %s }" % (q, c["cls"],
                                       param_decls(c["params"], False), body)
+    if kind == "addmem":
+        return "void %s::%s(%s) { f%X += a0; }" % (
+            q, c["method"], param_decls(c["params"], False), c["shape"][1])
+    if kind == "argcall":
+        which = c["shape"][6]
+        theirs = c["shape"][5]
+        out = []
+        for i, yours in enumerate(theirs):
+            mine = c["params"][i + which]
+            out.append("a%d" % (i + which)
+                       if mangle_type(mine) == mangle_type(yours)
+                       else "(%s)a%d" % (render_type(yours), i + which))
+        return "void %s::%s(%s)%s { ((%s*)a%d)->%s(%s); }" % (
+            q, c["method"], param_decls(c["params"], False),
+            "" if which else cst,
+            "::".join(list(c["shape"][2][0]) + [c["shape"][2][1]]), which,
+            c["shape"][3], ", ".join(out))
+    if kind == "gcall":
+        args = fwd_args(c, c["shape"][6])
+        scope = (q + "::") if c["cls"] else ""
+        return "void %s%s(%s)%s { ((%s*)&%s)->%s(%s); }" % (
+            scope, c["method"], param_decls(c["params"], False), cst,
+            "::".join(list(c["shape"][3][0]) + [c["shape"][3][1]]),
+            gname(c), c["shape"][4], args)
+    if kind == "basefwd":
+        args = fwd_args(c, c["shape"][4])
+        if c["shape"][2] == (c["ns"], c["cls"]):
+            # One member of this class calling another: no qualification,
+            # and no base to invent.
+            return "void %s::%s(%s)%s { %s(%s); }" % (
+                q, c["method"], param_decls(c["params"], False), cst,
+                c["shape"][3], args)
+        return "void %s::%s(%s)%s { %s::%s(%s); }" % (
+            q, c["method"], param_decls(c["params"], False), cst,
+            "::".join(list(c["shape"][2][0]) + [c["shape"][2][1]]),
+            c["shape"][3], args)
+    if kind == "memfwd":
+        args = fwd_args(c, c["shape"][5])
+        return "void %s::%s(%s)%s { ((%s*)f%X)->%s(%s); }" % (
+            q, c["method"], param_decls(c["params"], False), cst,
+            "::".join(list(c["shape"][3][0]) + [c["shape"][3][1]]),
+            c["shape"][2], c["shape"][4], args)
+    if kind in ("vcall", "vcallm"):
+        args = ", ".join("a%d" % i for i in range(len(c["params"])))
+        call = "_v%d(%s)" % (c["shape"][-1], args)
+        if kind == "vcall":
+            return "void %s::%s(%s)%s { %s; }" % (
+                q, c["method"], param_decls(c["params"], False), cst, call)
+        return "void %s::%s(%s)%s { ((%s*)f%X)->%s; }" % (
+            q, c["method"], param_decls(c["params"], False), cst,
+            stub_name((c["ns"], c["cls"]), c["shape"][1]), c["shape"][1],
+            call)
+    if kind == "eqconst":
+        if c["shape"][3] == 3:
+            return "bool %s::%s(%s)%s { return f%X == %d; }" % (
+                q, c["method"], param_decls(c["params"], False), cst,
+                c["shape"][1], c["shape"][2])
+        return "bool %s::%s(%s) { return ((%s*)a2)->f%X == %d; }" % (
+            q, c["method"], param_decls(c["params"], False), q,
+            c["shape"][1], c["shape"][2])
+    if kind == "animcbdata":
+        return ("bool %s::%s(%s) { return ((%s*)a2)->%s(a0, a1); }"
+                % (q, c["method"], param_decls(c["params"], False), q,
+                   c["shape"][-1]))
     if kind == "animcb":
-        return ("void %s::%s(%s) { ((%s*)((AnimCBHolder*)a1)->slot->owner)"
+        return ("bool %s::%s(%s) { return "
+                "((%s*)((AnimCBHolder*)a1)->slot->owner)"
                 "->%s(a0, a1); }"
                 % (q, c["method"], param_decls(c["params"], False), q,
-                   c["shape"][4]))
+                   c["shape"][-1]))
     if kind == "get":
         return "%s %s::%s(%s)%s { return f%X; }" % (
             c["shape"][1], q, c["method"], param_decls(c["params"], False),

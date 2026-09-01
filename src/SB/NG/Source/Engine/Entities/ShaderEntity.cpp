@@ -30,7 +30,9 @@ namespace World {
 class ShaderEntity : public World::Entity {
 public:
     virtual void __vtable_anchor();
+    void Deactivate();
     ShaderEntity(World::EntityHandleBase* a0);
+    void DeferDestroy();
 
 };
 
@@ -38,4 +40,5 @@ public:
 
 #pragma dont_inline on
 World::ShaderEntity::ShaderEntity(World::EntityHandleBase* a0) : World::Entity(a0) {}
+void World::ShaderEntity::Deactivate() { DeferDestroy(); }
 #pragma dont_inline off

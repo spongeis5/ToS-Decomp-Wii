@@ -13,27 +13,30 @@
 // Members are non-virtual, and the padding is padding -- only the
 // offsets each function touches are known, not the fields between.
 
+namespace TRC { extern int g_saveData; }
+
+namespace TRC {
 
 // A base only in the sense that r3 reaches it unchanged:
 // the branch is four bytes and names nothing else.
-class zPlayerInputPadMgr {
+class SaveData {
 public:
-    void GetDebugPad();
-    void UserSceneReset();
+    void ForceNextSave();
+    void SetupImages(unsigned long long a0, const unsigned long long* a1);
 };
 
+}  // namespace TRC
 
+namespace TRC {
 
-class zPlayerInputNS {
+class SaveLoad {
 public:
-    static int padManager;
-    void GetDebugPad();
-    int* GetPadManager();
-    void UserSceneReset();
+    void ForceNextSave();
+    void SetupImages(unsigned long long a0, const unsigned long long* a1);
 
 };
 
+}  // namespace TRC
 
-int* zPlayerInputNS::GetPadManager() { return &zPlayerInputNS::padManager; }
-void zPlayerInputNS::GetDebugPad() { ((zPlayerInputPadMgr*)&zPlayerInputNS::padManager)->GetDebugPad(); }
-void zPlayerInputNS::UserSceneReset() { ((zPlayerInputPadMgr*)&zPlayerInputNS::padManager)->UserSceneReset(); }
+void TRC::SaveLoad::ForceNextSave() { ((TRC::SaveData*)&TRC::g_saveData)->ForceNextSave(); }
+void TRC::SaveLoad::SetupImages(unsigned long long a0, const unsigned long long* a1) { ((TRC::SaveData*)&TRC::g_saveData)->SetupImages(a0, a1); }

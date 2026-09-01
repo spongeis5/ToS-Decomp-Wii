@@ -53,6 +53,28 @@ public:
 
 namespace World {
 
+class TextureResourceEntity {
+public:
+    void Deactivate();
+    void DeferDestroy();
+
+};
+
+}  // namespace World
+
+namespace World {
+
+class VertexDeclEntity {
+public:
+    void Deactivate();
+    void DeferDestroy();
+
+};
+
+}  // namespace World
+
+namespace World {
+
 class BlobEntity : public World::Entity {
 public:
     virtual void __vtable_anchor();
@@ -140,6 +162,8 @@ public:
 #pragma dont_inline on
 World::GeometryEntity::GeometryEntity(World::EntityHandleBase* a0) : World::Entity(a0) {}
 void Graphics::FixedVertexBuffer::Create() { fC = 0; f4 = 0; }
+void World::TextureResourceEntity::Deactivate() { DeferDestroy(); }
+void World::VertexDeclEntity::Deactivate() { DeferDestroy(); }
 World::BlobEntity::BlobEntity(World::EntityHandleBase* a0) : World::Entity(a0) {}
 unsigned char Graphics::Node::Attached() const { return f8; }
 void Graphics::Renderable3D::SetProjectShadowCast(void* value) { fCC = (int)value; }

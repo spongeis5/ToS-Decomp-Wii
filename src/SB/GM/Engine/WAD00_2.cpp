@@ -13,7 +13,17 @@
 // Members are non-virtual, and the padding is padding -- only the
 // offsets each function touches are known, not the fields between.
 
+namespace World { class xOGEntity; }
 class zNeoDrivenLink;
+
+
+// A base only in the sense that r3 reaches it unchanged:
+// the branch is four bytes and names nothing else.
+class zNeoDrivenLink {
+public:
+    void RemoveChild(World::xOGEntity* a0);
+};
+
 
 namespace xDecal {
 
@@ -72,6 +82,7 @@ public:
 
 class xEnt {
 public:
+    void DriveDetach(World::xOGEntity* a0);
     int DriveGetDriver();
     void DriveSetDriver(zNeoDrivenLink* value);
     int GetAttachMat();
@@ -92,5 +103,6 @@ int* Graphics::StaticBuilder::GetGeometry() { return &f10; }
 int* Graphics::StaticBuilder::GetCollTree() { return &fD4; }
 int* xEnt::GetAttachModel() { return &f34; }
 int xEnt::GetAttachMat() { return f34; }
+void xEnt::DriveDetach(World::xOGEntity* a0) { ((zNeoDrivenLink*)a0)->RemoveChild(a0); }
 int xEnt::DriveGetDriver() { return f68; }
 void xEnt::DriveSetDriver(zNeoDrivenLink* value) { f68 = (int)value; }

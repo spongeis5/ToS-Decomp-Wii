@@ -70,9 +70,33 @@ public:
 
 }  // namespace World
 
+namespace World {
+
+class DTRFrontBufferEntity {
+public:
+    void Deactivate();
+    void DeferDestroy();
+
+};
+
+}  // namespace World
+
+namespace World {
+
+class RenderModeEntity {
+public:
+    void Deactivate();
+    void DeferDestroy();
+
+};
+
+}  // namespace World
+
 #pragma dont_inline on
 void Graphics::Renderable3D::SetProjectShadowFlag(unsigned int value) { fF0 = value; }
 void World::UVMovementInstanceData::SetRows(float* value) { f5C = (int)value; }
 World::RenderCustomizerBaseEntity::RenderCustomizerBaseEntity(World::EntityHandleBase* a0) : World::Entity(a0) {}
 unsigned int World::UVMovementSettingsEntity::GetInstanceDataSize() { return 0x00000060u; }
+void World::DTRFrontBufferEntity::Deactivate() { DeferDestroy(); }
+void World::RenderModeEntity::Deactivate() { DeferDestroy(); }
 #pragma dont_inline off

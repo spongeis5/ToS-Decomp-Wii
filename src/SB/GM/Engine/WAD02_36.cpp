@@ -13,6 +13,46 @@
 // Members are non-virtual, and the padding is padding -- only the
 // offsets each function touches are known, not the fields between.
 
+// Each class below stands in for one a member points at.
+// Nothing NAMES that class -- these five words carry no
+// relocation -- so it is named after where it was found,
+// and holds virtuals only up to the slot that is called.
+class zNPCSwarmSteering_m0 {
+public:
+    virtual void _v0() const;
+    virtual void _v1() const;
+    virtual void _v2() const;
+    virtual void _v3() const;
+    virtual void _v4() const;
+    virtual void _v5() const;
+    virtual void _v6() const;
+    virtual void _v7() const;
+    virtual void _v8() const;
+    virtual void _v9() const;
+    virtual void _v10() const;
+    virtual void _v11() const;
+    virtual void _v12() const;
+    virtual void _v13() const;
+    virtual void _v14() const;
+    virtual void _v15() const;
+    virtual void _v16() const;
+    virtual void _v17() const;
+    virtual void _v18() const;
+    virtual void _v19() const;
+    virtual void _v20() const;
+    virtual void _v21() const;
+    virtual void _v22() const;
+    virtual void _v23() const;
+    virtual void _v24() const;
+    virtual void _v25() const;
+    virtual void _v26() const;
+    virtual void _v27() const;
+    virtual void _v28() const;
+    virtual void _v29() const;
+    virtual void _v30() const;
+    virtual void _v31() const;
+};
+
 
 class zNPCBTBossSquidwardDestroyCover {
 public:
@@ -1339,14 +1379,17 @@ public:
 class zNPCSwarmSteering {
 public:
     float GetCurTurnRate() const;
+    void GetEntities();
+    void GetEntities() const;
     const int* GetSupportVel() const;
     const int* GetWallNetPosition() const;
 
-    unsigned char _pad0[0x48];
+    int f0;
+    unsigned char _pad1[0x44];
     int f48;
-    unsigned char _pad1[0xEFC];
+    unsigned char _pad2[0xEFC];
     int fF48;
-    unsigned char _pad2[0x4FC];
+    unsigned char _pad3[0x4FC];
     float f1448;
 };
 
@@ -1531,6 +1574,8 @@ unsigned int zNPCBTWriteMaxHitPointsAction::GetTypeID() const { return 0x129E8F7
 unsigned int zNPCBTWriteCurHitPointsAction::GetTypeID() const { return 0xF05CA191u; }
 const int* zNPCSwarmSteering::GetSupportVel() const { return &f48; }
 float zNPCSwarmSteering::GetCurTurnRate() const { return f1448; }
+void zNPCSwarmSteering::GetEntities() { ((zNPCSwarmSteering_m0*)f0)->_v30(); }
+void zNPCSwarmSteering::GetEntities() const { ((zNPCSwarmSteering_m0*)f0)->_v31(); }
 const int* zNPCSwarmSteering::GetWallNetPosition() const { return &fF48; }
 float zNPCSingleSteering::GetCurTurnRate() const { return f98; }
 const int* zNPCSingleSteering::GetWallNetPosition() const { return &f84; }

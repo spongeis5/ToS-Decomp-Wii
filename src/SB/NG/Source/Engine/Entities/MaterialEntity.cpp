@@ -13,27 +13,15 @@
 // Members are non-virtual, and the padding is padding -- only the
 // offsets each function touches are known, not the fields between.
 
+namespace World {
 
-// A base only in the sense that r3 reaches it unchanged:
-// the branch is four bytes and names nothing else.
-class zPlayerInputPadMgr {
+class MaterialEntity {
 public:
-    void GetDebugPad();
-    void UserSceneReset();
-};
-
-
-
-class zPlayerInputNS {
-public:
-    static int padManager;
-    void GetDebugPad();
-    int* GetPadManager();
-    void UserSceneReset();
+    void Deactivate();
+    void DeferDestroy();
 
 };
 
+}  // namespace World
 
-int* zPlayerInputNS::GetPadManager() { return &zPlayerInputNS::padManager; }
-void zPlayerInputNS::GetDebugPad() { ((zPlayerInputPadMgr*)&zPlayerInputNS::padManager)->GetDebugPad(); }
-void zPlayerInputNS::UserSceneReset() { ((zPlayerInputPadMgr*)&zPlayerInputNS::padManager)->UserSceneReset(); }
+void World::MaterialEntity::Deactivate() { DeferDestroy(); }

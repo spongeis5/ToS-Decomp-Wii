@@ -13,27 +13,23 @@
 // Members are non-virtual, and the padding is padding -- only the
 // offsets each function touches are known, not the fields between.
 
+namespace World {
 
-// A base only in the sense that r3 reaches it unchanged:
-// the branch is four bytes and names nothing else.
-class zPlayerInputPadMgr {
+class StringsAssetBlobEntity {
 public:
-    void GetDebugPad();
-    void UserSceneReset();
-};
-
-
-
-class zPlayerInputNS {
-public:
-    static int padManager;
-    void GetDebugPad();
-    int* GetPadManager();
-    void UserSceneReset();
+    virtual void _v0() const;
+    virtual void _v1() const;
+    virtual void _v2() const;
+    virtual void _v3() const;
+    virtual void _v4() const;
+    virtual void _v5() const;
+    virtual void _v6() const;
+    virtual void _v7() const;
+    virtual void _v8() const;
+    void Deactivate();
 
 };
 
+}  // namespace World
 
-int* zPlayerInputNS::GetPadManager() { return &zPlayerInputNS::padManager; }
-void zPlayerInputNS::GetDebugPad() { ((zPlayerInputPadMgr*)&zPlayerInputNS::padManager)->GetDebugPad(); }
-void zPlayerInputNS::UserSceneReset() { ((zPlayerInputPadMgr*)&zPlayerInputNS::padManager)->UserSceneReset(); }
+void World::StringsAssetBlobEntity::Deactivate() { _v8(); }

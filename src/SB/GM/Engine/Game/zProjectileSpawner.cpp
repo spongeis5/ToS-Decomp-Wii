@@ -13,27 +13,16 @@
 // Members are non-virtual, and the padding is padding -- only the
 // offsets each function touches are known, not the fields between.
 
+namespace Sext { class EventAny; }
+class xBase;
 
-// A base only in the sense that r3 reaches it unchanged:
-// the branch is four bytes and names nothing else.
-class zPlayerInputPadMgr {
+
+class zProjectileSpawner {
 public:
-    void GetDebugPad();
-    void UserSceneReset();
-};
-
-
-
-class zPlayerInputNS {
-public:
-    static int padManager;
-    void GetDebugPad();
-    int* GetPadManager();
-    void UserSceneReset();
+    static void StaticHandleEvent(xBase* a0, xBase* a1, unsigned int a2, Sext::EventAny* a3);
+    void HandleEvent(xBase* a0, unsigned int a1, Sext::EventAny* a2);
 
 };
 
 
-int* zPlayerInputNS::GetPadManager() { return &zPlayerInputNS::padManager; }
-void zPlayerInputNS::GetDebugPad() { ((zPlayerInputPadMgr*)&zPlayerInputNS::padManager)->GetDebugPad(); }
-void zPlayerInputNS::UserSceneReset() { ((zPlayerInputPadMgr*)&zPlayerInputNS::padManager)->UserSceneReset(); }
+void zProjectileSpawner::StaticHandleEvent(xBase* a0, xBase* a1, unsigned int a2, Sext::EventAny* a3) { ((zProjectileSpawner*)a1)->HandleEvent(a1, a2, a3); }

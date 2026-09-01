@@ -14,26 +14,12 @@
 // offsets each function touches are known, not the fields between.
 
 
-// A base only in the sense that r3 reaches it unchanged:
-// the branch is four bytes and names nothing else.
-class zPlayerInputPadMgr {
+class xSerial {
 public:
-    void GetDebugPad();
-    void UserSceneReset();
-};
-
-
-
-class zPlayerInputNS {
-public:
-    static int padManager;
-    void GetDebugPad();
-    int* GetPadManager();
-    void UserSceneReset();
+    void setClient(unsigned int a0);
+    void prepare(unsigned int a0);
 
 };
 
 
-int* zPlayerInputNS::GetPadManager() { return &zPlayerInputNS::padManager; }
-void zPlayerInputNS::GetDebugPad() { ((zPlayerInputPadMgr*)&zPlayerInputNS::padManager)->GetDebugPad(); }
-void zPlayerInputNS::UserSceneReset() { ((zPlayerInputPadMgr*)&zPlayerInputNS::padManager)->UserSceneReset(); }
+void xSerial::setClient(unsigned int a0) { prepare(a0); }

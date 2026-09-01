@@ -13,11 +13,31 @@
 // Members are non-virtual, and the padding is padding -- only the
 // offsets each function touches are known, not the fields between.
 
+enum HK_MEMORY_CLASS { HK_MEMORY_CLASS_ = 0x7FFFFFFF };
+
+
+// A base only in the sense that r3 reaches it unchanged:
+// the branch is four bytes and names nothing else.
+class hkPoolMemory {
+public:
+    void allocateChunkBatch(void** a0, int a1, int a2, HK_MEMORY_CLASS a3);
+    void allocateRuntimeBlock(int a0, HK_MEMORY_CLASS a1);
+    void deallocateChunkBatch(void** a0, int a1, int a2, HK_MEMORY_CLASS a3);
+    void deallocateRuntimeBlock(void* a0, int a1, HK_MEMORY_CLASS a2);
+    void freeRuntimeBlocks();
+    void getAllocatedSize(int a0);
+    void preAllocateRuntimeBlock(int a0, HK_MEMORY_CLASS a1);
+    void provideRuntimeBlock(void* a0, int a1, HK_MEMORY_CLASS a2);
+};
+
+
 
 class GRendererWiiImpl {
 public:
     void FillStyleDisable();
     void LineStyleDisable();
+    void ReleaseResources();
+    void Clear();
 
     unsigned char _pad0[0x148];
     int f148;
@@ -27,6 +47,21 @@ public:
     int f1D4;
     unsigned char _pad3[0x8];
     int f1E0;
+};
+
+
+
+class hkPoolMemoryHI : public hkPoolMemory {
+public:
+    void allocateChunkBatch(void** a0, int a1, int a2, HK_MEMORY_CLASS a3);
+    void allocateRuntimeBlock(int a0, HK_MEMORY_CLASS a1);
+    void deallocateChunkBatch(void** a0, int a1, int a2, HK_MEMORY_CLASS a3);
+    void deallocateRuntimeBlock(void* a0, int a1, HK_MEMORY_CLASS a2);
+    void freeRuntimeBlocks();
+    void getAllocatedSize(int a0);
+    void preAllocateRuntimeBlock(int a0, HK_MEMORY_CLASS a1);
+    void provideRuntimeBlock(void* a0, int a1, HK_MEMORY_CLASS a2);
+
 };
 
 
@@ -54,5 +89,14 @@ public:
 
 void GRendererWiiImpl::LineStyleDisable() { f1D4 = 0; f1E0 = 0; }
 void GRendererWiiImpl::FillStyleDisable() { f148 = 0; f154 = 0; }
+void GRendererWiiImpl::ReleaseResources() { Clear(); }
+void hkPoolMemoryHI::freeRuntimeBlocks() { hkPoolMemory::freeRuntimeBlocks(); }
+void hkPoolMemoryHI::provideRuntimeBlock(void* a0, int a1, HK_MEMORY_CLASS a2) { hkPoolMemory::provideRuntimeBlock(a0, a1, a2); }
+void hkPoolMemoryHI::deallocateRuntimeBlock(void* a0, int a1, HK_MEMORY_CLASS a2) { hkPoolMemory::deallocateRuntimeBlock(a0, a1, a2); }
+void hkPoolMemoryHI::allocateRuntimeBlock(int a0, HK_MEMORY_CLASS a1) { hkPoolMemory::allocateRuntimeBlock(a0, a1); }
+void hkPoolMemoryHI::preAllocateRuntimeBlock(int a0, HK_MEMORY_CLASS a1) { hkPoolMemory::preAllocateRuntimeBlock(a0, a1); }
+void hkPoolMemoryHI::getAllocatedSize(int a0) { hkPoolMemory::getAllocatedSize(a0); }
+void hkPoolMemoryHI::deallocateChunkBatch(void** a0, int a1, int a2, HK_MEMORY_CLASS a3) { hkPoolMemory::deallocateChunkBatch(a0, a1, a2, a3); }
+void hkPoolMemoryHI::allocateChunkBatch(void** a0, int a1, int a2, HK_MEMORY_CLASS a3) { hkPoolMemory::allocateChunkBatch(a0, a1, a2, a3); }
 Loader::DomainDirMemCB::DomainDirMemCB() {}
 TRC::WiiDVDErrorRunnable::WiiDVDErrorRunnable() {}

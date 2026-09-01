@@ -122,12 +122,21 @@ def main():
             sys.exit("unitcmp_pins: %r appears %d times in EXPECT, not once"
                      % (unit, n))
     if added:
-        anchor = "}" + NL + NL + NL + "def main():"
-        if text.count(anchor) != 1:
+        # The end of the EXPECT dict itself, not whatever happens to follow
+        # it: a guard was added between EXPECT and main() and this stopped
+        # being able to write at all.
+        lines = text.split(NL)
+        # The docstring names EXPECT too, so match the assignment.
+        starts = [i for i, ln in enumerate(lines)
+                  if ln.startswith("EXPECT = {")]
+        if len(starts) != 1:
+            sys.exit("unitcmp_pins: cannot find EXPECT")
+        ends = [i for i in range(starts[0], len(lines)) if lines[i] == "}"]
+        if not ends:
             sys.exit("unitcmp_pins: cannot find the end of EXPECT")
-        block = (NL.join('    "%s": (%d, %d),' % (u, g[0], g[1])
-                         for u, g in added) + NL + anchor)
-        text = text.replace(anchor, block)
+        lines[ends[0]:ends[0]] = ['    "%s": (%d, %d),' % (u, g[0], g[1])
+                                  for u, g in added]
+        text = NL.join(lines)
     CHECK.write_text(text, encoding="utf-8")
     print("  wrote %d change(s) to %s"
           % (len(raised) + len(added) + len(gone), CHECK.relative_to(ROOT)))

@@ -13,27 +13,24 @@
 // Members are non-virtual, and the padding is padding -- only the
 // offsets each function touches are known, not the fields between.
 
+namespace Memory {
 
 // A base only in the sense that r3 reaches it unchanged:
 // the branch is four bytes and names nothing else.
-class zPlayerInputPadMgr {
+class Factory {
 public:
-    void GetDebugPad();
-    void UserSceneReset();
+    void Deinitialize();
+};
+
+}  // namespace Memory
+
+
+class zBTFactory {
+public:
+    static int factory;
+    void SceneExit();
+
 };
 
 
-
-class zPlayerInputNS {
-public:
-    static int padManager;
-    void GetDebugPad();
-    int* GetPadManager();
-    void UserSceneReset();
-
-};
-
-
-int* zPlayerInputNS::GetPadManager() { return &zPlayerInputNS::padManager; }
-void zPlayerInputNS::GetDebugPad() { ((zPlayerInputPadMgr*)&zPlayerInputNS::padManager)->GetDebugPad(); }
-void zPlayerInputNS::UserSceneReset() { ((zPlayerInputPadMgr*)&zPlayerInputNS::padManager)->UserSceneReset(); }
+void zBTFactory::SceneExit() { ((Memory::Factory*)&zBTFactory::factory)->Deinitialize(); }

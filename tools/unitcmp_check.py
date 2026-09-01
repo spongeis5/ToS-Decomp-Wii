@@ -53,8 +53,8 @@ EXPECT = {
     # Generated, not read: constant returns, plus a few accessors, of the
     # 178 and 135 functions those two chunks hold. The rest is real code
     # and is not written.
-    "SB/GM/Engine/WAD02_36": (170, 170),
-    "SB/GM/Engine/WAD01_26": (67, 67),
+    "SB/GM/Engine/WAD02_36": (172, 172),
+    "SB/GM/Engine/WAD01_26": (70, 70),
     # Five of the unit's eight functions are written; the other three
     # reach further into the graphics types than has been recovered.
     "SB/NG/Source/Engine/Graphics/Builders/StaticBuilder": (5, 5),
@@ -68,14 +68,14 @@ EXPECT = {
     "SB/GM/Engine/Game/zJawFlapper": (2, 2),
     "SB/GM/Engine/Game/zPIDController": (1, 1),
     "SB/GM/Engine/WAD00": (183, 183),
-    "SB/GM/Engine/WAD00_1": (2, 2),
+    "SB/GM/Engine/WAD00_1": (3, 3),
     "SB/GM/Engine/WAD00_12": (2, 2),
-    "SB/GM/Engine/WAD00_2": (10, 10),
+    "SB/GM/Engine/WAD00_2": (11, 11),
     "SB/GM/Engine/WAD00_7": (3, 3),
     "SB/GM/Engine/WAD01_13": (4, 4),
-    "SB/GM/Engine/WAD01_21": (22, 22),
+    "SB/GM/Engine/WAD01_21": (24, 24),
     "SB/GM/Engine/WAD02_27": (2, 2),
-    "SB/GM/Engine/WAD02_38": (4, 4),
+    "SB/GM/Engine/WAD02_38": (12, 12),
     "SB/GM/Engine/WAD03_16": (3, 3),
     "SB/GM/Engine/WAD03_17": (1, 1),
     "SB/GM/Engine/WAD03_2": (1, 1),
@@ -87,38 +87,38 @@ EXPECT = {
     # report.json never agreed, and report.json was right.
     # tools/unitcmp_pins.py refuses to make this edit on its own, which is
     # why it is written out here instead.
-    "SB/GM/Engine/WAD03_3": (12, 12),
+    "SB/GM/Engine/WAD03_3": (26, 26),
     "SB/GM/Engine/WAD03_37": (8, 8),
-    "SB/GM/Engine/WAD03_43": (22, 22),
+    "SB/GM/Engine/WAD03_43": (23, 23),
     "SB/GM/Engine/WAD04_6": (4, 4),
     "SB/GM/Engine/WAD04_8": (5, 5),
-    "SB/NG/Engine/WAD00_11": (4, 4),
-    "SB/NG/Engine/WAD00_12": (11, 11),
-    "SB/NG/Engine/WAD00_17": (12, 12),
-    "SB/NG/Engine/WAD01_12": (3, 3),
+    "SB/NG/Engine/WAD00_11": (6, 6),
+    "SB/NG/Engine/WAD00_12": (13, 13),
+    "SB/NG/Engine/WAD00_17": (15, 15),
+    "SB/NG/Engine/WAD01_12": (5, 5),
     "SB/NG/Engine/WAD01_17": (3, 3),
     "SB/NG/Engine/WAD01_2": (1, 1),
-    "SB/NG/Engine/WAD02_15": (2, 2),
+    "SB/NG/Engine/WAD02_15": (3, 3),
     "SB/NG/Engine/WADSpeed": (18, 18),
-    "SB/NG/Source/Engine/TRC/TRCPadManager": (5, 5),
+    "SB/NG/Source/Engine/TRC/TRCPadManager": (7, 7),
     "SB/GM/Engine/Core/x/xUpdateCull": (1, 1),
     "SB/GM/Engine/Game/zBTDepot": (1, 1),
     "SB/GM/Engine/Game/zEventSpy": (1, 1),
     "SB/GM/Engine/Game/zWaterWheel": (1, 1),
     "SB/GM/Engine/WAD00_24": (3, 3),
-    "SB/GM/Engine/WAD00_31": (2, 2),
+    "SB/GM/Engine/WAD00_31": (4, 4),
     "SB/GM/Engine/WAD00_6": (1, 1),
     "SB/GM/Engine/WAD00_8": (1, 1),
-    "SB/GM/Engine/WAD01": (33, 33),
+    "SB/GM/Engine/WAD01": (36, 37),
     "SB/GM/Engine/WAD01_1": (8, 8),
     "SB/GM/Engine/WAD01_10": (1, 1),
-    "SB/GM/Engine/WAD01_11": (1, 1),
+    "SB/GM/Engine/WAD01_11": (2, 2),
     "SB/GM/Engine/WAD01_18": (2, 2),
     "SB/GM/Engine/WAD01_19": (3, 3),
     "SB/GM/Engine/WAD02_11": (5, 5),
     "SB/GM/Engine/WAD02_22": (4, 4),
-    "SB/GM/Engine/WAD02_24": (3, 3),
-    "SB/GM/Engine/WAD02_31": (1, 1),
+    "SB/GM/Engine/WAD02_24": (4, 4),
+    "SB/GM/Engine/WAD02_31": (2, 2),
     "SB/GM/Engine/WAD02_4": (2, 2),
     "SB/GM/Engine/WAD03_1": (2, 2),
     "SB/GM/Engine/WAD03_36": (4, 4),
@@ -127,41 +127,66 @@ EXPECT = {
     "SB/NG/Engine/WAD00_2": (2, 2),
     "SB/NG/Engine/WAD01_10": (1, 1),
     "SB/NG/Engine/WAD02_1": (2, 2),
-    "SB/NG/Engine/WAD02_37": (4, 4),
+    "SB/NG/Engine/WAD02_37": (13, 13),
     "SB/NG/Source/Engine/IO/VirtualKeyboard/VirtualKeyboard": (1, 1),
     # Lowered by hand for the reason given above WAD03_3.
     "SB/NG/Source/Engine/TRC/TRCMessageBox": (1, 1),
     "SB/NG/Source/Engine/TRC/TRCModule": (1, 1),
     "SB/GM/Engine/Game/zNPCCommonCombatBTActions": (1, 1),
     "SB/GM/Engine/Game/zPlayerInputAI": (1, 1),
-    "SB/GM/Engine/WAD03_32": (2, 2),
+    "SB/GM/Engine/WAD03_32": (10, 10),
     "SB/NG/Engine/WAD01_15": (1, 1),
     "SB/GM/Engine/Game/zGameState": (4, 4),
     "SB/GM/Engine/Game/zMenu": (1, 1),
-    "SB/GM/Engine/Game/zPlayerInputPadMgr": (1, 1),
+    "SB/GM/Engine/Game/zPlayerInputPadMgr": (3, 3),
     "SB/GM/Engine/Game/zProjectileManager": (1, 1),
     "SB/GM/Engine/Game/zSound": (1, 1),
     "SB/GM/Engine/Game/zSoundReverb": (1, 1),
     "SB/GM/Engine/WAD00_18": (2, 2),
-    "SB/GM/Engine/WAD01_12": (1, 1),
+    "SB/GM/Engine/WAD01_12": (2, 2),
     "SB/GM/Engine/WAD02_13": (2, 2),
     "SB/GM/Engine/WAD02_20": (2, 2),
     "SB/GM/Engine/WAD02_29": (1, 1),
-    "SB/GM/Engine/WAD03_22": (29, 29),
+    "SB/GM/Engine/WAD03_22": (30, 30),
     "SB/GM/Engine/WAD03_24": (1, 1),
     "SB/GM/Engine/WAD03_5": (3, 3),
     "SB/GM/Engine/WAD03_9": (1, 1),
     "SB/NG/Engine/WAD02_12": (1, 1),
-    "SB/NG/Engine/WAD02_13": (1, 1),
+    "SB/NG/Engine/WAD02_13": (2, 2),
     "SB/NG/Source/Engine/Graphics/Display": (2, 2),
     "SB/NG/Source/Engine/Graphics/Util/ScreenShot": (1, 1),
     "SB/NG/Source/Engine/IO/File/SystemCache": (1, 1),
     "SB/NG/Source/Engine/TRC/PowerControl": (1, 1),
-    "SB/GM/Engine/WAD02_1": (1, 1),
+    "SB/GM/Engine/WAD02_1": (2, 2),
     "SB/GM/Engine/WAD04_3": (2, 2),
     "SB/NG/Engine/WAD02_28": (1, 1),
-    "SB/NG/Source/Engine/Entities/ShaderEntity": (1, 1),
+    "SB/NG/Source/Engine/Entities/ShaderEntity": (2, 2),
     "SB/NG/Source/Engine/System/GameWindow": (1, 1),
+    "SB/GM/Engine/Core/x/xserializer": (1, 1),
+    "SB/GM/Engine/Game/zAchievementsMgr": (1, 1),
+    "SB/GM/Engine/Game/zBTFactory": (1, 1),
+    "SB/GM/Engine/Game/zDirection": (1, 1),
+    "SB/GM/Engine/Game/zNPCAnimViewer": (1, 1),
+    "SB/GM/Engine/Game/zNPCFX": (2, 2),
+    "SB/GM/Engine/Game/zNPCGenericPool": (1, 1),
+    "SB/GM/Engine/Game/zPlayerAction": (4, 4),
+    "SB/GM/Engine/Game/zProjectileSpawner": (1, 1),
+    "SB/GM/Engine/Game/zUIImage": (2, 2),
+    "SB/GM/Engine/Game/zUIModel": (1, 1),
+    "SB/GM/Engine/Game/zUIText": (1, 1),
+    "SB/GM/Engine/WAD01_17": (1, 1),
+    "SB/GM/Engine/WAD01_2": (1, 1),
+    "SB/GM/Engine/WAD02": (1, 2),
+    "SB/GM/Engine/WAD02_6": (4, 4),
+    "SB/GM/Engine/WAD03_14": (1, 1),
+    "SB/GM/Engine/WAD03_27": (1, 1),
+    "SB/GM/Engine/WAD04": (2, 2),
+    "SB/NG/Engine/WAD00_4": (1, 1),
+    "SB/NG/Engine/WAD00_5": (1, 1),
+    "SB/NG/Source/Engine/Entities/MaterialEntity": (1, 1),
+    "SB/NG/Source/Engine/Graphics/Graphics": (2, 2),
+    "SB/NG/Source/Engine/TRC/Wii/SaveLoadWii": (2, 2),
+    "SB/NG/Source/Engine/UI/Strings": (1, 1),
 }
 
 
@@ -179,9 +204,16 @@ def branch_guard():
         return 1
     ok_before = sum(1 for v in before.values() if v[0] == 0)
 
+    # ROTATE the names, do not shift the addresses: shifting both moved
+    # the function's base and its targets by the same four bytes and every
+    # name still resolved, so the mutation cancelled itself and the guard
+    # could not fail. Giving each address the NEXT address's names makes
+    # every resolved target name wrong, which is the thing being tested.
     byname, byaddr = U.retail_addrs()
-    moved = ({k: v + 4 for k, v in byname.items()},
-             {k + 4: v for k, v in byaddr.items()})
+    keys = sorted(byaddr)
+    moved = (byname,
+             {a: byaddr[keys[(i + 1) % len(keys)]]
+              for i, a in enumerate(keys)})
     real = U.retail_addrs
     U.retail_addrs = lambda: moved
     try:
@@ -198,9 +230,11 @@ def branch_guard():
         print("  FAIL branch-target check is DEAD: %d/%d byte-identical "
               "either way, so a branch to the wrong symbol would read as a "
               "match" % (ok_before, ok_after))
+        print("       (%d relocated branch(es) were resolvable at all)"
+              % sum(v[2] - v[3] for v in before.values()))
         return 1
     print("  ok   branch-target check fired: %d byte-identical, %d once "
-          "every retail address is moved by four"
+          "every address is given the next one's names"
           % (ok_before, ok_after))
     return 0
 

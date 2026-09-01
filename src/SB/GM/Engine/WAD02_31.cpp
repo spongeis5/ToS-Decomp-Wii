@@ -13,7 +13,17 @@
 // Members are non-virtual, and the padding is padding -- only the
 // offsets each function touches are known, not the fields between.
 
+class zNPCSteeringControl;
 class zWallNet;
+
+
+// A base only in the sense that r3 reaches it unchanged:
+// the branch is four bytes and names nothing else.
+class zNPCSteeringMoveToControl {
+public:
+    void Enter(const zNPCSteeringControl* a0);
+};
+
 
 
 class zNPCSteering {
@@ -25,4 +35,13 @@ public:
 };
 
 
+
+class zNPCSteeringFollowPlayerControl : public zNPCSteeringMoveToControl {
+public:
+    void Enter(const zNPCSteeringControl* a0);
+
+};
+
+
 void zNPCSteering::SwitchWallNet(zWallNet* value) { f34 = (int)value; }
+void zNPCSteeringFollowPlayerControl::Enter(const zNPCSteeringControl* a0) { zNPCSteeringMoveToControl::Enter(a0); }

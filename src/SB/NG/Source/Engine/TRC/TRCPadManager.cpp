@@ -17,6 +17,8 @@ namespace TRC {
 
 class TRCPadManager {
 public:
+    bool CheckInitialAccessory(int a0);
+    bool CheckInitialAccessoryPrep(int a0);
     void ClearInitialAccessoryPrep(int a0);
     void SetEscapable(char value);
     void SetLockToHolding(char value);
@@ -36,6 +38,8 @@ public:
 
 void TRC::TRCPadManager::SetLockToHolding(char value) { f4 = value; }
 void TRC::TRCPadManager::SetEscapable(char value) { f3 = value; }
+bool TRC::TRCPadManager::CheckInitialAccessory(int a0) { return f1C == 7; }
+bool TRC::TRCPadManager::CheckInitialAccessoryPrep(int a0) { return fC == 7; }
 void TRC::TRCPadManager::ClearInitialAccessoryPrep(int a0) { fC = 0; }
 void TRC::TRCPadManager::SetupInitialAccessoryPrep(int a0) { fC = 7; }
 void TRC::TRCPadManager::SetupInitialAccessory(int a0) { f1C = 7; }

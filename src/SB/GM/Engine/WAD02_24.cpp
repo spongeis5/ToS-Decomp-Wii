@@ -18,11 +18,20 @@ class zNPCBTMoveToAction {
 public:
     void Initialize();
     int* SteeringControl();
+    void End();
 
     unsigned char _pad0[0x18];
     int f18;
     unsigned char _pad1[0x230];
     unsigned char f24C;
+};
+
+
+
+class zNPCBTPathThruMPsShiftedAction : public zNPCBTMoveToAction {
+public:
+    void End();
+
 };
 
 
@@ -36,6 +45,7 @@ public:
 };
 
 
+void zNPCBTPathThruMPsShiftedAction::End() { zNPCBTMoveToAction::End(); }
 void zNPCBTMoveToAction::Initialize() { f24C = 1; }
 int* zNPCBTMoveToAction::SteeringControl() { return &f18; }
 int* zNPCBTEscortAction::SteeringControl() { return &f538; }

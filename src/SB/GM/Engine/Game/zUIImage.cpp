@@ -16,24 +16,21 @@
 
 // A base only in the sense that r3 reaches it unchanged:
 // the branch is four bytes and names nothing else.
-class zPlayerInputPadMgr {
+class zUI {
 public:
-    void GetDebugPad();
-    void UserSceneReset();
+    void Invisible();
+    void Visible();
 };
 
 
 
-class zPlayerInputNS {
+class zUIImage : public zUI {
 public:
-    static int padManager;
-    void GetDebugPad();
-    int* GetPadManager();
-    void UserSceneReset();
+    void Invisible();
+    void Visible();
 
 };
 
 
-int* zPlayerInputNS::GetPadManager() { return &zPlayerInputNS::padManager; }
-void zPlayerInputNS::GetDebugPad() { ((zPlayerInputPadMgr*)&zPlayerInputNS::padManager)->GetDebugPad(); }
-void zPlayerInputNS::UserSceneReset() { ((zPlayerInputPadMgr*)&zPlayerInputNS::padManager)->UserSceneReset(); }
+void zUIImage::Visible() { zUI::Visible(); }
+void zUIImage::Invisible() { zUI::Invisible(); }

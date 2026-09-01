@@ -13,6 +13,46 @@
 // Members are non-virtual, and the padding is padding -- only the
 // offsets each function touches are known, not the fields between.
 
+// Each class below stands in for one a member points at.
+// Nothing NAMES that class -- these five words carry no
+// relocation -- so it is named after where it was found,
+// and holds virtuals only up to the slot that is called.
+class xCamBlend_m148 {
+public:
+    virtual void _v0() const;
+    virtual void _v1() const;
+    virtual void _v2() const;
+    virtual void _v3() const;
+    virtual void _v4() const;
+    virtual void _v5() const;
+    virtual void _v6() const;
+    virtual void _v7() const;
+    virtual void _v8() const;
+    virtual void _v9() const;
+    virtual void _v10() const;
+    virtual void _v11() const;
+    virtual void _v12() const;
+    virtual void _v13() const;
+    virtual void _v14() const;
+};
+class xCamBlend_m14C {
+public:
+    virtual void _v0() const;
+    virtual void _v1() const;
+};
+
+
+class xCamBlend {
+public:
+    void get_final_dest() const;
+    void get_zCam2Player() const;
+
+    unsigned char _pad0[0x148];
+    int f148;
+    int f14C;
+};
+
+
 namespace Debug {
 
 class QuaternionFormatter {
@@ -35,5 +75,7 @@ public:
 };
 
 
+void xCamBlend::get_final_dest() const { ((xCamBlend_m14C*)f14C)->_v1(); }
+void xCamBlend::get_zCam2Player() const { ((xCamBlend_m148*)f148)->_v14(); }
 Debug::QuaternionFormatter::QuaternionFormatter() {}
 bit_array_alloc::bit_array_alloc() { f0 = 0; f4 = 0; f8 = 0; }

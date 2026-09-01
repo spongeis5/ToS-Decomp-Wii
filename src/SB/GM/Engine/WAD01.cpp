@@ -13,6 +13,9 @@
 // Members are non-virtual, and the padding is padding -- only the
 // offsets each function touches are known, not the fields between.
 
+class xAnimSingle;
+class xAnimTransition;
+
 
 class zPlayerAction {
 public:
@@ -20,6 +23,13 @@ public:
     unsigned char _pad[0xC];
 };
 
+
+// The two dereferences every animation callback makes.
+// Nothing in the image NAMES either type, so both are
+// spelled as the offsets that were measured. Neither
+// struct emits a symbol.
+struct AnimCBSlot { unsigned char _pad[0x90]; void* owner; };
+struct AnimCBHolder { unsigned char _pad[0x4]; AnimCBSlot* slot; };
 
 
 class zCommonPlayerAction : public zPlayerAction {
@@ -159,12 +169,105 @@ public:
 
 
 
+class zPlayerIdleBoard {
+public:
+    static void anExtraIdleCB(xAnimTransition* a0, xAnimSingle* a1, void* a2);
+    void ExtraIdleCB(xAnimTransition* a0, xAnimSingle* a1);
+    static void anExtraIdleCheck(xAnimTransition* a0, xAnimSingle* a1, void* a2);
+    void ExtraIdleCheck(xAnimTransition* a0, xAnimSingle* a1);
+
+};
+
+
+
 class zPlayerTurn180Board {
 public:
     void Begin();
 
     unsigned char _pad0[0x1C];
     unsigned char f1C;
+};
+
+
+
+class zPlayerFallBoard {
+public:
+    static void anFallHighCheck(xAnimTransition* a0, xAnimSingle* a1, void* a2);
+    void FallHighCheck(xAnimTransition* a0, xAnimSingle* a1);
+
+};
+
+
+
+class zBoardPlayerHammerAttack {
+public:
+    static void anSpongebuffHammerSplashCB(xAnimTransition* a0, xAnimSingle* a1, void* a2);
+    void SpongebuffHammerSplashCB(xAnimTransition* a0, xAnimSingle* a1);
+
+};
+
+
+
+class zBoardPlayerPuckAttack {
+public:
+    static void anAimPuckCheck(xAnimTransition* a0, xAnimSingle* a1, void* a2);
+    void AimPuckCheck(xAnimTransition* a0, xAnimSingle* a1);
+    static void anFirePuckCB(xAnimTransition* a0, xAnimSingle* a1, void* a2);
+    void FirePuckCB(xAnimTransition* a0, xAnimSingle* a1);
+    static void anShootPuckCheck(xAnimTransition* a0, xAnimSingle* a1, void* a2);
+    void ShootPuckCheck(xAnimTransition* a0, xAnimSingle* a1);
+
+};
+
+
+
+class zPlayerHitBoard {
+public:
+    static void anHammerHitCB(xAnimTransition* a0, xAnimSingle* a1, void* a2);
+    void HammerHitCB(xAnimTransition* a0, xAnimSingle* a1);
+
+};
+
+
+
+class zBoardPlayerHammerPowerupAttack {
+public:
+    static void anAttackPushCB(xAnimTransition* a0, xAnimSingle* a1, void* a2);
+    void AttackPushCB(xAnimTransition* a0, xAnimSingle* a1);
+    static void anSplashCB(xAnimTransition* a0, xAnimSingle* a1, void* a2);
+    void SplashCB(xAnimTransition* a0, xAnimSingle* a1);
+
+};
+
+
+
+class zBoardPlayerPuckPowerupAttack {
+public:
+    static void anFirePuckCB(xAnimTransition* a0, xAnimSingle* a1, void* a2);
+    void FirePuckCB(xAnimTransition* a0, xAnimSingle* a1);
+
+};
+
+
+
+class zBoardPlayerKelpTrap {
+public:
+    static void anKelpReleaseCheck(xAnimTransition* a0, xAnimSingle* a1, void* a2);
+    void KelpReleaseCheck(xAnimTransition* a0, xAnimSingle* a1);
+
+};
+
+
+
+class zPlayerSlide {
+public:
+    static void anSlideJumpApexCheck(xAnimTransition* a0, xAnimSingle* a1, void* a2);
+    void SlideJumpApexCheck(xAnimTransition* a0, xAnimSingle* a1);
+    static void anSlideJumpCheck(xAnimTransition* a0, xAnimSingle* a1, void* a2);
+    void SlideJumpCheck(xAnimTransition* a0, xAnimSingle* a1);
+    static void anSlideLandCheck(xAnimTransition* a0, xAnimSingle* a1, void* a2);
+    void SlideLandCheck(xAnimTransition* a0, xAnimSingle* a1);
+
 };
 
 
@@ -206,7 +309,22 @@ zPlayerCustomAnim::zPlayerCustomAnim() : zCommonPlayerAction() {}
 zPlayerCheat::zPlayerCheat() : zCommonPlayerAction() {}
 float zBoardPlayer::GetRigidBodyHeight() { return fAA4; }
 const int* zPlayer::GetFloorNormal() const { return &f160; }
+void zPlayerIdleBoard::anExtraIdleCB(xAnimTransition* a0, xAnimSingle* a1, void* a2) { ((zPlayerIdleBoard*)((AnimCBHolder*)a1)->slot->owner)->ExtraIdleCB(a0, a1); }
+void zPlayerIdleBoard::anExtraIdleCheck(xAnimTransition* a0, xAnimSingle* a1, void* a2) { ((zPlayerIdleBoard*)((AnimCBHolder*)a1)->slot->owner)->ExtraIdleCheck(a0, a1); }
 void zPlayerTurn180Board::Begin() { f1C = 0; }
+void zPlayerFallBoard::anFallHighCheck(xAnimTransition* a0, xAnimSingle* a1, void* a2) { ((zPlayerFallBoard*)((AnimCBHolder*)a1)->slot->owner)->FallHighCheck(a0, a1); }
+void zBoardPlayerHammerAttack::anSpongebuffHammerSplashCB(xAnimTransition* a0, xAnimSingle* a1, void* a2) { ((zBoardPlayerHammerAttack*)((AnimCBHolder*)a1)->slot->owner)->SpongebuffHammerSplashCB(a0, a1); }
+void zBoardPlayerPuckAttack::anAimPuckCheck(xAnimTransition* a0, xAnimSingle* a1, void* a2) { ((zBoardPlayerPuckAttack*)((AnimCBHolder*)a1)->slot->owner)->AimPuckCheck(a0, a1); }
+void zBoardPlayerPuckAttack::anShootPuckCheck(xAnimTransition* a0, xAnimSingle* a1, void* a2) { ((zBoardPlayerPuckAttack*)((AnimCBHolder*)a1)->slot->owner)->ShootPuckCheck(a0, a1); }
+void zBoardPlayerPuckAttack::anFirePuckCB(xAnimTransition* a0, xAnimSingle* a1, void* a2) { ((zBoardPlayerPuckAttack*)((AnimCBHolder*)a1)->slot->owner)->FirePuckCB(a0, a1); }
+void zPlayerHitBoard::anHammerHitCB(xAnimTransition* a0, xAnimSingle* a1, void* a2) { ((zPlayerHitBoard*)((AnimCBHolder*)a1)->slot->owner)->HammerHitCB(a0, a1); }
+void zBoardPlayerHammerPowerupAttack::anAttackPushCB(xAnimTransition* a0, xAnimSingle* a1, void* a2) { ((zBoardPlayerHammerPowerupAttack*)((AnimCBHolder*)a1)->slot->owner)->AttackPushCB(a0, a1); }
+void zBoardPlayerHammerPowerupAttack::anSplashCB(xAnimTransition* a0, xAnimSingle* a1, void* a2) { ((zBoardPlayerHammerPowerupAttack*)((AnimCBHolder*)a1)->slot->owner)->SplashCB(a0, a1); }
+void zBoardPlayerPuckPowerupAttack::anFirePuckCB(xAnimTransition* a0, xAnimSingle* a1, void* a2) { ((zBoardPlayerPuckPowerupAttack*)((AnimCBHolder*)a1)->slot->owner)->FirePuckCB(a0, a1); }
+void zBoardPlayerKelpTrap::anKelpReleaseCheck(xAnimTransition* a0, xAnimSingle* a1, void* a2) { ((zBoardPlayerKelpTrap*)((AnimCBHolder*)a1)->slot->owner)->KelpReleaseCheck(a0, a1); }
+void zPlayerSlide::anSlideJumpCheck(xAnimTransition* a0, xAnimSingle* a1, void* a2) { ((zPlayerSlide*)((AnimCBHolder*)a1)->slot->owner)->SlideJumpCheck(a0, a1); }
+void zPlayerSlide::anSlideJumpApexCheck(xAnimTransition* a0, xAnimSingle* a1, void* a2) { ((zPlayerSlide*)((AnimCBHolder*)a1)->slot->owner)->SlideJumpApexCheck(a0, a1); }
+void zPlayerSlide::anSlideLandCheck(xAnimTransition* a0, xAnimSingle* a1, void* a2) { ((zPlayerSlide*)((AnimCBHolder*)a1)->slot->owner)->SlideLandCheck(a0, a1); }
 ProjectileCollisionDetails::ProjectileCollisionDetails() { f0 = 0; f4 = 0; f2C = 0; }
 void hkpCdBodyPairCollector::reset() { f4 = 0; }
 #pragma dont_inline off

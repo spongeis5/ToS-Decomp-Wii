@@ -510,11 +510,13 @@ public:
 
 
 
-class zAnimViewerCamera {
+class zBTConditionTrue {
 public:
-    virtual void __vtable_anchor();
-    zAnimViewerCamera();
+    unsigned int GetTypeID() const;
+    zBTConditionTrue();
 
+    unsigned char _vbase[0x8];
+    virtual void __vtable_anchor();
 };
 
 
@@ -522,14 +524,18 @@ public:
 class zBTConditionFalse {
 public:
     unsigned int GetTypeID() const;
+    zBTConditionFalse();
 
+    unsigned char _vbase[0x8];
+    virtual void __vtable_anchor();
 };
 
 
 
-class zBTConditionTrue {
+class zAnimViewerCamera {
 public:
-    unsigned int GetTypeID() const;
+    virtual void __vtable_anchor();
+    zAnimViewerCamera();
 
 };
 
@@ -597,6 +603,8 @@ float zCamDriver::getCurrentHeight() const { return f1B0; }
 zAchievementsMgr::zAchievementsMgr() : zModule() {}
 zBTActionAlwaysComplete::zBTActionAlwaysComplete() : zBTAction() {}
 zBTActionAlwaysFail::zBTActionAlwaysFail() : zBTAction() {}
+zBTConditionTrue::zBTConditionTrue() {}
+zBTConditionFalse::zBTConditionFalse() {}
 zAnimViewerCamera::zAnimViewerCamera() {}
 unsigned int zBTConditionFalse::GetTypeID() const { return 0x2EF3935Cu; }
 unsigned int zBTConditionTrue::GetTypeID() const { return 0x89176D7Du; }

@@ -63,9 +63,72 @@ public:
 };
 
 
+namespace zNPCAnimViewer {
+
+class Type {
+public:
+    Type();
+
+    unsigned char _vbase[0x38];
+    virtual void __vtable_anchor();
+};
+
+}  // namespace zNPCAnimViewer
+
+namespace zNPCGeneric {
+
+class Type {
+public:
+    Type();
+
+    unsigned char _vbase[0x38];
+    virtual void __vtable_anchor();
+};
+
+}  // namespace zNPCGeneric
+
+namespace zNPCUPGeneric {
+
+class Type {
+public:
+    Type();
+
+    unsigned char _vbase[0x38];
+    virtual void __vtable_anchor();
+};
+
+}  // namespace zNPCUPGeneric
+
+namespace zNPCGenericSwarm {
+
+class Type {
+public:
+    Type();
+
+    unsigned char _vbase[0x38];
+    virtual void __vtable_anchor();
+};
+
+}  // namespace zNPCGenericSwarm
+
+
+class zNPCGroupType {
+public:
+    zNPCGroupType();
+
+    unsigned char _vbase[0xC];
+    virtual void __vtable_anchor();
+};
+
+
 #pragma dont_inline on
 int zNPCBTClientBase::GetOwner() const { return f1A0; }
 Graphics::LightKitData::LightKitData() { f70 = 0; f74 = 0; f78 = 0; }
 zNPCManager::zNPCManager() : zModule() {}
 zNPCNinjaManager::zNPCNinjaManager() : zModule() {}
+zNPCAnimViewer::Type::Type() {}
+zNPCGeneric::Type::Type() {}
+zNPCUPGeneric::Type::Type() {}
+zNPCGenericSwarm::Type::Type() {}
+zNPCGroupType::zNPCGroupType() {}
 #pragma dont_inline off

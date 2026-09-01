@@ -13,7 +13,16 @@
 // Members are non-virtual, and the padding is padding -- only the
 // offsets each function touches are known, not the fields between.
 
+class xAnimSingle;
+class xAnimTransition;
 class zNPCBase;
+
+// The two dereferences every animation callback makes.
+// Nothing in the image NAMES either type, so both are
+// spelled as the offsets that were measured. Neither
+// struct emits a symbol.
+struct AnimCBSlot { unsigned char _pad[0x90]; void* owner; };
+struct AnimCBHolder { unsigned char _pad[0x4]; AnimCBSlot* slot; };
 
 
 class zDirection {
@@ -42,6 +51,17 @@ public:
 
 
 
+class zPlayerIdle {
+public:
+    static void anIdleCB(xAnimTransition* a0, xAnimSingle* a1, void* a2);
+    void IdleCB(xAnimTransition* a0, xAnimSingle* a1);
+    static void anInactiveIdleCB(xAnimTransition* a0, xAnimSingle* a1, void* a2);
+    void InactiveIdleCB(xAnimTransition* a0, xAnimSingle* a1);
+
+};
+
+
+
 class zPlayerSlip {
 public:
     void Reset();
@@ -62,6 +82,15 @@ public:
 
 
 
+class zPlayerFall {
+public:
+    static void anFallHighCheck(xAnimTransition* a0, xAnimSingle* a1, void* a2);
+    void FallHighCheck(xAnimTransition* a0, xAnimSingle* a1);
+
+};
+
+
+
 class zPlayerTriggered {
 public:
     void Reset();
@@ -72,9 +101,45 @@ public:
 
 
 
+class zPlayerLedge {
+public:
+    static void anLedgeGrabUpCB(xAnimTransition* a0, xAnimSingle* a1, void* a2);
+    void LedgeGrabUpCB(xAnimTransition* a0, xAnimSingle* a1);
+
+};
+
+
+
 class zCommonPlayerDash {
 public:
     unsigned int GetID();
+    static void anEndCheck(xAnimTransition* a0, xAnimSingle* a1, void* a2);
+    void EndCheck(xAnimTransition* a0, xAnimSingle* a1);
+
+};
+
+
+
+class zPlayerCustomAnim {
+public:
+    static void anLoopToLoopCheck(xAnimTransition* a0, xAnimSingle* a1, void* a2);
+    void LoopToLoopCheck(xAnimTransition* a0, xAnimSingle* a1);
+    static void anLoopToTran1Check(xAnimTransition* a0, xAnimSingle* a1, void* a2);
+    void LoopToTran1Check(xAnimTransition* a0, xAnimSingle* a1);
+    static void anLoopToTran2Check(xAnimTransition* a0, xAnimSingle* a1, void* a2);
+    void LoopToTran2Check(xAnimTransition* a0, xAnimSingle* a1);
+    static void anTranToLoop1Check(xAnimTransition* a0, xAnimSingle* a1, void* a2);
+    void TranToLoop1Check(xAnimTransition* a0, xAnimSingle* a1);
+    static void anTranToLoop1DefCheck(xAnimTransition* a0, xAnimSingle* a1, void* a2);
+    void TranToLoop1DefCheck(xAnimTransition* a0, xAnimSingle* a1);
+    static void anTranToLoop2Check(xAnimTransition* a0, xAnimSingle* a1, void* a2);
+    void TranToLoop2Check(xAnimTransition* a0, xAnimSingle* a1);
+    static void anTranToLoop2DefCheck(xAnimTransition* a0, xAnimSingle* a1, void* a2);
+    void TranToLoop2DefCheck(xAnimTransition* a0, xAnimSingle* a1);
+    static void anTranToTranCheck(xAnimTransition* a0, xAnimSingle* a1, void* a2);
+    void TranToTranCheck(xAnimTransition* a0, xAnimSingle* a1);
+    static void anTranToTranDefCheck(xAnimTransition* a0, xAnimSingle* a1, void* a2);
+    void TranToTranDefCheck(xAnimTransition* a0, xAnimSingle* a1);
 
 };
 
@@ -83,7 +148,21 @@ float zDirection::GetYaw() { return f4C; }
 const int* zCommonPlayer::GetFloorPosition() const { return &f154; }
 void zCommonPlayer::ZeroPointGrab(zNPCBase* value) { f7A8 = (int)value; }
 void zCommonPlayer::ZeroPointResetState() { f7A8 = 0; f7AC = 0; f7B0 = 0; }
+void zPlayerIdle::anInactiveIdleCB(xAnimTransition* a0, xAnimSingle* a1, void* a2) { ((zPlayerIdle*)((AnimCBHolder*)a1)->slot->owner)->InactiveIdleCB(a0, a1); }
+void zPlayerIdle::anIdleCB(xAnimTransition* a0, xAnimSingle* a1, void* a2) { ((zPlayerIdle*)((AnimCBHolder*)a1)->slot->owner)->IdleCB(a0, a1); }
 void zPlayerSlip::Reset() { f10 = 0; }
 void zPlayerJump::End() { f10 = 0; }
+void zPlayerFall::anFallHighCheck(xAnimTransition* a0, xAnimSingle* a1, void* a2) { ((zPlayerFall*)((AnimCBHolder*)a1)->slot->owner)->FallHighCheck(a0, a1); }
 void zPlayerTriggered::Reset() { f24 = 4; }
+void zPlayerLedge::anLedgeGrabUpCB(xAnimTransition* a0, xAnimSingle* a1, void* a2) { ((zPlayerLedge*)((AnimCBHolder*)a1)->slot->owner)->LedgeGrabUpCB(a0, a1); }
 unsigned int zCommonPlayerDash::GetID() { return 0x0000000Fu; }
+void zCommonPlayerDash::anEndCheck(xAnimTransition* a0, xAnimSingle* a1, void* a2) { ((zCommonPlayerDash*)((AnimCBHolder*)a1)->slot->owner)->EndCheck(a0, a1); }
+void zPlayerCustomAnim::anTranToTranDefCheck(xAnimTransition* a0, xAnimSingle* a1, void* a2) { ((zPlayerCustomAnim*)((AnimCBHolder*)a1)->slot->owner)->TranToTranDefCheck(a0, a1); }
+void zPlayerCustomAnim::anTranToLoop1DefCheck(xAnimTransition* a0, xAnimSingle* a1, void* a2) { ((zPlayerCustomAnim*)((AnimCBHolder*)a1)->slot->owner)->TranToLoop1DefCheck(a0, a1); }
+void zPlayerCustomAnim::anTranToLoop2DefCheck(xAnimTransition* a0, xAnimSingle* a1, void* a2) { ((zPlayerCustomAnim*)((AnimCBHolder*)a1)->slot->owner)->TranToLoop2DefCheck(a0, a1); }
+void zPlayerCustomAnim::anTranToTranCheck(xAnimTransition* a0, xAnimSingle* a1, void* a2) { ((zPlayerCustomAnim*)((AnimCBHolder*)a1)->slot->owner)->TranToTranCheck(a0, a1); }
+void zPlayerCustomAnim::anTranToLoop1Check(xAnimTransition* a0, xAnimSingle* a1, void* a2) { ((zPlayerCustomAnim*)((AnimCBHolder*)a1)->slot->owner)->TranToLoop1Check(a0, a1); }
+void zPlayerCustomAnim::anTranToLoop2Check(xAnimTransition* a0, xAnimSingle* a1, void* a2) { ((zPlayerCustomAnim*)((AnimCBHolder*)a1)->slot->owner)->TranToLoop2Check(a0, a1); }
+void zPlayerCustomAnim::anLoopToLoopCheck(xAnimTransition* a0, xAnimSingle* a1, void* a2) { ((zPlayerCustomAnim*)((AnimCBHolder*)a1)->slot->owner)->LoopToLoopCheck(a0, a1); }
+void zPlayerCustomAnim::anLoopToTran1Check(xAnimTransition* a0, xAnimSingle* a1, void* a2) { ((zPlayerCustomAnim*)((AnimCBHolder*)a1)->slot->owner)->LoopToTran1Check(a0, a1); }
+void zPlayerCustomAnim::anLoopToTran2Check(xAnimTransition* a0, xAnimSingle* a1, void* a2) { ((zPlayerCustomAnim*)((AnimCBHolder*)a1)->slot->owner)->LoopToTran2Check(a0, a1); }

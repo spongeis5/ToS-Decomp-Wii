@@ -373,6 +373,26 @@ def decode(body):
     if n % 4 or n < 8:
         return None
     ws = [struct.unpack_from(">I", body, i)[0] for i in range(0, n, 4)]
+
+    if n == 24:
+        # An animation callback: a static member forwarding to a member
+        # function on the object the animation belongs to. All 54 in the
+        # image share ONE register assignment, so every word but the two
+        # offsets and the call is required exactly -- the same discipline
+        # the constructor shape uses. A variant would simply not match.
+        if (ws[1] == 0x7C601B78 and ws[2] == 0x7C852378
+                and ws[4] == 0x7C040378
+                and (ws[0] >> 26) == 32 and ((ws[0] >> 21) & 31) == 6
+                and ((ws[0] >> 16) & 31) == 4 and not ws[0] & 0x8000
+                and (ws[3] >> 26) == 32 and ((ws[3] >> 21) & 31) == 3
+                and ((ws[3] >> 16) & 31) == 6 and not ws[3] & 0x8000
+                and (ws[5] >> 26) == 18 and (ws[5] & 3) == 0):
+            rel = ws[5] & 0x03FFFFFC
+            if rel & 0x02000000:
+                rel -= 0x04000000
+            return ("animcb", rel, ws[0] & 0xFFFF, ws[3] & 0xFFFF)
+        return None
+
     if ws[-1] != BLR:
         return None
 
@@ -495,6 +515,12 @@ def decode(body):
 
 def reencode(shape):
     kind = shape[0]
+    if kind == "animcb":
+        rel, holder, slot = shape[1], shape[2], shape[3]
+        return struct.pack(">IIIIII",
+                           0x80C40000 | holder, 0x7C601B78, 0x7C852378,
+                           0x80660000 | slot, 0x7C040378,
+                           0x48000000 | (rel & 0x03FFFFFC))
     if kind == "ref":
         return struct.pack(">II", 0x38630000 | shape[1], BLR)
     if kind in ("get", "set"):
@@ -596,7 +622,7 @@ def symbols():
                 continue
             for s in sec.iter_symbols():
                 if (s["st_info"]["type"] == "STT_FUNC"
-                        and s["st_size"] in (8, 12, 16, 20, 60)):
+                        and s["st_size"] in (8, 12, 16, 20, 24, 60)):
                     out.append((s["st_value"], s["st_size"], s.name))
     out.sort()
     return out
@@ -777,6 +803,25 @@ def candidates(raw, base, foff, syms, lo, hi):
             if base_cls == (tuple(ns), cls):
                 skipped["a class cannot be its own base"] += 1
                 continue
+        elif shape[0] == "animcb":
+            if cls is None or not method.startswith("an") or len(method) < 3:
+                skipped["an animation callback is a member whose name "
+                        "starts with an"] += 1
+                continue
+            if args != "P15xAnimTransitionP11xAnimSinglePv":
+                skipped["an animation callback takes (xAnimTransition*, "
+                        "xAnimSingle*, void*)"] += 1
+                continue
+            tgt = (addr + 20 + shape[1]) & 0xFFFFFFFF
+            tname = function_symbols().get(tgt)
+            want = ("%s__%sF%s"
+                    % (method[2:], mangle_type(("name", tuple(ns) + (cls,))),
+                        args[:-2]))
+            if tname != want:
+                skipped["the call target is not this class's own %s"
+                        % ("<name without an>",)] += 1
+                continue
+            shape = shape + (method[2:],)
         elif shape[0] == "vtable":
             got_sym = data_symbols().get(shape[1])
             want = ("__vt__" + mangle_type(("name", tuple(ns) + (cls,)))
@@ -786,11 +831,8 @@ def candidates(raw, base, foff, syms, lo, hi):
                     skipped["only a constructor stores the vtable "
                             "pointer"] += 1
                     continue
-                if shape[2] != 0:
-                    # The vptr sits after a base class subobject, and how
-                    # many bytes of base there are is not in these four
-                    # words.
-                    skipped["the vtable pointer is not at offset 0"] += 1
+                if shape[2] % 4:
+                    skipped["the vtable pointer is not four-aligned"] += 1
                     continue
             else:
                 # Not a vtable: a member set to the address of some other
@@ -943,7 +985,8 @@ def field_types(good, skipped):
     # A class whose constructor stores a vtable pointer has one at offset
     # 0, put there by the compiler and not by us. Nothing may be declared
     # in those four bytes, or every field after it lands four too far on.
-    poly = {(c["ns"], c["cls"]) for c in good if c["shape"][0] == "vtable"}
+    poly = {(c["ns"], c["cls"]) for c in good
+            if c["shape"][0] == "vtable" and not c["shape"][2]}
 
     # Lay each class out and refuse one that cannot be: an offset that is
     # not aligned for its type, or a field that would overlap the next.
@@ -969,6 +1012,18 @@ def field_types(good, skipped):
         key = (c["ns"], c["cls"])
         if c["shape"][0] == "basector" and key in laid_out:
             skipped["a base constructor on a class whose layout is also "
+                    "measured"] += 1
+            continue
+        if (c["shape"][0] == "vtable" and c["shape"][2]
+                and any(offsets_of(o["shape"]) for o in good
+                        if (o["ns"], o["cls"]) == key)):
+            # The vptr is at N, so N bytes in front of it belong to a base
+            # subobject -- and every other offset measured for this class
+            # is from the start of the WHOLE object, not from where its own
+            # members begin. Which of them fall inside the base is not in
+            # these bytes, so the constructor goes rather than a layout be
+            # guessed at. Same rule the base constructor gets.
+            skipped["a vtable at an offset on a class whose layout is also "
                     "measured"] += 1
             continue
         if any((key, off) in bad for off, _t in offsets_of(c["shape"])):
@@ -1024,6 +1079,18 @@ def offsets_of(shape):
 
 def has_vtable(cands):
     return any(c["shape"][0] in ("vtable", "basector") for c in cands)
+
+
+def vptr_pad(cands):
+    """Bytes in front of this class's own vptr, from where it is stored.
+
+    Zero means the vptr is at the start of the object, which is the plain
+    case and needs nothing written.
+    """
+    for c in cands:
+        if c["shape"][0] == "vtable" and c["shape"][2]:
+            return c["shape"][2]
+    return 0
 
 
 def base_of(cands):
@@ -1247,6 +1314,28 @@ def main():
             L.append("}  // namespace %s" % n)
         L.append("")
 
+    poly = {(c["ns"], c["cls"]) for c in good
+            if c["shape"][0] == "vtable" and not c["shape"][2]}
+
+    cbs = [c for c in good if c["shape"][0] == "animcb"]
+    if cbs:
+        holder = {c["shape"][2] for c in cbs}
+        slot = {c["shape"][3] for c in cbs}
+        if len(holder) != 1 or len(slot) != 1:
+            sys.exit("gen_accessors: the animation callbacks in this unit "
+                     "do not agree on their offsets (%s / %s) -- refusing "
+                     "to emit one layout for two"
+                     % (sorted(holder), sorted(slot)))
+        L.append("// The two dereferences every animation callback makes.")
+        L.append("// Nothing in the image NAMES either type, so both are")
+        L.append("// spelled as the offsets that were measured. Neither")
+        L.append("// struct emits a symbol.")
+        L.append("struct AnimCBSlot { unsigned char _pad[0x%X]; void* owner; "
+                 "};" % slot.pop())
+        L.append("struct AnimCBHolder { unsigned char _pad[0x%X]; "
+                 "AnimCBSlot* slot; };" % holder.pop())
+        L.append("")
+
     for key in class_order(methods):
         ns, cls = list(key[0]), key[1]
         b = base_of(methods[key])
@@ -1261,7 +1350,8 @@ def main():
         L.append("public:")
         for name, ctype in sorted(statics.get(key, [])):
             L.append("    static %s %s;" % (ctype, name))
-        if has_vtable(methods[key]):
+        vpad = vptr_pad(methods[key])
+        if has_vtable(methods[key]) and not vpad:
             # One virtual is all it takes to make the compiler emit
             # __vt__<class> and have the constructor store it. Which
             # virtuals the real class had is not in these bytes, so the
@@ -1276,7 +1366,15 @@ def main():
             seen.add(decl)
             L.append(decl)
         L.append("")
-        pad = 0
+        if vpad:
+            # The vptr is at vpad, so vpad bytes of something precede it.
+            # A leading data member puts it there; what those bytes ARE is
+            # not in the four words this was read from.
+            L.append("    unsigned char _vbase[0x%X];" % vpad)
+            L.append("    virtual void __vtable_anchor();")
+            pad = vpad + 4
+        else:
+            pad = 4 if key in poly else 0
         for i, off in enumerate(sorted(fields[key])):
             if off > pad:
                 L.append("    unsigned char _pad%d[0x%X];" % (i, off - pad))
@@ -1400,6 +1498,11 @@ def declare(c, flds):
         t = ref_type(c, flds)
         return "    %s* %s(%s)%s;" % (t, c["method"],
                                       param_decls(c["params"], False), cst)
+    if kind == "animcb":
+        return ("    static void %s(%s);" + chr(10)
+                + "    void %s(%s);") % (
+            c["method"], param_decls(c["params"], False),
+            c["shape"][4], param_decls(c["params"][:-1], False))
     if kind == "constret":
         return "    unsigned int %s(%s)%s;" % (
             c["method"], param_decls(c["params"], False), cst)
@@ -1445,6 +1548,11 @@ def define(c, flds):
                         for _ctype, off in c["shape"][2])
         return "%s::%s(%s) { %s }" % (q, c["cls"],
                                       param_decls(c["params"], False), body)
+    if kind == "animcb":
+        return ("void %s::%s(%s) { ((%s*)((AnimCBHolder*)a1)->slot->owner)"
+                "->%s(a0, a1); }"
+                % (q, c["method"], param_decls(c["params"], False), q,
+                   c["shape"][4]))
     if kind == "get":
         return "%s %s::%s(%s)%s { return f%X; }" % (
             c["shape"][1], q, c["method"], param_decls(c["params"], False),

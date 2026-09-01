@@ -13,6 +13,9 @@
 // Members are non-virtual, and the padding is padding -- only the
 // offsets each function touches are known, not the fields between.
 
+class xAnimSingle;
+class xAnimTransition;
+
 
 class hkpClosestRayHitCollector {
 public:
@@ -28,6 +31,13 @@ public:
     unsigned char _pad[0xC];
 };
 
+
+// The two dereferences every animation callback makes.
+// Nothing in the image NAMES either type, so both are
+// spelled as the offsets that were measured. Neither
+// struct emits a symbol.
+struct AnimCBSlot { unsigned char _pad[0x90]; void* owner; };
+struct AnimCBHolder { unsigned char _pad[0x4]; AnimCBSlot* slot; };
 
 
 class zSBPlayerAction : public zCommonPlayerAction {
@@ -57,6 +67,119 @@ public:
 
 
 
+class zPlayerIdleSB {
+public:
+    static void anExtraIdleCB(xAnimTransition* a0, xAnimSingle* a1, void* a2);
+    void ExtraIdleCB(xAnimTransition* a0, xAnimSingle* a1);
+    static void anExtraIdleDontFaceCamBuffCheck(xAnimTransition* a0, xAnimSingle* a1, void* a2);
+    void ExtraIdleDontFaceCamBuffCheck(xAnimTransition* a0, xAnimSingle* a1);
+    static void anExtraIdleDontFaceCamCheck(xAnimTransition* a0, xAnimSingle* a1, void* a2);
+    void ExtraIdleDontFaceCamCheck(xAnimTransition* a0, xAnimSingle* a1);
+    static void anExtraIdleFaceCamBuffCheck(xAnimTransition* a0, xAnimSingle* a1, void* a2);
+    void ExtraIdleFaceCamBuffCheck(xAnimTransition* a0, xAnimSingle* a1);
+    static void anExtraIdleFaceCamCheck(xAnimTransition* a0, xAnimSingle* a1, void* a2);
+    void ExtraIdleFaceCamCheck(xAnimTransition* a0, xAnimSingle* a1);
+    static void anIdleAgingCrumbleCheck(xAnimTransition* a0, xAnimSingle* a1, void* a2);
+    void IdleAgingCrumbleCheck(xAnimTransition* a0, xAnimSingle* a1);
+    static void anIdleAgingNextCheck(xAnimTransition* a0, xAnimSingle* a1, void* a2);
+    void IdleAgingNextCheck(xAnimTransition* a0, xAnimSingle* a1);
+    static void anIdleAgingOutCheck(xAnimTransition* a0, xAnimSingle* a1, void* a2);
+    void IdleAgingOutCheck(xAnimTransition* a0, xAnimSingle* a1);
+    static void anIdleAgingOutColdCheck(xAnimTransition* a0, xAnimSingle* a1, void* a2);
+    void IdleAgingOutColdCheck(xAnimTransition* a0, xAnimSingle* a1);
+    static void anIdleAgingStartCheck(xAnimTransition* a0, xAnimSingle* a1, void* a2);
+    void IdleAgingStartCheck(xAnimTransition* a0, xAnimSingle* a1);
+    static void anResetExtraIdleVarsCB(xAnimTransition* a0, xAnimSingle* a1, void* a2);
+    void ResetExtraIdleVarsCB(xAnimTransition* a0, xAnimSingle* a1);
+    static void anTurnLeftCheck(xAnimTransition* a0, xAnimSingle* a1, void* a2);
+    void TurnLeftCheck(xAnimTransition* a0, xAnimSingle* a1);
+    static void anTurnRightCheck(xAnimTransition* a0, xAnimSingle* a1, void* a2);
+    void TurnRightCheck(xAnimTransition* a0, xAnimSingle* a1);
+
+};
+
+
+
+class zPlayerFallSB {
+public:
+    static void anFallHighCheck(xAnimTransition* a0, xAnimSingle* a1, void* a2);
+    void FallHighCheck(xAnimTransition* a0, xAnimSingle* a1);
+
+};
+
+
+
+class zSBPlayerHammerAttack {
+public:
+    static void anHammerInterruptMedCheck(xAnimTransition* a0, xAnimSingle* a1, void* a2);
+    void HammerInterruptMedCheck(xAnimTransition* a0, xAnimSingle* a1);
+    static void anHammerSplashCB(xAnimTransition* a0, xAnimSingle* a1, void* a2);
+    void HammerSplashCB(xAnimTransition* a0, xAnimSingle* a1);
+
+};
+
+
+
+class zSBPlayerPuckAttack {
+public:
+    static void anAimPuckCheck(xAnimTransition* a0, xAnimSingle* a1, void* a2);
+    void AimPuckCheck(xAnimTransition* a0, xAnimSingle* a1);
+    static void anFirePuckCB(xAnimTransition* a0, xAnimSingle* a1, void* a2);
+    void FirePuckCB(xAnimTransition* a0, xAnimSingle* a1);
+    static void anShootPuckCheck(xAnimTransition* a0, xAnimSingle* a1, void* a2);
+    void ShootPuckCheck(xAnimTransition* a0, xAnimSingle* a1);
+
+};
+
+
+
+class zPlayerHitSB {
+public:
+    static void anHammerHitCB(xAnimTransition* a0, xAnimSingle* a1, void* a2);
+    void HammerHitCB(xAnimTransition* a0, xAnimSingle* a1);
+
+};
+
+
+
+class zSBPlayerHammerPowerupAttack {
+public:
+    static void anAttackPushCB(xAnimTransition* a0, xAnimSingle* a1, void* a2);
+    void AttackPushCB(xAnimTransition* a0, xAnimSingle* a1);
+    static void anSplashCB(xAnimTransition* a0, xAnimSingle* a1, void* a2);
+    void SplashCB(xAnimTransition* a0, xAnimSingle* a1);
+
+};
+
+
+
+class zSBPlayerPuckPowerupAttack {
+public:
+    static void anFirePuckCB(xAnimTransition* a0, xAnimSingle* a1, void* a2);
+    void FirePuckCB(xAnimTransition* a0, xAnimSingle* a1);
+
+};
+
+
+
+class zSBPlayerKelpTrap {
+public:
+    static void anKelpReleaseCheck(xAnimTransition* a0, xAnimSingle* a1, void* a2);
+    void KelpReleaseCheck(xAnimTransition* a0, xAnimSingle* a1);
+
+};
+
+
+
+class zPlayerDefeatedSB {
+public:
+    static void anFaceCameraCB(xAnimTransition* a0, xAnimSingle* a1, void* a2);
+    void FaceCameraCB(xAnimTransition* a0, xAnimSingle* a1);
+
+};
+
+
+
 class zPlayerSingleCustomAnimSB {
 public:
     void Reset();
@@ -72,5 +195,30 @@ public:
 zSBPlayerAction::zSBPlayerAction() : zCommonPlayerAction() {}
 zPlayerLandSB::zPlayerLandSB() : zSBPlayerAction() {}
 zSBCastCollector::zSBCastCollector() : hkpClosestRayHitCollector() {}
+void zPlayerIdleSB::anExtraIdleDontFaceCamCheck(xAnimTransition* a0, xAnimSingle* a1, void* a2) { ((zPlayerIdleSB*)((AnimCBHolder*)a1)->slot->owner)->ExtraIdleDontFaceCamCheck(a0, a1); }
+void zPlayerIdleSB::anExtraIdleCB(xAnimTransition* a0, xAnimSingle* a1, void* a2) { ((zPlayerIdleSB*)((AnimCBHolder*)a1)->slot->owner)->ExtraIdleCB(a0, a1); }
+void zPlayerIdleSB::anExtraIdleDontFaceCamBuffCheck(xAnimTransition* a0, xAnimSingle* a1, void* a2) { ((zPlayerIdleSB*)((AnimCBHolder*)a1)->slot->owner)->ExtraIdleDontFaceCamBuffCheck(a0, a1); }
+void zPlayerIdleSB::anExtraIdleFaceCamCheck(xAnimTransition* a0, xAnimSingle* a1, void* a2) { ((zPlayerIdleSB*)((AnimCBHolder*)a1)->slot->owner)->ExtraIdleFaceCamCheck(a0, a1); }
+void zPlayerIdleSB::anExtraIdleFaceCamBuffCheck(xAnimTransition* a0, xAnimSingle* a1, void* a2) { ((zPlayerIdleSB*)((AnimCBHolder*)a1)->slot->owner)->ExtraIdleFaceCamBuffCheck(a0, a1); }
+void zPlayerIdleSB::anTurnLeftCheck(xAnimTransition* a0, xAnimSingle* a1, void* a2) { ((zPlayerIdleSB*)((AnimCBHolder*)a1)->slot->owner)->TurnLeftCheck(a0, a1); }
+void zPlayerIdleSB::anTurnRightCheck(xAnimTransition* a0, xAnimSingle* a1, void* a2) { ((zPlayerIdleSB*)((AnimCBHolder*)a1)->slot->owner)->TurnRightCheck(a0, a1); }
+void zPlayerIdleSB::anIdleAgingStartCheck(xAnimTransition* a0, xAnimSingle* a1, void* a2) { ((zPlayerIdleSB*)((AnimCBHolder*)a1)->slot->owner)->IdleAgingStartCheck(a0, a1); }
+void zPlayerIdleSB::anIdleAgingNextCheck(xAnimTransition* a0, xAnimSingle* a1, void* a2) { ((zPlayerIdleSB*)((AnimCBHolder*)a1)->slot->owner)->IdleAgingNextCheck(a0, a1); }
+void zPlayerIdleSB::anIdleAgingCrumbleCheck(xAnimTransition* a0, xAnimSingle* a1, void* a2) { ((zPlayerIdleSB*)((AnimCBHolder*)a1)->slot->owner)->IdleAgingCrumbleCheck(a0, a1); }
+void zPlayerIdleSB::anIdleAgingOutCheck(xAnimTransition* a0, xAnimSingle* a1, void* a2) { ((zPlayerIdleSB*)((AnimCBHolder*)a1)->slot->owner)->IdleAgingOutCheck(a0, a1); }
+void zPlayerIdleSB::anIdleAgingOutColdCheck(xAnimTransition* a0, xAnimSingle* a1, void* a2) { ((zPlayerIdleSB*)((AnimCBHolder*)a1)->slot->owner)->IdleAgingOutColdCheck(a0, a1); }
+void zPlayerIdleSB::anResetExtraIdleVarsCB(xAnimTransition* a0, xAnimSingle* a1, void* a2) { ((zPlayerIdleSB*)((AnimCBHolder*)a1)->slot->owner)->ResetExtraIdleVarsCB(a0, a1); }
+void zPlayerFallSB::anFallHighCheck(xAnimTransition* a0, xAnimSingle* a1, void* a2) { ((zPlayerFallSB*)((AnimCBHolder*)a1)->slot->owner)->FallHighCheck(a0, a1); }
+void zSBPlayerHammerAttack::anHammerInterruptMedCheck(xAnimTransition* a0, xAnimSingle* a1, void* a2) { ((zSBPlayerHammerAttack*)((AnimCBHolder*)a1)->slot->owner)->HammerInterruptMedCheck(a0, a1); }
+void zSBPlayerHammerAttack::anHammerSplashCB(xAnimTransition* a0, xAnimSingle* a1, void* a2) { ((zSBPlayerHammerAttack*)((AnimCBHolder*)a1)->slot->owner)->HammerSplashCB(a0, a1); }
+void zSBPlayerPuckAttack::anAimPuckCheck(xAnimTransition* a0, xAnimSingle* a1, void* a2) { ((zSBPlayerPuckAttack*)((AnimCBHolder*)a1)->slot->owner)->AimPuckCheck(a0, a1); }
+void zSBPlayerPuckAttack::anShootPuckCheck(xAnimTransition* a0, xAnimSingle* a1, void* a2) { ((zSBPlayerPuckAttack*)((AnimCBHolder*)a1)->slot->owner)->ShootPuckCheck(a0, a1); }
+void zSBPlayerPuckAttack::anFirePuckCB(xAnimTransition* a0, xAnimSingle* a1, void* a2) { ((zSBPlayerPuckAttack*)((AnimCBHolder*)a1)->slot->owner)->FirePuckCB(a0, a1); }
+void zPlayerHitSB::anHammerHitCB(xAnimTransition* a0, xAnimSingle* a1, void* a2) { ((zPlayerHitSB*)((AnimCBHolder*)a1)->slot->owner)->HammerHitCB(a0, a1); }
+void zSBPlayerHammerPowerupAttack::anAttackPushCB(xAnimTransition* a0, xAnimSingle* a1, void* a2) { ((zSBPlayerHammerPowerupAttack*)((AnimCBHolder*)a1)->slot->owner)->AttackPushCB(a0, a1); }
+void zSBPlayerHammerPowerupAttack::anSplashCB(xAnimTransition* a0, xAnimSingle* a1, void* a2) { ((zSBPlayerHammerPowerupAttack*)((AnimCBHolder*)a1)->slot->owner)->SplashCB(a0, a1); }
+void zSBPlayerPuckPowerupAttack::anFirePuckCB(xAnimTransition* a0, xAnimSingle* a1, void* a2) { ((zSBPlayerPuckPowerupAttack*)((AnimCBHolder*)a1)->slot->owner)->FirePuckCB(a0, a1); }
+void zSBPlayerKelpTrap::anKelpReleaseCheck(xAnimTransition* a0, xAnimSingle* a1, void* a2) { ((zSBPlayerKelpTrap*)((AnimCBHolder*)a1)->slot->owner)->KelpReleaseCheck(a0, a1); }
+void zPlayerDefeatedSB::anFaceCameraCB(xAnimTransition* a0, xAnimSingle* a1, void* a2) { ((zPlayerDefeatedSB*)((AnimCBHolder*)a1)->slot->owner)->FaceCameraCB(a0, a1); }
 void zPlayerSingleCustomAnimSB::Reset() { f10 = 0; f1C = 0; }
 #pragma dont_inline off

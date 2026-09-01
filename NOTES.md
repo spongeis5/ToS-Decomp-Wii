@@ -181,51 +181,61 @@ So the route to `complete` is: write the unit, give it its data with
 `main.dol: OK` afterwards, because the link is the only thing that
 can tell you the placement was right.
 
-## FixWmlType: the search tree IS reproducible, and the case set is
-## three quarters recovered
+## FixWmlType: the case set is RECOVERED and the tree agrees 303/307
 
 `FixWmlType__4SextFliPv` is **11,944 bytes in one function** -- 0.56%
-of Game Code by itself -- and it is a `switch` on a type hash that mwcc
-compiled to a binary search. It pays all of that or nothing, so the
-question worth answering first was whether the DISPATCH can be
-reproduced at all; two thirds of the function is dispatch.
+of Game Code by itself. It is a `switch` on a type hash that mwcc
+compiled to a binary search, it pays all of that or nothing, and two
+thirds of it is dispatch. So the first question was whether the
+dispatch can be reproduced at all, and it is answered by generating
+the same case set with trivial bodies and diffing the ordered list of
+values compared against r4.
 
-**It can, and the answer is cheap to check.** Feed mwcc the same case
-set with trivial bodies and compare the ordered list of values it
-compares against r4. Three things came out of doing that:
+**The tree depends only on the case SET.** Sorted order, body-address
+order and reverse order all give an identical comparison sequence, so
+nothing has to be recovered about the original's source order.
 
-1. **The tree depends only on the case SET.** Sorted order, body-address
-   order and reverse order all produce the identical comparison
-   sequence, so nothing has to be guessed about the original's source
-   order.
+Three bugs in the EXTRACTION, each of which quietly produced a
+plausible wrong answer:
 
-2. **A `beq` need not follow its `cmpw`.** The very first comparison in
+1. **The `beq` need not follow its `cmpw`.** The first comparison in
    the function has three prologue instructions scheduled between the
-   two, so a scan that requires adjacency loses it. Looking ahead to the
-   next instruction that writes cr0 found it: 304 cases became 305.
+   two. Looking ahead to the next instruction that writes cr0 finds
+   it; requiring adjacency loses a case.
 
-3. **Two comparisons have no `beq` at all, and they are a RANGE.** They
-   test -9065 and -9062 with only `bge`/`b`, which is how mwcc handles
-   contiguous cases that share a body: -9065, -9064 and -9063 are three
-   cases with one body and no equality test anywhere, so they are
-   invisible to any scan of branch targets.
+2. **mwcc HOISTS a common `lis`.** `addi r0,r7,-9065` is not the value
+   -9065: r7 was loaded far earlier and holds the high half, so the
+   real value is F93DDC97. Searching only the four preceding
+   instructions for the `lis` drops the high half on every comparison
+   that reuses a hoisted base -- and the resulting set produced a tree
+   whose ROOT was wrong. Resolving the register by walking back to
+   whatever actually wrote it fixed the root and the first four levels
+   at a stroke.
 
-Adding those three took the probe from **304 comparisons to 307, which
-is exactly retail's count**, and the agreement between the two
-comparison sequences from 23 of 307 to **144 of 307**. The subtrees
-from the fifth comparison down already match.
+3. **Two cases have no equality test at all.** F93DDC97 and F93DDC99
+   are tested with `bge` alone, because by that point the subtree has
+   narrowed to one candidate and the equality is redundant. They are
+   ordinary cases and are invisible to any scan that looks for `beq`.
 
-What is left is the top of the tree: the root is FFF4CC77 where retail
-has FE17E3AC, so a few values in the set are still wrong or missing.
-The sizes agree, so it is content and not count. The likely place to
-look is more hidden ranges of the same kind, or a compare whose
-register was built more than four instructions earlier.
+With all three fixed the probe emits **307 comparisons, exactly
+retail's count**, and the two sequences **agree on 303 of 307**. The
+four that differ are a PERMUTATION of the same four values inside one
+subtree, so the set is right and only one pivot is chosen differently.
+The likely cause is that the probe's bodies are all the same size and
+retail's are not: if mwcc weighs a subtree by code size rather than by
+case count, that pivot moves once the real bodies are in.
 
-The bodies are already extracted and are 12 shapes over 302 targets:
-253 are `mr mr bl Fix__<T>Fl`, 25 are `lwz add stw b`, 9 are
-`mr addi bl`, and five are large one-offs including a nested chain of
-compares. Three of them recurse into FixWmlType itself.
+What is now in hand for the write-up:
 
+  * the 307 case values;
+  * 302 body targets, of which 253 are `mr mr bl Fix__<T>Fl`, 25 are
+    `lwz add stw b`, 9 are `mr addi bl`, and the rest are one-offs
+    including three that RECURSE into FixWmlType;
+  * 150 distinct call targets, so 150 one-line class stubs;
+  * three cases with EMPTY bodies -- A590B346, DB45F4C1 and F93DDC98
+    all branch straight to the epilogue.
+
+The remaining work is the bodies, not the dispatch.
 ## Two prizes measured but not taken
 
 **`CreateAnimTable__Q213zNPCUPGeneric4TypeFv` -- 4,388 bytes**, one

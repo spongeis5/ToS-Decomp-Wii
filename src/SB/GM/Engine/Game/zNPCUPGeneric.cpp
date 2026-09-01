@@ -20,6 +20,9 @@ class xBase;
 class xEnt;
 class xVec3;
 class xAnimPlay;
+class xAnimTable;
+class xAnimState;
+class xAnimSingle;
 class xQuat;
 class xModelInstance;
 class zNPCUPGeneric;
@@ -35,6 +38,20 @@ namespace Sext { class NPCTemplate; }
 
 void xEntGetCenterFromAABB(const xEnt* ent, xVec3& out);
 xBase* zSceneFindObject(unsigned long long uid);
+
+// Sixteen parameters, in the order the EABI put them: r3, r4, r5,
+// r6, f1, r7, r8, f2, r9, r10, then four function pointers, an
+// eight-byte-aligned unsigned long long, and one more word.
+void xAnimTableNewState(xAnimTable* table, const char* name,
+                        unsigned int a, unsigned int b, float c,
+                        float* d, float* e, float f,
+                        unsigned short* g, void* h,
+                        void (*i)(xAnimPlay*, xAnimState*, void*),
+                        void (*j)(xAnimPlay*, xAnimState*, void*),
+                        void (*k)(xAnimState*, xAnimSingle*, void*),
+                        void (*l)(xAnimPlay*, xQuat*, xVec3*, xVec3*,
+                                  int),
+                        unsigned long long m, unsigned int n);
 
 namespace World {
 
@@ -204,7 +221,11 @@ public:
 
 class zNPCUPGeneric {
 public:
-    void InitTypeParameters();
+    class Type {
+    public:
+        void InitTypeParameters();
+        void CreateAnimTable(xAnimTable* table);
+    };
     static void AfterAnimMatrices(zNPCBase* base, xAnimPlay* play,
                                   Math::Matrix43* mtx, xQuat* q, xVec3* a,
                                   xVec3* b, int i);
@@ -248,117 +269,134 @@ public:
 
 // --------------------------------------------------------------------------
 
+void zNPCUPGeneric::Type::CreateAnimTable(xAnimTable* table) {
+    xAnimTableNewState(table, "IDLE", 0, 0x0, 1.0f, 0, 0,
+                       0.0f, 0, 0, 0, 0, 0, 0, 0, 0);
+    xAnimTableNewState(table, "MOVE", 16, 0x0, 1.0f, 0, 0,
+                       0.0f, 0, 0, 0, 0, 0, 0, 0, 0);
+    xAnimTableNewState(table, "WALK", 16, 0x0, 1.0f, 0, 0,
+                       0.0f, 0, 0, 0, 0, 0, 0, 0, 0);
+    xAnimTableNewState(table, "RUN", 16, 0x0, 1.0f, 0, 0,
+                       0.0f, 0, 0, 0, 0, 0, 0, 0, 0);
+    xAnimTableNewState(table, "STALK", 16, 0x0, 1.0f, 0, 0,
+                       0.0f, 0, 0, 0, 0, 0, 0, 0, 0);
+    xAnimTableNewState(table, "STALK_SLOW", 16, 0x0, 1.0f, 0, 0,
+                       0.0f, 0, 0, 0, 0, 0, 0, 0, 0);
+    xAnimTableNewState(table, "STALK_SLOW_BARK", 0, 0x0, 1.0f, 0, 0,
+                       0.0f, 0, 0, 0, 0, 0, 0, 0, 0);
+    xAnimTableNewState(table, "JUMP", 16, 0x0, 1.0f, 0, 0,
+                       0.0f, 0, 0, 0, 0, 0, 0, 0, 0);
+    xAnimTableNewState(table, "JUMP_START", 0, 0x0, 1.0f, 0, 0,
+                       0.0f, 0, 0, 0, 0, 0, 0, 0, 0);
+    xAnimTableNewState(table, "JUMP_END", 0, 0x0, 1.0f, 0, 0,
+                       0.0f, 0, 0, 0, 0, 0, 0, 0, 0);
+    xAnimTableNewState(table, "FLEE", 16, 0x0, 1.0f, 0, 0,
+                       0.0f, 0, 0, 0, 0, 0, 0, 0, 0);
+    xAnimTableNewState(table, "GLIDE", 16, 0x0, 1.0f, 0, 0,
+                       0.0f, 0, 0, 0, 0, 0, 0, 0, 0);
+    xAnimTableNewState(table, "STUN", 16, 0x0, 1.0f, 0, 0,
+                       0.0f, 0, 0, 0, 0, 0, 0, 0, 0);
+    xAnimTableNewState(table, "STUN_SCARED", 0, 0x0, 1.0f, 0, 0,
+                       0.0f, 0, 0, 0, 0, 0, 0, 0, 0);
+    xAnimTableNewState(table, "HIT", 0, 0x0, 1.0f, 0, 0,
+                       0.0f, 0, 0, 0, 0, 0, 0, 0, 0);
+    xAnimTableNewState(table, "FLOAT_START", 0, 0x0, 1.0f, 0, 0,
+                       0.0f, 0, 0, 0, 0, 0, 0, 0, 0);
+    xAnimTableNewState(table, "FLOAT", 0, 0x0, 1.0f, 0, 0,
+                       0.0f, 0, 0, 0, 0, 0, 0, 0, 0);
+    xAnimTableNewState(table, "FLOAT_FIDGET", 0, 0x0, 1.0f, 0, 0,
+                       0.0f, 0, 0, 0, 0, 0, 0, 0, 0);
+    xAnimTableNewState(table, "ATTACK_HOP_LEFT", 0, 0x0, 1.0f, 0, 0,
+                       0.0f, 0, 0, 0, 0, 0, 0, 0, 0);
+    xAnimTableNewState(table, "ATTACK_HOP_RIGHT", 0, 0x0, 1.0f, 0, 0,
+                       0.0f, 0, 0, 0, 0, 0, 0, 0, 0);
+    xAnimTableNewState(table, "ATTACK_BEGIN", 0, 0x0, 1.0f, 0, 0,
+                       0.0f, 0, 0, 0, 0, 0, 0, 0, 0);
+    xAnimTableNewState(table, "ATTACK_IDLE", 16, 0x0, 1.0f, 0, 0,
+                       0.0f, 0, 0, 0, 0, 0, 0, 0, 0);
+    xAnimTableNewState(table, "ATTACK_IDLE_ROTATE", 16, 0x0, 1.0f, 0, 0,
+                       0.0f, 0, 0, 0, 0, 0, 0, 0, 0);
+    xAnimTableNewState(table, "ATTACK_IDLE_BARK", 16, 0x0, 1.0f, 0, 0,
+                       0.0f, 0, 0, 0, 0, 0, 0, 0, 0);
+    xAnimTableNewState(table, "ATTACK_IDLE_ROTATE_BARK", 16, 0x0, 1.0f, 0, 0,
+                       0.0f, 0, 0, 0, 0, 0, 0, 0, 0);
+    xAnimTableNewState(table, "ATTACK_RUN", 16, 0x4000000, 1.0f, 0, 0,
+                       0.0f, 0, 0, 0, 0, 0, 0, 0, 0);
+    xAnimTableNewState(table, "ATTACK", 0, 0x4000000, 1.0f, 0, 0,
+                       0.0f, 0, 0, 0, 0, 0, 0, 0, 0);
+    xAnimTableNewState(table, "ATTACK_END", 16, 0x0, 1.0f, 0, 0,
+                       0.0f, 0, 0, 0, 0, 0, 0, 0, 0);
+    xAnimTableNewState(table, "ATTACK_END1", 0, 0x0, 1.0f, 0, 0,
+                       0.0f, 0, 0, 0, 0, 0, 0, 0, 0);
+    xAnimTableNewState(table, "ATTACK_END2", 0, 0x0, 1.0f, 0, 0,
+                       0.0f, 0, 0, 0, 0, 0, 0, 0, 0);
+    xAnimTableNewState(table, "ATTACK_JUMP_START", 0, 0x4000000, 1.0f, 0, 0,
+                       0.0f, 0, 0, 0, 0, 0, 0, 0, 0);
+    xAnimTableNewState(table, "ATTACK_JUMP", 16, 0x4000000, 1.0f, 0, 0,
+                       0.0f, 0, 0, 0, 0, 0, 0, 0, 0);
+    xAnimTableNewState(table, "ATTACK_JUMP_END", 0, 0x4000000, 1.0f, 0, 0,
+                       0.0f, 0, 0, 0, 0, 0, 0, 0, 0);
+    xAnimTableNewState(table, "ORBIT", 16, 0x0, 1.0f, 0, 0,
+                       0.0f, 0, 0, 0, 0, 0, 0, 0, 0);
+    xAnimTableNewState(table, "DEFEATED", 0, 0x0, 1.0f, 0, 0,
+                       0.0f, 0, 0, 0, 0, 0, 0, 0, 0);
+    xAnimTableNewState(table, "BARK_BEGIN", 0, 0x0, 1.0f, 0, 0,
+                       0.0f, 0, 0, 0, 0, 0, 0, 0, 0);
+    xAnimTableNewState(table, "BARK", 0, 0x0, 1.0f, 0, 0,
+                       0.0f, 0, 0, 0, 0, 0, 0, 0, 0);
+    xAnimTableNewState(table, "BARK_END", 0, 0x0, 1.0f, 0, 0,
+                       0.0f, 0, 0, 0, 0, 0, 0, 0, 0);
+    xAnimTableNewState(table, "CARL_FIGHT_BEGIN", 0, 0x0, 1.0f, 0, 0,
+                       0.0f, 0, 0, 0, 0, 0, 0, 0, 0);
+    xAnimTableNewState(table, "CARL_FIGHT", 16, 0x0, 1.0f, 0, 0,
+                       0.0f, 0, 0, 0, 0, 0, 0, 0, 0);
+    xAnimTableNewState(table, "CARL_FIGHT_END", 0, 0x0, 1.0f, 0, 0,
+                       0.0f, 0, 0, 0, 0, 0, 0, 0, 0);
+    xAnimTableNewState(table, "ORBIT_LEFT", 16, 0x0, 1.0f, 0, 0,
+                       0.0f, 0, 0, 0, 0, 0, 0, 0, 0);
+    xAnimTableNewState(table, "ORBIT_RIGHT", 16, 0x0, 1.0f, 0, 0,
+                       0.0f, 0, 0, 0, 0, 0, 0, 0, 0);
+    xAnimTableNewState(table, "ORBIT_LEFT_TO_HARASS_ATTACK", 0, 0x0, 1.0f, 0, 0,
+                       0.0f, 0, 0, 0, 0, 0, 0, 0, 0);
+    xAnimTableNewState(table, "ORBIT_RIGHT_TO_HARASS_ATTACK", 0, 0x0, 1.0f, 0, 0,
+                       0.0f, 0, 0, 0, 0, 0, 0, 0, 0);
+    xAnimTableNewState(table, "HARASS_ATTACK_BEGIN", 16, 0x0, 1.0f, 0, 0,
+                       0.0f, 0, 0, 0, 0, 0, 0, 0, 0);
+    xAnimTableNewState(table, "HARASS_ATTACK", 0, 0x0, 1.0f, 0, 0,
+                       0.0f, 0, 0, 0, 0, 0, 0, 0, 0);
+    xAnimTableNewState(table, "ORBIT_LEFT_TO_SPECIAL_ATTACK", 0, 0x0, 1.0f, 0, 0,
+                       0.0f, 0, 0, 0, 0, 0, 0, 0, 0);
+    xAnimTableNewState(table, "ORBIT_RIGHT_TO_SPECIAL_ATTACK", 0, 0x0, 1.0f, 0, 0,
+                       0.0f, 0, 0, 0, 0, 0, 0, 0, 0);
+    xAnimTableNewState(table, "SPECIAL_ATTACK_BEGIN", 16, 0x0, 1.0f, 0, 0,
+                       0.0f, 0, 0, 0, 0, 0, 0, 0, 0);
+    xAnimTableNewState(table, "SPECIAL_ATTACK", 0, 0x0, 1.0f, 0, 0,
+                       0.0f, 0, 0, 0, 0, 0, 0, 0, 0);
+    xAnimTableNewState(table, "SPECIAL_ATTACK_SUCCESS", 0, 0x0, 1.0f, 0, 0,
+                       0.0f, 0, 0, 0, 0, 0, 0, 0, 0);
+    xAnimTableNewState(table, "COUNTERED_CARL01", 0, 0x0, 1.0f, 0, 0,
+                       0.0f, 0, 0, 0, 0, 0, 0, 0, 0);
+    xAnimTableNewState(table, "COUNTERED_RUSSELL01", 0, 0x0, 1.0f, 0, 0,
+                       0.0f, 0, 0, 0, 0, 0, 0, 0, 0);
+    xAnimTableNewState(table, "FAST_MOVE", 16, 0x0, 1.0f, 0, 0,
+                       0.0f, 0, 0, 0, 0, 0, 0, 0, 0);
+    xAnimTableNewState(table, "GENERIC1", 0, 0x0, 1.0f, 0, 0,
+                       0.0f, 0, 0, 0, 0, 0, 0, 0, 0);
+    xAnimTableNewState(table, "GENERIC2", 0, 0x0, 1.0f, 0, 0,
+                       0.0f, 0, 0, 0, 0, 0, 0, 0, 0);
+    xAnimTableNewState(table, "JUMP_ATTACK_START", 0, 0x4000000, 1.0f, 0, 0,
+                       0.0f, 0, 0, 0, 0, 0, 0, 0, 0);
+    xAnimTableNewState(table, "JUMP_ATTACK_AIR", 16, 0x4000000, 1.0f, 0, 0,
+                       0.0f, 0, 0, 0, 0, 0, 0, 0, 0);
+    xAnimTableNewState(table, "JUMP_ATTACK_ATTACH", 16, 0x0, 1.0f, 0, 0,
+                       0.0f, 0, 0, 0, 0, 0, 0, 0, 0);
+}
+
 void zNPCUPGeneric::AfterAnimMatrices(zNPCBase* base, xAnimPlay* play,
                                       Math::Matrix43* mtx, xQuat* q,
                                       xVec3* a, xVec3* b, int i) {
     ((zNPCUPGeneric*)base)->boneTracker
         .ApplyBoneModificationAfterAnimatrices(play, mtx, q, a, b, i);
-}
-
-bool zNPCUPGeneric::GetPositionFromBase(xBase* base, xVec3& pos) {
-    // The `else` RETURNS, and the then arm jumps over it to reach the
-    // `return true` that follows: [call][b +12][li 0][b +8][li 1].
-    // Assigning into a variable and returning it once puts the `li 1`
-    // inside the then arm instead, which is one word shorter.
-    if (*(unsigned short*)((char*)base + 0x26) & 0x20) {
-        xEntGetCenterFromAABB((const xEnt*)base, pos);
-    } else {
-        return false;
-    }
-
-    return true;
-}
-
-void zNPCUPGeneric::HeadTrackingUpdate(float dt) {
-    boneTracker.Update(dt);
-
-    xVec3Fields pos = focus;
-
-    if (focusEnt) {
-        hasFocus = 1;
-        xEntGetCenterFromAABB((const xEnt*)focusEnt, *(xVec3*)&pos);
-        ((zNPCGeneric*)this)->HeadTrackingSetFocusVec((xVec3*)&pos, false);
-    }
-
-    if (posBase) {
-        GetPositionFromBase(posBase, *(xVec3*)&pos);
-    }
-
-    if (hasFocus) {
-        boneTracker.LookAtLocation((const xVec3*)&pos, focusImmediate);
-    }
-
-    focusImmediate = 0;
-}
-
-void zNPCUPGeneric::Render() {
-    if (model) {
-        model->renderer.Render();
-    }
-
-    for (int i = 0; i < 2; i++) {
-        if (extra[i]) {
-            extra[i]->Render();
-        }
-    }
-}
-
-void zNPCUPGeneric::Update(float dt) {
-    ((zNPCBase*)this)->PreUpdateAllComponents(dt);
-
-    if (component) {
-        component->Update(dt);
-    }
-
-    if (headTracking) {
-        HeadTrackingUpdate(dt);
-    }
-
-    for (int i = 0; i < 2; i++) {
-        if (extra[i]) {
-            extra[i]->matrix = *model->matrix;
-        }
-    }
-
-    ((zNPCBase*)this)->PostUpdateAllComponents(dt);
-}
-
-void zNPCUPGeneric::SystemEvent(xBase* from, xBase* to, unsigned int id,
-                                Sext::EventAny* event) {
-    switch (id) {
-    case 0x5E79657B: {
-        focusEnt = 0;
-
-        xBase* found = 0;
-
-        if (event) {
-            if (*(unsigned long long*)event != 0) {
-                found = zSceneFindObject(*(unsigned long long*)event);
-
-                if (found == 0) {
-                    World::GetEntityManager();
-                    found = (xBase*)World::EntityManager::FindAsset(
-                        *(unsigned long long*)event);
-                }
-            }
-        }
-
-        if (found && (*(unsigned short*)((char*)found + 0x26) & 0x20)) {
-            focusEnt = found;
-        }
-
-        break;
-    }
-
-    case 0x581FF747:
-        focusEnt = 0;
-        hasFocus = 0;
-        break;
-
-    default:
-        ((zNPCBase*)this)->SystemEvent(from, to, id, event);
-        break;
-    }
 }
 
 bool zNPCUPGeneric::Activate(const zNPCStatus*) {
@@ -412,6 +450,112 @@ bool zNPCUPGeneric::Activate(const zNPCStatus*) {
         scale.y = 1.0f;
         scale.z = 1.0f;
         extra[1]->SetModel(modelInfo->models + 1, &g_I3, (xVec3*)&scale);
+    }
+
+    return true;
+}
+
+void zNPCUPGeneric::Update(float dt) {
+    ((zNPCBase*)this)->PreUpdateAllComponents(dt);
+
+    if (component) {
+        component->Update(dt);
+    }
+
+    if (headTracking) {
+        HeadTrackingUpdate(dt);
+    }
+
+    for (int i = 0; i < 2; i++) {
+        if (extra[i]) {
+            extra[i]->matrix = *model->matrix;
+        }
+    }
+
+    ((zNPCBase*)this)->PostUpdateAllComponents(dt);
+}
+
+void zNPCUPGeneric::Render() {
+    if (model) {
+        model->renderer.Render();
+    }
+
+    for (int i = 0; i < 2; i++) {
+        if (extra[i]) {
+            extra[i]->Render();
+        }
+    }
+}
+
+void zNPCUPGeneric::SystemEvent(xBase* from, xBase* to, unsigned int id,
+                                Sext::EventAny* event) {
+    switch (id) {
+    case 0x5E79657B: {
+        focusEnt = 0;
+
+        xBase* found = 0;
+
+        if (event) {
+            if (*(unsigned long long*)event != 0) {
+                found = zSceneFindObject(*(unsigned long long*)event);
+
+                if (found == 0) {
+                    World::GetEntityManager();
+                    found = (xBase*)World::EntityManager::FindAsset(
+                        *(unsigned long long*)event);
+                }
+            }
+        }
+
+        if (found && (*(unsigned short*)((char*)found + 0x26) & 0x20)) {
+            focusEnt = found;
+        }
+
+        break;
+    }
+
+    case 0x581FF747:
+        focusEnt = 0;
+        hasFocus = 0;
+        break;
+
+    default:
+        ((zNPCBase*)this)->SystemEvent(from, to, id, event);
+        break;
+    }
+}
+
+void zNPCUPGeneric::HeadTrackingUpdate(float dt) {
+    boneTracker.Update(dt);
+
+    xVec3Fields pos = focus;
+
+    if (focusEnt) {
+        hasFocus = 1;
+        xEntGetCenterFromAABB((const xEnt*)focusEnt, *(xVec3*)&pos);
+        ((zNPCGeneric*)this)->HeadTrackingSetFocusVec((xVec3*)&pos, false);
+    }
+
+    if (posBase) {
+        GetPositionFromBase(posBase, *(xVec3*)&pos);
+    }
+
+    if (hasFocus) {
+        boneTracker.LookAtLocation((const xVec3*)&pos, focusImmediate);
+    }
+
+    focusImmediate = 0;
+}
+
+bool zNPCUPGeneric::GetPositionFromBase(xBase* base, xVec3& pos) {
+    // The `else` RETURNS, and the then arm jumps over it to reach the
+    // `return true` that follows: [call][b +12][li 0][b +8][li 1].
+    // Assigning into a variable and returning it once puts the `li 1`
+    // inside the then arm instead, which is one word shorter.
+    if (*(unsigned short*)((char*)base + 0x26) & 0x20) {
+        xEntGetCenterFromAABB((const xEnt*)base, pos);
+    } else {
+        return false;
     }
 
     return true;

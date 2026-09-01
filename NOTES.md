@@ -284,16 +284,71 @@ folds `return; break;`, `break; break;` and `return; return;` down to
 a single branch. Something in those two cases emits a control
 transfer the compiler cannot see is redundant, and it is not any of
 those.
-## Two prizes measured but not taken
+## CreateAnimTable: right but for two register NUMBERS
 
-**`CreateAnimTable__Q213zNPCUPGeneric4TypeFv` -- 4,388 bytes**, one
-function, almost certainly a long run of `NewState` calls whose
-signature this session recovered from zPlayerAction. Same all-or-
-nothing shape as FixWmlType and a much smaller search space.
+`CreateAnimTable__Q213zNPCUPGeneric4TypeFP10xAnimTable` is **4,388
+bytes**, 1,097 instructions, and not one branch: sixty consecutive
+calls to `xAnimTableNewState`, which takes SIXTEEN parameters. This
+file had its signature as `Fv`; it is `FP10xAnimTable`.
+
+It is written, it compiles to exactly 4,388 bytes, and **every
+instruction is in the right place**. Exchange r28 and r29 in ours and
+**zero of the 1,097 differ**. Retail holds the zero that feeds the
+seven outgoing stack slots in r28 and the string-pool base in r29; we
+hold them the other way round, and that one swap is all 483 differing
+words.
+
+Four values get callee-saved registers: the zero, the string base,
+and one base each for the constants 1.0f and 0.0f. Which register
+each gets follows the order they are created in, and exactly one
+thing moves that order -- whether string constants are read-only:
+
+  | `-str` setting | r28, r29, r30, r31 hold |
+  |---|---|
+  | `readonly` off (the project's `reuse`) | string, zero, float, float |
+  | `readonly` on (`-rostr`, `pool`, `readonly`) | zero, float, float, string |
+  | **retail** | **zero, string, float, float** |
+
+The string base comes out either FIRST or LAST and retail wants it
+SECOND. Retail's names sit at 0x8068CA0E and its two float constants
+at 0x8068BA68 and 0x8068BA88, all three inside .rodata
+(0x8067D8C0..0x806B03D8), so read-only strings were on in that build
+-- and read-only is the setting that puts the base last.
+
+Ruled out, none of them moving a single instruction:
+
+  * writing all sixteen arguments out, defaulting twelve of them, and
+    an inlined four-argument wrapper;
+  * the trailing zeros typed as `(unsigned long long)0`, `0L`, `0U`,
+    and as casts to each of the four function-pointer types;
+  * a local `void*` / `unsigned int` / `int` zero declared at the top
+    of the function and passed for those arguments;
+  * the names as `static const char[]` arrays instead of literals
+    (that one also changes the length, by -2);
+  * `-O1` through `-O4`, `,s` and `,p`, `-inline off/auto/all`,
+    `-opt noschedule`, `-opt nopeep`, `-sym on`, and all nine Wii
+    compilers;
+  * putting the unit's definitions in retail's order. The address
+    order gives that as CreateAnimTable, InitTypeParameters,
+    AfterAnimMatrices, Activate, Initialize, Update, Render,
+    SystemEvent, HeadTrackingUpdate, GetPositionFromBase, and the
+    file is in that order now regardless, because a linked unit will
+    need it.
+
+**This is worth more than one function.** The image holds **395**
+symbols with `AnimTable` in the name -- `CreateAnimTable`,
+`AddStates`, `AddInternalTransitions`, `AddActionTransitions`,
+`AddTransitionsFrom` -- and the largest is 6,580 bytes. They are all
+this shape: straight-line runs of calls with constant arguments. The
+call table for this one, sixty states from IDLE to
+JUMP_ATTACK_ATTACH with a flag word of 0 or 16 and a second of 0 or
+0x04000000, came out of the image with **0 of 60 calls** carrying an
+unresolved argument. Whoever finds the knob gets all of them.
 
 **`zNPCUPGeneric`'s other two.** `Activate` (536 bytes) and
 `SystemEvent` (200) are written and do not match yet; five of the
-seven readable functions in that unit do. `InitTypeParameters` needs
+eight functions the unit's object now defines do, and the eighth is
+CreateAnimTable above. `InitTypeParameters` needs
 `Memory::Creator<N,T,U>` with a function-local static, whose guard
 symbol has to come out as `@GUARD@...@_inst`, and `Initialize` calls
 `World::EntityManager::FindAsset` through a loaded address rather than
@@ -493,10 +548,12 @@ Then one of these, in the order they are worth doing:
    five re-loads and two orphaned branches; the section above lists
    the 64 things already ruled out, so do not start there.
 
-4. **`CreateAnimTable`** -- 4,388 bytes, one function, almost
-   certainly a long run of `NewState` calls whose exact signature is
-   now recovered (see zPlayerAction). Same all-or-nothing shape as
-   FixWmlType with a far smaller space.
+4. **The AnimTable family.** `CreateAnimTable` is written and is
+   byte-identical to retail apart from an exchange of r28 and r29 --
+   zero of its 1,097 instructions differ once they are swapped. The
+   section above says what has been ruled out. 395 symbols in the
+   image share its shape, the largest 6,580 bytes, so this one
+   register question is the gate on a large vein.
 
 5. **Another shape.** `tools/shape_census.py` still ranks what is
    left. The biggest row is `addi b`, 97 functions and 776 bytes, of

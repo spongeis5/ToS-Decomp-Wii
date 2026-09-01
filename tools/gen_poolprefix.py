@@ -135,6 +135,11 @@ def main():
     ap.add_argument("unit", help="e.g. SB/GM/Engine/Game/zNPCUPGeneric.cpp")
     ap.add_argument("--check", action="store_true",
                     help="report; write nothing")
+    ap.add_argument("--whole", action="store_true",
+                    help="every string in the pool, not only the prefix: "
+                         "a unit written a function at a time needs its own "
+                         "strings at their retail offsets too, and those "
+                         "depend on functions not written yet")
     args = ap.parse_args()
 
     us = units()
@@ -181,7 +186,8 @@ def main():
                          "inside a string, not at one: %s"
                          % (len(unresolved),
                             ", ".join("+%d" % o for o in unresolved)))
-    prefix = [(off, s) for off, s in strings if off < cut]
+    prefix = [(off, s) for off, s in strings
+              if args.whole or off < cut]
 
     print("  unit %s: text %08X..%08X, in %s (%08X..%08X)"
           % (args.unit, me_s, me_e, wad, lo, hi))

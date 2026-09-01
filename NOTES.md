@@ -7,21 +7,25 @@ numbers here, which move.
 ## State at time of writing
 
 ```
-Game Code:  25 of 498 files complete  13,236 / 2,115,452 bytes  616 / 10,559 fn
-            0.6240% of game code
+Game Code:  25 of 498 files complete  13,444 / 2,115,452 bytes  620 / 10,559 fn
+            0.6355% of game code
 
-Of those 614 functions, 528 are GENERATED -- ten machine-recognised shapes,
-not one of which is decompiling. They are real matched functions and the
-offsets and constants are recovered fact, but a count of them is not a count
-of decompiled code. HAND-WRITTEN IS 86, across 29 units and 5,384 bytes --
-UNCHANGED by any of it, and now smaller than the generated half -- and that
-is the figure to compare against earlier ones.
-`python tools/written_vs_generated.py` prints the split, decided by the
-banner in the file that defines each function, and refuses to report at all
-if the two halves do not add up to the category total.
+Of those 620 functions, 528 are GENERATED -- machine-recognised
+shapes, not one of which is decompiling. They are real matched
+functions and the offsets and constants are recovered fact, but a
+count of them is not a count of decompiled code. HAND-WRITTEN IS
+92, across 32 units and 5,628 bytes, and that is the figure to
+compare against earlier ones.
+
+Data:       3 unit(s) carry their own, 396 bytes; 75 more could
 All:        1.89% matched              main.dol reproduces byte for byte
 ```
 
+Every number above is written by `python tools/notes_state.py`,
+which reads report.json, `written_vs_generated.py` and
+`dwarf_data_carve.py`. Do not edit it by hand -- it has drifted
+three times, always in the flattering direction. `--check` fails
+when it is stale.
 The other categories (Revolution SDK 15.60%, SDK Code 5.29%) were already
 there; `Game Code` is the column this work moves.
 
@@ -76,6 +80,7 @@ r13 or r2.
 | `shape_census.py` | what the unmatched short functions LOOK like, as a population, by opcode signature |
 | `unitcmp_pins.py` | re-measure `unitcmp_check`'s pins; refuses to lower one |
 | `written_vs_generated.py` | the split, from the banner in each source file |
+| `notes_state.py` | writes the State block at the top of this file; `--check` fails when it is stale |
 | `next_functions.py` | what is left ranked by functions rather than bytes |
 
 `pip install pyelftools` is required for all of them.
@@ -101,6 +106,50 @@ Each unity unit is now an alternating sequence of recovered files and
 
 Headers are deliberately NOT units: an inline emitted out-of-line belongs to
 the `.cpp` that used it, and dtk rejects the fiction anyway.
+
+## Where to pick up
+
+Run these three first; they take about four minutes together and they say
+what is true rather than what was true:
+
+```bash
+ninja                                  # main.dol: OK, and report.json
+python tools/notes_state.py            # rewrite the State block above
+python tools/unitcmp_check.py          # 117 pins, 0 failures expected
+```
+
+Then one of these, in the order they are worth doing:
+
+1. **Write another unit.** `zBTNodeReference.cpp` went from nothing to four
+   of seven functions in one sitting, and the method is now routine: pick a
+   unit, run `dwarf_lines.py --unit` for the original's statement
+   structure, `dwarf_locals.py --unit` for each `this` and every local's
+   register, and resolve the branch and `lis`/`addi` targets from the
+   symbol table before writing a line. The candidates are small recovered
+   units that are not yet Matching -- `View.cpp` (4 functions, 336 bytes),
+   `zPOWObject.cpp` (3, 252), `zBTNodeSequence.cpp` (5, 468),
+   `zRandomModelList.cpp` (4, 424), `Renderable.cpp` (2, 224). This is the
+   only column that means decompiling and it is the one to move.
+
+2. **Give a unit its data.** `dwarf_data_carve.py --survey` says 75 could
+   take theirs. It prints all three edits; make them as printed. Three
+   units carry data today and each cost one new lesson, all of them now in
+   the tool: cut the parent rather than extending it, force-active for
+   anything nothing references (`config.yml` for a global, `#pragma
+   force_active on` for an anonymous-namespace local), and the trailing
+   padding belongs to the unit.
+
+3. **The near misses.** Four are recorded with their exclusion lists, and
+   two of those lists are long enough that re-running them is waste. What
+   moved `keycode.cxx` from 5 words to 2 was the DWARF saying it had no
+   variable we had invented; that is the kind of thing worth asking again,
+   and `dwarf_lines.py` has only been pointed at two of the four.
+
+WHAT NOT TO DO. The generators are exhausted -- `gen_accessors --survey`
+reports one candidate left in the whole game library, and the census rows
+that remain are tail calls into functions whose signatures do not match,
+or multiple-inheritance thunks the compiler emits from a class declaration
+rather than from a generator. Chasing those is how an afternoon goes.
 
 ## Open problems, in order of value
 

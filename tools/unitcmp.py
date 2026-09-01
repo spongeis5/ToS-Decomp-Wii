@@ -53,15 +53,20 @@ BASE = ["-c", "-nodefaults", "-proc", "gekko", "-align", "powerpc",
         "-inline", "auto", "-pragma", "cats off",
         "-pragma", "warn_notinlined off", "-maxerrors", "1",
         "-maxwarnings", "1", "-nosyspath", "-RTTI", "off",
-        "-fp_contract", "on", "-str", "reuse", "-enc", "SJIS",
+        "-fp_contract", "on", "-enc", "SJIS",
         "-DBUILD_VERSION=0", "-DREVOLUTION", "-DNDEBUG=1", "-lang=c++",
         "-O4,s", "-sdata", "0", "-sdata2", "0", "-use_lmw_stmw", "on",
+        "-str", "reuse,pool,readonly",
         "-i", "src", "-i", "src/MSL_C/include", "-i", "src/Revolution/include",
         "-i", "src/SB/include"]
 
-# What cflags_game adds on top of cflags_base, and what it drops.
-GAME_EXTRA = ["-O4,s", "-sdata", "0", "-sdata2", "0", "-use_lmw_stmw", "on"]
-GAME_DROPS = "-O4,p"
+# What cflags_game adds on top of cflags_base, and what it drops. The
+# string constants are POOLED: retail reaches a string as one pooled base
+# plus a baked-in offset, and the image holds 208 `@stringBase0` objects,
+# one per unity translation unit. Plain `-str reuse` never emits that.
+GAME_EXTRA = ["-O4,s", "-sdata", "0", "-sdata2", "0", "-use_lmw_stmw", "on",
+              "-str", "reuse,pool,readonly"]
+GAME_DROPS = ("-O4,p", "-str reuse")
 
 RELOC_BITS = {
     "R_PPC_ADDR32": 0xFFFFFFFF,
@@ -102,11 +107,14 @@ def _check_flags():
             "unitcmp: configure.py's cflags_game now adds %r, this module has "
             "%r. Update BASE and GAME_EXTRA together." % (extra, GAME_EXTRA))
 
-    drops = re.search(r'!=\s*"([^"]+)"', expr)
-    if not drops or drops.group(1) != GAME_DROPS:
+    # `f != "x"` for one dropped flag, `f not in ("x", "y")` for more.
+    head = expr.split("+", 1)[0]
+    drops = tuple(re.findall(r'"([^"]+)"', head))
+    if drops != GAME_DROPS:
         raise SystemExit(
-            "unitcmp: configure.py's cflags_game no longer drops %r"
-            % GAME_DROPS)
+            "unitcmp: configure.py's cflags_game drops %r, this module "
+            "expects %r. Update GAME_DROPS and BASE together."
+            % (drops, GAME_DROPS))
 
     base = re.search(r"cflags_base\s*=\s*\[(.*?)\n\]", txt, re.S)
     if not base:
@@ -122,7 +130,7 @@ def _check_flags():
     have = " ".join(BASE)
     for flag in re.findall(r'"([^"]*)"', "\n".join(lines)):
         flag = flag.strip()
-        if not flag or flag.startswith(("-i", "-D", "-ir")) or flag == GAME_DROPS:
+        if not flag or flag.startswith(("-i", "-D", "-ir")) or flag in GAME_DROPS:
             continue                      # paths and defines are set above
         if flag not in have:
             raise SystemExit(

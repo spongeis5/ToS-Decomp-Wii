@@ -7,18 +7,18 @@ numbers here, which move.
 ## State at time of writing
 
 ```
-Game Code:  28 of 498 files complete  20,180 / 2,115,452 bytes  992 / 10,559 fn
-            0.9539% of game code
+Game Code:  28 of 498 files complete  24,568 / 2,115,452 bytes  993 / 10,559 fn
+            1.1614% of game code
 
-Of those 992 functions, 864 are GENERATED -- machine-recognised
+Of those 993 functions, 864 are GENERATED -- machine-recognised
 shapes, not one of which is decompiling. They are real matched
 functions and the offsets and constants are recovered fact, but a
 count of them is not a count of decompiled code. HAND-WRITTEN IS
-128, across 40 units and 8,964 bytes, and that is the figure to
+129, across 40 units and 13,352 bytes, and that is the figure to
 compare against earlier ones.
 
 Data:       3 unit(s) carry their own, 396 bytes; 75 more could
-All:        1.99% matched              main.dol reproduces byte for byte
+All:        2.06% matched              main.dol reproduces byte for byte
 ```
 
 Every number above is written by `python tools/notes_state.py`,
@@ -284,66 +284,65 @@ folds `return; break;`, `break; break;` and `return; return;` down to
 a single branch. Something in those two cases emits a control
 transfer the compiler cannot see is redundant, and it is not any of
 those.
-## CreateAnimTable: right but for two register NUMBERS
+## CreateAnimTable MATCHES, and the game's strings are POOLED per unity unit
 
-`CreateAnimTable__Q213zNPCUPGeneric4TypeFP10xAnimTable` is **4,388
-bytes**, 1,097 instructions, and not one branch: sixty consecutive
-calls to `xAnimTableNewState`, which takes SIXTEEN parameters. This
-file had its signature as `Fv`; it is `FP10xAnimTable`.
+`CreateAnimTable__Q213zNPCUPGeneric4TypeFP10xAnimTable` -- **4,388
+bytes, byte-identical**, 1,097 words with 186 masked by relocation.
+Sixty consecutive calls to sixteen-parameter `xAnimTableNewState`;
+the call table came out of the image with 0 of 60 calls carrying an
+unresolved argument. It took two facts about how the game was built,
+both new to this file and both measured:
 
-It is written, it compiles to exactly 4,388 bytes, and **every
-instruction is in the right place**. Exchange r28 and r29 in ours and
-**zero of the 1,097 differ**. Retail holds the zero that feeds the
-seven outgoing stack slots in r28 and the string-pool base in r29; we
-hold them the other way round, and that one swap is all 483 differing
-words.
+**1. String constants were pooled.** A function reaches a string as
+`addi r4,r29,K` off ONE base register, with K baked into the
+instruction -- and the image holds **208 `@stringBase0` objects**,
+`scope:local`, one per translation unit. Plain `-str reuse` never
+emits that shape; `-str reuse,pool,readonly` does, and it is what the
+MSL, TRK, Havok and runtime libraries here were already built with.
+It also fixed the register order that stalled this function: with
+pooling the zero constant is created before the string base, r28 then
+r29, as retail has them. Recompiling every unit with source under
+both settings gives **993 byte-identical functions either way, 0
+verdicts changed**, and main.dol stayed OK with all 28 linked units.
+`cflags_game` carries it now, and `unitcmp`'s drift guard knows.
 
-Four values get callee-saved registers: the zero, the string base,
-and one base each for the constants 1.0f and 0.0f. Which register
-each gets follows the order they are created in, and exactly one
-thing moves that order -- whether string constants are read-only:
+**2. The pool is filled in order of first appearance across the
+whole UNITY unit, and dtk's per-file units are fragments of it.**
+zNPCUPGeneric's `IDLE` is at +2982 in a 5,231-byte pool because 270
+strings from thirty earlier files precede it -- `BalloonB` from
+zFountain first -- and `IDLE`, `WALK`, `RUN`, `JUMP` were first used by
+an earlier file and are merely REUSED here. Compiled alone, the unit
+starts an empty pool and every K comes out small and wrong. So the
+translation unit is the thing that owns a string offset, and the blob
+names do not bound it: dtk's WAD02 text range holds TWO pools, because
+a unit whose first file was fully recovered has no remainder chunk at
+its head to carry the WADnn name. **A unit's TU is the pool its own
+functions build**, and every function that builds the 0x8068BE28 base
+-- 96 of 96 -- lies inside the range those referrers span.
 
-  | `-str` setting | r28, r29, r30, r31 hold |
-  |---|---|
-  | `readonly` off (the project's `reuse`) | string, zero, float, float |
-  | `readonly` on (`-rostr`, `pool`, `readonly`) | zero, float, float, string |
-  | **retail** | **zero, string, float, float** |
+`tools/gen_poolprefix.py <unit>` reads the unit's pool, finds the
+earliest string the unit is first to reference, and writes
+`<unit>.pool.h`: a file-scope table of every pool string before it,
+in pool order. Included FIRST in the unit, those strings enter our
+pool in the same order, `reuse` folds the unit's references onto
+them, and the offsets come out as retail has them. **The table is
+data read from the image, not source** -- retail has no such table,
+it has the files in front -- so it lets a fragment be COMPARED byte
+for byte; a fragment that is to be LINKED needs the unity unit rebuilt
+instead, and that is a different, larger job.
 
-The string base comes out either FIRST or LAST and retail wants it
-SECOND. Retail's names sit at 0x8068CA0E and its two float constants
-at 0x8068BA68 and 0x8068BA88, all three inside .rodata
-(0x8067D8C0..0x806B03D8), so read-only strings were on in that build
--- and read-only is the setting that puts the base last.
+**This opens the AnimTable family.** 395 symbols in the image share
+CreateAnimTable's shape -- straight-line runs of constant-argument
+calls whose only variable parts are a string, one or two flag words,
+and which pool the string lives in. The largest is 6,580 bytes.
 
-Ruled out, none of them moving a single instruction:
-
-  * writing all sixteen arguments out, defaulting twelve of them, and
-    an inlined four-argument wrapper;
-  * the trailing zeros typed as `(unsigned long long)0`, `0L`, `0U`,
-    and as casts to each of the four function-pointer types;
-  * a local `void*` / `unsigned int` / `int` zero declared at the top
-    of the function and passed for those arguments;
-  * the names as `static const char[]` arrays instead of literals
-    (that one also changes the length, by -2);
-  * `-O1` through `-O4`, `,s` and `,p`, `-inline off/auto/all`,
-    `-opt noschedule`, `-opt nopeep`, `-sym on`, and all nine Wii
-    compilers;
-  * putting the unit's definitions in retail's order. The address
-    order gives that as CreateAnimTable, InitTypeParameters,
-    AfterAnimMatrices, Activate, Initialize, Update, Render,
-    SystemEvent, HeadTrackingUpdate, GetPositionFromBase, and the
-    file is in that order now regardless, because a linked unit will
-    need it.
-
-**This is worth more than one function.** The image holds **395**
-symbols with `AnimTable` in the name -- `CreateAnimTable`,
-`AddStates`, `AddInternalTransitions`, `AddActionTransitions`,
-`AddTransitionsFrom` -- and the largest is 6,580 bytes. They are all
-this shape: straight-line runs of calls with constant arguments. The
-call table for this one, sixty states from IDLE to
-JUMP_ATTACK_ATTACH with a flag word of 0 or 16 and a second of 0 or
-0x04000000, came out of the image with **0 of 60 calls** carrying an
-unresolved argument. Whoever finds the knob gets all of them.
+What was ruled out before the mechanism was found, so it is not
+re-tried: three call-site shapes including default arguments and an
+inlined wrapper, five spellings of the trailing zeros, a hoisted zero
+local, the names as static arrays, thirteen optimisation settings, all
+nine Wii compilers, and the definitions in retail's order -- which the
+file is in now regardless, CreateAnimTable first, because a linked
+unit will need it.
 
 **`zNPCUPGeneric`'s other two.** `Activate` (536 bytes) and
 `SystemEvent` (200) are written and do not match yet; five of the
@@ -548,12 +547,13 @@ Then one of these, in the order they are worth doing:
    five re-loads and two orphaned branches; the section above lists
    the 64 things already ruled out, so do not start there.
 
-4. **The AnimTable family.** `CreateAnimTable` is written and is
-   byte-identical to retail apart from an exchange of r28 and r29 --
-   zero of its 1,097 instructions differ once they are swapped. The
-   section above says what has been ruled out. 395 symbols in the
-   image share its shape, the largest 6,580 bytes, so this one
-   register question is the gate on a large vein.
+4. **The AnimTable family.** `CreateAnimTable` MATCHES, 4,388 bytes,
+   and the section above says how: pooled strings and
+   `gen_poolprefix.py` for the unit's pool prefix. 395 symbols share
+   its shape, the largest 6,580 bytes, and each is one forward walk
+   over a branchless function plus one generated header. Any unit
+   that touches a string now needs its `.pool.h`; run the generator
+   before blaming the source.
 
 5. **Another shape.** `tools/shape_census.py` still ranks what is
    left. The biggest row is `addi b`, 97 functions and 776 bytes, of

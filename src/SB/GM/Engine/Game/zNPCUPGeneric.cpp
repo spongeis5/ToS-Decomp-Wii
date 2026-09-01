@@ -16,6 +16,11 @@
 // 0x657B - 0xA1870000 is 0x5E79657B, and 0xF747 - 0xA7E10000 is
 // 0x581FF747.
 
+// This file is a fragment of the WAD02 unity build; the table in the
+// generated header puts the pool strings that precede ours in front,
+// so every string offset baked into the code comes out as retail has it.
+#include "SB/GM/Engine/Game/zNPCUPGeneric.pool.h"
+
 class xBase;
 class xEnt;
 class xVec3;

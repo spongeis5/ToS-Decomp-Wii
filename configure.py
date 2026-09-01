@@ -249,9 +249,19 @@ cflags_base = [
 # are exact, and the three units that already matched at -O4,p still match.
 # A flag that fixes two and breaks none is the answer; one that fixed two
 # and broke one would not have been.
-cflags_game = ([f for f in cflags_base if f != "-O4,p"]
+# And its string constants were POOLED and read-only, the setting the MSL,
+# TRK, Havok and runtime libraries here already use. Measured from both
+# ends again: the image holds 208 `@stringBase0` objects, one per unity
+# translation unit, and a function reaches its strings as one pooled base
+# plus a baked-in offset -- CreateAnimTable's sixty names are all
+# `addi r4,r29,K` off r29 = @stringBase0. Plain `-str reuse` never
+# produces that shape, and it also creates the pool base in the wrong
+# order relative to the zero constant: r28 and r29 swapped, 483 words.
+# Recompiling every unit with source under both settings gives 993
+# byte-identical functions either way, 0 verdicts changed.
+cflags_game = ([f for f in cflags_base if f not in ("-O4,p", "-str reuse")]
                 + ["-O4,s", "-sdata", "0", "-sdata2", "0",
-                   "-use_lmw_stmw", "on"])
+                   "-use_lmw_stmw", "on", "-str", "reuse,pool,readonly"])
 
 cflags_pedantic = [
     "-w unused",

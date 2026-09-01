@@ -234,7 +234,7 @@ EXPECT = {
     "SB/GM/Engine/Game/zCamFollow": (2, 2),
     "SB/GM/Engine/Game/zCheckpoint": (2, 2),
     "SB/GM/Engine/Game/zCollectibleSpawner": (2, 2),
-    "SB/GM/Engine/Game/zCommonPlayerActions": (20, 20),
+    "SB/GM/Engine/Game/zCommonPlayerActions": (25, 26),
     "SB/GM/Engine/Game/zFXParticleLocator": (1, 1),
     "SB/GM/Engine/Game/zFloatingCollectible": (1, 2),
     "SB/GM/Engine/Game/zHitButton": (3, 3),

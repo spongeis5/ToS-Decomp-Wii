@@ -7,18 +7,18 @@ numbers here, which move.
 ## State at time of writing
 
 ```
-Game Code:  28 of 777 files complete  46,356 / 2,116,508 bytes  1,032 / 10,686 fn
-            2.1902% of game code
+Game Code:  28 of 777 files complete  48,328 / 2,116,508 bytes  1,037 / 10,686 fn
+            2.2834% of game code
 
-Of those 1,032 functions, 804 are GENERATED -- machine-recognised
+Of those 1,037 functions, 784 are GENERATED -- machine-recognised
 shapes, not one of which is decompiling. They are real matched
 functions and the offsets and constants are recovered fact, but a
 count of them is not a count of decompiled code. HAND-WRITTEN IS
-228, across 42 units and 36,964 bytes, and that is the figure to
+253, across 43 units and 39,340 bytes, and that is the figure to
 compare against earlier ones.
 
 Data:       3 unit(s) carry their own, 396 bytes; 134 more could
-All:        2.38% matched              main.dol reproduces byte for byte
+All:        2.41% matched              main.dol reproduces byte for byte
 ```
 
 Every number above is written by `python tools/notes_state.py`,
@@ -533,6 +533,10 @@ the image, the merger refuses (any correctly typed function would
 match the bytes, since the reference is relocated, and would be a
 lie for the link), and those two tables -- zPlayerRun and
 zPlayerFall -- wait for a source that names it.
+
+The other six went in: **five match** -- CustomAnim, Idle,
+FallToDeath, Dash, Land -- and Ledge is one word short in the same
+way the five in WAD01_28 are. 25 of the unit's 26 written functions.
 
 ## report.json IS BLIND TO RELOCATION TARGETS
 

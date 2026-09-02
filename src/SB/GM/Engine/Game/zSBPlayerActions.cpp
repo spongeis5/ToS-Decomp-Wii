@@ -19,6 +19,8 @@ class xAnimSingle;
 class xAnimTransition;
 unsigned int xAnimTableNewState(xAnimTable* table, const char* name, unsigned int a, unsigned int b, float c, float* d, float* e, float f, unsigned short* g, void* h, void (*i)(xAnimPlay*, xAnimState*, void*), void (*j)(xAnimPlay*, xAnimState*, void*), void (*k)(xAnimState*, xAnimSingle*, void*), void (*l)(xAnimPlay*, xQuat*, xVec3*, xVec3*, int), unsigned long long m, unsigned int n);
 unsigned int xAnimTableNewTransition(xAnimTable* table, const char* from, const char* to, unsigned int (*a)(xAnimTransition*, xAnimSingle*, void*), unsigned int (*b)(xAnimTransition*, xAnimSingle*, void*), unsigned int (*c)(xAnimTransition*, xAnimSingle*, void*), unsigned int d, unsigned int e, float f, float g, unsigned short h, unsigned short i, float j, unsigned short* k);
+class zPlayerActionManager;
+void zCommonPlayerActionsNormalTransitions(zPlayerActionManager*, xAnimTable*, const char*, unsigned int (*)(xAnimTransition*, xAnimSingle*, void*), unsigned int (*)(xAnimTransition*, xAnimSingle*, void*), unsigned short, float, unsigned int, unsigned int);
 void zRestoreFromHitByHammerBE(xAnimPlay*, xAnimState*, void*);
 void zHitByHammerBE(xAnimPlay*, xAnimState*, void*);
 void zGravestoneBE(xAnimPlay*, xAnimState*, void*);
@@ -28,6 +30,94 @@ void zDefeatedDeathBonesBE(xAnimPlay*, xAnimState*, void*);
 void zSBAnimPackageBE(xAnimPlay*, xAnimState*, void*);
 void zSBAgingIdlePopOutBE(xAnimPlay*, xAnimState*, void*);
 void zSBAgingIdleBE(xAnimPlay*, xAnimState*, void*);
+
+// The action base, as zPlayerAction.cpp declares it: three members and
+// then the virtuals, so the vptr sits at +12 and slots 1, 2, 3 are the
+// three transition-adding virtuals the tables below dispatch through
+// (`lwz r12,12(r3); lwz r12,8|12|20(r12); bctrl`). A table class that
+// makes such a call derives from this stub, and reaches the manager's
+// action array through `manager`, its first word.
+class zPlayer;
+class zPlayerActionManager;
+class zPlayerAction {
+public:
+    zPlayerActionManager* manager;
+    zPlayer* player;
+    void (*doneCB)(zPlayerAction*);
+
+    enum SpecialActions { SpecialActions_ = 0x7FFFFFFF };
+
+    virtual void _v0();
+    virtual void AddStandardTransitions(xAnimTable* table, const char* name);
+    virtual void AddDefaultTransitions(xAnimTable* table, const char* name);
+    virtual void AddTransitions(xAnimTable* table, const char* name,
+                                unsigned int (*a)(xAnimTransition*, xAnimSingle*, void*),
+                                unsigned int (*b)(xAnimTransition*, xAnimSingle*, void*),
+                                unsigned short e, float f, unsigned int g,
+                                unsigned int h, SpecialActions i);
+
+    static unsigned int ActionChange(xAnimTransition*, xAnimSingle*, void*);
+    static unsigned int AddActionTransition(
+        xAnimTable* table, const char* from, const char* to,
+        unsigned int (*a)(xAnimTransition*, xAnimSingle*, void*),
+        unsigned int (*b)(xAnimTransition*, xAnimSingle*, void*),
+        unsigned int (*c)(xAnimTransition*, xAnimSingle*, void*),
+        unsigned short g, float h, unsigned int i, unsigned int j);
+};
+
+// The manager, and the three helpers zPlayerAction.cpp defines as
+// `actions[id]->...(...)`. Retail's unity build held that file in
+// the same translation unit as the tables (WAD03) and -O4 inlined
+// them, and the inlined form is what the bytes say: a table written
+// as the direct `manager->actions[k]->AddTransitions(...)` creates
+// the pool-string temp before the load chain, retail after it --
+// zPlayerRunSB 5 of 299 words, zSBPlayerPuckAttack 9 of 164, both
+// exact once spelled through the helper. Inline here so the
+// fragment inlines them the same way and emits no copy.
+class zPlayerActionManager {
+public:
+    zPlayerAction** actions;
+
+    void AddStandardTransitionsTo(unsigned int id, xAnimTable* table, const char* name);
+    void AddDefaultTransitionsTo(unsigned int id, xAnimTable* table, const char* name);
+    void AddTransitionsTo(unsigned int id, xAnimTable* table, const char* name,
+                          unsigned int (*a)(xAnimTransition*, xAnimSingle*, void*), unsigned int (*b)(xAnimTransition*, xAnimSingle*, void*),
+                          unsigned short e, float f, unsigned int g,
+                          unsigned int h, zPlayerAction::SpecialActions i);
+};
+
+inline void zPlayerActionManager::AddStandardTransitionsTo(unsigned int id, xAnimTable* table, const char* name) {
+    actions[id]->AddStandardTransitions(table, name);
+}
+inline void zPlayerActionManager::AddDefaultTransitionsTo(unsigned int id, xAnimTable* table, const char* name) {
+    actions[id]->AddDefaultTransitions(table, name);
+}
+inline void zPlayerActionManager::AddTransitionsTo(unsigned int id, xAnimTable* table, const char* name,
+                                                   unsigned int (*a)(xAnimTransition*, xAnimSingle*, void*), unsigned int (*b)(xAnimTransition*, xAnimSingle*, void*),
+                                                   unsigned short e, float f, unsigned int g,
+                                                   unsigned int h, zPlayerAction::SpecialActions i) {
+    actions[id]->AddTransitions(table, name, a, b, e, f, g, h, i);
+}
+
+// zPlayerAction.cpp defines this, and retail's unity build had it in the
+// same translation unit as the tables (WAD03: 80105550..801894A0 holds
+// both), where -O4's auto-inliner took it: an action table's direct
+// xAnimTableNewTransition with ActionChange as its third callback and
+// the fixed zeros is this call, its `c == 0` test folded away. Inline
+// here so the fragment inlines it the same way and emits no copy.
+inline unsigned int zPlayerAction::AddActionTransition(
+    xAnimTable* table, const char* from, const char* to,
+    unsigned int (*a)(xAnimTransition*, xAnimSingle*, void*),
+    unsigned int (*b)(xAnimTransition*, xAnimSingle*, void*),
+    unsigned int (*c)(xAnimTransition*, xAnimSingle*, void*),
+    unsigned short g, float h, unsigned int i, unsigned int j) {
+    if (c == 0) {
+        c = ActionChange;
+    }
+
+    return xAnimTableNewTransition(table, from, to, a, b, c, i, j, 0.0f,
+                                   0.0f, g, 0, h, 0);
+}
 
 // -- generated accessor part (gen_accessors.py) ----------------
 // Do not hand-edit: regenerate.
@@ -71,7 +161,7 @@ struct ExtraIdleTableEntry {
     int numValid;
     bool noRepeats;
 };
-class zPlayerIdleSB {
+class zPlayerIdleSB : public zPlayerAction {
 public:
     static unsigned int anExtraIdleCB(xAnimTransition* a0, xAnimSingle* a1, void* a2);
     bool ExtraIdleCB(xAnimTransition* a0, xAnimSingle* a1);
@@ -113,13 +203,15 @@ public:
     void AddInternalTransitions(xAnimTable* table);
     void AddStates(xAnimTable* table);
 
-    unsigned char _pad0[0x2C];
+    unsigned char _pad0[0x1C];
     ExtraIdleTableEntry extraIdleTable[6];
+    static const char* GetTransitionString() { return "Idle*"; }
+    void AddActionTransitions(xAnimTable* table);
 };
 
 
 
-class zPlayerFallSB {
+class zPlayerFallSB : public zPlayerAction {
 public:
     static unsigned int anFallHighCheck(xAnimTransition* a0, xAnimSingle* a1, void* a2);
     bool FallHighCheck(xAnimTransition* a0, xAnimSingle* a1);
@@ -127,22 +219,27 @@ public:
     static unsigned int anLandRunCheck(xAnimTransition*, xAnimSingle*, void*);
     static unsigned int anLandWalkCheck(xAnimTransition*, xAnimSingle*, void*);
     void AddInternalTransitions(xAnimTable* table);
+    static const char* GetTransitionString() { return "Fall*"; }
+    void AddActionTransitions(xAnimTable* table);
 };
 
 
 
-class zPlayerLandHighSB {
+// The accessor generator read End's load as `this+4`; that word is the
+// base's `player`, and the class derives so its table can reach
+// `manager` at 0.
+class zPlayerLandHighSB : public zPlayerAction {
 public:
     void End();
 
-    unsigned char _pad0[0x4];
-    int f4;
     void AddInternalTransitions(xAnimTable* table);
+    static const char* GetTransitionString() { return "HighFallLand*"; }
+    void AddActionTransitions(xAnimTable* table);
 };
 
 
 
-class zSBPlayerHammerAttack {
+class zSBPlayerHammerAttack : public zPlayerAction {
 public:
     static unsigned int anHammerInterruptMedCheck(xAnimTransition* a0, xAnimSingle* a1, void* a2);
     bool HammerInterruptMedCheck(xAnimTransition* a0, xAnimSingle* a1);
@@ -151,11 +248,13 @@ public:
 
     static unsigned int anHammerSetAttackStateCB(xAnimTransition*, xAnimSingle*, void*);
     void AddInternalTransitions(xAnimTable* table);
+    static const char* GetTransitionString() { return "HammerAttackRecover01 HammerAttackAirOut01 HammerSpongebuffRecover01 HammerSpongebuffAirOut01 HammerAttackRecoil*"; }
+    void AddActionTransitions(xAnimTable* table);
 };
 
 
 
-class zSBPlayerPuckAttack {
+class zSBPlayerPuckAttack : public zPlayerAction {
 public:
     static unsigned int anAimPuckCheck(xAnimTransition* a0, xAnimSingle* a1, void* a2);
     bool AimPuckCheck(xAnimTransition* a0, xAnimSingle* a1);
@@ -165,11 +264,13 @@ public:
     bool ShootPuckCheck(xAnimTransition* a0, xAnimSingle* a1);
 
     void AddInternalTransitions(xAnimTable* table);
+    static const char* GetTransitionString() { return "PuckAttack*"; }
+    void AddActionTransitions(xAnimTable* table);
 };
 
 
 
-class zPlayerHitSB {
+class zPlayerHitSB : public zPlayerAction {
 public:
     static unsigned int anHammerHitCB(xAnimTransition* a0, xAnimSingle* a1, void* a2);
     bool HammerHitCB(xAnimTransition* a0, xAnimSingle* a1);
@@ -177,11 +278,14 @@ public:
     void AddStates(xAnimTable* table);
     static unsigned int anHammerTimerDone(xAnimTransition*, xAnimSingle*, void*);
     void AddInternalTransitions(xAnimTable* table);
+    static const char* GetTransitionString() { return "Hit* HammerHitRecover01"; }
+    static unsigned int anCanExitCheck(xAnimTransition*, xAnimSingle*, void*);
+    void AddActionTransitions(xAnimTable* table);
 };
 
 
 
-class zSBPlayerHammerPowerupAttack {
+class zSBPlayerHammerPowerupAttack : public zPlayerAction {
 public:
     static unsigned int anAttackPushCB(xAnimTransition* a0, xAnimSingle* a1, void* a2);
     bool AttackPushCB(xAnimTransition* a0, xAnimSingle* a1);
@@ -189,26 +293,32 @@ public:
     bool SplashCB(xAnimTransition* a0, xAnimSingle* a1);
 
     void AddInternalTransitions(xAnimTable* table);
+    static const char* GetTransitionString() { return "HammerPowerupAttack*"; }
+    void AddActionTransitions(xAnimTable* table);
 };
 
 
 
-class zSBPlayerPuckPowerupAttack {
+class zSBPlayerPuckPowerupAttack : public zPlayerAction {
 public:
     static unsigned int anFirePuckCB(xAnimTransition* a0, xAnimSingle* a1, void* a2);
     bool FirePuckCB(xAnimTransition* a0, xAnimSingle* a1);
 
     void AddInternalTransitions(xAnimTable* table);
+    static const char* GetTransitionString() { return "PuckPowerupAttack*"; }
+    void AddActionTransitions(xAnimTable* table);
 };
 
 
 
-class zSBPlayerKelpTrap {
+class zSBPlayerKelpTrap : public zPlayerAction {
 public:
     static unsigned int anKelpReleaseCheck(xAnimTransition* a0, xAnimSingle* a1, void* a2);
     bool KelpReleaseCheck(xAnimTransition* a0, xAnimSingle* a1);
 
     void AddInternalTransitions(xAnimTable* table);
+    static const char* GetTransitionString() { return "Kelp*"; }
+    void AddActionTransitions(xAnimTable* table);
 };
 
 
@@ -254,7 +364,7 @@ unsigned int zPlayerIdleSB::anIdleAgingOutCheck(xAnimTransition* a0, xAnimSingle
 unsigned int zPlayerIdleSB::anIdleAgingOutColdCheck(xAnimTransition* a0, xAnimSingle* a1, void* a2) { return ((zPlayerIdleSB*)((AnimCBHolder*)a1)->slot->owner)->IdleAgingOutColdCheck(a0, a1); }
 unsigned int zPlayerIdleSB::anResetExtraIdleVarsCB(xAnimTransition* a0, xAnimSingle* a1, void* a2) { return ((zPlayerIdleSB*)((AnimCBHolder*)a1)->slot->owner)->ResetExtraIdleVarsCB(a0, a1); }
 unsigned int zPlayerFallSB::anFallHighCheck(xAnimTransition* a0, xAnimSingle* a1, void* a2) { return ((zPlayerFallSB*)((AnimCBHolder*)a1)->slot->owner)->FallHighCheck(a0, a1); }
-void zPlayerLandHighSB::End() { ((zSBPlayer*)f4)->StopSBB3SmokeTrailFX(); }
+void zPlayerLandHighSB::End() { ((zSBPlayer*)player)->StopSBB3SmokeTrailFX(); }
 unsigned int zSBPlayerHammerAttack::anHammerInterruptMedCheck(xAnimTransition* a0, xAnimSingle* a1, void* a2) { return ((zSBPlayerHammerAttack*)((AnimCBHolder*)a1)->slot->owner)->HammerInterruptMedCheck(a0, a1); }
 unsigned int zSBPlayerHammerAttack::anHammerSplashCB(xAnimTransition* a0, xAnimSingle* a1, void* a2) { return ((zSBPlayerHammerAttack*)((AnimCBHolder*)a1)->slot->owner)->HammerSplashCB(a0, a1); }
 unsigned int zSBPlayerPuckAttack::anAimPuckCheck(xAnimTransition* a0, xAnimSingle* a1, void* a2) { return ((zSBPlayerPuckAttack*)((AnimCBHolder*)a1)->slot->owner)->AimPuckCheck(a0, a1); }
@@ -278,6 +388,7 @@ public:
     static unsigned int anSBCandyCheck(xAnimTransition*, xAnimSingle*, void*);
     static unsigned int anSBLandCheck(xAnimTransition*, xAnimSingle*, void*);
     static unsigned int anSBNotCandyCheck(xAnimTransition*, xAnimSingle*, void*);
+    static unsigned int anSBNotQuicksandCheck(xAnimTransition*, xAnimSingle*, void*);
 };
 
 class zCommonPlayerAction {
@@ -286,7 +397,7 @@ public:
     static unsigned int anLandCheck(xAnimTransition*, xAnimSingle*, void*);
 };
 
-class zPlayerRunSB {
+class zPlayerRunSB : public zPlayerAction {
 public:
     static unsigned int anRunBraveCheck(xAnimTransition*, xAnimSingle*, void*);
     static unsigned int anRunRegularHappierCheck(xAnimTransition*, xAnimSingle*, void*);
@@ -296,9 +407,11 @@ public:
     static unsigned int anRunSuccessCheck(xAnimTransition*, xAnimSingle*, void*);
     void AddInternalTransitions(xAnimTable* table);
     void AddStates(xAnimTable* table);
+    static const char* GetTransitionString() { return "Run*"; }
+    void AddActionTransitions(xAnimTable* table);
 };
 
-class zSBPlayerBungeeBall {
+class zSBPlayerBungeeBall : public zPlayerAction {
 public:
     static unsigned int anSBBungeeBallBuffFlingCheck(xAnimTransition*, xAnimSingle*, void*);
     static unsigned int anSBBungeeBallDeathCheck(xAnimTransition*, xAnimSingle*, void*);
@@ -311,11 +424,16 @@ public:
     static unsigned int anSBBungeeBallTransferCB(xAnimTransition*, xAnimSingle*, void*);
     static unsigned int anSBBungeeBallTransferCheck(xAnimTransition*, xAnimSingle*, void*);
     void AddInternalTransitions(xAnimTable* table);
+    static const char* GetTransitionString() { return "BungeeBall*"; }
+    static unsigned int anSBBungeeBallFlattenedCheck(xAnimTransition*, xAnimSingle*, void*);
+    static unsigned int anSBBungeeBallHitExitCheck(xAnimTransition*, xAnimSingle*, void*);
+    void AddActionTransitions(xAnimTable* table);
 };
 
 class zBoardPlayerBungeeBall {
 public:
     static unsigned int anSBBungeeBallHitEndCB(xAnimTransition*, xAnimSingle*, void*);
+    static unsigned int anSBBungeeBallExitCheck(xAnimTransition*, xAnimSingle*, void*);
 };
 
 // -- the animation tables, read from the image ------------------
@@ -626,11 +744,6 @@ void zSBPlayerPuckPowerupAttack::AddInternalTransitions(xAnimTable* table) {
     xAnimTableNewTransition(table, "PuckPowerupAttack_Run_Shoot", "PuckPowerupAttack_Walk_Shoot_L", 0, zSBPlayerAction::anSBWalkCheck, 0, 32, 0, 0.0f, 0.0f, 1000, 0, 0.15000000596046448f, 0);
 }
 
-class zPlayerAction {
-public:
-    static unsigned int ActionChange(xAnimTransition*, xAnimSingle*, void*);
-};
-
 
 
 // zPlayerHitSB::AddStates: 20 call(s)
@@ -702,19 +815,23 @@ void zPlayerRunSB::AddStates(xAnimTable* table) {
     xAnimTableNewState(table, "RunSuccessStop01", 32, 0x2000000, 1.0f, 0, 0, 0.0f, 0, this, 0, 0, 0, 0, 0, 0);
 }
 
-class zPlayerDoubleJumpSB {
+class zPlayerDoubleJumpSB : public zPlayerAction {
 public:
     static unsigned int anTransToFallCheck(xAnimTransition*, xAnimSingle*, void*);
     void AddInternalTransitions(xAnimTable* table);
+    static const char* GetTransitionString() { return "DoubleJump*"; }
+    void AddActionTransitions(xAnimTable* table);
 };
 
-class zSBPlayerSpinAttack {
+class zSBPlayerSpinAttack : public zPlayerAction {
 public:
     static unsigned int anFinishedQueueCheck(xAnimTransition*, xAnimSingle*, void*);
     static unsigned int anNULLAttackCheck(xAnimTransition*, xAnimSingle*, void*);
     static unsigned int anSpongebuffIdleSpinCheck(xAnimTransition*, xAnimSingle*, void*);
     static unsigned int anSpongebuffMovingSpinCheck(xAnimTransition*, xAnimSingle*, void*);
     void AddInternalTransitions(xAnimTable* table);
+    static const char* GetTransitionString() { return "SpinAttackOut01 SpinAttackNULL01"; }
+    void AddActionTransitions(xAnimTable* table);
 };
 
 class zBoardPlayerHammerAttack {
@@ -723,75 +840,101 @@ public:
     static unsigned int anHammerInterruptHighCheck(xAnimTransition*, xAnimSingle*, void*);
 };
 
-class zPlayerJumpSB {
+class zPlayerJumpSB : public zPlayerAction {
 public:
     static unsigned int anApexCheck(xAnimTransition*, xAnimSingle*, void*);
     void AddInternalTransitions(xAnimTable* table);
+    static const char* GetTransitionString() { return "Jump*"; }
+    void AddActionTransitions(xAnimTable* table);
 };
 
-class zSBPlayerCandy {
+class zSBPlayerCandy : public zPlayerAction {
 public:
     void AddInternalTransitions(xAnimTable* table);
+    static const char* GetTransitionString() { return "CandyGetOff CandyBuffGetOff"; }
+    void AddActionTransitions(xAnimTable* table);
 };
 
-class zPlayerSpringboardSB {
+class zPlayerSpringboardSB : public zPlayerAction {
 public:
     void AddActionTransitions(xAnimTable* table);
+    static const char* GetTransitionString() { return "SprBo*"; }
+    static unsigned int anSBSpringboardDoubleJumpCheck(xAnimTransition*, xAnimSingle*, void*);
 };
 
 class zPlayerCheat {
 public:
     static unsigned int anCheatBeginCheck(xAnimTransition*, xAnimSingle*, void*);
+    static unsigned int anCheatEndCheck(xAnimTransition*, xAnimSingle*, void*);
 };
 
-class zPlayerCheatSB {
+class zPlayerCheatSB : public zPlayerAction {
 public:
     void AddActionTransitions(xAnimTable* table);
 };
 
-class zPlayerHitLaunchSB {
+class zPlayerHitLaunchSB : public zPlayerAction {
 public:
     void AddInternalTransitions(xAnimTable* table);
+    static const char* GetTransitionString() { return "LaunchLand*"; }
+    void AddActionTransitions(xAnimTable* table);
+    void AddStandardTransitionsFrom(xAnimTable* table, const char* name);
 };
 
-class zPlayerWalkSB {
+class zPlayerWalkSB : public zPlayerAction {
 public:
     static unsigned int anWalkRegularCheck(xAnimTransition*, xAnimSingle*, void*);
     static unsigned int anWalkSlipperyCheck(xAnimTransition*, xAnimSingle*, void*);
     void AddInternalTransitions(xAnimTable* table);
+    static const char* GetTransitionString() { return "Walk*"; }
+    static unsigned int anWalkToRun1Check(xAnimTransition*, xAnimSingle*, void*);
+    static unsigned int anWalkToRun2Check(xAnimTransition*, xAnimSingle*, void*);
+    void AddActionTransitions(xAnimTable* table);
 };
 
-class zSBPlayerGainPowerup {
+class zSBPlayerGainPowerup : public zPlayerAction {
 public:
     static unsigned int anGainHammerPowerupCheck(xAnimTransition*, xAnimSingle*, void*);
     static unsigned int anGainPuckPowerupCheck(xAnimTransition*, xAnimSingle*, void*);
     static unsigned int anGainSpinPowerupCheck(xAnimTransition*, xAnimSingle*, void*);
     void AddInternalTransitions(xAnimTable* table);
+    static const char* GetTransitionString() { return "GainPowerup*"; }
+    void AddActionTransitions(xAnimTable* table);
 };
 
-class zSBPlayerBombRoll {
+class zSBPlayerBombRoll : public zPlayerAction {
 public:
     static unsigned int anSBBombMoveCheck(xAnimTransition*, xAnimSingle*, void*);
     static unsigned int anSBBombStopCheck(xAnimTransition*, xAnimSingle*, void*);
     void AddInternalTransitions(xAnimTable* table);
+    static const char* GetTransitionString() { return "BombRoll*"; }
+    static unsigned int anSBNoBombCheck(xAnimTransition*, xAnimSingle*, void*);
+    void AddActionTransitions(xAnimTable* table);
 };
 
-class zPlayerFluidSpraySB {
+class zPlayerFluidSpraySB : public zPlayerAction {
 public:
     static unsigned int anSpray25Check(xAnimTransition*, xAnimSingle*, void*);
     static unsigned int anSpray50Check(xAnimTransition*, xAnimSingle*, void*);
     static unsigned int anSpray75Check(xAnimTransition*, xAnimSingle*, void*);
     void AddInternalTransitions(xAnimTable* table);
+    static const char* GetTransitionString() { return "Spray*"; }
+    static unsigned int anSprayEndCheck(xAnimTransition*, xAnimSingle*, void*);
+    void AddActionTransitions(xAnimTable* table);
 };
 
-class zSBPlayerSpinPowerupAttack {
+class zSBPlayerSpinPowerupAttack : public zPlayerAction {
 public:
     void AddInternalTransitions(xAnimTable* table);
+    static const char* GetTransitionString() { return "SpinPowerupAttack*"; }
+    void AddActionTransitions(xAnimTable* table);
 };
 
-class zSBPlayerQuicksandStuck {
+class zSBPlayerQuicksandStuck : public zPlayerAction {
 public:
     void AddInternalTransitions(xAnimTable* table);
+    static const char* GetTransitionString() { return "QuicksandStuck*"; }
+    void AddActionTransitions(xAnimTable* table);
 };
 
 class zBoardPlayerFillWithGoo {
@@ -799,9 +942,11 @@ public:
     static unsigned int anTurnDoneCheck(xAnimTransition*, xAnimSingle*, void*);
 };
 
-class zSBPlayerFillWithGoo {
+class zSBPlayerFillWithGoo : public zPlayerAction {
 public:
     void AddInternalTransitions(xAnimTable* table);
+    static const char* GetTransitionString() { return "FillWithGooIn*"; }
+    void AddActionTransitions(xAnimTable* table);
 };
 
 
@@ -982,8 +1127,8 @@ void zSBPlayerQuicksandStuck::AddInternalTransitions(xAnimTable* table) {
 
 // zPlayerSingleCustomAnimSB::AddActionTransitions: 2 call(s)
 void zPlayerSingleCustomAnimSB::AddActionTransitions(xAnimTable* table) {
-    xAnimTableNewTransition(table, "SingleCustom*", "Idle01", 0, 0, zPlayerAction::ActionChange, 16, 0, 0.0f, 0.0f, 1000, 0, 0.15f, 0);
-    xAnimTableNewTransition(table, "SingleCustom*", "Idle01", 0, zPlayerSingleCustomAnimSB::anEarlyStopCheck, zPlayerAction::ActionChange, 0, 0, 0.0f, 0.0f, 1000, 0, 0.15f, 0);
+    zPlayerAction::AddActionTransition(table, "SingleCustom*", "Idle01", 0, 0, 0, 1000, 0.15f, 16, 0);
+    zPlayerAction::AddActionTransition(table, "SingleCustom*", "Idle01", 0, zPlayerSingleCustomAnimSB::anEarlyStopCheck, 0, 1000, 0.15f, 0, 0);
 }
 
 // zPlayerDoubleJumpSB::AddInternalTransitions: 2 call(s)
@@ -1007,4 +1152,656 @@ void zPlayerJumpSB::AddInternalTransitions(xAnimTable* table) {
 // zSBPlayerFillWithGoo::AddInternalTransitions: 1 call(s)
 void zSBPlayerFillWithGoo::AddInternalTransitions(xAnimTable* table) {
     xAnimTableNewTransition(table, "FillWithGooTurn01", "FillWithGooIn01", 0, zBoardPlayerFillWithGoo::anTurnDoneCheck, 0, 0, 0, 0.0f, 0.0f, 1000, 0, 0.15f, 0);
+}
+
+// zPlayerCheatSB::AddActionTransitions: 8 call(s)
+void zPlayerCheatSB::AddActionTransitions(xAnimTable* table) {
+    zPlayerAction::AddActionTransition(table, "*", "Cheat01", zPlayerCheat::anCheatBeginCheck, 0, 0, 64000, 0.0f, 0, 0);
+    manager->AddTransitionsTo(28, table, "Cheat01", zPlayerCheat::anCheatEndCheck, 0, 1000, 0.0f, 0, 0, (zPlayerAction::SpecialActions)0);
+    manager->AddTransitionsTo(29, table, "Cheat01", zPlayerCheat::anCheatEndCheck, 0, 1000, 0.0f, 0, 0, (zPlayerAction::SpecialActions)0);
+    manager->AddTransitionsTo(30, table, "Cheat01", zPlayerCheat::anCheatEndCheck, 0, 1000, 0.0f, 0, 0, (zPlayerAction::SpecialActions)0);
+    manager->AddTransitionsTo(31, table, "Cheat01", zPlayerCheat::anCheatEndCheck, 0, 1000, 0.0f, 0, 0, (zPlayerAction::SpecialActions)0);
+    manager->AddTransitionsTo(0, table, "Cheat01", zPlayerCheat::anCheatEndCheck, 0, 999, 0.0f, 0, 0, (zPlayerAction::SpecialActions)0);
+    manager->AddTransitionsTo(3, table, "Cheat01", zPlayerCheat::anCheatEndCheck, 0, 999, 0.0f, 0, 0, (zPlayerAction::SpecialActions)0);
+    manager->AddTransitionsTo(2, table, "Cheat01", zPlayerCheat::anCheatEndCheck, 0, 999, 0.0f, 0, 0, (zPlayerAction::SpecialActions)0);
+}
+
+class zPlayerTurn180SB : public zPlayerAction {
+public:
+    static const char* GetTransitionString() { return "Turn180*"; }
+    static unsigned int anTurn180DoneCheck(xAnimTransition*, xAnimSingle*, void*);
+    void AddActionTransitions(xAnimTable* table);
+};
+
+class zPlayerSlamStartSB : public zPlayerAction {
+public:
+    static const char* GetTransitionString() { return "SlamStart*"; }
+    static unsigned int anSlamApexCheck(xAnimTransition*, xAnimSingle*, void*);
+    void AddActionTransitions(xAnimTable* table);
+};
+
+class zPlayerSlamFallSB : public zPlayerAction {
+public:
+    static const char* GetTransitionString() { return "SlamFall*"; }
+    static unsigned int anSlamLandCheck(xAnimTransition*, xAnimSingle*, void*);
+    void AddActionTransitions(xAnimTable* table);
+};
+
+class zPlayerSlamLandSB : public zPlayerAction {
+public:
+    static const char* GetTransitionString() { return "SlamLand*"; }
+    void AddActionTransitions(xAnimTable* table);
+};
+
+class zPlayerFluidBurstSB : public zPlayerAction {
+public:
+    void AddInternalTransitions(xAnimTable* table);
+};
+
+class zPlayerLandSB : public zPlayerAction {
+public:
+    static const char* GetTransitionString() { return "Land*"; }
+    static unsigned int anNotFluidCheck(xAnimTransition*, xAnimSingle*, void*);
+    void AddActionTransitions(xAnimTable* table);
+    void AddStandardTransitionsFrom(xAnimTable* table, const char* name);
+};
+
+class zPlayerLedgeSB : public zPlayerAction {
+public:
+    static const char* GetTransitionString() { return "Ledge*"; }
+    void AddActionTransitions(xAnimTable* table);
+};
+
+class zSBPlayerDrainGoo : public zPlayerAction {
+public:
+    static const char* GetTransitionString() { return "DrainGoo*"; }
+    void AddActionTransitions(xAnimTable* table);
+};
+
+class zSBPlayerLosePowerup : public zPlayerAction {
+public:
+    static const char* GetTransitionString() { return "LosePowerup*"; }
+    void AddActionTransitions(xAnimTable* table);
+};
+
+class zSBPlayerQuicksandJump : public zPlayerAction {
+public:
+    static const char* GetTransitionString() { return "QuicksandJump*"; }
+    static unsigned int anSBQuicksandApexCheck(xAnimTransition*, xAnimSingle*, void*);
+    void AddActionTransitions(xAnimTable* table);
+};
+
+class zPlayerCelebrationSB : public zPlayerAction {
+public:
+    static const char* GetTransitionString() { return "Celebration*"; }
+    void AddActionTransitions(xAnimTable* table);
+};
+
+// zPlayerIdleSB::AddActionTransitions: 27 call(s)
+void zPlayerIdleSB::AddActionTransitions(xAnimTable* table) {
+    manager->AddTransitionsTo(2, table, "IdleMoveStart01 IdleSlipperyMoveStart01", 0, 0, 1000, 0.15f, 16, 0, (zPlayerAction::SpecialActions)0);
+    manager->AddTransitionsTo(3, table, "IdleMoveStart01 IdleSlipperyMoveStart01", 0, 0, 1000, 0.15f, 16, 0, (zPlayerAction::SpecialActions)0);
+    manager->AddStandardTransitionsTo(19, table, zPlayerIdleSB::GetTransitionString());
+    manager->AddStandardTransitionsTo(5, table, zPlayerIdleSB::GetTransitionString());
+    manager->AddStandardTransitionsTo(6, table, zPlayerIdleSB::GetTransitionString());
+    manager->AddTransitionsTo(24, table, zPlayerIdleSB::GetTransitionString(), 0, 0, 1000, 0.15f, 0, 0, (zPlayerAction::SpecialActions)0);
+    manager->AddStandardTransitionsTo(11, table, zPlayerIdleSB::GetTransitionString());
+    manager->AddStandardTransitionsTo(12, table, zPlayerIdleSB::GetTransitionString());
+    manager->AddStandardTransitionsTo(13, table, zPlayerIdleSB::GetTransitionString());
+    manager->AddStandardTransitionsTo(14, table, zPlayerIdleSB::GetTransitionString());
+    manager->AddStandardTransitionsTo(20, table, zPlayerIdleSB::GetTransitionString());
+    manager->AddStandardTransitionsTo(21, table, zPlayerIdleSB::GetTransitionString());
+    manager->AddStandardTransitionsTo(22, table, zPlayerIdleSB::GetTransitionString());
+    manager->AddStandardTransitionsTo(25, table, zPlayerIdleSB::GetTransitionString());
+    manager->AddStandardTransitionsTo(26, table, zPlayerIdleSB::GetTransitionString());
+    manager->AddStandardTransitionsTo(27, table, zPlayerIdleSB::GetTransitionString());
+    manager->AddStandardTransitionsTo(31, table, zPlayerIdleSB::GetTransitionString());
+    manager->AddStandardTransitionsTo(32, table, zPlayerIdleSB::GetTransitionString());
+    manager->AddStandardTransitionsTo(34, table, zPlayerIdleSB::GetTransitionString());
+    manager->AddStandardTransitionsTo(35, table, zPlayerIdleSB::GetTransitionString());
+    manager->AddStandardTransitionsTo(36, table, zPlayerIdleSB::GetTransitionString());
+    manager->AddStandardTransitionsTo(37, table, zPlayerIdleSB::GetTransitionString());
+    manager->AddStandardTransitionsTo(41, table, zPlayerIdleSB::GetTransitionString());
+    manager->AddStandardTransitionsTo(42, table, zPlayerIdleSB::GetTransitionString());
+    manager->AddStandardTransitionsTo(43, table, zPlayerIdleSB::GetTransitionString());
+    manager->AddStandardTransitionsTo(10, table, zPlayerIdleSB::GetTransitionString());
+    manager->AddStandardTransitionsTo(44, table, zPlayerIdleSB::GetTransitionString());
+}
+
+// zPlayerWalkSB::AddActionTransitions: 33 call(s)
+void zPlayerWalkSB::AddActionTransitions(xAnimTable* table) {
+    manager->AddTransitionsTo(0, table, "WalkStop01 WalkSlipperyStop01", 0, 0, 1000, 0.15f, 16, 0, (zPlayerAction::SpecialActions)0);
+    manager->AddTransitionsTo(3, table, "Walk01", zPlayerWalkSB::anWalkToRun1Check, 0, 1000, 0.15f, 0, 0, (zPlayerAction::SpecialActions)1);
+    xAnimTableNewTransition(table, "Walk01", "Run01", zPlayerWalkSB::anWalkToRun2Check, 0, zPlayerAction::ActionChange, 0, 0, 0.0f, 0.1f, 1000, 0, 0.13333334f, 0);
+    manager->AddTransitionsTo(3, table, "WalkStop01 WalkSlippery01 WalkSlipperyStop01", 0, 0, 1000, 0.15f, 0, 0, (zPlayerAction::SpecialActions)1);
+    manager->AddStandardTransitionsTo(19, table, zPlayerWalkSB::GetTransitionString());
+    manager->AddStandardTransitionsTo(1, table, zPlayerWalkSB::GetTransitionString());
+    manager->AddStandardTransitionsTo(5, table, zPlayerWalkSB::GetTransitionString());
+    manager->AddStandardTransitionsTo(4, table, zPlayerWalkSB::GetTransitionString());
+    manager->AddStandardTransitionsTo(8, table, zPlayerWalkSB::GetTransitionString());
+    manager->AddStandardTransitionsTo(11, table, zPlayerWalkSB::GetTransitionString());
+    manager->AddStandardTransitionsTo(12, table, zPlayerWalkSB::GetTransitionString());
+    manager->AddStandardTransitionsTo(15, table, zPlayerWalkSB::GetTransitionString());
+    manager->AddTransitionsTo(24, table, zPlayerWalkSB::GetTransitionString(), 0, 0, 1000, 0.15f, 0, 0, (zPlayerAction::SpecialActions)0);
+    manager->AddStandardTransitionsTo(20, table, zPlayerWalkSB::GetTransitionString());
+    manager->AddStandardTransitionsTo(21, table, zPlayerWalkSB::GetTransitionString());
+    manager->AddStandardTransitionsTo(22, table, zPlayerWalkSB::GetTransitionString());
+    manager->AddStandardTransitionsTo(25, table, zPlayerWalkSB::GetTransitionString());
+    manager->AddStandardTransitionsTo(26, table, zPlayerWalkSB::GetTransitionString());
+    manager->AddStandardTransitionsTo(27, table, zPlayerWalkSB::GetTransitionString());
+    manager->AddStandardTransitionsTo(31, table, zPlayerWalkSB::GetTransitionString());
+    manager->AddStandardTransitionsTo(32, table, zPlayerWalkSB::GetTransitionString());
+    manager->AddStandardTransitionsTo(34, table, zPlayerWalkSB::GetTransitionString());
+    manager->AddStandardTransitionsTo(35, table, zPlayerWalkSB::GetTransitionString());
+    manager->AddStandardTransitionsTo(36, table, zPlayerWalkSB::GetTransitionString());
+    manager->AddStandardTransitionsTo(37, table, zPlayerWalkSB::GetTransitionString());
+    manager->AddStandardTransitionsTo(41, table, zPlayerWalkSB::GetTransitionString());
+    manager->AddStandardTransitionsTo(42, table, zPlayerWalkSB::GetTransitionString());
+    manager->AddStandardTransitionsTo(43, table, zPlayerWalkSB::GetTransitionString());
+    manager->AddStandardTransitionsTo(10, table, zPlayerWalkSB::GetTransitionString());
+    manager->AddStandardTransitionsTo(44, table, zPlayerWalkSB::GetTransitionString());
+    manager->AddTransitionsTo(6, table, zPlayerWalkSB::GetTransitionString(), 0, 0, 1000, 0.15f, 0, 0, (zPlayerAction::SpecialActions)1);
+    manager->AddStandardTransitionsTo(13, table, zPlayerWalkSB::GetTransitionString());
+    manager->AddStandardTransitionsTo(14, table, zPlayerWalkSB::GetTransitionString());
+}
+
+// zPlayerRunSB::AddActionTransitions: 28 call(s)
+void zPlayerRunSB::AddActionTransitions(xAnimTable* table) {
+    manager->AddTransitionsTo(0, table, "RunStop01 RunHappyStop01 RunHappierStop01 RunSlipperyStop01 RunBraveStop01 RunSuccessStop01", 0, 0, 1000, 0.15f, 16, 0, (zPlayerAction::SpecialActions)0);
+    manager->AddStandardTransitionsTo(19, table, zPlayerRunSB::GetTransitionString());
+    manager->AddStandardTransitionsTo(1, table, zPlayerRunSB::GetTransitionString());
+    manager->AddTransitionsTo(2, table, zPlayerRunSB::GetTransitionString(), 0, 0, 1000, 0.4f, 0, 0, (zPlayerAction::SpecialActions)0);
+    manager->AddStandardTransitionsTo(5, table, zPlayerRunSB::GetTransitionString());
+    manager->AddStandardTransitionsTo(4, table, zPlayerRunSB::GetTransitionString());
+    manager->AddStandardTransitionsTo(8, table, zPlayerRunSB::GetTransitionString());
+    manager->AddStandardTransitionsTo(11, table, zPlayerRunSB::GetTransitionString());
+    manager->AddStandardTransitionsTo(12, table, zPlayerRunSB::GetTransitionString());
+    manager->AddStandardTransitionsTo(15, table, zPlayerRunSB::GetTransitionString());
+    manager->AddTransitionsTo(6, table, zPlayerRunSB::GetTransitionString(), 0, 0, 1000, 0.15f, 0, 0, (zPlayerAction::SpecialActions)1);
+    manager->AddTransitionsTo(24, table, zPlayerRunSB::GetTransitionString(), 0, 0, 1000, 0.15f, 0, 0, (zPlayerAction::SpecialActions)0);
+    manager->AddStandardTransitionsTo(20, table, zPlayerRunSB::GetTransitionString());
+    manager->AddStandardTransitionsTo(21, table, zPlayerRunSB::GetTransitionString());
+    manager->AddStandardTransitionsTo(22, table, zPlayerRunSB::GetTransitionString());
+    manager->AddStandardTransitionsTo(25, table, zPlayerRunSB::GetTransitionString());
+    manager->AddStandardTransitionsTo(27, table, zPlayerRunSB::GetTransitionString());
+    manager->AddStandardTransitionsTo(31, table, zPlayerRunSB::GetTransitionString());
+    manager->AddStandardTransitionsTo(32, table, zPlayerRunSB::GetTransitionString());
+    manager->AddStandardTransitionsTo(34, table, zPlayerRunSB::GetTransitionString());
+    manager->AddStandardTransitionsTo(35, table, zPlayerRunSB::GetTransitionString());
+    manager->AddStandardTransitionsTo(36, table, zPlayerRunSB::GetTransitionString());
+    manager->AddStandardTransitionsTo(37, table, zPlayerRunSB::GetTransitionString());
+    manager->AddStandardTransitionsTo(13, table, zPlayerRunSB::GetTransitionString());
+    manager->AddStandardTransitionsTo(14, table, zPlayerRunSB::GetTransitionString());
+    manager->AddStandardTransitionsTo(43, table, zPlayerRunSB::GetTransitionString());
+    manager->AddStandardTransitionsTo(10, table, zPlayerRunSB::GetTransitionString());
+    manager->AddStandardTransitionsTo(44, table, zPlayerRunSB::GetTransitionString());
+}
+
+// zPlayerTurn180SB::AddActionTransitions: 21 call(s)
+void zPlayerTurn180SB::AddActionTransitions(xAnimTable* table) {
+    manager->AddTransitionsTo(0, table, zPlayerTurn180SB::GetTransitionString(), zPlayerTurn180SB::anTurn180DoneCheck, 0, 1000, 0.15f, 0, 0, (zPlayerAction::SpecialActions)0);
+    manager->AddTransitionsTo(2, table, zPlayerTurn180SB::GetTransitionString(), zPlayerTurn180SB::anTurn180DoneCheck, 0, 1000, 0.15f, 0, 0, (zPlayerAction::SpecialActions)0);
+    manager->AddTransitionsTo(3, table, zPlayerTurn180SB::GetTransitionString(), zPlayerTurn180SB::anTurn180DoneCheck, 0, 1000, 0.15f, 0, 0, (zPlayerAction::SpecialActions)0);
+    manager->AddStandardTransitionsTo(5, table, zPlayerTurn180SB::GetTransitionString());
+    manager->AddStandardTransitionsTo(8, table, zPlayerTurn180SB::GetTransitionString());
+    manager->AddStandardTransitionsTo(11, table, zPlayerTurn180SB::GetTransitionString());
+    manager->AddStandardTransitionsTo(12, table, zPlayerTurn180SB::GetTransitionString());
+    manager->AddTransitionsTo(6, table, zPlayerTurn180SB::GetTransitionString(), 0, 0, 1000, 0.15f, 0, 0, (zPlayerAction::SpecialActions)1);
+    manager->AddTransitionsTo(24, table, zPlayerTurn180SB::GetTransitionString(), 0, 0, 1000, 0.15f, 0, 0, (zPlayerAction::SpecialActions)0);
+    manager->AddStandardTransitionsTo(20, table, zPlayerTurn180SB::GetTransitionString());
+    manager->AddStandardTransitionsTo(21, table, zPlayerTurn180SB::GetTransitionString());
+    manager->AddStandardTransitionsTo(22, table, zPlayerTurn180SB::GetTransitionString());
+    manager->AddStandardTransitionsTo(25, table, zPlayerTurn180SB::GetTransitionString());
+    manager->AddStandardTransitionsTo(27, table, zPlayerTurn180SB::GetTransitionString());
+    manager->AddStandardTransitionsTo(31, table, zPlayerTurn180SB::GetTransitionString());
+    manager->AddStandardTransitionsTo(32, table, zPlayerTurn180SB::GetTransitionString());
+    manager->AddStandardTransitionsTo(34, table, zPlayerTurn180SB::GetTransitionString());
+    manager->AddStandardTransitionsTo(35, table, zPlayerTurn180SB::GetTransitionString());
+    manager->AddStandardTransitionsTo(37, table, zPlayerTurn180SB::GetTransitionString());
+    manager->AddStandardTransitionsTo(13, table, zPlayerTurn180SB::GetTransitionString());
+    manager->AddStandardTransitionsTo(14, table, zPlayerTurn180SB::GetTransitionString());
+}
+
+// zPlayerJumpSB::AddActionTransitions: 21 call(s)
+void zPlayerJumpSB::AddActionTransitions(xAnimTable* table) {
+    zPlayerAction::AddActionTransition(table, "JumpCycleIdle01", "FallIdle01", zPlayerJumpSB::anApexCheck, 0, 0, 1000, 0.15f, 0, 0);
+    zPlayerAction::AddActionTransition(table, "JumpCycleMoving01", "FallMoving01", zPlayerJumpSB::anApexCheck, 0, 0, 1000, 0.15f, 0, 0);
+    zPlayerAction::AddActionTransition(table, "JumpStartIdle01", "LandIdle01", zSBPlayerAction::anSBLandCheck, 0, 0, 1000, 0.15f, 0, 0);
+    zPlayerAction::AddActionTransition(table, "JumpStartMoving01", "LandMoving01", zSBPlayerAction::anSBLandCheck, 0, 0, 1000, 0.15f, 0, 0);
+    manager->AddTransitionsTo(23, table, zPlayerJumpSB::GetTransitionString(), 0, 0, 1000, 0.15f, 0, 0, (zPlayerAction::SpecialActions)0);
+    manager->AddTransitionsTo(24, table, zPlayerJumpSB::GetTransitionString(), 0, 0, 1000, 0.15f, 0, 0, (zPlayerAction::SpecialActions)0);
+    manager->AddTransitionsTo(9, table, zPlayerJumpSB::GetTransitionString(), 0, 0, 1000, 0.15f, 0, 0, (zPlayerAction::SpecialActions)0);
+    manager->AddStandardTransitionsTo(13, table, zPlayerJumpSB::GetTransitionString());
+    manager->AddStandardTransitionsTo(14, table, zPlayerJumpSB::GetTransitionString());
+    manager->AddStandardTransitionsTo(11, table, zPlayerJumpSB::GetTransitionString());
+    manager->AddStandardTransitionsTo(12, table, zPlayerJumpSB::GetTransitionString());
+    manager->AddStandardTransitionsTo(20, table, zPlayerJumpSB::GetTransitionString());
+    manager->AddStandardTransitionsTo(21, table, zPlayerJumpSB::GetTransitionString());
+    manager->AddStandardTransitionsTo(22, table, zPlayerJumpSB::GetTransitionString());
+    manager->AddStandardTransitionsTo(25, table, zPlayerJumpSB::GetTransitionString());
+    manager->AddStandardTransitionsTo(26, table, zPlayerJumpSB::GetTransitionString());
+    manager->AddStandardTransitionsTo(27, table, zPlayerJumpSB::GetTransitionString());
+    manager->AddTransitionsTo(31, table, zPlayerJumpSB::GetTransitionString(), 0, 0, 1010, 0.15f, 0, 0, (zPlayerAction::SpecialActions)0);
+    manager->AddStandardTransitionsTo(35, table, zPlayerJumpSB::GetTransitionString());
+    manager->AddStandardTransitionsTo(37, table, zPlayerJumpSB::GetTransitionString());
+    manager->AddStandardTransitionsTo(38, table, zPlayerJumpSB::GetTransitionString());
+}
+
+// zPlayerFluidSpraySB::AddActionTransitions: 6 call(s)
+void zPlayerFluidSpraySB::AddActionTransitions(xAnimTable* table) {
+    manager->AddTransitionsTo(0, table, zPlayerFluidSpraySB::GetTransitionString(), zPlayerFluidSpraySB::anSprayEndCheck, 0, 1000, 0.15f, 0, 0, (zPlayerAction::SpecialActions)0);
+    manager->AddTransitionsTo(2, table, zPlayerFluidSpraySB::GetTransitionString(), zPlayerFluidSpraySB::anSprayEndCheck, 0, 1000, 0.15f, 0, 0, (zPlayerAction::SpecialActions)0);
+    manager->AddTransitionsTo(11, table, zPlayerFluidSpraySB::GetTransitionString(), 0, 0, 1000, 0.15f, 0, 0, (zPlayerAction::SpecialActions)0);
+    manager->AddTransitionsTo(12, table, zPlayerFluidSpraySB::GetTransitionString(), 0, 0, 1000, 0.15f, 0, 0, (zPlayerAction::SpecialActions)0);
+    manager->AddTransitionsTo(13, table, zPlayerFluidSpraySB::GetTransitionString(), 0, 0, 1000, 0.15f, 0, 0, (zPlayerAction::SpecialActions)0);
+    manager->AddTransitionsTo(14, table, zPlayerFluidSpraySB::GetTransitionString(), 0, 0, 1000, 0.15f, 0, 0, (zPlayerAction::SpecialActions)0);
+}
+
+// zPlayerSlamStartSB::AddActionTransitions: 3 call(s)
+void zPlayerSlamStartSB::AddActionTransitions(xAnimTable* table) {
+    manager->AddTransitionsTo(39, table, zPlayerSlamStartSB::GetTransitionString(), zPlayerSlamStartSB::anSlamApexCheck, 0, 1000, 0.15f, 0, 0, (zPlayerAction::SpecialActions)0);
+    manager->AddTransitionsTo(13, table, zPlayerSlamStartSB::GetTransitionString(), 0, 0, 1000, 0.15f, 0, 0, (zPlayerAction::SpecialActions)0);
+    manager->AddTransitionsTo(14, table, zPlayerSlamStartSB::GetTransitionString(), 0, 0, 1000, 0.15f, 0, 0, (zPlayerAction::SpecialActions)0);
+}
+
+// zPlayerSlamFallSB::AddActionTransitions: 3 call(s)
+void zPlayerSlamFallSB::AddActionTransitions(xAnimTable* table) {
+    manager->AddTransitionsTo(40, table, zPlayerSlamFallSB::GetTransitionString(), zPlayerSlamFallSB::anSlamLandCheck, 0, 1000, 0.15f, 0, 0, (zPlayerAction::SpecialActions)0);
+    manager->AddTransitionsTo(13, table, zPlayerSlamFallSB::GetTransitionString(), 0, 0, 1000, 0.15f, 0, 0, (zPlayerAction::SpecialActions)0);
+    manager->AddTransitionsTo(14, table, zPlayerSlamFallSB::GetTransitionString(), 0, 0, 1000, 0.15f, 0, 0, (zPlayerAction::SpecialActions)0);
+}
+
+// zPlayerSlamLandSB::AddActionTransitions: 4 call(s)
+void zPlayerSlamLandSB::AddActionTransitions(xAnimTable* table) {
+    manager->AddTransitionsTo(0, table, zPlayerSlamLandSB::GetTransitionString(), 0, 0, 1000, 0.15f, 16, 0, (zPlayerAction::SpecialActions)0);
+    manager->AddTransitionsTo(2, table, zPlayerSlamLandSB::GetTransitionString(), 0, 0, 1000, 0.15f, 16, 0, (zPlayerAction::SpecialActions)0);
+    manager->AddTransitionsTo(13, table, zPlayerSlamLandSB::GetTransitionString(), 0, 0, 1000, 0.15f, 0, 0, (zPlayerAction::SpecialActions)0);
+    manager->AddTransitionsTo(14, table, zPlayerSlamLandSB::GetTransitionString(), 0, 0, 1000, 0.15f, 0, 0, (zPlayerAction::SpecialActions)0);
+}
+
+// zPlayerFluidBurstSB::AddInternalTransitions: 1 call(s)
+void zPlayerFluidBurstSB::AddInternalTransitions(xAnimTable* table) {
+    manager->AddTransitionsTo(0, table, "Burst01", 0, 0, 1000, 0.15f, 16, 0, (zPlayerAction::SpecialActions)0);
+}
+
+// zPlayerFallSB::AddActionTransitions: 36 call(s)
+void zPlayerFallSB::AddActionTransitions(xAnimTable* table) {
+    zPlayerAction::AddActionTransition(table, "FallIdle01", "LandIdle01", zPlayerFallSB::anLandWalkCheck, 0, 0, 1000, 0.15f, 0, 0);
+    zPlayerAction::AddActionTransition(table, "FallIdle01", "LandMoving01", zPlayerFallSB::anLandRunCheck, 0, 0, 1000, 0.15f, 0, 0);
+    zPlayerAction::AddActionTransition(table, "FallMoving01", "LandIdle01", zPlayerFallSB::anLandWalkCheck, 0, 0, 1000, 0.15f, 0, 0);
+    zPlayerAction::AddActionTransition(table, "FallMoving01", "LandMoving01", zPlayerFallSB::anLandRunCheck, 0, 0, 1000, 0.15f, 0, 0);
+    zPlayerAction::AddActionTransition(table, "FallHighIdle01", "HighFallLandIdle01", zPlayerFallSB::anLandWalkCheck, 0, 0, 1000, 0.15f, 0, 0);
+    zPlayerAction::AddActionTransition(table, "FallHighIdle01", "HighFallLandMoving01", zPlayerFallSB::anLandRunCheck, 0, 0, 1000, 0.15f, 0, 0);
+    zPlayerAction::AddActionTransition(table, "FallHighMoving01", "HighFallLandIdle01", zPlayerFallSB::anLandWalkCheck, 0, 0, 1000, 0.15f, 0, 0);
+    zPlayerAction::AddActionTransition(table, "FallHighMoving01", "HighFallLandMoving01", zPlayerFallSB::anLandRunCheck, 0, 0, 1000, 0.15f, 0, 0);
+    zPlayerAction::AddActionTransition(table, "FallDoubleJumpIdle01", "LandDoubleJumpIdle01", zPlayerFallSB::anLandWalkCheck, 0, 0, 1000, 0.15f, 0, 0);
+    zPlayerAction::AddActionTransition(table, "FallDoubleJumpIdle01", "LandDoubleJumpMoving01", zPlayerFallSB::anLandRunCheck, 0, 0, 1000, 0.15f, 0, 0);
+    zPlayerAction::AddActionTransition(table, "FallDoubleJumpMoving01", "LandDoubleJumpIdle01", zPlayerFallSB::anLandWalkCheck, 0, 0, 1000, 0.15f, 0, 0);
+    zPlayerAction::AddActionTransition(table, "FallDoubleJumpMoving01", "LandDoubleJumpMoving01", zPlayerFallSB::anLandRunCheck, 0, 0, 1000, 0.15f, 0, 0);
+    zPlayerAction::AddActionTransition(table, "FallSprBoIdle01", "LandSprBoIdle01", zPlayerFallSB::anLandWalkCheck, 0, 0, 1000, 0.15f, 0, 0);
+    zPlayerAction::AddActionTransition(table, "FallSprBoIdle01", "LandSprBoMoving01", zPlayerFallSB::anLandRunCheck, 0, 0, 1000, 0.15f, 0, 0);
+    zPlayerAction::AddActionTransition(table, "FallSprBoMoving01", "LandSprBoIdle01", zPlayerFallSB::anLandWalkCheck, 0, 0, 1000, 0.15f, 0, 0);
+    zPlayerAction::AddActionTransition(table, "FallSprBoMoving01", "LandSprBoMoving01", zPlayerFallSB::anLandRunCheck, 0, 0, 1000, 0.15f, 0, 0);
+    manager->AddTransitionsTo(23, table, zPlayerFallSB::GetTransitionString(), 0, 0, 1000, 0.15f, 0, 0, (zPlayerAction::SpecialActions)0);
+    manager->AddTransitionsTo(9, table, zPlayerFallSB::GetTransitionString(), 0, 0, 1000, 0.15f, 0, 0, (zPlayerAction::SpecialActions)0);
+    manager->AddStandardTransitionsTo(11, table, zPlayerFallSB::GetTransitionString());
+    manager->AddStandardTransitionsTo(12, table, zPlayerFallSB::GetTransitionString());
+    manager->AddStandardTransitionsTo(13, table, zPlayerFallSB::GetTransitionString());
+    manager->AddStandardTransitionsTo(14, table, zPlayerFallSB::GetTransitionString());
+    manager->AddTransitionsTo(24, table, zPlayerFallSB::GetTransitionString(), 0, 0, 1000, 0.15f, 0, 0, (zPlayerAction::SpecialActions)0);
+    manager->AddStandardTransitionsTo(20, table, zPlayerFallSB::GetTransitionString());
+    manager->AddStandardTransitionsTo(21, table, zPlayerFallSB::GetTransitionString());
+    manager->AddStandardTransitionsTo(22, table, zPlayerFallSB::GetTransitionString());
+    manager->AddStandardTransitionsTo(25, table, zPlayerFallSB::GetTransitionString());
+    manager->AddStandardTransitionsTo(26, table, zPlayerFallSB::GetTransitionString());
+    manager->AddStandardTransitionsTo(38, table, zPlayerFallSB::GetTransitionString());
+    manager->AddStandardTransitionsTo(27, table, zPlayerFallSB::GetTransitionString());
+    manager->AddTransitionsTo(31, table, zPlayerFallSB::GetTransitionString(), 0, 0, 1010, 0.15f, 0, 0, (zPlayerAction::SpecialActions)0);
+    manager->AddTransitionsTo(32, table, zPlayerFallSB::GetTransitionString(), 0, 0, 1000, 0.033333335f, 0, 0, (zPlayerAction::SpecialActions)0);
+    manager->AddStandardTransitionsTo(34, table, zPlayerFallSB::GetTransitionString());
+    manager->AddStandardTransitionsTo(35, table, zPlayerFallSB::GetTransitionString());
+    manager->AddStandardTransitionsTo(36, table, zPlayerFallSB::GetTransitionString());
+    manager->AddStandardTransitionsTo(37, table, zPlayerFallSB::GetTransitionString());
+}
+
+// zPlayerLandSB::AddActionTransitions: 22 call(s)
+void zPlayerLandSB::AddActionTransitions(xAnimTable* table) {
+    manager->AddTransitionsTo(0, table, zPlayerLandSB::GetTransitionString(), 0, 0, 1001, 0.15f, 16, 0, (zPlayerAction::SpecialActions)0);
+    manager->AddTransitionsTo(3, table, zPlayerLandSB::GetTransitionString(), 0, 0, 1001, 0.15f, 16, 0, (zPlayerAction::SpecialActions)0);
+    manager->AddTransitionsTo(2, table, zPlayerLandSB::GetTransitionString(), 0, 0, 1001, 0.15f, 16, 0, (zPlayerAction::SpecialActions)0);
+    manager->AddTransitionsTo(5, table, zPlayerLandSB::GetTransitionString(), zPlayerLandSB::anNotFluidCheck, 0, 1000, 0.15f, 0, 0, (zPlayerAction::SpecialActions)0);
+    manager->AddTransitionsTo(24, table, zPlayerLandSB::GetTransitionString(), 0, 0, 1000, 0.15f, 0, 0, (zPlayerAction::SpecialActions)0);
+    manager->AddStandardTransitionsTo(11, table, zPlayerLandSB::GetTransitionString());
+    manager->AddStandardTransitionsTo(12, table, zPlayerLandSB::GetTransitionString());
+    manager->AddStandardTransitionsTo(13, table, zPlayerLandSB::GetTransitionString());
+    manager->AddStandardTransitionsTo(14, table, zPlayerLandSB::GetTransitionString());
+    manager->AddStandardTransitionsTo(20, table, zPlayerLandSB::GetTransitionString());
+    manager->AddStandardTransitionsTo(21, table, zPlayerLandSB::GetTransitionString());
+    manager->AddStandardTransitionsTo(22, table, zPlayerLandSB::GetTransitionString());
+    manager->AddStandardTransitionsTo(25, table, zPlayerLandSB::GetTransitionString());
+    manager->AddStandardTransitionsTo(26, table, zPlayerLandSB::GetTransitionString());
+    manager->AddStandardTransitionsTo(27, table, zPlayerLandSB::GetTransitionString());
+    manager->AddTransitionsTo(29, table, zPlayerLandSB::GetTransitionString(), 0, 0, 1010, 0.15f, 0, 0, (zPlayerAction::SpecialActions)0);
+    manager->AddTransitionsTo(30, table, zPlayerLandSB::GetTransitionString(), 0, 0, 1010, 0.15f, 0, 0, (zPlayerAction::SpecialActions)0);
+    manager->AddTransitionsTo(31, table, zPlayerLandSB::GetTransitionString(), 0, 0, 1010, 0.15f, 0, 0, (zPlayerAction::SpecialActions)0);
+    manager->AddStandardTransitionsTo(35, table, zPlayerLandSB::GetTransitionString());
+    manager->AddStandardTransitionsTo(36, table, zPlayerLandSB::GetTransitionString());
+    manager->AddStandardTransitionsTo(37, table, zPlayerLandSB::GetTransitionString());
+    manager->AddTransitionsTo(43, table, zPlayerLandSB::GetTransitionString(), 0, 0, 1010, 0.15f, 0, 0, (zPlayerAction::SpecialActions)0);
+}
+
+// zPlayerLandSB::AddStandardTransitionsFrom: 1 call(s)
+void zPlayerLandSB::AddStandardTransitionsFrom(xAnimTable* table, const char* name) {
+    AddTransitions(table, name, 0, 0, 1000, 0.05f, 0, 0, (zPlayerAction::SpecialActions)0);
+}
+
+// zPlayerLandHighSB::AddActionTransitions: 10 call(s)
+void zPlayerLandHighSB::AddActionTransitions(xAnimTable* table) {
+    manager->AddTransitionsTo(0, table, "HighFallLandGetUp01", 0, 0, 1000, 0.15f, 16, 0, (zPlayerAction::SpecialActions)0);
+    manager->AddStandardTransitionsTo(13, table, zPlayerLandHighSB::GetTransitionString());
+    manager->AddStandardTransitionsTo(14, table, zPlayerLandHighSB::GetTransitionString());
+    manager->AddStandardTransitionsTo(25, table, zPlayerLandHighSB::GetTransitionString());
+    manager->AddStandardTransitionsTo(26, table, zPlayerLandHighSB::GetTransitionString());
+    manager->AddStandardTransitionsTo(27, table, zPlayerLandHighSB::GetTransitionString());
+    manager->AddTransitionsTo(29, table, zPlayerLandHighSB::GetTransitionString(), 0, 0, 1010, 0.15f, 0, 0, (zPlayerAction::SpecialActions)0);
+    manager->AddTransitionsTo(30, table, zPlayerLandHighSB::GetTransitionString(), 0, 0, 1010, 0.15f, 0, 0, (zPlayerAction::SpecialActions)0);
+    manager->AddTransitionsTo(31, table, zPlayerLandHighSB::GetTransitionString(), 0, 0, 1010, 0.15f, 0, 0, (zPlayerAction::SpecialActions)0);
+    manager->AddStandardTransitionsTo(43, table, zPlayerLandHighSB::GetTransitionString());
+}
+
+// zPlayerDoubleJumpSB::AddActionTransitions: 23 call(s)
+void zPlayerDoubleJumpSB::AddActionTransitions(xAnimTable* table) {
+    zPlayerAction::AddActionTransition(table, "DoubleJumpInIdle01", "LandDoubleJumpIdle01", zSBPlayerAction::anSBLandCheck, 0, 0, 1000, 0.15f, 0, 0);
+    zPlayerAction::AddActionTransition(table, "DoubleJumpInMoving01", "LandDoubleJumpMoving01", zSBPlayerAction::anSBLandCheck, 0, 0, 1000, 0.15f, 0, 0);
+    zPlayerAction::AddActionTransition(table, "DoubleJumpInIdle01", "FallDoubleJumpIdle01", zPlayerDoubleJumpSB::anTransToFallCheck, 0, 0, 1000, 0.15f, 0, 0);
+    zPlayerAction::AddActionTransition(table, "DoubleJumpCycleIdle01", "FallDoubleJumpIdle01", zPlayerDoubleJumpSB::anTransToFallCheck, 0, 0, 1000, 0.15f, 0, 0);
+    zPlayerAction::AddActionTransition(table, "DoubleJumpInMoving01", "FallDoubleJumpMoving01", zPlayerDoubleJumpSB::anTransToFallCheck, 0, 0, 1000, 0.15f, 0, 0);
+    zPlayerAction::AddActionTransition(table, "DoubleJumpCycleMoving01", "FallDoubleJumpMoving01", zPlayerDoubleJumpSB::anTransToFallCheck, 0, 0, 1000, 0.15f, 0, 0);
+    zPlayerAction::AddActionTransition(table, "DoubleJumpInMoving01", "FallDoubleJumpMoving01", zPlayerDoubleJumpSB::anTransToFallCheck, 0, 0, 1000, 0.15f, 0, 0);
+    zPlayerAction::AddActionTransition(table, "DoubleJumpCycleMoving01", "FallDoubleJumpMoving01", zPlayerDoubleJumpSB::anTransToFallCheck, 0, 0, 1000, 0.15f, 0, 0);
+    manager->AddTransitionsTo(9, table, zPlayerDoubleJumpSB::GetTransitionString(), 0, 0, 1000, 0.15f, 0, 0, (zPlayerAction::SpecialActions)0);
+    manager->AddStandardTransitionsTo(11, table, zPlayerDoubleJumpSB::GetTransitionString());
+    manager->AddStandardTransitionsTo(12, table, zPlayerDoubleJumpSB::GetTransitionString());
+    manager->AddStandardTransitionsTo(13, table, zPlayerDoubleJumpSB::GetTransitionString());
+    manager->AddStandardTransitionsTo(14, table, zPlayerDoubleJumpSB::GetTransitionString());
+    manager->AddTransitionsTo(24, table, zPlayerDoubleJumpSB::GetTransitionString(), 0, 0, 1000, 0.15f, 0, 0, (zPlayerAction::SpecialActions)0);
+    manager->AddStandardTransitionsTo(20, table, zPlayerDoubleJumpSB::GetTransitionString());
+    manager->AddStandardTransitionsTo(21, table, zPlayerDoubleJumpSB::GetTransitionString());
+    manager->AddStandardTransitionsTo(22, table, zPlayerDoubleJumpSB::GetTransitionString());
+    manager->AddStandardTransitionsTo(25, table, zPlayerDoubleJumpSB::GetTransitionString());
+    manager->AddStandardTransitionsTo(26, table, zPlayerDoubleJumpSB::GetTransitionString());
+    manager->AddStandardTransitionsTo(27, table, zPlayerDoubleJumpSB::GetTransitionString());
+    manager->AddTransitionsTo(31, table, zPlayerDoubleJumpSB::GetTransitionString(), 0, 0, 1010, 0.15f, 0, 0, (zPlayerAction::SpecialActions)0);
+    manager->AddStandardTransitionsTo(35, table, zPlayerDoubleJumpSB::GetTransitionString());
+    manager->AddStandardTransitionsTo(37, table, zPlayerDoubleJumpSB::GetTransitionString());
+}
+
+// zPlayerSpringboardSB::AddActionTransitions: 17 call(s)
+void zPlayerSpringboardSB::AddActionTransitions(xAnimTable* table) {
+    zPlayerAction::AddActionTransition(table, "SprBoStartIdle01", "FallSprBoIdle01", 0, 0, 0, 1000, 0.15f, 16, 0);
+    zPlayerAction::AddActionTransition(table, "SprBoStartMoving01", "FallSprBoMoving01", 0, 0, 0, 1000, 0.15f, 16, 0);
+    zPlayerAction::AddActionTransition(table, "SprBoStartIdle01", "LandSprBoIdle01", zSBPlayerAction::anSBLandCheck, 0, 0, 1000, 0.15f, 0, 0);
+    zPlayerAction::AddActionTransition(table, "SprBoStartMoving01", "LandSprBoMoving01", zSBPlayerAction::anSBLandCheck, 0, 0, 1000, 0.15f, 0, 0);
+    manager->AddTransitionsTo(23, table, zPlayerSpringboardSB::GetTransitionString(), zPlayerSpringboardSB::anSBSpringboardDoubleJumpCheck, 0, 1000, 0.15f, 0, 0, (zPlayerAction::SpecialActions)0);
+    manager->AddTransitionsTo(9, table, zPlayerSpringboardSB::GetTransitionString(), 0, 0, 1000, 0.15f, 0, 0, (zPlayerAction::SpecialActions)0);
+    manager->AddStandardTransitionsTo(11, table, zPlayerSpringboardSB::GetTransitionString());
+    manager->AddStandardTransitionsTo(12, table, zPlayerSpringboardSB::GetTransitionString());
+    manager->AddStandardTransitionsTo(13, table, zPlayerSpringboardSB::GetTransitionString());
+    manager->AddStandardTransitionsTo(14, table, zPlayerSpringboardSB::GetTransitionString());
+    manager->AddStandardTransitionsTo(20, table, zPlayerSpringboardSB::GetTransitionString());
+    manager->AddStandardTransitionsTo(21, table, zPlayerSpringboardSB::GetTransitionString());
+    manager->AddStandardTransitionsTo(22, table, zPlayerSpringboardSB::GetTransitionString());
+    manager->AddStandardTransitionsTo(25, table, zPlayerSpringboardSB::GetTransitionString());
+    manager->AddStandardTransitionsTo(26, table, zPlayerSpringboardSB::GetTransitionString());
+    manager->AddStandardTransitionsTo(27, table, zPlayerSpringboardSB::GetTransitionString());
+    manager->AddStandardTransitionsTo(31, table, zPlayerSpringboardSB::GetTransitionString());
+}
+
+// zSBPlayerSpinAttack::AddActionTransitions: 15 call(s)
+void zSBPlayerSpinAttack::AddActionTransitions(xAnimTable* table) {
+    manager->AddTransitionsTo(0, table, zSBPlayerSpinAttack::GetTransitionString(), zSBPlayerSpinAttack::anFinishedQueueCheck, 0, 1000, 0.15f, 16, 0, (zPlayerAction::SpecialActions)0);
+    manager->AddTransitionsTo(2, table, zSBPlayerSpinAttack::GetTransitionString(), zSBPlayerSpinAttack::anFinishedQueueCheck, 0, 1000, 0.15f, 16, 0, (zPlayerAction::SpecialActions)0);
+    manager->AddTransitionsTo(3, table, zSBPlayerSpinAttack::GetTransitionString(), zSBPlayerSpinAttack::anFinishedQueueCheck, 0, 1000, 0.15f, 16, 0, (zPlayerAction::SpecialActions)0);
+    manager->AddTransitionsTo(24, table, zSBPlayerSpinAttack::GetTransitionString(), 0, 0, 1000, 0.15f, 0, 0, (zPlayerAction::SpecialActions)0);
+    manager->AddTransitionsTo(13, table, "SpinAttack* SpinSpongebuff*", 0, 0, 1000, 0.0f, 0, 0, (zPlayerAction::SpecialActions)0);
+    manager->AddTransitionsTo(14, table, "SpinAttack* SpinSpongebuff*", 0, 0, 1000, 0.0f, 0, 0, (zPlayerAction::SpecialActions)0);
+    manager->AddTransitionsTo(11, table, "SpinAttack* SpinSpongebuff*", 0, 0, 1000, 0.0f, 0, 0, (zPlayerAction::SpecialActions)0);
+    manager->AddTransitionsTo(12, table, "SpinAttack* SpinSpongebuff*", 0, 0, 1000, 0.0f, 0, 0, (zPlayerAction::SpecialActions)0);
+    manager->AddTransitionsTo(32, table, "SpinAttack* SpinSpongebuff*", 0, 0, 1000, 0.0f, 0, 0, (zPlayerAction::SpecialActions)0);
+    manager->AddStandardTransitionsTo(25, table, zSBPlayerSpinAttack::GetTransitionString());
+    manager->AddStandardTransitionsTo(27, table, zSBPlayerSpinAttack::GetTransitionString());
+    manager->AddStandardTransitionsTo(31, table, zSBPlayerSpinAttack::GetTransitionString());
+    manager->AddStandardTransitionsTo(35, table, "SpinAttack* SpinSpongebuff*");
+    manager->AddStandardTransitionsTo(37, table, "SpinAttack* SpinSpongebuff*");
+    manager->AddStandardTransitionsTo(43, table, zSBPlayerSpinAttack::GetTransitionString());
+}
+
+// zSBPlayerHammerAttack::AddActionTransitions: 15 call(s)
+void zSBPlayerHammerAttack::AddActionTransitions(xAnimTable* table) {
+    manager->AddTransitionsTo(0, table, zSBPlayerHammerAttack::GetTransitionString(), 0, 0, 1000, 0.15f, 16, 0, (zPlayerAction::SpecialActions)0);
+    manager->AddTransitionsTo(2, table, zSBPlayerHammerAttack::GetTransitionString(), 0, 0, 1000, 0.15f, 16, 0, (zPlayerAction::SpecialActions)0);
+    manager->AddTransitionsTo(3, table, zSBPlayerHammerAttack::GetTransitionString(), 0, 0, 1000, 0.15f, 16, 0, (zPlayerAction::SpecialActions)0);
+    manager->AddTransitionsTo(6, table, zSBPlayerHammerAttack::GetTransitionString(), 0, 0, 1000, 0.15f, 16, 0, (zPlayerAction::SpecialActions)0);
+    manager->AddTransitionsTo(24, table, "HammerAttack* HammerSpongebuff*", 0, 0, 1000, 0.15f, 0, 0, (zPlayerAction::SpecialActions)0);
+    manager->AddStandardTransitionsTo(13, table, "HammerAttack* HammerSpongebuff*");
+    manager->AddStandardTransitionsTo(14, table, "HammerAttack* HammerSpongebuff*");
+    manager->AddStandardTransitionsTo(11, table, "HammerAttack* HammerSpongebuff*");
+    manager->AddStandardTransitionsTo(12, table, "HammerAttack* HammerSpongebuff*");
+    manager->AddStandardTransitionsTo(25, table, zSBPlayerHammerAttack::GetTransitionString());
+    manager->AddStandardTransitionsTo(27, table, zSBPlayerHammerAttack::GetTransitionString());
+    manager->AddStandardTransitionsTo(31, table, zSBPlayerHammerAttack::GetTransitionString());
+    manager->AddStandardTransitionsTo(35, table, "HammerAttack* HammerSpongebuff*");
+    manager->AddStandardTransitionsTo(37, table, "HammerAttack* HammerSpongebuff*");
+    manager->AddStandardTransitionsTo(43, table, zSBPlayerHammerAttack::GetTransitionString());
+}
+
+// zSBPlayerPuckAttack::AddActionTransitions: 14 call(s)
+void zSBPlayerPuckAttack::AddActionTransitions(xAnimTable* table) {
+    manager->AddTransitionsTo(0, table, "PuckAttackRecover01", 0, 0, 1000, 0.15f, 16, 0, (zPlayerAction::SpecialActions)0);
+    manager->AddTransitionsTo(2, table, "PuckAttackRecover01", 0, 0, 1000, 0.15f, 16, 0, (zPlayerAction::SpecialActions)0);
+    manager->AddTransitionsTo(3, table, "PuckAttackRecover01", 0, 0, 1000, 0.15f, 16, 0, (zPlayerAction::SpecialActions)0);
+    manager->AddStandardTransitionsTo(13, table, zSBPlayerPuckAttack::GetTransitionString());
+    manager->AddStandardTransitionsTo(14, table, zSBPlayerPuckAttack::GetTransitionString());
+    manager->AddStandardTransitionsTo(11, table, zSBPlayerPuckAttack::GetTransitionString());
+    manager->AddStandardTransitionsTo(12, table, zSBPlayerPuckAttack::GetTransitionString());
+    manager->AddStandardTransitionsTo(25, table, zSBPlayerPuckAttack::GetTransitionString());
+    manager->AddStandardTransitionsTo(27, table, zSBPlayerPuckAttack::GetTransitionString());
+    manager->AddStandardTransitionsTo(31, table, zSBPlayerPuckAttack::GetTransitionString());
+    manager->AddStandardTransitionsTo(32, table, zSBPlayerPuckAttack::GetTransitionString());
+    manager->AddStandardTransitionsTo(35, table, zSBPlayerPuckAttack::GetTransitionString());
+    manager->AddStandardTransitionsTo(37, table, zSBPlayerPuckAttack::GetTransitionString());
+    manager->AddStandardTransitionsTo(43, table, zSBPlayerPuckAttack::GetTransitionString());
+}
+
+// zPlayerLedgeSB::AddActionTransitions: 8 call(s)
+void zPlayerLedgeSB::AddActionTransitions(xAnimTable* table) {
+    manager->AddTransitionsTo(0, table, "LedgeUp01", 0, 0, 1000, 0.15f, 16, 0, (zPlayerAction::SpecialActions)0);
+    manager->AddStandardTransitionsTo(11, table, zPlayerLedgeSB::GetTransitionString());
+    manager->AddStandardTransitionsTo(12, table, zPlayerLedgeSB::GetTransitionString());
+    manager->AddStandardTransitionsTo(13, table, zPlayerLedgeSB::GetTransitionString());
+    manager->AddStandardTransitionsTo(14, table, zPlayerLedgeSB::GetTransitionString());
+    manager->AddStandardTransitionsTo(25, table, zPlayerLedgeSB::GetTransitionString());
+    manager->AddStandardTransitionsTo(27, table, zPlayerLedgeSB::GetTransitionString());
+    manager->AddStandardTransitionsTo(31, table, zPlayerLedgeSB::GetTransitionString());
+}
+
+// zPlayerHitSB::AddActionTransitions: 10 call(s)
+void zPlayerHitSB::AddActionTransitions(xAnimTable* table) {
+    manager->AddTransitionsTo(0, table, zPlayerHitSB::GetTransitionString(), zPlayerHitSB::anCanExitCheck, 0, 1000, 0.15f, 16, 0, (zPlayerAction::SpecialActions)0);
+    manager->AddTransitionsTo(2, table, zPlayerHitSB::GetTransitionString(), zPlayerHitSB::anCanExitCheck, 0, 1000, 0.15f, 16, 0, (zPlayerAction::SpecialActions)0);
+    manager->AddTransitionsTo(3, table, zPlayerHitSB::GetTransitionString(), zPlayerHitSB::anCanExitCheck, 0, 1000, 0.15f, 16, 0, (zPlayerAction::SpecialActions)0);
+    manager->AddTransitionsTo(28, table, zPlayerHitSB::GetTransitionString(), zPlayerHitSB::anCanExitCheck, 0, 1100, 0.15f, 16, 0, (zPlayerAction::SpecialActions)0);
+    manager->AddTransitionsTo(29, table, zPlayerHitSB::GetTransitionString(), zPlayerHitSB::anCanExitCheck, 0, 1100, 0.15f, 16, 0, (zPlayerAction::SpecialActions)0);
+    manager->AddTransitionsTo(30, table, zPlayerHitSB::GetTransitionString(), zPlayerHitSB::anCanExitCheck, 0, 1100, 0.15f, 16, 0, (zPlayerAction::SpecialActions)0);
+    manager->AddTransitionsTo(0, table, "HitElectricArc01", zPlayerHitSB::anCanExitCheck, 0, 1000, 0.15f, 0, 0, (zPlayerAction::SpecialActions)0);
+    manager->AddTransitionsTo(2, table, "HitElectricArc01", zPlayerHitSB::anCanExitCheck, 0, 1000, 0.15f, 0, 0, (zPlayerAction::SpecialActions)0);
+    manager->AddTransitionsTo(3, table, "HitElectricArc01", zPlayerHitSB::anCanExitCheck, 0, 1000, 0.15f, 0, 0, (zPlayerAction::SpecialActions)0);
+    manager->AddStandardTransitionsTo(14, table, "Hit* HammerHit*");
+}
+
+// zPlayerHitLaunchSB::AddActionTransitions: 6 call(s)
+void zPlayerHitLaunchSB::AddActionTransitions(xAnimTable* table) {
+    zCommonPlayerActionsNormalTransitions(manager, table, zPlayerHitLaunchSB::GetTransitionString(), 0, 0, 990, 0.0f, 0, 0);
+    manager->AddStandardTransitionsTo(14, table, "Launch*");
+    manager->AddStandardTransitionsTo(13, table, "Launch*");
+    manager->AddTransitionsTo(28, table, zPlayerHitLaunchSB::GetTransitionString(), 0, 0, 1100, 0.15f, 16, 0, (zPlayerAction::SpecialActions)0);
+    manager->AddTransitionsTo(29, table, zPlayerHitLaunchSB::GetTransitionString(), 0, 0, 1100, 0.15f, 16, 0, (zPlayerAction::SpecialActions)0);
+    manager->AddTransitionsTo(30, table, zPlayerHitLaunchSB::GetTransitionString(), 0, 0, 1100, 0.15f, 16, 0, (zPlayerAction::SpecialActions)0);
+}
+
+// zPlayerHitLaunchSB::AddStandardTransitionsFrom: 1 call(s)
+void zPlayerHitLaunchSB::AddStandardTransitionsFrom(xAnimTable* table, const char* name) {
+    AddTransitions(table, name, 0, 0, 1100, 0.15f, 0, 0, (zPlayerAction::SpecialActions)0);
+}
+
+// zSBPlayerFillWithGoo::AddActionTransitions: 7 call(s)
+void zSBPlayerFillWithGoo::AddActionTransitions(xAnimTable* table) {
+    manager->AddTransitionsTo(0, table, zSBPlayerFillWithGoo::GetTransitionString(), 0, 0, 1000, 0.15f, 16, 0, (zPlayerAction::SpecialActions)0);
+    manager->AddTransitionsTo(2, table, zSBPlayerFillWithGoo::GetTransitionString(), 0, 0, 1000, 0.15f, 16, 0, (zPlayerAction::SpecialActions)0);
+    manager->AddTransitionsTo(24, table, zSBPlayerFillWithGoo::GetTransitionString(), 0, 0, 1000, 0.15f, 0, 0, (zPlayerAction::SpecialActions)0);
+    manager->AddStandardTransitionsTo(13, table, zSBPlayerFillWithGoo::GetTransitionString());
+    manager->AddStandardTransitionsTo(14, table, zSBPlayerFillWithGoo::GetTransitionString());
+    manager->AddStandardTransitionsTo(11, table, zSBPlayerFillWithGoo::GetTransitionString());
+    manager->AddStandardTransitionsTo(12, table, zSBPlayerFillWithGoo::GetTransitionString());
+}
+
+// zSBPlayerDrainGoo::AddActionTransitions: 8 call(s)
+void zSBPlayerDrainGoo::AddActionTransitions(xAnimTable* table) {
+    manager->AddTransitionsTo(0, table, zSBPlayerDrainGoo::GetTransitionString(), 0, 0, 1000, 0.15f, 16, 0, (zPlayerAction::SpecialActions)0);
+    manager->AddTransitionsTo(2, table, zSBPlayerDrainGoo::GetTransitionString(), 0, 0, 1000, 0.15f, 16, 0, (zPlayerAction::SpecialActions)0);
+    manager->AddTransitionsTo(3, table, zSBPlayerDrainGoo::GetTransitionString(), 0, 0, 1000, 0.15f, 16, 0, (zPlayerAction::SpecialActions)0);
+    manager->AddTransitionsTo(24, table, zSBPlayerDrainGoo::GetTransitionString(), 0, 0, 1000, 0.15f, 0, 0, (zPlayerAction::SpecialActions)0);
+    manager->AddStandardTransitionsTo(13, table, zSBPlayerDrainGoo::GetTransitionString());
+    manager->AddStandardTransitionsTo(14, table, zSBPlayerDrainGoo::GetTransitionString());
+    manager->AddStandardTransitionsTo(11, table, zSBPlayerDrainGoo::GetTransitionString());
+    manager->AddStandardTransitionsTo(12, table, zSBPlayerDrainGoo::GetTransitionString());
+}
+
+// zSBPlayerGainPowerup::AddActionTransitions: 6 call(s)
+void zSBPlayerGainPowerup::AddActionTransitions(xAnimTable* table) {
+    manager->AddTransitionsTo(28, table, zSBPlayerGainPowerup::GetTransitionString(), 0, 0, 1000, 0.0f, 16, 0, (zPlayerAction::SpecialActions)0);
+    manager->AddTransitionsTo(29, table, zSBPlayerGainPowerup::GetTransitionString(), 0, 0, 1000, 0.0f, 16, 0, (zPlayerAction::SpecialActions)0);
+    manager->AddTransitionsTo(30, table, zSBPlayerGainPowerup::GetTransitionString(), 0, 0, 1000, 0.0f, 16, 0, (zPlayerAction::SpecialActions)0);
+    manager->AddTransitionsTo(0, table, "GainPowerup_Spongebuff GainPowerup_Invincibility", 0, 0, 999, 0.0f, 16, 0, (zPlayerAction::SpecialActions)0);
+    manager->AddTransitionsTo(3, table, "GainPowerup_Spongebuff GainPowerup_Invincibility", 0, 0, 999, 0.0f, 16, 0, (zPlayerAction::SpecialActions)0);
+    manager->AddTransitionsTo(2, table, "GainPowerup_Spongebuff GainPowerup_Invincibility", 0, 0, 999, 0.0f, 16, 0, (zPlayerAction::SpecialActions)0);
+}
+
+// zSBPlayerSpinPowerupAttack::AddActionTransitions: 3 call(s)
+void zSBPlayerSpinPowerupAttack::AddActionTransitions(xAnimTable* table) {
+    manager->AddTransitionsTo(11, table, zSBPlayerSpinPowerupAttack::GetTransitionString(), 0, 0, 1000, 0.15f, 0, 0, (zPlayerAction::SpecialActions)0);
+    manager->AddTransitionsTo(12, table, zSBPlayerSpinPowerupAttack::GetTransitionString(), 0, 0, 1000, 0.15f, 0, 0, (zPlayerAction::SpecialActions)0);
+    manager->AddTransitionsTo(31, table, zSBPlayerSpinPowerupAttack::GetTransitionString(), 0, 0, 1010, 0.15f, 0, 0, (zPlayerAction::SpecialActions)0);
+}
+
+// zSBPlayerHammerPowerupAttack::AddActionTransitions: 6 call(s)
+void zSBPlayerHammerPowerupAttack::AddActionTransitions(xAnimTable* table) {
+    manager->AddStandardTransitionsTo(5, table, zSBPlayerHammerPowerupAttack::GetTransitionString());
+    manager->AddStandardTransitionsTo(6, table, zSBPlayerHammerPowerupAttack::GetTransitionString());
+    manager->AddStandardTransitionsTo(11, table, zSBPlayerHammerPowerupAttack::GetTransitionString());
+    manager->AddStandardTransitionsTo(12, table, zSBPlayerHammerPowerupAttack::GetTransitionString());
+    manager->AddStandardTransitionsTo(31, table, zSBPlayerHammerPowerupAttack::GetTransitionString());
+    manager->AddStandardTransitionsTo(37, table, zSBPlayerHammerPowerupAttack::GetTransitionString());
+}
+
+// zSBPlayerPuckPowerupAttack::AddActionTransitions: 6 call(s)
+void zSBPlayerPuckPowerupAttack::AddActionTransitions(xAnimTable* table) {
+    manager->AddStandardTransitionsTo(5, table, zSBPlayerPuckPowerupAttack::GetTransitionString());
+    manager->AddStandardTransitionsTo(6, table, zSBPlayerPuckPowerupAttack::GetTransitionString());
+    manager->AddStandardTransitionsTo(11, table, zSBPlayerPuckPowerupAttack::GetTransitionString());
+    manager->AddStandardTransitionsTo(12, table, zSBPlayerPuckPowerupAttack::GetTransitionString());
+    manager->AddStandardTransitionsTo(31, table, zSBPlayerPuckPowerupAttack::GetTransitionString());
+    manager->AddStandardTransitionsTo(37, table, zSBPlayerPuckPowerupAttack::GetTransitionString());
+}
+
+// zSBPlayerLosePowerup::AddActionTransitions: 8 call(s)
+void zSBPlayerLosePowerup::AddActionTransitions(xAnimTable* table) {
+    manager->AddTransitionsTo(0, table, zSBPlayerLosePowerup::GetTransitionString(), 0, 0, 1000, 0.0f, 0, 0, (zPlayerAction::SpecialActions)0);
+    manager->AddTransitionsTo(2, table, zSBPlayerLosePowerup::GetTransitionString(), 0, 0, 1000, 0.0f, 0, 0, (zPlayerAction::SpecialActions)0);
+    manager->AddTransitionsTo(3, table, zSBPlayerLosePowerup::GetTransitionString(), 0, 0, 1000, 0.0f, 0, 0, (zPlayerAction::SpecialActions)0);
+    manager->AddTransitionsTo(24, table, zSBPlayerLosePowerup::GetTransitionString(), 0, 0, 1000, 0.0f, 0, 0, (zPlayerAction::SpecialActions)0);
+    manager->AddTransitionsTo(25, table, zSBPlayerLosePowerup::GetTransitionString(), 0, 0, 1000, 0.0f, 0, 0, (zPlayerAction::SpecialActions)0);
+    manager->AddTransitionsTo(32, table, zSBPlayerLosePowerup::GetTransitionString(), 0, 0, 1000, 0.0f, 0, 0, (zPlayerAction::SpecialActions)0);
+    manager->AddTransitionsTo(13, table, zSBPlayerLosePowerup::GetTransitionString(), 0, 0, 1000, 0.0f, 0, 0, (zPlayerAction::SpecialActions)0);
+    manager->AddTransitionsTo(14, table, zSBPlayerLosePowerup::GetTransitionString(), 0, 0, 1000, 0.0f, 0, 0, (zPlayerAction::SpecialActions)0);
+}
+
+// zSBPlayerCandy::AddActionTransitions: 8 call(s)
+void zSBPlayerCandy::AddActionTransitions(xAnimTable* table) {
+    manager->AddTransitionsTo(0, table, zSBPlayerCandy::GetTransitionString(), 0, 0, 1000, 0.15f, 16, 0, (zPlayerAction::SpecialActions)0);
+    manager->AddTransitionsTo(2, table, zSBPlayerCandy::GetTransitionString(), 0, 0, 1000, 0.15f, 16, 0, (zPlayerAction::SpecialActions)0);
+    manager->AddTransitionsTo(3, table, zSBPlayerCandy::GetTransitionString(), 0, 0, 1000, 0.15f, 16, 0, (zPlayerAction::SpecialActions)0);
+    manager->AddStandardTransitionsTo(13, table, "Candy*");
+    manager->AddStandardTransitionsTo(14, table, "Candy*");
+    manager->AddStandardTransitionsTo(11, table, "Candy*");
+    manager->AddStandardTransitionsTo(12, table, "Candy*");
+    manager->AddStandardTransitionsTo(31, table, "Candy*");
+}
+
+// zSBPlayerQuicksandJump::AddActionTransitions: 8 call(s)
+void zSBPlayerQuicksandJump::AddActionTransitions(xAnimTable* table) {
+    manager->AddTransitionsTo(0, table, zSBPlayerQuicksandJump::GetTransitionString(), zSBPlayerAction::anSBNotQuicksandCheck, 0, 1000, 0.15f, 4, 0, (zPlayerAction::SpecialActions)0);
+    manager->AddTransitionsTo(2, table, zSBPlayerQuicksandJump::GetTransitionString(), zSBPlayerAction::anSBNotQuicksandCheck, 0, 1000, 0.15f, 4, 0, (zPlayerAction::SpecialActions)0);
+    manager->AddTransitionsTo(3, table, zSBPlayerQuicksandJump::GetTransitionString(), zSBPlayerAction::anSBNotQuicksandCheck, 0, 1000, 0.15f, 4, 0, (zPlayerAction::SpecialActions)0);
+    manager->AddTransitionsTo(34, table, zSBPlayerQuicksandJump::GetTransitionString(), zSBPlayerQuicksandJump::anSBQuicksandApexCheck, 0, 1000, 0.15f, 0, 0, (zPlayerAction::SpecialActions)0);
+    manager->AddStandardTransitionsTo(13, table, zSBPlayerQuicksandJump::GetTransitionString());
+    manager->AddStandardTransitionsTo(14, table, zSBPlayerQuicksandJump::GetTransitionString());
+    manager->AddStandardTransitionsTo(11, table, zSBPlayerQuicksandJump::GetTransitionString());
+    manager->AddStandardTransitionsTo(12, table, zSBPlayerQuicksandJump::GetTransitionString());
+}
+
+// zSBPlayerQuicksandStuck::AddActionTransitions: 9 call(s)
+void zSBPlayerQuicksandStuck::AddActionTransitions(xAnimTable* table) {
+    manager->AddTransitionsTo(0, table, zSBPlayerQuicksandStuck::GetTransitionString(), zSBPlayerAction::anSBNotQuicksandCheck, 0, 1000, 0.15f, 4, 0, (zPlayerAction::SpecialActions)0);
+    manager->AddTransitionsTo(2, table, zSBPlayerQuicksandStuck::GetTransitionString(), zSBPlayerAction::anSBNotQuicksandCheck, 0, 1000, 0.15f, 4, 0, (zPlayerAction::SpecialActions)0);
+    manager->AddTransitionsTo(3, table, zSBPlayerQuicksandStuck::GetTransitionString(), zSBPlayerAction::anSBNotQuicksandCheck, 0, 1000, 0.15f, 4, 0, (zPlayerAction::SpecialActions)0);
+    manager->AddStandardTransitionsTo(5, table, zSBPlayerQuicksandStuck::GetTransitionString());
+    manager->AddStandardTransitionsTo(33, table, zSBPlayerQuicksandStuck::GetTransitionString());
+    manager->AddStandardTransitionsTo(13, table, zSBPlayerQuicksandStuck::GetTransitionString());
+    manager->AddStandardTransitionsTo(14, table, zSBPlayerQuicksandStuck::GetTransitionString());
+    manager->AddStandardTransitionsTo(11, table, zSBPlayerQuicksandStuck::GetTransitionString());
+    manager->AddStandardTransitionsTo(12, table, zSBPlayerQuicksandStuck::GetTransitionString());
+}
+
+// zSBPlayerBungeeBall::AddActionTransitions: 8 call(s)
+void zSBPlayerBungeeBall::AddActionTransitions(xAnimTable* table) {
+    manager->AddTransitionsTo(5, table, zSBPlayerBungeeBall::GetTransitionString(), zBoardPlayerBungeeBall::anSBBungeeBallExitCheck, 0, 1002, 0.15f, 0, 0, (zPlayerAction::SpecialActions)0);
+    manager->AddTransitionsTo(5, table, "BungeeEnter BungeeTransfer BungeeReturned", zBoardPlayerBungeeBall::anSBBungeeBallExitCheck, 0, 1002, 0.15f, 0, 0, (zPlayerAction::SpecialActions)0);
+    manager->AddTransitionsTo(11, table, "Bungee*", zSBPlayerBungeeBall::anSBBungeeBallHitExitCheck, 0, 1006, 0.15f, 0, 0, (zPlayerAction::SpecialActions)0);
+    manager->AddTransitionsTo(0, table, "Bungee*", zSBPlayerBungeeBall::anSBBungeeBallFlattenedCheck, 0, 1002, 0.15f, 0, 0, (zPlayerAction::SpecialActions)0);
+    manager->AddTransitionsTo(3, table, "Bungee*", zSBPlayerBungeeBall::anSBBungeeBallFlattenedCheck, 0, 1002, 0.15f, 0, 0, (zPlayerAction::SpecialActions)0);
+    manager->AddTransitionsTo(2, table, "Bungee*", zSBPlayerBungeeBall::anSBBungeeBallFlattenedCheck, 0, 1002, 0.15f, 0, 0, (zPlayerAction::SpecialActions)0);
+    manager->AddStandardTransitionsTo(13, table, zSBPlayerBungeeBall::GetTransitionString());
+    manager->AddStandardTransitionsTo(14, table, zSBPlayerBungeeBall::GetTransitionString());
+}
+
+// zSBPlayerBombRoll::AddActionTransitions: 12 call(s)
+void zSBPlayerBombRoll::AddActionTransitions(xAnimTable* table) {
+    manager->AddTransitionsTo(23, table, zSBPlayerBombRoll::GetTransitionString(), 0, 0, 1000, 0.15f, 0, 0, (zPlayerAction::SpecialActions)0);
+    manager->AddTransitionsTo(0, table, zSBPlayerBombRoll::GetTransitionString(), zSBPlayerBombRoll::anSBNoBombCheck, 0, 1000, 0.15f, 0, 0, (zPlayerAction::SpecialActions)0);
+    manager->AddTransitionsTo(2, table, zSBPlayerBombRoll::GetTransitionString(), zSBPlayerBombRoll::anSBNoBombCheck, 0, 1000, 0.15f, 0, 0, (zPlayerAction::SpecialActions)0);
+    manager->AddTransitionsTo(3, table, zSBPlayerBombRoll::GetTransitionString(), zSBPlayerBombRoll::anSBNoBombCheck, 0, 1000, 0.15f, 0, 0, (zPlayerAction::SpecialActions)0);
+    manager->AddTransitionsTo(6, table, zSBPlayerBombRoll::GetTransitionString(), zSBPlayerBombRoll::anSBNoBombCheck, 0, 1000, 0.15f, 0, 0, (zPlayerAction::SpecialActions)0);
+    manager->AddStandardTransitionsTo(11, table, zSBPlayerBombRoll::GetTransitionString());
+    manager->AddStandardTransitionsTo(12, table, zSBPlayerBombRoll::GetTransitionString());
+    manager->AddStandardTransitionsTo(13, table, zSBPlayerBombRoll::GetTransitionString());
+    manager->AddStandardTransitionsTo(14, table, zSBPlayerBombRoll::GetTransitionString());
+    manager->AddStandardTransitionsTo(43, table, zSBPlayerBombRoll::GetTransitionString());
+    manager->AddStandardTransitionsTo(10, table, zSBPlayerBombRoll::GetTransitionString());
+    manager->AddStandardTransitionsTo(44, table, zSBPlayerBombRoll::GetTransitionString());
+}
+
+// zSBPlayerKelpTrap::AddActionTransitions: 4 call(s)
+void zSBPlayerKelpTrap::AddActionTransitions(xAnimTable* table) {
+    manager->AddTransitionsTo(0, table, "KelpRelease", 0, 0, 1000, 0.15f, 16, 0, (zPlayerAction::SpecialActions)0);
+    manager->AddStandardTransitionsTo(13, table, zSBPlayerKelpTrap::GetTransitionString());
+    manager->AddStandardTransitionsTo(14, table, zSBPlayerKelpTrap::GetTransitionString());
+    manager->AddStandardTransitionsTo(0, table, "KelpRelease");
+}
+
+// zPlayerCelebrationSB::AddActionTransitions: 3 call(s)
+void zPlayerCelebrationSB::AddActionTransitions(xAnimTable* table) {
+    manager->AddTransitionsTo(0, table, zPlayerCelebrationSB::GetTransitionString(), 0, 0, 1000, 0.15f, 16, 0, (zPlayerAction::SpecialActions)0);
+    manager->AddTransitionsTo(2, table, zPlayerCelebrationSB::GetTransitionString(), 0, 0, 1000, 0.15f, 16, 0, (zPlayerAction::SpecialActions)0);
+    manager->AddTransitionsTo(3, table, zPlayerCelebrationSB::GetTransitionString(), 0, 0, 1000, 0.15f, 16, 0, (zPlayerAction::SpecialActions)0);
 }

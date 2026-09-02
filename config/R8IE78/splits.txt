@@ -453,10 +453,10 @@ SB/GM/Engine/Game/zBTNodeSelector.cpp:
 	.text       start:0x80080C20 end:0x800811A8
 
 SB/GM/Engine/WAD01_5.cpp:
-	.text       start:0x800811A8 end:0x80081200
+	.text       start:0x800811A8 end:0x800811F8
 
 SB/GM/Engine/Game/zBTNodeSequence.cpp:
-	.text       start:0x80081200 end:0x800813E4
+	.text       start:0x800811F8 end:0x800813E4
 
 SB/GM/Engine/WAD01_6.cpp:
 	.text       start:0x800813E4 end:0x800813F0

@@ -29,7 +29,11 @@ template <class T>
 T* zBTFactory::Create() {
     void* mem = factory.AllocMem(sizeof(T), (Memory::eFactoryMemType)14);
 
-    return mem ? new (mem) T : 0;
+    if (!mem) {
+        return 0;
+    }
+
+    return new (mem) T;
 }
 
 class zBTNode {

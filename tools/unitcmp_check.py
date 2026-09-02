@@ -39,7 +39,7 @@ EXPECT = {
     "SB/GM/Engine/Game/zLaser": (1, 1),
     # Four of seven. The three left are one compiler decision
     # each -- see the file; six spellings of the switch tie.
-    "SB/GM/Engine/Game/zBTNodeReference": (4, 7),
+    "SB/GM/Engine/Game/zBTNodeReference": (7, 7),
     # The second unit to carry its own data, and the first written
     # from scratch with it. One function, 264 bytes of .bss.
     "SB/GM/Engine/Core/Wii/Env/WAD00": (1, 1),
@@ -313,7 +313,7 @@ EXPECT = {
     "SB/GM/Engine/Game/zEmbeddedStartupIcon": (2, 2),
     "SB/GM/Engine/Game/zPlayerInputBase": (1, 1),
     "SB/GM/Engine/Game/zStoryMoment": (1, 1),
-    "SB/GM/Engine/WAD01_5": (0, 1),
+    "SB/GM/Engine/WAD01_5": (1, 1),
     "SB/NG/Engine/WAD00_11": (1, 1),
     "SB/NG/Engine/WAD00_11_3": (1, 1),
     "SB/NG/Engine/WAD00_9": (1, 1),

@@ -40,30 +40,26 @@
 // {1, 2, 5}, and the shape is an early return rather than a wrapping
 // `if`. Reading it the other way round is what the first draft did.
 //
-// WHAT IS LEFT IN ChildDone AND SelfDone is one thing: mwcc lowers this
-// switch to a RANGE TEST plus a compare --
-//     addi r0,r4,-1 ; cmpli r0,1 ; ble ; cmpwi r4,5 ; bne
-// where retail uses a BIT MASK over a five-wide window --
-//     addi r6,r4,-1 ; cmpli r6,4 ; 1 << r6 ; andi. 0x13
-// The cases are the same three either way (0x13 is bits 0, 1 and 4),
-// so it is the compiler's choice of lowering and not the case set.
+// THE BIT MASK IS NOT A SWITCH AT ALL: it is how mwcc lowers an
+// and-chain of inequalities. Six spellings of the switch all gave a
+// range test plus a compare (`addi r0,r4,-1 ; cmpli r0,1 ; ble ;
+// cmpwi r4,5 ; bne`, 16 of 15 words), and widening the cases stopped
+// the inlining. An or-chain of the three equalities gives the mask --
+// `addi r6,r4,-1 ; cmpli r6,4 ; 1 << r6 ; andi. 0x13` -- with one word
+// wrong at each call site: `bnelr` where retail has `beqlr`. Retail's
+// helper is true for the states that are NOT done: it sets its answer
+// to 1 before the range test and clears it inside the mask, so it is
+// `state != 1 && state != 2 && state != 5`, and both call sites test
+// its negation. Both handlers match on that (2026-09-02).
 //
-// Already tried, do not redo -- six spellings of the switch: no
-// `default`, `default` first, the cases in the opposite order, a bool
-// assigned in the switch and returned after, switching on `(int)state`
-// rather than the enum, and the call sites as `if (...)` instead of an
-// early return. ALL SIX give the same range-test lowering and the same
-// 16 of 15 words. Adding cases 3 and 4 to widen the range to a full
-// 1..5 -- which is what `cmpli r6,4` looks like -- stops mwcc inlining
-// the helper at all and goes to 19 of 16.
-//
-// CreateTask is 12 of 20 and 80 bytes against retail's 92. The
-// allocation is right -- `zBTFactory::factory.AllocMem(36, 14)` through
-// an in-class operator new, which is what puts the size and the type
-// inline -- and what is missing is the null branch retail emits around
-// the constructor call. Retail writes through the pointer without
-// checking it afterwards, so on allocation failure it stores to 0x18;
-// that is in the image, not a misreading.
+// CreateTask matches once the conditional's operands are the other way
+// round: `!mem ? 0 : new (mem) zBTReferenceTask` puts the null block
+// first with the constructor path branched over it (`bne ; li r3,0 ;
+// b`), where `mem ? new (mem) T : 0` put the constructor first. The
+// placement new's own null test on the same compare follows, and both
+// paths join at the store through the pointer -- so on allocation
+// failure retail stores to 0x18, which is in the image, not a
+// misreading. The allocation is `zBTFactory::factory.AllocMem(36, 14)`.
 enum eTaskState {
     eTaskState_0,
     eTaskState_1,
@@ -107,8 +103,14 @@ class zBTTask {
 public:
     zBTTask();
 
-    virtual void __vtable_anchor();
-    virtual eTaskState Execute(float dt);
+    // Retail's slot order, read off __vt__16zBTReferenceTask: Execute,
+    // Cleanup, SetObserver, Setup, SelfDone, ChildDone. The parent's
+    // ChildDone is reached through slot 5 (+28); with the two handlers
+    // declared right after Execute the call went through +20.
+    virtual eTaskState Execute(float dt) = 0;
+    virtual void Cleanup();
+    virtual void SetObserver();
+    virtual void Setup();
     virtual void SelfDone(eTaskState state);
     virtual void ChildDone(eTaskState state);
 
@@ -129,6 +131,11 @@ class zBTReferenceTask : public zBTTask {
 public:
     zBTReferenceTask();
 
+    // Declared first so the vtable's home is Cleanup's unit, not this
+    // one: retail keeps __vt__16zBTReferenceTask in WAD01's data. The
+    // slot is the base's, so the order of the others is unchanged.
+    virtual void Cleanup();
+
 
 
 
@@ -141,15 +148,9 @@ public:
     /* +0x20 */ eTaskState childState;
 };
 
-inline static bool IsDoneState(eTaskState state) {
-    switch (state) {
-    case eTaskState_1:
-    case eTaskState_2:
-    case eTaskState_5:
-        return true;
-    default:
-        return false;
-    }
+inline static bool IsRunningState(eTaskState state) {
+    return state != eTaskState_1 && state != eTaskState_2 &&
+           state != eTaskState_5;
 }
 
 zBTReferenceTask::zBTReferenceTask() : nodeID(0), openTask(0),
@@ -176,7 +177,7 @@ void zBTReferenceTask::SelfDone(eTaskState state) {
         return;
     }
 
-    if (IsDoneState(state)) {
+    if (!IsRunningState(state)) {
         return;
     }
 
@@ -184,7 +185,7 @@ void zBTReferenceTask::SelfDone(eTaskState state) {
 }
 
 void zBTReferenceTask::ChildDone(eTaskState state) {
-    if (IsDoneState(state)) {
+    if (!IsRunningState(state)) {
         return;
     }
 
@@ -218,7 +219,7 @@ void zBTNodeReference::Setup(Sext::BTNodeBase* node) {
 zBTReferenceTask* zBTNodeReference::CreateTask() {
     void* mem = zBTFactory::factory.AllocMem(sizeof(zBTReferenceTask),
                                              Memory::eFactoryMemType_14);
-    zBTReferenceTask* task = mem ? new (mem) zBTReferenceTask : 0;
+    zBTReferenceTask* task = !mem ? 0 : new (mem) zBTReferenceTask;
 
     task->nodeID = nodeID;
 

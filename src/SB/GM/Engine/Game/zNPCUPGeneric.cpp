@@ -505,9 +505,10 @@ void zNPCUPGeneric::SystemEvent(xBase* from, xBase* to, unsigned int id,
                 found = zSceneFindObject(*(unsigned long long*)event);
 
                 if (found == 0) {
+                    unsigned long long uid = *(unsigned long long*)event;
+
                     World::GetEntityManager();
-                    found = (xBase*)World::EntityManager::FindAsset(
-                        *(unsigned long long*)event);
+                    found = (xBase*)World::EntityManager::FindAsset(uid);
                 }
             }
         }

@@ -60,7 +60,7 @@ EXPECT = {
     "SB/NG/Source/Engine/Graphics/Builders/StaticBuilder": (5, 5),
     # Five of seven written; xStricmp and the length-limited hash are
     # recorded near misses.  The unit has 14 functions in all.
-    "SB/GM/Engine/Core/x/xString": (5, 7),
+    "SB/GM/Engine/Core/x/xString": (7, 7),
     "SB/GM/Engine/Core/x/xGameInterface": (3, 3),
     "SB/GM/Engine/Core/x/xGroup": (1, 1),
     "SB/GM/Engine/Game/zButtonMasherWidget": (2, 2),
@@ -210,7 +210,7 @@ EXPECT = {
     "SB/NG/Source/Engine/Util/RTTID": (1, 1),
     "SB/NG/Source/Engine/Util/Sort/WAD02": (2, 5),
     "SB/NG/Source/Tools/Havok/source/Common/Base/keycode": (0, 1),
-    "SB/GM/Engine/Game/zNPCUPGeneric": (6, 8),
+    "SB/GM/Engine/Game/zNPCUPGeneric": (7, 8),
     "SB/GM/Engine/Core/x/xWMLTypes": (1, 2),
     "SB/GM/Engine/Core/x/xCam": (2, 2),
     "SB/GM/Engine/Core/x/xEnt": (5, 5),

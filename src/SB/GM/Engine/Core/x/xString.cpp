@@ -30,17 +30,13 @@
 
 typedef unsigned long ulong;
 
-static inline bool xIsLower(char c) {
-    return c >= 'a' && c <= 'z';
-}
+#define xIsLower(c) ((c) >= 'a' && (c) <= 'z')
 
 static inline bool xIsUpper(char c) {
     return c >= 'A' && c <= 'Z';
 }
 
-static inline char xToUpper(char c) {
-    return xIsLower(c) ? c - 0x20 : c;
-}
+#define xToUpper(c) (xIsLower(c) ? (c) - 0x20 : (c))
 
 extern "C" double atof(const char* s);
 
@@ -61,16 +57,12 @@ unsigned int xStrHash(const char* str, ulong len) {
     unsigned int hash = 0;
     ulong i = 0;
 
-    while (*str != 0) {
+    while (i < len && *str != 0) {
         char c = *str;
 
         i++;
         str++;
         hash = (char)(c - ((c >> 1) & c & 0x20)) + hash * 131;
-
-        if (i >= len) {
-            break;
-        }
     }
 
     return hash;
@@ -115,39 +107,27 @@ char* xStrlwr(char* str) {
 // Five statement orderings move it not at all.
 int xStricmp(const char* s1, const char* s2) {
     int atEnd = 0;
-    char c1;
-    char c2;
 
-    for (;;) {
-        char u2;
-        char u1;
-
-        c2 = *s2;
-        u2 = xToUpper(c2);
-        c1 = *s1;
-        u1 = xToUpper(c1);
-
-        if (u1 != u2) {
-            break;
-        }
-
-        if (atEnd) {
-            break;
-        }
-
-        if (c1 == 0 || c2 == 0) {
+    while (xToUpper(*s1) == xToUpper(*s2) && !atEnd) {
+        if (*s1 == 0 || *s2 == 0) {
             atEnd = 1;
+        } else {
+            s1++;
+            s2++;
         }
-
-        s1++;
-        s2++;
     }
 
-    if (c1 == c2) {
-        return 0;
+    int result = 0;
+
+    if (*s1 != *s2) {
+        result = 1;
+
+        if (xToUpper(*s1) < xToUpper(*s2)) {
+            result = -1;
+        }
     }
 
-    return xToUpper(c2) <= xToUpper(c1) ? 1 : -1;
+    return result;
 }
 
 float xStrParseFloat(const char* s) {

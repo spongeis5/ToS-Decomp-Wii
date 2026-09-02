@@ -7,14 +7,14 @@ numbers here, which move.
 ## State at time of writing
 
 ```
-Game Code:  28 of 777 files complete  96,548 / 2,116,508 bytes  1,097 / 10,686 fn
-            4.5617% of game code
+Game Code:  28 of 777 files complete  97,092 / 2,116,508 bytes  1,100 / 10,686 fn
+            4.5874% of game code
 
-Of those 1,097 functions, 781 are GENERATED -- machine-recognised
+Of those 1,100 functions, 781 are GENERATED -- machine-recognised
 shapes, not one of which is decompiling. They are real matched
 functions and the offsets and constants are recovered fact, but a
 count of them is not a count of decompiled code. HAND-WRITTEN IS
-316, across 46 units and 87,612 bytes, and that is the figure to
+319, across 46 units and 88,156 bytes, and that is the figure to
 compare against earlier ones.
 
 Data:       3 unit(s) carry their own, 396 bytes; 134 more could
@@ -415,10 +415,53 @@ nine Wii compilers, and the definitions in retail's order -- which the
 file is in now regardless, CreateAnimTable first, because a linked
 unit will need it.
 
-**`zNPCUPGeneric`'s other two.** `Activate` (536 bytes) and
-`SystemEvent` (200) are written and do not match yet; five of the
-eight functions the unit's object now defines do, and the eighth is
-CreateAnimTable above. `InitTypeParameters` needs
+**`zNPCUPGeneric`'s other two.** `Activate` (536 bytes) is written
+and does not match yet; `SystemEvent` (200) does now: retail reads
+the event's uid into callee-saved registers BEFORE calling
+`World::GetEntityManager()` and keeps it across the call, and no
+spelling of the call expression does that -- a local
+`unsigned long long uid = *(unsigned long long*)event;` declared
+inside the fallback branch, before the manager call, does. Seven of
+the eight functions the unit's object defines match; the eighth is
+Activate.
+
+**The units pinned below their totals, read one function at a time.**
+`xString` went 5 to 7 of 7. `xStrHash(str, len)` tests the length
+before the character and keeps the raw byte, re-extending it in the
+body: `while (i < len && *str != 0) { char c = *str; ... }`, where a
+`for (;;)` with two breaks is top-tested and a `while (i < len)`
+alone becomes a counted loop. `xStricmp` is a rotated loop whose
+condition holds the loads and the compares, s1's side on the left
+(mwcc evaluates the right operand first), with NO character
+variables -- `xToUpper(*s1) == xToUpper(*s2)` with the case helpers
+as MACROS, so each use re-reads the folded load and the byte is
+extended only where a use needs it; an `inline` function parameter
+extends it once at the call and every later use is a word off. The
+tail is a result variable: 0, then 1, then -1 under `u1 < u2`, which
+hoists `li r3,0` before the `beqlr` and pushes the range-check
+bools into r4. A helper with a local variable in it is NOT inlined
+at all (`bl`), inline or plain static -- measured twice.
+
+`zBTNodeReference` stays 4 of 7, and the three are recorded so they
+are not redone. `SelfDone` and `ChildDone` (2 and 1 words short)
+test the done states as a BIT TEST -- `addi r6,r4,-1; cmplwi r6,4;
+bgt; li r0,1; slw r0,r0,r6; andi. r0,r0,0x13` -- with the predicate's
+result materialised in r5 and tested after; ours compiles the same
+three-case switch to compares. Tried: five explicit cases, the
+inverted sense (`!IsRunningState`), a flag variable (un-inlines),
+a plain static (auto-inlined, still compares), and -O4,p on the
+unit. `CreateTask` (3 words) lacks the null check retail makes on
+the allocator's result before the constructor call -- `bne; li r3,0;
+b` -- and no allocation form emits it: the in-class operator new,
+the same with `throw()`, a global inline replacement, a placement
+form on a factory reference, placement on AllocMem's result, and
+`new (std::nothrow)`. Read whole, ours HAS the constructor-skip
+check; retail has that and, before it, a second test on the same
+compare that forces the result to zero -- the shape of an inlined
+allocator with its own null test -- but an operator new written
+that way makes mwcc drop the allocation call altogether (17 words).
+zPlayerAction.cpp records the opposite problem, a check that cannot
+be suppressed; the two are one rule read from neither side yet. `InitTypeParameters` needs
 `Memory::Creator<N,T,U>` with a function-local static, whose guard
 symbol has to come out as `@GUARD@...@_inst`, and `Initialize` calls
 `World::EntityManager::FindAsset` through a loaded address rather than

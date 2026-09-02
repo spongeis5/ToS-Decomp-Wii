@@ -310,6 +310,18 @@ EXPECT = {
     "SB/NG/Source/Engine/Graphics/Material": (2, 2),
     "SB/NG/Source/Engine/Math/Quaternion": (1, 1),
     "SB/NG/Source/Engine/Math/Random": (1, 1),
+    "SB/GM/Engine/Game/zEmbeddedStartupIcon": (2, 2),
+    "SB/GM/Engine/Game/zPlayerInputBase": (1, 1),
+    "SB/GM/Engine/Game/zStoryMoment": (1, 1),
+    "SB/GM/Engine/WAD01_5": (0, 1),
+    "SB/NG/Engine/WAD00_11": (1, 1),
+    "SB/NG/Engine/WAD00_11_3": (1, 1),
+    "SB/NG/Engine/WAD00_9": (1, 1),
+    "SB/NG/Engine/WAD02_1_1": (1, 1),
+    "SB/NG/Engine/WAD02_7_1": (1, 1),
+    "SB/NG/Source/Engine/Globals": (1, 1),
+    "SB/NG/Source/Engine/Graphics/Primitive": (1, 1),
+    "SB/NG/Source/Engine/TestSuite/TestSuite": (1, 1),
 }
 
 

@@ -1715,10 +1715,10 @@ SB/NG/Source/Engine/Entities/LightKitEntity.cpp:
 	.text       start:0x801B8C50 end:0x801B8E90
 
 SB/NG/Engine/WAD00_9.cpp:
-	.text       start:0x801B8E90 end:0x801B8EF0
+	.text       start:0x801B8E90 end:0x801B8EE4
 
 SB/NG/Source/Engine/Entities/LightKitSceneEntity.cpp:
-	.text       start:0x801B8EF0 end:0x801B92DC
+	.text       start:0x801B8EE4 end:0x801B92DC
 
 SB/NG/Engine/WAD00_10.cpp:
 	.text       start:0x801B92DC end:0x801B92E0
@@ -1727,10 +1727,10 @@ SB/NG/Source/Engine/Entities/MaterialEntity.cpp:
 	.text       start:0x801B92E0 end:0x801B9624
 
 SB/NG/Engine/WAD00_11.cpp:
-	.text       start:0x801B9624 end:0x801B9690
+	.text       start:0x801B9624 end:0x801B9684
 
 SB/NG/Source/Engine/Entities/ModelInstanceArticle.cpp:
-	.text       start:0x801B9690 end:0x801BB024
+	.text       start:0x801B9684 end:0x801BB024
 
 SB/NG/Engine/WAD00_11_1.cpp:
 	.text       start:0x801BB024 end:0x801BBE30
@@ -1745,10 +1745,10 @@ SB/NG/Source/Engine/Entities/RenderModeEntity.cpp:
 	.text       start:0x801BCAF0 end:0x801BCD24
 
 SB/NG/Engine/WAD00_11_3.cpp:
-	.text       start:0x801BCD24 end:0x801BCD90
+	.text       start:0x801BCD24 end:0x801BCD84
 
 SB/NG/Source/Engine/Entities/ShaderEntity.cpp:
-	.text       start:0x801BCD90 end:0x801BD0E4
+	.text       start:0x801BCD84 end:0x801BD0E4
 
 SB/NG/Engine/WAD00_12.cpp:
 	.text       start:0x801BD0E4 end:0x801BD0F0
@@ -2086,10 +2086,10 @@ SB/NG/Source/Engine/Graphics/ScreenWarp.cpp:
 	.text       start:0x801E55A0 end:0x801E805C
 
 SB/NG/Engine/WAD02_1_1.cpp:
-	.text       start:0x801E805C end:0x801E80C0
+	.text       start:0x801E805C end:0x801E80B4
 
 SB/NG/Source/Engine/IO/File/LFDevice.cpp:
-	.text       start:0x801E80C0 end:0x801E85B8
+	.text       start:0x801E80B4 end:0x801E85B8
 
 SB/NG/Engine/WAD02_1_2.cpp:
 	.text       start:0x801E85B8 end:0x801E85C0
@@ -2145,10 +2145,10 @@ SB/NG/Source/Engine/Memory/MallocDebugWrapper.cpp:
 	.text       start:0x801EAA20 end:0x801EADD0
 
 SB/NG/Engine/WAD02_7_1.cpp:
-	.text       start:0x801EADD0 end:0x801EAE30
+	.text       start:0x801EADD0 end:0x801EAE2C
 
 SB/NG/Source/Engine/Memory/Memory.cpp:
-	.text       start:0x801EAE30 end:0x801EB844
+	.text       start:0x801EAE2C end:0x801EB844
 
 SB/NG/Engine/WAD02_7_2.cpp:
 	.text       start:0x801EB844 end:0x801EB850

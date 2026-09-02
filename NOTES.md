@@ -7,18 +7,18 @@ numbers here, which move.
 ## State at time of writing
 
 ```
-Game Code:  39 of 777 files complete  97,812 / 2,116,536 bytes  1,121 / 10,689 fn
-            4.6213% of game code
+Game Code:  48 of 777 files complete  98,728 / 2,116,588 bytes  1,136 / 10,694 fn
+            4.6645% of game code
 
-Of those 1,121 functions, 778 are GENERATED -- machine-recognised
+Of those 1,136 functions, 778 are GENERATED -- machine-recognised
 shapes, not one of which is decompiling. They are real matched
 functions and the offsets and constants are recovered fact, but a
 count of them is not a count of decompiled code. HAND-WRITTEN IS
-343, across 60 units and 88,916 bytes, and that is the figure to
+358, across 71 units and 89,832 bytes, and that is the figure to
 compare against earlier ones.
 
 Data:       3 unit(s) carry their own, 396 bytes; 134 more could
-All:        3.15% matched              main.dol reproduces byte for byte
+All:        3.17% matched              main.dol reproduces byte for byte
 ```
 
 Every number above is written by `python tools/notes_state.py`,
@@ -932,6 +932,36 @@ Then one of these, in the order they are worth doing:
    so a pool header and no link), and `WAD00_26`, where one of two
    `Fix`es stays 6 of 7 words -- retail re-reads the member after the
    test and four spellings fold it (the file says which).
+
+   The next twelve from the same list, eleven exact and nine linked
+   (39 -> 48 complete, five more split ends moved): three module
+   constructors on the System::Module base (`Globals`, `Primitive`,
+   `TestSuite`, each storing its id into the first event stages),
+   `zEmbeddedStartupIcon`'s constructor and StopCallback,
+   `zStoryMoment::GetInstance`, `zPlayerInput::GetViewportIndex`,
+   `Memory::FreePhysicalMemory1`, and four destructors (`WAD00_11`,
+   `WAD00_11_3`, `WAD00_9`, `WAD02_1_1`). Three things they taught:
+
+   * A destructor whose bytes call `hkBaseObject`'s destructor
+     DIRECTLY on a member, with the don't-delete flag, has a member
+     of type hkBaseObject at that offset, whatever the DWARF names
+     the type. A member class of its own -- derived from the Havok
+     object, containing it, with an explicit empty inline destructor
+     -- gets a destructor of its own emitted (80 bytes, a vtable
+     store) and called. Measured three ways.
+   * A `cmpwi r3,0` after an allocation call with nothing to
+     construct is the null check of a `new` whose class has an EMPTY
+     INLINE constructor: the branch folds away and the compare stays
+     (`zStoryMoment`, exact once the constructor is declared).
+   * The double null test -- `cmpwi; bne; li r3,0; b; beq; bl ctor`
+     -- is `mem ? new (mem) T : 0` where the placement new's own
+     check did not fold into the conditional's. Ours folds it: 5 of
+     23 words in `zBTNodeReference::CreateTask` and 5 of 18 in
+     `WAD01_5`'s `zBTFactory::Create<T>` (a template instantiation
+     that emits only when defined OUT of the class). An `inline`
+     helper folds too; a plain static template is not auto-inlined
+     and just adds a function. Recorded, both kept in the ternary
+     form, the right length and closest.
 
    The four written whole to get there, all exact on the first
    compile: `WAD03`'s `NewArray<float, GlobalHeapEnum>` (a template

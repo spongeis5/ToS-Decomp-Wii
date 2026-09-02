@@ -123,14 +123,12 @@ public:
     unsigned int Open(unsigned int id, zBTTask* task);
 };
 
+inline void* operator new(unsigned long, void* p) { return p; }
+
 class zBTReferenceTask : public zBTTask {
 public:
     zBTReferenceTask();
 
-    void* operator new(unsigned long size) {
-        return zBTFactory::factory.AllocMem(size,
-                                            Memory::eFactoryMemType_14);
-    }
 
 
 
@@ -218,7 +216,9 @@ void zBTNodeReference::Setup(Sext::BTNodeBase* node) {
 }
 
 zBTReferenceTask* zBTNodeReference::CreateTask() {
-    zBTReferenceTask* task = new zBTReferenceTask;
+    void* mem = zBTFactory::factory.AllocMem(sizeof(zBTReferenceTask),
+                                             Memory::eFactoryMemType_14);
+    zBTReferenceTask* task = mem ? new (mem) zBTReferenceTask : 0;
 
     task->nodeID = nodeID;
 

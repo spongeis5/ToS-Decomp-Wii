@@ -299,6 +299,7 @@ EXPECT = {
     "SB/NG/Source/Engine/Scaleform/ScaleformModule": (1, 1),
     "SB/NG/Source/Engine/UI/Font": (1, 1),
     "SB/GM/Engine/Game/zShootingPlayer": (3, 3),
+    "SB/GM/Engine/WAD02_26": (1, 1),
 }
 
 

@@ -7,18 +7,18 @@ numbers here, which move.
 ## State at time of writing
 
 ```
-Game Code:  28 of 777 files complete  93,312 / 2,116,508 bytes  1,096 / 10,686 fn
-            4.4088% of game code
+Game Code:  28 of 777 files complete  96,548 / 2,116,508 bytes  1,097 / 10,686 fn
+            4.5617% of game code
 
-Of those 1,096 functions, 781 are GENERATED -- machine-recognised
+Of those 1,097 functions, 781 are GENERATED -- machine-recognised
 shapes, not one of which is decompiling. They are real matched
 functions and the offsets and constants are recovered fact, but a
 count of them is not a count of decompiled code. HAND-WRITTEN IS
-315, across 45 units and 84,376 bytes, and that is the figure to
+316, across 46 units and 87,612 bytes, and that is the figure to
 compare against earlier ones.
 
 Data:       3 unit(s) carry their own, 396 bytes; 134 more could
-All:        3.09% matched              main.dol reproduces byte for byte
+All:        3.14% matched              main.dol reproduces byte for byte
 ```
 
 Every number above is written by `python tools/notes_state.py`,
@@ -864,8 +864,14 @@ Then one of these, in the order they are worth doing:
    mostly Havok and Scaleform, and the next game rows -- zPlantTrap
    (5, 1,496 bytes) and WAD01_21 (11, 1,396 bytes) -- were read: they
    are `Reset`, `Init`, `Save`, `Load` and the like, one virtual call
-   inside ordinary code, not tables. The table vein is closed; what is
-   left of it is ordinary decompilation.
+   inside ordinary code, not tables. A census of branchless functions
+   whose only calls are the table functions, over every game unit,
+   found one left: `zNPCGeneric::Type::CreateAnimTable` in WAD02_26,
+   3,236 bytes, 44 states with no owner and no callback, written by
+   a script in zNPCUPGeneric.cpp's spelling because the merger
+   cannot parse a `Q2` nested name; exact on the first compile. The
+   table vein is closed; what is left of it is ordinary
+   decompilation.
 
 5. **Another shape.** `tools/shape_census.py` still ranks what is
    left. The biggest row is `addi b`, 97 functions and 776 bytes, of

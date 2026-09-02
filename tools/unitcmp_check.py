@@ -322,6 +322,13 @@ EXPECT = {
     "SB/NG/Source/Engine/Globals": (1, 1),
     "SB/NG/Source/Engine/Graphics/Primitive": (1, 1),
     "SB/NG/Source/Engine/TestSuite/TestSuite": (1, 1),
+    "SB/GM/Engine/Core/LinkFastSqrt": (2, 2),
+    "SB/GM/Engine/Core/x/xFMV": (2, 2),
+    "SB/GM/Engine/Core/x/xSubtitlesAsset": (1, 1),
+    "SB/GM/Engine/Game/zUPQuestCard": (1, 1),
+    "SB/GM/Engine/WAD00_8": (1, 1),
+    "SB/NG/Engine/WAD00_12_1": (1, 1),
+    "SB/NG/Engine/WAD00_16": (1, 1),
 }
 
 

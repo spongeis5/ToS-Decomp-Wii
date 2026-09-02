@@ -7,18 +7,18 @@ numbers here, which move.
 ## State at time of writing
 
 ```
-Game Code:  48 of 777 files complete  98,728 / 2,116,588 bytes  1,136 / 10,694 fn
-            4.6645% of game code
+Game Code:  54 of 777 files complete  99,480 / 2,116,608 bytes  1,146 / 10,696 fn
+            4.7000% of game code
 
-Of those 1,136 functions, 778 are GENERATED -- machine-recognised
+Of those 1,146 functions, 778 are GENERATED -- machine-recognised
 shapes, not one of which is decompiling. They are real matched
 functions and the offsets and constants are recovered fact, but a
 count of them is not a count of decompiled code. HAND-WRITTEN IS
-358, across 71 units and 89,832 bytes, and that is the figure to
+368, across 78 units and 90,584 bytes, and that is the figure to
 compare against earlier ones.
 
-Data:       3 unit(s) carry their own, 396 bytes; 134 more could
-All:        3.17% matched              main.dol reproduces byte for byte
+Data:       4 unit(s) carry their own, 412 bytes; 134 more could
+All:        3.18% matched              main.dol reproduces byte for byte
 ```
 
 Every number above is written by `python tools/notes_state.py`,
@@ -921,6 +921,29 @@ Then one of these, in the order they are worth doing:
    chunk, then configure and read main.dol: OK -- three units went
    through it at once and it held. 32 -> 39 complete.
 
+   A FIFTH gate, from two destructors that matched and would not
+   link: the unit must not be the VTABLE'S HOME. The compiler emits a
+   class's vtable in the unit that defines its first non-inline
+   virtual function, and a destructor unit written with the class's
+   only virtual being that destructor emits `__vt` -- `multiply-
+   defined ... previously defined in WAD00.o`, because retail's copy
+   is in the blob. Declare an undefined virtual AHEAD of the
+   destructor and the vtable goes with it; the destructor's bytes do
+   not change (`WAD00_12_1`, `WAD00_16`, both exact before and after).
+
+   And the fourth gate holds for .rodata as it does for .text.
+   `LinkFastSqrt`'s split owns a 32-byte .rodata chunk: its float
+   0.5 (`@20`) at +0, its double 0.5 (`@22`) at +8, and sixteen
+   bytes of padding up to the neighbour's 32-aligned rodata. Our
+   object emits exactly the sixteen bytes of literals, so flipped
+   as-is the DOL failed. Moving the .rodata end to the double's end
+   (0x8067D290) and `WAD00.cpp`'s .rodata start with it linked,
+   main.dol: OK -- the first unit linked with a literal pool of its
+   own, and the recipe for the float-literal units the first gate
+   turned away (`zLaserScanner`, `WAD02_24`): when the split's
+   .rodata holds nothing but the unit's literals, end it where they
+   end. `xFMV`'s function-local static is .data and untried.
+
    The ten written for it, from the `near_complete.py --all` list:
    `WAD04_6_1` FoundPath, `Graphics/Material` RenderAttach and
    RenderDetach, `WAD03_33` xVec2::AddScale, `WAD03_34` Sub and dot,
@@ -962,6 +985,46 @@ Then one of these, in the order they are worth doing:
      helper folds too; a plain static template is not auto-inlined
      and just adds a function. Recorded, both kept in the ternary
      form, the right length and closest.
+
+   The seven after those, all seven exact and six linked (48 -> 54
+   complete, three split ends moved): two more Havok destructors
+   (`WAD00_12_1`, `WAD00_16`), two `Create` statics over the global
+   heap (`xSubtitlesAsset`, `zUPQuestCard`), `xResponseCurve::
+   find_active_node` (`WAD00_8`), `xFMV`'s two (matched, not linked:
+   its function-local static is .data) and `LinkFastSqrt`'s `sqrtf`
+   and `sqrt`, hand-fused code that took seventeen probes and is the
+   first linked unit to SUPPLY DATA of its own (Game Code data 116
+   -> 132 bytes). What they taught:
+
+   * The hkBaseObject rule holds for BASES too: bytes that call the
+     Havok destructor on `this` with the flag clear have it as the
+     DIRECT base. The DWARF's `GeometryEntity`/`BlobEntity` in
+     between each get an 80-byte destructor of their own emitted and
+     called (`EXTRA ... NOT IN RETAIL` in unitcmp).
+   * A single `cmpwi r3,0; mr r31,r3; beq` right after `memset` is the
+     placement new's OWN null test on memset's return value: `return
+     new (memset(alloc, 0, n)) T(h);`. An `if (p)` around the new adds
+     a second `beq`; testing the allocation instead of memset's return
+     moves the `mr` a call earlier. Retail keeps the check here, unlike
+     the two double-test misses above and the no-check one in the
+     table -- the same construct, three different byte shapes.
+   * Named locals take registers in DECLARATION ORDER. `last` declared
+     before `node` gave them r6/r7 as retail has, and `stride *
+     active_node` (the stride first) gave `mullw r0,r4,r0`. The same
+     order rule reaches the FPRs: `register`-qualified variables land
+     on f0, f2, f3, f4 in the order they are declared, f1 being the
+     parameter -- and f0 is where retail keeps its 0.5, so `half` is
+     declared FIRST.
+   * `LinkFastSqrt` is C with `register` variables and asm statements:
+     `asm { frsqrte e, x }`, `asm { fnmsubs t, t, h, half }` and
+     `asm { fsel e, e, e, x }` around ordinary arithmetic. The
+     intrinsics cannot spell it: `__frsqrte` and `__fsel` return double
+     and the `(float)` cast is an `frsp` retail does not have,
+     `__frsqrtes` does not exist in this compiler, and the C Newton
+     step is forwarded into a temporary that takes the lowest free
+     register (f0 once the constant dies) where retail writes it back
+     into `t`'s f3. A parameter read by asm must be `register` too.
+     The scratch `sq*.cpp` probes are the seventeen spellings.
 
    The four written whole to get there, all exact on the first
    compile: `WAD03`'s `NewArray<float, GlobalHeapEnum>` (a template

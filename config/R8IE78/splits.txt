@@ -14,12 +14,12 @@ Sections:
 	.sbss2      type:bss align:32
 
 SB/GM/Engine/Core/LinkFastSqrt.cpp:
-	.text       start:0x80006760 end:0x800067D0
-	.rodata     start:0x8067D280 end:0x8067D2A0
+	.text       start:0x80006760 end:0x800067C8
+	.rodata     start:0x8067D280 end:0x8067D290
 
 SB/GM/Engine/WAD00.cpp:
-	.text       start:0x800067D0 end:0x8000D560
-	.rodata     start:0x8067D2A0 end:0x8067F4A4
+	.text       start:0x800067C8 end:0x8000D560
+	.rodata     start:0x8067D290 end:0x8067F4A4
 	.data       start:0x806AFDE0 end:0x806B4E98
 	.bss        start:0x80719900 end:0x80719968
 
@@ -141,10 +141,10 @@ SB/GM/Engine/Core/x/xMath.cpp:
 	.text       start:0x80035F20 end:0x800365DC
 
 SB/GM/Engine/WAD00_8.cpp:
-	.text       start:0x800365DC end:0x80036660
+	.text       start:0x800365DC end:0x80036654
 
 SB/GM/Engine/Core/x/xMath3.cpp:
-	.text       start:0x80036660 end:0x80038764
+	.text       start:0x80036654 end:0x80038764
 
 SB/GM/Engine/WAD00_8_1.cpp:
 	.text       start:0x80038764 end:0x800392B0

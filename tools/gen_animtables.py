@@ -45,6 +45,16 @@ object each call is made on is READ, not assumed; a chain it cannot
 spell stops the merge. A class that makes such a call is derived from
 the unit's zPlayerAction stub (three members, then the virtuals, so
 the vptr lands at +12) and its leading padding shrinks by the base.
+
+Three helpers zPlayerAction.cpp defines were inlined by retail's unity
+build and change the order hoisted values come out in, so the merger
+spells the calls through them and the unit defines them `inline`:
+`AddActionTransition` (a direct transition whose third callback is
+ActionChange with the fixed zeros), the manager's `AddTransitionsTo`
+family (every slot call on `manager->actions[k]`), and `NewState` (a
+direct state whose owner is `this` with a zero `m`). Each was found
+by one diff and each is worth a table; the docstrings of the rules in
+`emit()` give the word counts.
 """
 import re
 import struct
@@ -93,6 +103,7 @@ ACTION_CHANGE = next(a for a, nm in BYADDR.items()
                      if nm.startswith("ActionChange__13zPlayerAction"))
 HELPER = "inline unsigned int zPlayerAction::AddActionTransition("
 MGR_HELPER = "inline void zPlayerActionManager::AddTransitionsTo("
+NEWSTATE_HELPER = "inline unsigned int zPlayerAction::NewState("
 
 
 # ---- reading ----------------------------------------------------------
@@ -260,6 +271,7 @@ class Merge(object):
         self.base_needed = set()
         self.helper_needed = False
         self.mgr_needed = False
+        self.newstate_needed = False
         self.problems = []
 
     @staticmethod
@@ -465,8 +477,26 @@ class Merge(object):
                 else:
                     lines.append("    %s%s(%s);" % (o, self.SLOTS[slot],
                                                     ", ".join(args)))
+            elif callee.startswith("xAnimTableNewState") \
+                    and r.get(10) == THIS and st.get(24, 0) == 0 \
+                    and st.get(28, 0) == 0:
+                # zPlayerAction::NewState, inlined: the owner is `this`
+                # and the helper supplies the zero `m`. Spelled direct,
+                # the hoisted values come out permuted (zPlayerHitSB
+                # 250 of 385 words; 11 through the helper, all of them
+                # the member stores around the calls).
+                args = ["table", L(r.get(4, "?"), where), L(r.get(5, "?"), where),
+                        L(r.get(6, "?"), where), F(f.get(1, "?"), where),
+                        L(r.get(7, "?"), where), L(r.get(8, "?"), where),
+                        F(f.get(2, "?"), where), L(r.get(9, "?"), where),
+                        P(st.get(8, 0), where), P(st.get(12, 0), where),
+                        P(st.get(16, 0), where), P(st.get(20, 0), where),
+                        L(st.get(32, 0), where)]
+                self.newstate_needed = True
+                lines.append("    NewState(%s);" % ", ".join(args))
             elif callee.startswith("xAnimTableNewState"):
-                owner = "this" if r.get(10, "?") == "?" else L(r[10], where)
+                owner = "this" if r.get(10, "?") in ("?", THIS) \
+                    else L(r[10], where)
                 args = ["table", L(r.get(4, "?"), where), L(r.get(5, "?"), where),
                         L(r.get(6, "?"), where), F(f.get(1, "?"), where),
                         L(r.get(7, "?"), where), L(r.get(8, "?"), where),
@@ -601,6 +631,14 @@ class Merge(object):
                              "AddActionTransition and %s has no inline "
                              "definition of it; copy the one from "
                              "zSBPlayerActions.cpp, with its comment" % unit)
+        if self.newstate_needed and NEWSTATE_HELPER not in text:
+            raise SystemExit("gen_animtables: a table inlines zPlayerAction::"
+                             "NewState and %s has no inline definition of "
+                             "it; copy the one from zSBPlayerActions.cpp, "
+                             "with its comment" % unit)
+        if self.newstate_needed:
+            for cls, _n, _b, _c, _p in bodies:
+                self.base_needed.add(cls)
         if self.mgr_needed and MGR_HELPER not in text:
             raise SystemExit("gen_animtables: a table inlines the manager's "
                              "AddTransitionsTo family and %s has no inline "

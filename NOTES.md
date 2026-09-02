@@ -7,18 +7,18 @@ numbers here, which move.
 ## State at time of writing
 
 ```
-Game Code:  28 of 777 files complete  80,628 / 2,116,508 bytes  1,084 / 10,686 fn
-            3.8095% of game code
+Game Code:  28 of 777 files complete  88,412 / 2,116,508 bytes  1,088 / 10,686 fn
+            4.1773% of game code
 
-Of those 1,084 functions, 784 are GENERATED -- machine-recognised
+Of those 1,088 functions, 784 are GENERATED -- machine-recognised
 shapes, not one of which is decompiling. They are real matched
 functions and the offsets and constants are recovered fact, but a
 count of them is not a count of decompiled code. HAND-WRITTEN IS
-300, across 43 units and 71,640 bytes, and that is the figure to
+304, across 43 units and 79,424 bytes, and that is the figure to
 compare against earlier ones.
 
 Data:       3 unit(s) carry their own, 396 bytes; 134 more could
-All:        2.90% matched              main.dol reproduces byte for byte
+All:        3.01% matched              main.dol reproduces byte for byte
 ```
 
 Every number above is written by `python tools/notes_state.py`,
@@ -585,6 +585,25 @@ zPlayerLandHighSB::End's load as `this+4`, which is the base's
 ABI from the walk's snapshot, and every `bl` is recorded so an
 unspellable callee refuses the merge rather than vanishing.
 
+**The NewState permutation was the third inlined helper, and the four
+`AddStates` tables match.** zPlayerAction.cpp defines the member
+`NewState(table, name, a..g, h..k, l)` as `xAnimTableNewState(...,
+this, h, i, j, k, 0, l)`, and retail's tables pass `this` in r10 the
+way the helper does. Spelled direct, zPlayerHitSB::AddStates had 250
+of 385 words wrong -- the hoisted callback, pool base, zero and two
+float bases in another order -- and through the helper it had 11, all
+of them member stores around the calls. `store_seq` reading off the
+image gave each table's statements in order: HitSB fills
+`variants[0..1]` after `noRepeats = false; numVariants = 2;` (the
+two scalars in THAT order -- swapped, two words), DefeatedSB fills
+four variant tables with their counts, IdleSB opened with
+`extraIdleTable[0].noRepeats = false; numVariants = 1;` that the
+hand-written body lacked. The members came from `dwarf_types.py`
+(zPlayerHitSB 0x60 bytes, zPlayerDefeatedSB 0x6C). RunSB matched on
+the respelling alone. zSBPlayerActions 89 to 93 of 95; the merger
+spells a direct NewState with `this` as owner and a zero `m` through
+the helper, and refuses when the unit lacks the inline definition.
+
 **The one-word float-base misses are one compiler rule, measured to
 the bottom, and ten of them fell.** mwcc addresses a function's float
 literals by a fixed cost: under 32 KB into `.rodata` it shares one
@@ -815,13 +834,14 @@ Then one of these, in the order they are worth doing:
    tables and the `bctrl` tables that go through the manager -- and
    the section above says the rules, the two inlined helpers the
    bytes named, and the float-base rule that `gen_poolprefix.py` now
-   answers with a measured `.rodata` distance. What is left in
-   zSBPlayerActions is six functions: the four `AddStates` tables
-   with member stores between the calls and IdleSB's internal table
-   (the NewState permutation, an allocator order nothing tried
-   reaches) and `zPlayerWalkSB::AddActionTransitions`, the one
-   four-literal table, where the compiler forms an `addis` base and
-   retail spells four `lis`. The 439 `bctrl` functions image-wide are
+   answers with a measured `.rodata` distance, and the NewState
+   helper that put the four `AddStates` tables at 100%. What is left
+   in zSBPlayerActions (93 of 95) is the two four-literal tables,
+   `zPlayerWalkSB::AddActionTransitions` and
+   `zPlayerIdleSB::AddInternalTransitions`: the compiler forms an
+   `addis` base for four literals past 32 KB and retail spells four
+   `lis`, and no setting tried moves that line -- see the float-base
+   section for the list. The 439 `bctrl` functions image-wide are
    mostly Havok and Scaleform, and the next game rows -- zPlantTrap
    (5, 1,496 bytes) and WAD01_21 (11, 1,396 bytes) -- were read: they
    are `Reset`, `Init`, `Save`, `Load` and the like, one virtual call

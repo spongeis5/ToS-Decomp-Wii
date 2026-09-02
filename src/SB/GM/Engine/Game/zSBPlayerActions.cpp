@@ -56,6 +56,14 @@ public:
                                 unsigned short e, float f, unsigned int g,
                                 unsigned int h, SpecialActions i);
 
+    unsigned int NewState(xAnimTable* table, const char* name,
+                          unsigned int a, unsigned int b, float c,
+                          float* d, float* e, float f, unsigned short* g,
+                          void (*h)(xAnimPlay*, xAnimState*, void*),
+                          void (*i)(xAnimPlay*, xAnimState*, void*),
+                          void (*j)(xAnimState*, xAnimSingle*, void*),
+                          void (*k)(xAnimPlay*, xQuat*, xVec3*, xVec3*, int),
+                          unsigned int l);
     static unsigned int ActionChange(xAnimTransition*, xAnimSingle*, void*);
     static unsigned int AddActionTransition(
         xAnimTable* table, const char* from, const char* to,
@@ -105,6 +113,21 @@ inline void zPlayerActionManager::AddTransitionsTo(unsigned int id, xAnimTable* 
 // xAnimTableNewTransition with ActionChange as its third callback and
 // the fixed zeros is this call, its `c == 0` test folded away. Inline
 // here so the fragment inlines it the same way and emits no copy.
+// NewState is the same story as AddActionTransition below: defined in
+// zPlayerAction.cpp, inlined by retail's unity build. A state table
+// spelled as the direct xAnimTableNewState with `this` as the owner
+// hoists its constants in another order (zPlayerHitSB::AddStates 250
+// of 385 words); through the helper, 0.
+inline unsigned int zPlayerAction::NewState(
+    xAnimTable* table, const char* name, unsigned int a, unsigned int b,
+    float c, float* d, float* e, float f, unsigned short* g,
+    void (*h)(xAnimPlay*, xAnimState*, void*),
+    void (*i)(xAnimPlay*, xAnimState*, void*),
+    void (*j)(xAnimState*, xAnimSingle*, void*),
+    void (*k)(xAnimPlay*, xQuat*, xVec3*, xVec3*, int), unsigned int l) {
+    return xAnimTableNewState(table, name, a, b, c, d, e, f, g, this,
+                              h, i, j, k, 0, l);
+}
 inline unsigned int zPlayerAction::AddActionTransition(
     xAnimTable* table, const char* from, const char* to,
     unsigned int (*a)(xAnimTransition*, xAnimSingle*, void*),
@@ -270,8 +293,17 @@ public:
 
 
 
+// Members from the DWARF (zPlayerHitSB is 0x60 bytes): the table
+// stores its two hammer-hit states, the count and the flag.
 class zPlayerHitSB : public zPlayerAction {
 public:
+    float hitHammerTimer;
+    float hitElectricityTimer;
+    xAnimState* variants[15];
+    int numVariants;
+    int numValid;
+    bool noRepeats;
+
     static unsigned int anHammerHitCB(xAnimTransition* a0, xAnimSingle* a1, void* a2);
     bool HammerHitCB(xAnimTransition* a0, xAnimSingle* a1);
 
@@ -323,8 +355,28 @@ public:
 
 
 
-class zPlayerDefeatedSB {
+// Members from the DWARF (zPlayerDefeatedSB is 0x6C bytes): four
+// variant tables, each with its count and valid count.
+class zPlayerDefeatedSB : public zPlayerAction {
 public:
+    float timer;
+    float resetTime;
+    float screenFadeTimer;
+    bool screenFadeStarted;
+    xAnimState* variants[3];
+    int numVariants;
+    int numValid;
+    xAnimState* lavaVariants[3];
+    int numLavaVariants;
+    int numLavaValid;
+    xAnimState* gooVariants[2];
+    int numGooVariants;
+    int numGooValid;
+    xAnimState* acidVariants[2];
+    int numAcidVariants;
+    int numAcidValid;
+    float frozenVentCurSpeed;
+
     static unsigned int anFaceCameraCB(xAnimTransition* a0, xAnimSingle* a1, void* a2);
     bool FaceCameraCB(xAnimTransition* a0, xAnimSingle* a1);
 
@@ -440,59 +492,61 @@ public:
 
 // zPlayerIdleSB::AddStates: 42 call(s)
 void zPlayerIdleSB::AddStates(xAnimTable* table) {
-    extraIdleTable[0].variants[0] = (xAnimState*)xAnimTableNewState(table, "Idle01", 64, 0x2004000, 1.0f, 0, 0, 0.0f, 0, this, zSBAnimPackageBE, 0, 0, 0, 0, 0);
+    extraIdleTable[0].noRepeats = false;
+    extraIdleTable[0].numVariants = 1;
+    extraIdleTable[0].variants[0] = (xAnimState*)NewState(table, "Idle01", 64, 0x2004000, 1.0f, 0, 0, 0.0f, 0, zSBAnimPackageBE, 0, 0, 0, 0);
     extraIdleTable[2].noRepeats = true;
     extraIdleTable[2].numVariants = 6;
-    extraIdleTable[2].variants[0] = (xAnimState*)xAnimTableNewState(table, "IdleExtra01", 64, 0x2000000, 1.0f, 0, 0, 0.0f, 0, this, 0, 0, 0, 0, 0, 2);
-    extraIdleTable[2].variants[1] = (xAnimState*)xAnimTableNewState(table, "IdleExtra02", 64, 0x2000000, 1.0f, 0, 0, 0.0f, 0, this, 0, 0, 0, 0, 0, 2);
-    extraIdleTable[2].variants[2] = (xAnimState*)xAnimTableNewState(table, "IdleExtra03", 64, 0x2000000, 1.0f, 0, 0, 0.0f, 0, this, 0, 0, 0, 0, 0, 2);
-    extraIdleTable[2].variants[3] = (xAnimState*)xAnimTableNewState(table, "IdleExtra04", 64, 0x2000000, 1.0f, 0, 0, 0.0f, 0, this, 0, 0, 0, 0, 0, 2);
-    extraIdleTable[2].variants[4] = (xAnimState*)xAnimTableNewState(table, "IdleExtra05", 64, 0x2000000, 1.0f, 0, 0, 0.0f, 0, this, 0, 0, 0, 0, 0, 2);
-    extraIdleTable[2].variants[5] = (xAnimState*)xAnimTableNewState(table, "IdleExtra06", 64, 0x2000000, 1.0f, 0, 0, 0.0f, 0, this, 0, 0, 0, 0, 0, 2);
+    extraIdleTable[2].variants[0] = (xAnimState*)NewState(table, "IdleExtra01", 64, 0x2000000, 1.0f, 0, 0, 0.0f, 0, 0, 0, 0, 0, 2);
+    extraIdleTable[2].variants[1] = (xAnimState*)NewState(table, "IdleExtra02", 64, 0x2000000, 1.0f, 0, 0, 0.0f, 0, 0, 0, 0, 0, 2);
+    extraIdleTable[2].variants[2] = (xAnimState*)NewState(table, "IdleExtra03", 64, 0x2000000, 1.0f, 0, 0, 0.0f, 0, 0, 0, 0, 0, 2);
+    extraIdleTable[2].variants[3] = (xAnimState*)NewState(table, "IdleExtra04", 64, 0x2000000, 1.0f, 0, 0, 0.0f, 0, 0, 0, 0, 0, 2);
+    extraIdleTable[2].variants[4] = (xAnimState*)NewState(table, "IdleExtra05", 64, 0x2000000, 1.0f, 0, 0, 0.0f, 0, 0, 0, 0, 0, 2);
+    extraIdleTable[2].variants[5] = (xAnimState*)NewState(table, "IdleExtra06", 64, 0x2000000, 1.0f, 0, 0, 0.0f, 0, 0, 0, 0, 0, 2);
     extraIdleTable[4].noRepeats = true;
     extraIdleTable[4].numVariants = 13;
-    extraIdleTable[4].variants[0] = (xAnimState*)xAnimTableNewState(table, "IdleExtraFaceCam01", 64, 0x2000000, 1.0f, 0, 0, 0.0f, 0, this, 0, 0, 0, 0, 0, 4);
-    extraIdleTable[4].variants[1] = (xAnimState*)xAnimTableNewState(table, "IdleExtraFaceCam02", 64, 0x2000000, 1.0f, 0, 0, 0.0f, 0, this, 0, 0, 0, 0, 0, 4);
-    extraIdleTable[4].variants[2] = (xAnimState*)xAnimTableNewState(table, "IdleExtraFaceCam03", 64, 0x2000000, 1.0f, 0, 0, 0.0f, 0, this, 0, 0, 0, 0, 0, 4);
-    extraIdleTable[4].variants[3] = (xAnimState*)xAnimTableNewState(table, "IdleExtraFaceCam04", 64, 0x2000000, 1.0f, 0, 0, 0.0f, 0, this, 0, 0, 0, 0, 0, 4);
-    extraIdleTable[4].variants[4] = (xAnimState*)xAnimTableNewState(table, "IdleExtraFaceCam05", 64, 0x2000000, 1.0f, 0, 0, 0.0f, 0, this, 0, 0, 0, 0, 0, 4);
-    extraIdleTable[4].variants[5] = (xAnimState*)xAnimTableNewState(table, "IdleExtraFaceCam07", 64, 0x2000000, 1.0f, 0, 0, 0.0f, 0, this, 0, 0, 0, 0, 0, 4);
-    extraIdleTable[4].variants[6] = (xAnimState*)xAnimTableNewState(table, "IdleExtraFaceCam08", 64, 0x2000000, 1.0f, 0, 0, 0.0f, 0, this, 0, 0, 0, 0, 0, 4);
-    extraIdleTable[4].variants[7] = (xAnimState*)xAnimTableNewState(table, "IdleExtraFaceCam09", 64, 0x2000000, 1.0f, 0, 0, 0.0f, 0, this, 0, 0, 0, 0, 0, 4);
-    extraIdleTable[4].variants[8] = (xAnimState*)xAnimTableNewState(table, "IdleExtraFaceCam10", 64, 0x2000000, 1.0f, 0, 0, 0.0f, 0, this, 0, 0, 0, 0, 0, 4);
-    extraIdleTable[4].variants[9] = (xAnimState*)xAnimTableNewState(table, "IdleExtraFaceCam11", 64, 0x2000000, 1.0f, 0, 0, 0.0f, 0, this, 0, 0, 0, 0, 0, 4);
-    extraIdleTable[4].variants[10] = (xAnimState*)xAnimTableNewState(table, "IdleExtraFaceCam12", 64, 0x2000000, 1.0f, 0, 0, 0.0f, 0, this, 0, 0, 0, 0, 0, 4);
-    extraIdleTable[4].variants[11] = (xAnimState*)xAnimTableNewState(table, "IdleExtraFaceCam13", 64, 0x2000000, 1.0f, 0, 0, 0.0f, 0, this, 0, 0, 0, 0, 0, 4);
-    extraIdleTable[4].variants[12] = (xAnimState*)xAnimTableNewState(table, "IdleExtraFaceCam14", 64, 0x2000000, 1.0f, 0, 0, 0.0f, 0, this, 0, 0, 0, 0, 0, 4);
+    extraIdleTable[4].variants[0] = (xAnimState*)NewState(table, "IdleExtraFaceCam01", 64, 0x2000000, 1.0f, 0, 0, 0.0f, 0, 0, 0, 0, 0, 4);
+    extraIdleTable[4].variants[1] = (xAnimState*)NewState(table, "IdleExtraFaceCam02", 64, 0x2000000, 1.0f, 0, 0, 0.0f, 0, 0, 0, 0, 0, 4);
+    extraIdleTable[4].variants[2] = (xAnimState*)NewState(table, "IdleExtraFaceCam03", 64, 0x2000000, 1.0f, 0, 0, 0.0f, 0, 0, 0, 0, 0, 4);
+    extraIdleTable[4].variants[3] = (xAnimState*)NewState(table, "IdleExtraFaceCam04", 64, 0x2000000, 1.0f, 0, 0, 0.0f, 0, 0, 0, 0, 0, 4);
+    extraIdleTable[4].variants[4] = (xAnimState*)NewState(table, "IdleExtraFaceCam05", 64, 0x2000000, 1.0f, 0, 0, 0.0f, 0, 0, 0, 0, 0, 4);
+    extraIdleTable[4].variants[5] = (xAnimState*)NewState(table, "IdleExtraFaceCam07", 64, 0x2000000, 1.0f, 0, 0, 0.0f, 0, 0, 0, 0, 0, 4);
+    extraIdleTable[4].variants[6] = (xAnimState*)NewState(table, "IdleExtraFaceCam08", 64, 0x2000000, 1.0f, 0, 0, 0.0f, 0, 0, 0, 0, 0, 4);
+    extraIdleTable[4].variants[7] = (xAnimState*)NewState(table, "IdleExtraFaceCam09", 64, 0x2000000, 1.0f, 0, 0, 0.0f, 0, 0, 0, 0, 0, 4);
+    extraIdleTable[4].variants[8] = (xAnimState*)NewState(table, "IdleExtraFaceCam10", 64, 0x2000000, 1.0f, 0, 0, 0.0f, 0, 0, 0, 0, 0, 4);
+    extraIdleTable[4].variants[9] = (xAnimState*)NewState(table, "IdleExtraFaceCam11", 64, 0x2000000, 1.0f, 0, 0, 0.0f, 0, 0, 0, 0, 0, 4);
+    extraIdleTable[4].variants[10] = (xAnimState*)NewState(table, "IdleExtraFaceCam12", 64, 0x2000000, 1.0f, 0, 0, 0.0f, 0, 0, 0, 0, 0, 4);
+    extraIdleTable[4].variants[11] = (xAnimState*)NewState(table, "IdleExtraFaceCam13", 64, 0x2000000, 1.0f, 0, 0, 0.0f, 0, 0, 0, 0, 0, 4);
+    extraIdleTable[4].variants[12] = (xAnimState*)NewState(table, "IdleExtraFaceCam14", 64, 0x2000000, 1.0f, 0, 0, 0.0f, 0, 0, 0, 0, 0, 4);
     extraIdleTable[1].numVariants = 1;
     extraIdleTable[1].variants[0] = extraIdleTable[0].variants[0];
     extraIdleTable[3].noRepeats = true;
     extraIdleTable[3].numVariants = 2;
     extraIdleTable[1].noRepeats = false;
-    extraIdleTable[3].variants[0] = (xAnimState*)xAnimTableNewState(table, "IdleExtraBuff01", 64, 0x2000000, 1.0f, 0, 0, 0.0f, 0, this, 0, 0, 0, 0, 0, 3);
-    extraIdleTable[3].variants[1] = (xAnimState*)xAnimTableNewState(table, "IdleExtraBuff02", 64, 0x2000000, 1.0f, 0, 0, 0.0f, 0, this, 0, 0, 0, 0, 0, 3);
+    extraIdleTable[3].variants[0] = (xAnimState*)NewState(table, "IdleExtraBuff01", 64, 0x2000000, 1.0f, 0, 0, 0.0f, 0, 0, 0, 0, 0, 3);
+    extraIdleTable[3].variants[1] = (xAnimState*)NewState(table, "IdleExtraBuff02", 64, 0x2000000, 1.0f, 0, 0, 0.0f, 0, 0, 0, 0, 0, 3);
     extraIdleTable[5].noRepeats = true;
     extraIdleTable[5].numVariants = 2;
-    extraIdleTable[5].variants[0] = (xAnimState*)xAnimTableNewState(table, "IdleExtraBuffFaceCam01", 64, 0x2000000, 1.0f, 0, 0, 0.0f, 0, this, 0, 0, 0, 0, 0, 5);
-    extraIdleTable[5].variants[1] = (xAnimState*)xAnimTableNewState(table, "IdleExtraBuffFaceCam02", 64, 0x2000000, 1.0f, 0, 0, 0.0f, 0, this, 0, 0, 0, 0, 0, 5);
-    xAnimTableNewState(table, "IdleShuffleLeft01", 32, 0x2008000, 1.0f, 0, 0, 0.0f, 0, this, zSBAnimPackageBE, 0, 0, 0, 0, 0);
-    xAnimTableNewState(table, "IdleShuffleRight01", 32, 0x2008000, 1.0f, 0, 0, 0.0f, 0, this, zSBAnimPackageBE, 0, 0, 0, 0, 0);
-    xAnimTableNewState(table, "IdleAgingIn01", 32, 0x2000000, 1.0f, 0, 0, 0.0f, 0, this, 0, 0, 0, 0, 0, 0);
-    xAnimTableNewState(table, "IdleAgingPhase01", 16, 0x2000000, 1.0f, 0, 0, 0.0f, 0, this, 0, 0, 0, 0, 0, 0);
-    xAnimTableNewState(table, "IdleAgingPhase02", 16, 0x2000000, 1.0f, 0, 0, 0.0f, 0, this, 0, 0, 0, 0, 0, 0);
-    xAnimTableNewState(table, "IdleAgingPhase03Trans", 32, 0x2000000, 1.0f, 0, 0, 0.0f, 0, this, 0, 0, 0, 0, 0, 0);
-    xAnimTableNewState(table, "IdleAgingPhase03", 16, 0x2000000, 1.0f, 0, 0, 0.0f, 0, this, 0, 0, 0, 0, 0, 0);
-    xAnimTableNewState(table, "IdleAgingPhase04", 16, 0x2000000, 1.0f, 0, 0, 0.0f, 0, this, 0, 0, 0, 0, 0, 0);
-    xAnimTableNewState(table, "AgingIdlePhase05", 16, 0x2000000, 1.0f, 0, 0, 0.0f, 0, this, zSBAgingIdleBE, 0, 0, 0, 0, 0);
-    xAnimTableNewState(table, "AgingIdleCrumble01", 32, 0x2000000, 1.0f, 0, 0, 0.0f, 0, this, zSBAnimPackageBE, 0, 0, 0, 0, 0);
-    xAnimTableNewState(table, "AgingIdlePopOut01", 32, 0x2000000, 1.0f, 0, 0, 0.0f, 0, this, zSBAgingIdlePopOutBE, 0, 0, 0, 0, 0);
-    xAnimTableNewState(table, "IdleHappy01", 16, 0x2004000, 1.0f, 0, 0, 0.0f, 0, this, 0, 0, 0, 0, 0, 0);
-    xAnimTableNewState(table, "IdleHappier01", 16, 0x2004000, 1.0f, 0, 0, 0.0f, 0, this, 0, 0, 0, 0, 0, 0);
-    xAnimTableNewState(table, "IdleMoveStart01", 32, 0x2000000, 1.0f, 0, 0, 0.0f, 0, this, zSBAnimPackageBE, 0, 0, 0, 0, 0);
-    xAnimTableNewState(table, "IdleSlippery01", 16, 0x2000000, 1.0f, 0, 0, 0.0f, 0, this, zSBAnimPackageBE, 0, 0, 0, 0, 0);
-    xAnimTableNewState(table, "IdleSlipperyMoveStart01", 32, 0x2000000, 1.0f, 0, 0, 0.0f, 0, this, zSBAnimPackageBE, 0, 0, 0, 0, 0);
-    xAnimTableNewState(table, "IdleLowHealth01", 16, 0x2000000, 1.0f, 0, 0, 0.0f, 0, this, 0, 0, 0, 0, 0, 0);
-    xAnimTableNewState(table, "IdleCold01", 64, 0x2004000, 1.0f, 0, 0, 0.0f, 0, this, 0, 0, 0, 0, 0, 0);
+    extraIdleTable[5].variants[0] = (xAnimState*)NewState(table, "IdleExtraBuffFaceCam01", 64, 0x2000000, 1.0f, 0, 0, 0.0f, 0, 0, 0, 0, 0, 5);
+    extraIdleTable[5].variants[1] = (xAnimState*)NewState(table, "IdleExtraBuffFaceCam02", 64, 0x2000000, 1.0f, 0, 0, 0.0f, 0, 0, 0, 0, 0, 5);
+    NewState(table, "IdleShuffleLeft01", 32, 0x2008000, 1.0f, 0, 0, 0.0f, 0, zSBAnimPackageBE, 0, 0, 0, 0);
+    NewState(table, "IdleShuffleRight01", 32, 0x2008000, 1.0f, 0, 0, 0.0f, 0, zSBAnimPackageBE, 0, 0, 0, 0);
+    NewState(table, "IdleAgingIn01", 32, 0x2000000, 1.0f, 0, 0, 0.0f, 0, 0, 0, 0, 0, 0);
+    NewState(table, "IdleAgingPhase01", 16, 0x2000000, 1.0f, 0, 0, 0.0f, 0, 0, 0, 0, 0, 0);
+    NewState(table, "IdleAgingPhase02", 16, 0x2000000, 1.0f, 0, 0, 0.0f, 0, 0, 0, 0, 0, 0);
+    NewState(table, "IdleAgingPhase03Trans", 32, 0x2000000, 1.0f, 0, 0, 0.0f, 0, 0, 0, 0, 0, 0);
+    NewState(table, "IdleAgingPhase03", 16, 0x2000000, 1.0f, 0, 0, 0.0f, 0, 0, 0, 0, 0, 0);
+    NewState(table, "IdleAgingPhase04", 16, 0x2000000, 1.0f, 0, 0, 0.0f, 0, 0, 0, 0, 0, 0);
+    NewState(table, "AgingIdlePhase05", 16, 0x2000000, 1.0f, 0, 0, 0.0f, 0, zSBAgingIdleBE, 0, 0, 0, 0);
+    NewState(table, "AgingIdleCrumble01", 32, 0x2000000, 1.0f, 0, 0, 0.0f, 0, zSBAnimPackageBE, 0, 0, 0, 0);
+    NewState(table, "AgingIdlePopOut01", 32, 0x2000000, 1.0f, 0, 0, 0.0f, 0, zSBAgingIdlePopOutBE, 0, 0, 0, 0);
+    NewState(table, "IdleHappy01", 16, 0x2004000, 1.0f, 0, 0, 0.0f, 0, 0, 0, 0, 0, 0);
+    NewState(table, "IdleHappier01", 16, 0x2004000, 1.0f, 0, 0, 0.0f, 0, 0, 0, 0, 0, 0);
+    NewState(table, "IdleMoveStart01", 32, 0x2000000, 1.0f, 0, 0, 0.0f, 0, zSBAnimPackageBE, 0, 0, 0, 0);
+    NewState(table, "IdleSlippery01", 16, 0x2000000, 1.0f, 0, 0, 0.0f, 0, zSBAnimPackageBE, 0, 0, 0, 0);
+    NewState(table, "IdleSlipperyMoveStart01", 32, 0x2000000, 1.0f, 0, 0, 0.0f, 0, zSBAnimPackageBE, 0, 0, 0, 0);
+    NewState(table, "IdleLowHealth01", 16, 0x2000000, 1.0f, 0, 0, 0.0f, 0, 0, 0, 0, 0, 0);
+    NewState(table, "IdleCold01", 64, 0x2004000, 1.0f, 0, 0, 0.0f, 0, 0, 0, 0, 0, 0);
 }
 
 // zPlayerIdleSB::AddInternalTransitions: 106 call(s)
@@ -748,71 +802,77 @@ void zSBPlayerPuckPowerupAttack::AddInternalTransitions(xAnimTable* table) {
 
 // zPlayerHitSB::AddStates: 20 call(s)
 void zPlayerHitSB::AddStates(xAnimTable* table) {
-    xAnimTableNewState(table, "HitFront01", 32, 32, 1.0f, 0, 0, 0.0f, 0, this, zSBAnimPackageBE, 0, 0, 0, 0, 0);
-    xAnimTableNewState(table, "HitBack01", 32, 32, 1.0f, 0, 0, 0.0f, 0, this, zSBAnimPackageBE, 0, 0, 0, 0, 0);
-    xAnimTableNewState(table, "HitSpinFront01", 32, 32, 1.0f, 0, 0, 0.0f, 0, this, zSBAnimPackageBE, 0, 0, 0, 0, 0);
-    xAnimTableNewState(table, "HitSpinBack01", 32, 32, 1.0f, 0, 0, 0.0f, 0, this, zSBAnimPackageBE, 0, 0, 0, 0, 0);
-    xAnimTableNewState(table, "HitPuckFront01", 32, 32, 1.0f, 0, 0, 0.0f, 0, this, zSBAnimPackageBE, 0, 0, 0, 0, 0);
-    xAnimTableNewState(table, "HitPuckBack01", 32, 32, 1.0f, 0, 0, 0.0f, 0, this, zSBAnimPackageBE, 0, 0, 0, 0, 0);
-    xAnimTableNewState(table, "HitGooFront01", 32, 32, 1.0f, 0, 0, 0.0f, 0, this, zSBAnimPackageBE, 0, 0, 0, 0, 0);
-    xAnimTableNewState(table, "HitGooBack01", 32, 32, 1.0f, 0, 0, 0.0f, 0, this, zSBAnimPackageBE, 0, 0, 0, 0, 0);
-    xAnimTableNewState(table, "HitSpongebuffFront01", 32, 32, 1.0f, 0, 0, 0.0f, 0, this, 0, 0, 0, 0, 0, 0);
-    xAnimTableNewState(table, "HitSpongebuffBack01", 32, 32, 1.0f, 0, 0, 0.0f, 0, this, 0, 0, 0, 0, 0, 0);
-    xAnimTableNewState(table, "HitElectricArc01", 16, 0x10020, 1.0f, 0, 0, 0.0f, 0, this, zSBAnimPackageBE, 0, 0, 0, 0, 0);
-    xAnimTableNewState(table, "HitByDOT01", 32, 32, 1.0f, 0, 0, 0.0f, 0, this, zSBAnimPackageBE, 0, 0, 0, 0, 0);
-    xAnimTableNewState(table, "HitPowerup01", 32, 32, 1.0f, 0, 0, 0.0f, 0, this, zSBAnimPackageBE, 0, 0, 0, 0, 0);
-    xAnimTableNewState(table, "HammerHitIn01", 32, 16416, 1.0f, 0, 0, 0.0f, 0, this, zHitByHammerBE, 0, 0, 0, 0, 0);
-    xAnimTableNewState(table, "HammerHitIn02", 32, 16416, 1.0f, 0, 0, 0.0f, 0, this, zHitByHammerBE, 0, 0, 0, 0, 0);
-    xAnimTableNewState(table, "HammerHitCycle01", 16, 49184, 1.0f, 0, 0, 0.0f, 0, this, zSBAnimPackageBE, 0, 0, 0, 0, 0);
-    xAnimTableNewState(table, "HammerHitCycle02", 16, 49184, 1.0f, 0, 0, 0.0f, 0, this, zSBAnimPackageBE, 0, 0, 0, 0, 0);
-    xAnimTableNewState(table, "HammerHitOut01", 32, 16416, 1.0f, 0, 0, 0.0f, 0, this, zSBAnimPackageBE, 0, 0, 0, 0, 0);
-    xAnimTableNewState(table, "HammerHitOut02", 32, 16416, 1.0f, 0, 0, 0.0f, 0, this, zSBAnimPackageBE, 0, 0, 0, 0, 0);
-    xAnimTableNewState(table, "HammerHitRecover01", 32, 16416, 1.0f, 0, 0, 0.0f, 0, this, zRestoreFromHitByHammerBE, 0, 0, 0, 0, 0);
+    NewState(table, "HitFront01", 32, 32, 1.0f, 0, 0, 0.0f, 0, zSBAnimPackageBE, 0, 0, 0, 0);
+    NewState(table, "HitBack01", 32, 32, 1.0f, 0, 0, 0.0f, 0, zSBAnimPackageBE, 0, 0, 0, 0);
+    NewState(table, "HitSpinFront01", 32, 32, 1.0f, 0, 0, 0.0f, 0, zSBAnimPackageBE, 0, 0, 0, 0);
+    NewState(table, "HitSpinBack01", 32, 32, 1.0f, 0, 0, 0.0f, 0, zSBAnimPackageBE, 0, 0, 0, 0);
+    NewState(table, "HitPuckFront01", 32, 32, 1.0f, 0, 0, 0.0f, 0, zSBAnimPackageBE, 0, 0, 0, 0);
+    NewState(table, "HitPuckBack01", 32, 32, 1.0f, 0, 0, 0.0f, 0, zSBAnimPackageBE, 0, 0, 0, 0);
+    NewState(table, "HitGooFront01", 32, 32, 1.0f, 0, 0, 0.0f, 0, zSBAnimPackageBE, 0, 0, 0, 0);
+    NewState(table, "HitGooBack01", 32, 32, 1.0f, 0, 0, 0.0f, 0, zSBAnimPackageBE, 0, 0, 0, 0);
+    NewState(table, "HitSpongebuffFront01", 32, 32, 1.0f, 0, 0, 0.0f, 0, 0, 0, 0, 0, 0);
+    NewState(table, "HitSpongebuffBack01", 32, 32, 1.0f, 0, 0, 0.0f, 0, 0, 0, 0, 0, 0);
+    NewState(table, "HitElectricArc01", 16, 0x10020, 1.0f, 0, 0, 0.0f, 0, zSBAnimPackageBE, 0, 0, 0, 0);
+    NewState(table, "HitByDOT01", 32, 32, 1.0f, 0, 0, 0.0f, 0, zSBAnimPackageBE, 0, 0, 0, 0);
+    NewState(table, "HitPowerup01", 32, 32, 1.0f, 0, 0, 0.0f, 0, zSBAnimPackageBE, 0, 0, 0, 0);
+    noRepeats = false;
+    numVariants = 2;
+    variants[0] = (xAnimState*)NewState(table, "HammerHitIn01", 32, 16416, 1.0f, 0, 0, 0.0f, 0, zHitByHammerBE, 0, 0, 0, 0);
+    variants[1] = (xAnimState*)NewState(table, "HammerHitIn02", 32, 16416, 1.0f, 0, 0, 0.0f, 0, zHitByHammerBE, 0, 0, 0, 0);
+    NewState(table, "HammerHitCycle01", 16, 49184, 1.0f, 0, 0, 0.0f, 0, zSBAnimPackageBE, 0, 0, 0, 0);
+    NewState(table, "HammerHitCycle02", 16, 49184, 1.0f, 0, 0, 0.0f, 0, zSBAnimPackageBE, 0, 0, 0, 0);
+    NewState(table, "HammerHitOut01", 32, 16416, 1.0f, 0, 0, 0.0f, 0, zSBAnimPackageBE, 0, 0, 0, 0);
+    NewState(table, "HammerHitOut02", 32, 16416, 1.0f, 0, 0, 0.0f, 0, zSBAnimPackageBE, 0, 0, 0, 0);
+    NewState(table, "HammerHitRecover01", 32, 16416, 1.0f, 0, 0, 0.0f, 0, zRestoreFromHitByHammerBE, 0, 0, 0, 0);
 }
 
 // zPlayerDefeatedSB::AddStates: 19 call(s)
 void zPlayerDefeatedSB::AddStates(xAnimTable* table) {
-    xAnimTableNewState(table, "DefeatedBeginStand01", 0, 16416, 1.0f, 0, 0, 0.0f, 0, this, 0, 0, 0, 0, 0, 0);
-    xAnimTableNewState(table, "DefeatedBeginStand02", 32, 32, 1.0f, 0, 0, 0.0f, 0, this, 0, 0, 0, 0, 0, 0);
-    xAnimTableNewState(table, "DefeatedBeginStand03", 0, 16416, 1.0f, 0, 0, 0.0f, 0, this, 0, 0, 0, 0, 0, 0);
-    xAnimTableNewState(table, "DefeatedGravestoneSpecial01", 0, 16416, 1.0f, 0, 0, 0.0f, 0, this, zGravestoneBE, 0, 0, 0, 0, 0);
-    xAnimTableNewState(table, "DefeatedBeginFragBob01", 0, 16416, 1.0f, 0, 0, 0.0f, 0, this, zDefeatedFragBobBE, 0, 0, 0, 0, 0);
-    xAnimTableNewState(table, "DefeatedBeginGoo01", 0, 16416, 1.0f, 0, 0, 0.0f, 0, this, 0, 0, 0, 0, 0, 0);
-    xAnimTableNewState(table, "DefeatedBeginGoo02", 0, 16416, 1.0f, 0, 0, 0.0f, 0, this, 0, 0, 0, 0, 0, 0);
-    xAnimTableNewState(table, "DefeatedBeginAcid01", 0, 16416, 1.0f, 0, 0, 0.0f, 0, this, 0, 0, 0, 0, 0, 0);
-    xAnimTableNewState(table, "DefeatedBeginAcid02", 0, 16416, 1.0f, 0, 0, 0.0f, 0, this, 0, 0, 0, 0, 0, 0);
-    xAnimTableNewState(table, "DefeatedBeginFrozenGoo01", 32, 32, 1.0f, 0, 0, 0.0f, 0, this, 0, 0, 0, 0, 0, 0);
-    xAnimTableNewState(table, "DefeatedFrozenGooSpecial01", 0, 16416, 1.0f, 0, 0, 0.0f, 0, this, zDefeatedFrozenBE, 0, 0, 0, 0, 0);
-    xAnimTableNewState(table, "DefeatedFrozenVent01", 0, 0x18020, 1.0f, 0, 0, 0.0f, 0, this, zDefeatedFrozenBE, 0, 0, 0, 0, 0);
-    xAnimTableNewState(table, "DefeatedBeginKelpTrap01", 0, 16416, 1.0f, 0, 0, 0.0f, 0, this, zDefeatedDeathBonesBE, 0, 0, 0, 0, 0);
-    xAnimTableNewState(table, "DefeatedBeginLava01", 32, 32, 1.0f, 0, 0, 0.0f, 0, this, 0, 0, 0, 0, 0, 0);
-    xAnimTableNewState(table, "DefeatedLavaSpecial01", 0, 16416, 1.0f, 0, 0, 0.0f, 0, this, zDefeatedDeathBonesBE, 0, 0, 0, 0, 0);
-    xAnimTableNewState(table, "DefeatedBeginLava02", 32, 32, 1.0f, 0, 0, 0.0f, 0, this, 0, 0, 0, 0, 0, 0);
-    xAnimTableNewState(table, "DefeatedLavaSpecial02", 0, 16416, 1.0f, 0, 0, 0.0f, 0, this, zDefeatedDeathBonesBE, 0, 0, 0, 0, 0);
-    xAnimTableNewState(table, "DefeatedBeginLava03", 32, 32, 1.0f, 0, 0, 0.0f, 0, this, 0, 0, 0, 0, 0, 0);
-    xAnimTableNewState(table, "DefeatedLavaSpecial03", 0, 16416, 1.0f, 0, 0, 0.0f, 0, this, zDefeatedDeathBonesBE, 0, 0, 0, 0, 0);
+    numVariants = 3;
+    variants[0] = (xAnimState*)NewState(table, "DefeatedBeginStand01", 0, 16416, 1.0f, 0, 0, 0.0f, 0, 0, 0, 0, 0, 0);
+    variants[1] = (xAnimState*)NewState(table, "DefeatedBeginStand02", 32, 32, 1.0f, 0, 0, 0.0f, 0, 0, 0, 0, 0, 0);
+    variants[2] = (xAnimState*)NewState(table, "DefeatedBeginStand03", 0, 16416, 1.0f, 0, 0, 0.0f, 0, 0, 0, 0, 0, 0);
+    NewState(table, "DefeatedGravestoneSpecial01", 0, 16416, 1.0f, 0, 0, 0.0f, 0, zGravestoneBE, 0, 0, 0, 0);
+    NewState(table, "DefeatedBeginFragBob01", 0, 16416, 1.0f, 0, 0, 0.0f, 0, zDefeatedFragBobBE, 0, 0, 0, 0);
+    numGooVariants = 2;
+    gooVariants[0] = (xAnimState*)NewState(table, "DefeatedBeginGoo01", 0, 16416, 1.0f, 0, 0, 0.0f, 0, 0, 0, 0, 0, 0);
+    gooVariants[1] = (xAnimState*)NewState(table, "DefeatedBeginGoo02", 0, 16416, 1.0f, 0, 0, 0.0f, 0, 0, 0, 0, 0, 0);
+    numAcidVariants = 2;
+    acidVariants[0] = (xAnimState*)NewState(table, "DefeatedBeginAcid01", 0, 16416, 1.0f, 0, 0, 0.0f, 0, 0, 0, 0, 0, 0);
+    acidVariants[1] = (xAnimState*)NewState(table, "DefeatedBeginAcid02", 0, 16416, 1.0f, 0, 0, 0.0f, 0, 0, 0, 0, 0, 0);
+    NewState(table, "DefeatedBeginFrozenGoo01", 32, 32, 1.0f, 0, 0, 0.0f, 0, 0, 0, 0, 0, 0);
+    NewState(table, "DefeatedFrozenGooSpecial01", 0, 16416, 1.0f, 0, 0, 0.0f, 0, zDefeatedFrozenBE, 0, 0, 0, 0);
+    NewState(table, "DefeatedFrozenVent01", 0, 0x18020, 1.0f, 0, 0, 0.0f, 0, zDefeatedFrozenBE, 0, 0, 0, 0);
+    NewState(table, "DefeatedBeginKelpTrap01", 0, 16416, 1.0f, 0, 0, 0.0f, 0, zDefeatedDeathBonesBE, 0, 0, 0, 0);
+    numLavaVariants = 3;
+    lavaVariants[0] = (xAnimState*)NewState(table, "DefeatedBeginLava01", 32, 32, 1.0f, 0, 0, 0.0f, 0, 0, 0, 0, 0, 0);
+    NewState(table, "DefeatedLavaSpecial01", 0, 16416, 1.0f, 0, 0, 0.0f, 0, zDefeatedDeathBonesBE, 0, 0, 0, 0);
+    lavaVariants[1] = (xAnimState*)NewState(table, "DefeatedBeginLava02", 32, 32, 1.0f, 0, 0, 0.0f, 0, 0, 0, 0, 0, 0);
+    NewState(table, "DefeatedLavaSpecial02", 0, 16416, 1.0f, 0, 0, 0.0f, 0, zDefeatedDeathBonesBE, 0, 0, 0, 0);
+    lavaVariants[2] = (xAnimState*)NewState(table, "DefeatedBeginLava03", 32, 32, 1.0f, 0, 0, 0.0f, 0, 0, 0, 0, 0, 0);
+    NewState(table, "DefeatedLavaSpecial03", 0, 16416, 1.0f, 0, 0, 0.0f, 0, zDefeatedDeathBonesBE, 0, 0, 0, 0);
 }
 
 // zPlayerRunSB::AddStates: 18 call(s)
 void zPlayerRunSB::AddStates(xAnimTable* table) {
-    xAnimTableNewState(table, "RunStart01", 32, 3, 1.0f, 0, 0, 0.0f, 0, this, zSBAnimPackageBE, 0, 0, 0, 0, 0);
-    xAnimTableNewState(table, "Run01", 16, 19, 1.0f, 0, 0, 0.0f, 0, this, zSBAnimPackageBE, 0, 0, 0, 0, 0);
-    xAnimTableNewState(table, "RunStop01", 32, 3, 1.0f, 0, 0, 0.0f, 0, this, zSBAnimPackageBE, 0, 0, 0, 0, 0);
-    xAnimTableNewState(table, "RunHappyStart01", 32, 3, 1.0f, 0, 0, 0.0f, 0, this, 0, 0, 0, 0, 0, 0);
-    xAnimTableNewState(table, "RunHappy01", 16, 19, 1.0f, 0, 0, 0.0f, 0, this, 0, 0, 0, 0, 0, 0);
-    xAnimTableNewState(table, "RunHappyStop01", 32, 3, 1.0f, 0, 0, 0.0f, 0, this, 0, 0, 0, 0, 0, 0);
-    xAnimTableNewState(table, "RunHappierStart01", 32, 3, 1.0f, 0, 0, 0.0f, 0, this, 0, 0, 0, 0, 0, 0);
-    xAnimTableNewState(table, "RunHappier01", 16, 19, 1.0f, 0, 0, 0.0f, 0, this, 0, 0, 0, 0, 0, 0);
-    xAnimTableNewState(table, "RunHappierStop01", 32, 3, 1.0f, 0, 0, 0.0f, 0, this, 0, 0, 0, 0, 0, 0);
-    xAnimTableNewState(table, "RunSlipperyStart01", 32, 3, 1.0f, 0, 0, 0.0f, 0, this, zSBAnimPackageBE, 0, 0, 0, 0, 0);
-    xAnimTableNewState(table, "RunSlippery01", 16, 19, 1.0f, 0, 0, 0.0f, 0, this, zSBAnimPackageBE, 0, 0, 0, 0, 0);
-    xAnimTableNewState(table, "RunSlipperyStop01", 32, 0x2000000, 1.0f, 0, 0, 0.0f, 0, this, zSBAnimPackageBE, 0, 0, 0, 0, 0);
-    xAnimTableNewState(table, "RunBraveStart01", 32, 3, 1.0f, 0, 0, 0.0f, 0, this, 0, 0, 0, 0, 0, 0);
-    xAnimTableNewState(table, "RunBrave01", 16, 19, 1.0f, 0, 0, 0.0f, 0, this, 0, 0, 0, 0, 0, 0);
-    xAnimTableNewState(table, "RunBraveStop01", 32, 0x2000000, 1.0f, 0, 0, 0.0f, 0, this, 0, 0, 0, 0, 0, 0);
-    xAnimTableNewState(table, "RunSuccessStart01", 32, 3, 1.0f, 0, 0, 0.0f, 0, this, 0, 0, 0, 0, 0, 0);
-    xAnimTableNewState(table, "RunSuccess01", 16, 19, 1.0f, 0, 0, 0.0f, 0, this, 0, 0, 0, 0, 0, 0);
-    xAnimTableNewState(table, "RunSuccessStop01", 32, 0x2000000, 1.0f, 0, 0, 0.0f, 0, this, 0, 0, 0, 0, 0, 0);
+    NewState(table, "RunStart01", 32, 3, 1.0f, 0, 0, 0.0f, 0, zSBAnimPackageBE, 0, 0, 0, 0);
+    NewState(table, "Run01", 16, 19, 1.0f, 0, 0, 0.0f, 0, zSBAnimPackageBE, 0, 0, 0, 0);
+    NewState(table, "RunStop01", 32, 3, 1.0f, 0, 0, 0.0f, 0, zSBAnimPackageBE, 0, 0, 0, 0);
+    NewState(table, "RunHappyStart01", 32, 3, 1.0f, 0, 0, 0.0f, 0, 0, 0, 0, 0, 0);
+    NewState(table, "RunHappy01", 16, 19, 1.0f, 0, 0, 0.0f, 0, 0, 0, 0, 0, 0);
+    NewState(table, "RunHappyStop01", 32, 3, 1.0f, 0, 0, 0.0f, 0, 0, 0, 0, 0, 0);
+    NewState(table, "RunHappierStart01", 32, 3, 1.0f, 0, 0, 0.0f, 0, 0, 0, 0, 0, 0);
+    NewState(table, "RunHappier01", 16, 19, 1.0f, 0, 0, 0.0f, 0, 0, 0, 0, 0, 0);
+    NewState(table, "RunHappierStop01", 32, 3, 1.0f, 0, 0, 0.0f, 0, 0, 0, 0, 0, 0);
+    NewState(table, "RunSlipperyStart01", 32, 3, 1.0f, 0, 0, 0.0f, 0, zSBAnimPackageBE, 0, 0, 0, 0);
+    NewState(table, "RunSlippery01", 16, 19, 1.0f, 0, 0, 0.0f, 0, zSBAnimPackageBE, 0, 0, 0, 0);
+    NewState(table, "RunSlipperyStop01", 32, 0x2000000, 1.0f, 0, 0, 0.0f, 0, zSBAnimPackageBE, 0, 0, 0, 0);
+    NewState(table, "RunBraveStart01", 32, 3, 1.0f, 0, 0, 0.0f, 0, 0, 0, 0, 0, 0);
+    NewState(table, "RunBrave01", 16, 19, 1.0f, 0, 0, 0.0f, 0, 0, 0, 0, 0, 0);
+    NewState(table, "RunBraveStop01", 32, 0x2000000, 1.0f, 0, 0, 0.0f, 0, 0, 0, 0, 0, 0);
+    NewState(table, "RunSuccessStart01", 32, 3, 1.0f, 0, 0, 0.0f, 0, 0, 0, 0, 0, 0);
+    NewState(table, "RunSuccess01", 16, 19, 1.0f, 0, 0, 0.0f, 0, 0, 0, 0, 0, 0);
+    NewState(table, "RunSuccessStop01", 32, 0x2000000, 1.0f, 0, 0, 0.0f, 0, 0, 0, 0, 0, 0);
 }
 
 class zPlayerDoubleJumpSB : public zPlayerAction {

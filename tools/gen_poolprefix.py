@@ -19,6 +19,23 @@ The table is DATA READ FROM THE IMAGE, not source: retail has no such
 table, it has the files in front. It exists so a fragment can be
 compared byte for byte; a fragment that is to be LINKED needs the unity
 unit rebuilt instead. Every count below states its denominator.
+
+The header also carries the SIZE of the `.rodata` the files in front
+put ahead of this unit's float literals, as an unreferenced const
+array. mwcc addresses a function's float literals by a fixed cost
+rule: under 32 KB into `.rodata` it shares one base for three or more
+literals (`lis` once, section-relative offsets), past 32 KB it gives
+each literal its own `lis` up to three and forms an `addis` base for
+four or more. Retail's literals for a game file sit tens of KB into
+its unity unit's `.rodata`, so retail never shares under three; a
+fragment compiled alone puts them at 12 KB and shares, one word short
+per function (zPlayerFallSB, WalkSB, RunSB, HammerAttack, and the
+one-word misses of WAD01_28 and zCommonPlayerActions). Measured, not
+reasoned: probes at 0..131072 bytes of leading `.rodata`, every Wii
+mwcc on disk, -O levels, -pooldata, -sdata2, -sym, and prior emission
+of the literals all left the rule where it is. The four-literal case
+(zPlayerWalkSB::AddActionTransitions) is still out of reach: retail
+spells four `lis` there and the rule forms a base.
 """
 import argparse
 import re
@@ -113,6 +130,54 @@ def first_referrers(raw, secs, funcs, base, size, lo, hi):
     return first
 
 
+def rodata_ahead(raw, secs, funcs, tu_lo, tu_hi, me_s, me_e):
+    """-> (tu_lowest, first_literal, offset): the lowest .rodata address
+    any function of the TU forms, the lowest float literal a function
+    of the unit loads, and the distance between them. None when the
+    unit loads no float literal."""
+    ro = [(s[0], s[0] + s[2]) for s in secs if s[3] == ".rodata"]
+
+    def scan(lo, hi):
+        addrs, lits = set(), set()
+        for a, (nm, sz) in funcs.items():
+            if not sz or not (lo <= a < hi):
+                continue
+            ws = struct.unpack(">" + "I" * (sz // 4),
+                               D.read(raw, secs, a, sz))
+            regs = {}
+            for w in ws:
+                op = w >> 26
+                if op == 15 and ((w >> 16) & 31) == 0:
+                    regs[(w >> 21) & 31] = (w & 0xFFFF) << 16
+                elif op in (14, 32, 34, 40, 48, 50):
+                    d, s = (w >> 21) & 31, (w >> 16) & 31
+                    imm = w & 0xFFFF
+                    imm = imm - 0x10000 if imm & 0x8000 else imm
+                    if s in regs:
+                        v = (regs[s] + imm) & 0xFFFFFFFF
+                        if any(x <= v < y for x, y in ro):
+                            addrs.add(v)
+                            if op == 48:
+                                lits.add(v)
+                        if op == 14:
+                            regs[d] = v
+                            continue
+                    regs.pop(d, None)
+                elif op == 18 and (w & 1):
+                    for r in [r for r in regs if r <= 12]:
+                        del regs[r]
+                elif op == 31:
+                    regs.pop((w >> 21) & 31, None)
+        return addrs, lits
+
+    tu_addrs, _l = scan(tu_lo, tu_hi)
+    _a, unit_lits = scan(me_s, me_e)
+    if not tu_addrs or not unit_lits:
+        return None
+    lowest, first = min(tu_addrs), min(unit_lits)
+    return lowest, first, first - lowest
+
+
 def c_string(b):
     out = []
     for ch in b:
@@ -198,6 +263,14 @@ def main():
           "+%d %s" % (len(own), cut, by_off[cut].decode("ascii", "replace")))
     print("  prefix: %d string(s), %d bytes, must precede it"
           % (len(prefix), cut))
+    ahead = rodata_ahead(raw, secs, funcs, lo, hi, me_s, me_e)
+    if ahead:
+        print("  .rodata ahead: the TU's lowest .rodata address is %08X (%s),"
+              " this unit's first float literal %08X (%s), %d bytes apart"
+              % (ahead[0], D.name_at(funcs, objs, ahead[0]), ahead[1],
+                 D.name_at(funcs, objs, ahead[1]), ahead[2]))
+    else:
+        print("  .rodata ahead: this unit loads no float literal; no padding")
 
     out = ROOT / "src" / (args.unit[:-4] + ".pool.h")
     body = [
@@ -215,6 +288,24 @@ def main():
         "// it gets the same offsets. This is data read from the image;",
         "// retail has no such table, it has the files in front.",
         "",
+    ]
+    if ahead:
+        body += [
+            "// The files in front also put .rodata ahead of this unit's",
+            "// float literals: in the image the unit's first literal",
+            "// (0x%08X) lies %d bytes past the lowest .rodata address the"
+            % (ahead[1], ahead[2]),
+            "// unit's translation unit forms (0x%08X). mwcc shares one base"
+            % ahead[0],
+            "// among a function's literals only when they sit under 32 KB",
+            "// into .rodata, so a fragment compiled with nothing ahead is",
+            "// one word short per table. This array is that distance,",
+            "// measured; it is referenced by nothing and holds nothing.",
+            "static const unsigned char kUnityRodataAhead[%d] = {1};"
+            % ahead[2],
+            "",
+        ]
+    body += [
         "static const char* const kUnityPoolPrefix[] = {",
     ]
     for off, s in prefix:

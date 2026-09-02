@@ -7,18 +7,18 @@ numbers here, which move.
 ## State at time of writing
 
 ```
-Game Code:  28 of 777 files complete  48,328 / 2,116,508 bytes  1,037 / 10,686 fn
-            2.2834% of game code
+Game Code:  28 of 777 files complete  80,628 / 2,116,508 bytes  1,084 / 10,686 fn
+            3.8095% of game code
 
-Of those 1,037 functions, 784 are GENERATED -- machine-recognised
+Of those 1,084 functions, 784 are GENERATED -- machine-recognised
 shapes, not one of which is decompiling. They are real matched
 functions and the offsets and constants are recovered fact, but a
 count of them is not a count of decompiled code. HAND-WRITTEN IS
-253, across 43 units and 39,340 bytes, and that is the figure to
+300, across 43 units and 71,640 bytes, and that is the figure to
 compare against earlier ones.
 
 Data:       3 unit(s) carry their own, 396 bytes; 134 more could
-All:        2.41% matched              main.dol reproduces byte for byte
+All:        2.90% matched              main.dol reproduces byte for byte
 ```
 
 Every number above is written by `python tools/notes_state.py`,
@@ -555,17 +555,64 @@ taken back out; its unit stays 4 of 4.
 zShootingPlayer's one table (1,392 bytes, callbacks borrowed from
 zPlayerIdlePlankton) came out the same way and was not kept either.
 
-**The next shape is read and not yet written: 48 branchless functions,
-24,080 bytes, dispatch through `bctrl`**, 38 of them in zSBPlayerActions.
-`zPlayerCheatSB::AddActionTransitions` shows it whole: one direct
-xAnimTableNewTransition, then each further transition is a VIRTUAL
-call -- `lwz r3,0(this)`, `lwz r3,0(r3)`, `lwz r3,112(r3)`, vptr at
-+12, slot 3 -- with (table, name, cb, 0, 1000, 0.0f, 0, 0, 0) in the
-argument registers and one stack slot. Slot 3 of zPlayerAction's
-virtuals is `AddTransitions` by the order zPlayerAction.cpp already
-declares, and the arguments are that signature exactly. The extractor
-needs to follow a load chain from `this` and map a vtable slot to a
-name; everything else it already does.
+**The `bctrl` tables: 36 of the 38 in zSBPlayerActions match, and the
+bytes named two inlined helpers.** The shape is `lwz r3,0(this)`,
+`lwz r3,0(r3)`, `lwz r3,4k(r3)`, vptr at +12, slot 1, 2 or 3: the
+manager's action array and zPlayerAction's three transition-adding
+virtuals. The merger now keeps a symbolic `this`, follows loads from
+it, and spells the object of each virtual call from what it read;
+a chain it cannot spell stops the merge. Written as the direct call,
+`manager->actions[k]->AddTransitions(...)`, a table is a register
+pair the other way round at its first call -- the pool-string temp
+is created before the load chain, retail after it -- and the direct
+`xAnimTableNewTransition` whose third callback is `ActionChange` puts
+the hoisted zero before the pool base where retail has the pool
+first. Both are one thing: zPlayerAction.cpp defines
+`AddActionTransition` (`if (c == 0) c = ActionChange;` then the call)
+and `zPlayerActionManager::AddTransitionsTo` with its two siblings
+(`actions[id]->...(...)`), retail's unity build held that file in
+the same translation unit as the tables (WAD03: 80105550..801894A0
+holds both), and -O4's auto-inliner took them. Spelled through the
+helpers, defined `inline` in the unit so the fragment inlines them
+the same way and emits no copy: zPlayerCheatSB 21 of 150 words to 0,
+zPlayerRunSB 5 of 299 to 0, zSBPlayerPuckAttack 9 of 164 to 0, and
+the SingleCustomAnim near-miss with them. A class that makes such a
+call derives from the unit's zPlayerAction stub (three members, then
+the virtuals, so the vptr lands at +12) and its leading padding
+shrinks by the base; the accessor generator had read
+zPlayerLandHighSB::End's load as `this+4`, which is the base's
+`player`. A free function with a mangled signature is spelled by the
+ABI from the walk's snapshot, and every `bl` is recorded so an
+unspellable callee refuses the merge rather than vanishing.
+
+**The one-word float-base misses are one compiler rule, measured to
+the bottom, and ten of them fell.** mwcc addresses a function's float
+literals by a fixed cost: under 32 KB into `.rodata` it shares one
+base for three or more literals (`lis` once, section-relative offsets
+baked in, the relocation against the section symbol), past 32 KB it
+gives each literal its own `lis` up to three and forms an `addis`
+base for four or more. Retail never shares under three -- seven
+consecutive four-byte literals in xFontPrintTopText each get a `lis`
+-- because a game file's literals sit tens of KB into its unity
+unit's `.rodata`; a fragment compiled alone puts them at 12 KB and
+shares. What was ruled out, each by a probe that compiled and read
+the object: every Wii mwcc on disk (nine, identical), -O levels and
+-inline, -pooldata (one word the other way, and it unpools the
+strings), -sdata2, -sym and -g, prior emission of the literals by
+earlier functions in every arrangement, the literal pool's size to
+24,000 entries, and the internal object numbering to 270,000. What
+reproduces retail is the measured distance itself: gen_poolprefix.py
+now scans the TU for the lowest `.rodata` address its code forms and
+the unit's first float literal, and emits that many bytes as an
+unreferenced const array ahead of the pool -- 64,980 for
+zSBPlayerActions, 41,320 for WAD01_28 and zCommonPlayerActions,
+50,872 for zNPCUPGeneric. With it: zPlayerFallSB, RunSB's and
+HammerAttack's and WalkSB's internal tables (zSBPlayerActions 85 to
+89 of 95), WAD01_28's five one-word misses (51 to 56 of 57), and
+zCommonPlayerActions' Ledge (25 to 26 of 26). The one that stays is
+the four-literal `zPlayerWalkSB::AddActionTransitions`: retail spells
+four `lis`, the rule forms a base for four, and no setting tried
+moves that line.
 
 ## report.json IS BLIND TO RELOCATION TARGETS
 
@@ -762,19 +809,22 @@ Then one of these, in the order they are worth doing:
    five re-loads and two orphaned branches; the section above lists
    the 64 things already ruled out, so do not start there.
 
-4. **The AnimTable family, open.** 21 tables of `zSBPlayerActions.cpp`
-   MATCH on top of `CreateAnimTable`, and the section
-   above says the four rules: the tables are `void`, a transition
-   callback returns `unsigned int`, a pointer that names a symbol is
-   that symbol, and the pool header carries the WHOLE pool
-   (`gen_poolprefix.py --whole`). `tools/gen_animtables.py` merges
-   them; the transition-table shape matches, the NewState shape comes
-   out permuted, and "calls only the table function" is not "is a
-   table" -- unitcmp decides. WAD01_28 is done (18 of 23) and
-   zCommonPlayerActions half-blocked by a callback the linker folded;
-   what is left of the pure-transition shape is small. The larger
-   remainder is the NewState shape (permuted) and the tables with
-   statements between the calls, which are ordinary decompilation.
+4. **The AnimTable family, mostly closed.** `zSBPlayerActions.cpp` is
+   at 89 of 95, WAD01_28 at 56 of 57, zCommonPlayerActions at 26 of
+   26. `tools/gen_animtables.py` merges both shapes -- the direct
+   tables and the `bctrl` tables that go through the manager -- and
+   the section above says the rules, the two inlined helpers the
+   bytes named, and the float-base rule that `gen_poolprefix.py` now
+   answers with a measured `.rodata` distance. What is left in
+   zSBPlayerActions is six functions: the four `AddStates` tables
+   with member stores between the calls and IdleSB's internal table
+   (the NewState permutation, an allocator order nothing tried
+   reaches) and `zPlayerWalkSB::AddActionTransitions`, the one
+   four-literal table, where the compiler forms an `addis` base and
+   retail spells four `lis`. The 439 `bctrl` functions image-wide are
+   mostly Havok and Scaleform; the next game rows are zPlantTrap (5,
+   1,496 bytes) and WAD01_21 (11, 1,396 bytes), and `--calls` on one
+   of them says in a minute whether the shape is the same.
 
 5. **Another shape.** `tools/shape_census.py` still ranks what is
    left. The biggest row is `addi b`, 97 functions and 776 bytes, of

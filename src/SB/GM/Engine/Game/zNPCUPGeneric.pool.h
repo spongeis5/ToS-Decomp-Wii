@@ -9,6 +9,16 @@
 // it gets the same offsets. This is data read from the image;
 // retail has no such table, it has the files in front.
 
+// The files in front also put .rodata ahead of this unit's
+// float literals: in the image the unit's first literal
+// (0x8068BA28) lies 50872 bytes past the lowest .rodata address the
+// unit's translation unit forms (0x8067F370). mwcc shares one base
+// among a function's literals only when they sit under 32 KB
+// into .rodata, so a fragment compiled with nothing ahead is
+// one word short per table. This array is that distance,
+// measured; it is referenced by nothing and holds nothing.
+static const unsigned char kUnityRodataAhead[50872] = {1};
+
 static const char* const kUnityPoolPrefix[] = {
     "BalloonB",  // +0
     "BalloonB1",  // +9

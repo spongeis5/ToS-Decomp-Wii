@@ -7,18 +7,18 @@ numbers here, which move.
 ## State at time of writing
 
 ```
-Game Code:  54 of 777 files complete  99,480 / 2,116,608 bytes  1,146 / 10,696 fn
-            4.7000% of game code
+Game Code:  59 of 777 files complete  101,100 / 2,116,608 bytes  1,157 / 10,696 fn
+            4.7765% of game code
 
-Of those 1,146 functions, 778 are GENERATED -- machine-recognised
+Of those 1,157 functions, 778 are GENERATED -- machine-recognised
 shapes, not one of which is decompiling. They are real matched
 functions and the offsets and constants are recovered fact, but a
 count of them is not a count of decompiled code. HAND-WRITTEN IS
-368, across 78 units and 90,584 bytes, and that is the figure to
+379, across 87 units and 92,204 bytes, and that is the figure to
 compare against earlier ones.
 
 Data:       4 unit(s) carry their own, 412 bytes; 134 more could
-All:        3.18% matched              main.dol reproduces byte for byte
+All:        3.20% matched              main.dol reproduces byte for byte
 ```
 
 Every number above is written by `python tools/notes_state.py`,
@@ -1026,6 +1026,51 @@ Then one of these, in the order they are worth doing:
      into `t`'s f3. A parameter read by asm must be `register` too.
      The scratch `sq*.cpp` probes are the seventeen spellings.
 
+   Eleven more, ten exact and five linked (54 -> 59 complete):
+   `zNPCStatus` ResetToNPCAsset, `WAD01_30` xMat4x3FromTransform,
+   `WAD02` xMat3x3Tolocal, `WAD00_9_1` xMath2NearestPointOnLine,
+   `Main` main, `ClipEntity` Create, `zNPCBTActionBuilder` Build,
+   `zNavMarker` Create and IsOn, `zModuleMgr_Registry` Startup (on a
+   pool header; it matches, and its two managers are file statics so
+   it does not link), and `zPlayerAction`'s BeginUpdate, which makes
+   that unit 25 of 25 after weeks at 24. `zNPCType::Setup` is 11 of 19
+   and its file says what was tried. What they taught:
+
+   * A CALL BY THE MANGLED NAME reaches what no spelling does. `extern
+     "C" void __ct__16zPlayerInventoryFv(void*)` calls the constructor
+     with no null test -- the one word BeginUpdate was short of -- and
+     `__ct__Q24Math6VectorFfff(&member, x, y, z)` is how zNPCStatus and
+     xMat4x3FromTransform construct into members: this compiler rejects
+     `p->T::T()` outright (error 10409) and placement new tests the
+     result. The inventory constructor and zUpContextActionManager's
+     both zero one bool and folded; the address BeginUpdate hands it is
+     the manager's context, reached through the player. And 0x800075C0
+     is a lone `blr` the image names Math::Matrix33's constructor, the
+     weak empty function every empty function folded into: `main` and
+     the registry startup call it by that name. The audit passes, since
+     the branch reaches the symbol the image has there.
+   * `#pragma always_inline on` is a lever. -inline auto takes a
+     constructor with one store in its body and declines it with two;
+     retail's ClipEntity has it in line, so the original forced it.
+     This is the wall the flag-and-local helpers hit in the AnimTable
+     section, untried there.
+   * A register freed by an argument store is taken by the next value
+     defined, whatever the declaration order says. zNPCType's index
+     lands in r4 after the first store and its copy of the zero cannot
+     rise above the store that reads r4; retail's index took r9 before
+     any store. Seven spellings leave it there.
+   * A SIXTH link gate, open: `Main` matches and does not link. It is a
+     FRAGMENT of the NG WAD02 unity build, and `OSInitFastCast` -- the
+     SDK header's static inline, instantiated once for the whole unity
+     unit as a local symbol right after main, 52 bytes -- is called
+     from HomeMenu's fragment too, under the name dtk gives a local
+     symbol other carved objects reach, `OSInitFastCast_801FBA60`.
+     Defined in Main.cpp (static, the asm body keeps it out of line as
+     retail's `bl` shows) with the split end moved past it, the bytes
+     matched and HomeMenu's reference went `undefined`. What is left is
+     for the fragment to export the instance under that name without
+     losing the name unitcmp and the report match it by.
+
    The four written whole to get there, all exact on the first
    compile: `WAD03`'s `NewArray<float, GlobalHeapEnum>` (a template
    instantiation, 24 bytes, the return type in the mangled name),
@@ -1248,12 +1293,16 @@ found the one word zPlayerAction::Update was out by.
    match 100%; both are `NonMatching` because of the above.
 
 2. **Four near-misses with exhausted searches.** Do not redo these:
-   - `zNPCType` 84.53% -- register allocation only; structure identical.
-     Five declaration orders tried, all 8 of 19 words.
-   - `zNPCStatus` 67.55% -- retail constructs `Math::Vector` in place at the
-     member; ours builds a temporary and copies. **Seven spellings and
-     eight flag sets tried**, all 6 of 22. What is left is the real
-     declaration of `Math::Vector`, which the DWARF does not pin down.
+   - `zNPCType` 11 of 19 words -- register allocation only; structure
+     identical. The index takes r4, the argument register the first
+     store frees, and its copy of the zero cannot rise above that
+     store; retail's index took r9 before any store. Twelve spellings
+     over two days (the file lists the seven of 2026-09-02).
+   - `zNPCStatus` FELL on 2026-09-02, exact: retail constructs `Math::Vector`
+     in place at the member, and the spelling that does it is a call
+     of the constructor by its mangled symbol -- the seven spellings
+     and eight flag sets recorded here were all C++ that this compiler
+     either rejects or gives a null test. See the pick-up section.
    - `keycode.cxx` **2 of 26 words**, down from 5 on 2026-08-31, and the
      three that fell fell to the DWARF. `tools/dwarf_locals.py` says the
      function has exactly two variables -- `keyValue`, a `char[11]` in a

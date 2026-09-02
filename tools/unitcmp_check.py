@@ -134,7 +134,7 @@ EXPECT = {
     "SB/GM/Engine/Game/zNPCAnimViewer": (1, 1),
     "SB/GM/Engine/Game/zNPCFX": (2, 2),
     "SB/GM/Engine/Game/zNPCGenericPool": (1, 1),
-    "SB/GM/Engine/Game/zPlayerAction": (24, 25),
+    "SB/GM/Engine/Game/zPlayerAction": (25, 25),
     "SB/GM/Engine/Game/zProjectileSpawner": (1, 1),
     "SB/GM/Engine/Game/zUIImage": (2, 2),
     "SB/GM/Engine/Game/zUIModel": (1, 1),
@@ -198,7 +198,7 @@ EXPECT = {
     "SB/GM/Engine/Game/zLaserScanner": (1, 1),
     "SB/GM/Engine/Game/zModuleDebugMetrics": (1, 1),
     "SB/GM/Engine/Game/zNPCSearchMapLinkCostCalculator": (0, 1),
-    "SB/GM/Engine/Game/zNPCStatus": (0, 2),
+    "SB/GM/Engine/Game/zNPCStatus": (1, 1),
     "SB/GM/Engine/Game/zNPCType": (0, 1),
     "SB/GM/Engine/Game/zPerformanceDisplay": (2, 2),
     "SB/GM/Engine/Game/zPlayerContainer": (1, 1),
@@ -329,6 +329,14 @@ EXPECT = {
     "SB/GM/Engine/WAD00_8": (1, 1),
     "SB/NG/Engine/WAD00_12_1": (1, 1),
     "SB/NG/Engine/WAD00_16": (1, 1),
+    "SB/GM/Engine/Game/zModuleMgr_Registry": (1, 1),
+    "SB/GM/Engine/Game/zNPCBTActionBuilder": (1, 1),
+    "SB/GM/Engine/Game/zNavMarker": (2, 2),
+    "SB/GM/Engine/WAD00_9_1": (1, 1),
+    "SB/GM/Engine/WAD01_30": (1, 1),
+    "SB/GM/Engine/WAD02": (1, 1),
+    "SB/NG/Source/Engine/Entities/ClipEntity": (1, 1),
+    "SB/NG/Source/Engine/System/Main": (1, 1),
 }
 
 

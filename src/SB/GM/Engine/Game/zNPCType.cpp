@@ -1,78 +1,49 @@
-// C:/branches/SB09/main/GM/Engine/Game/zNPCType.cpp
+// zNPCType.cpp -- one function, read from the image with tools/disasm.py:
+// zNPCType::Setup stores its five arguments in order, clears the entity
+// flag and the logic, steering, perception and fx creators, and clears
+// the two extra-model creators in a counted loop the compiler did not
+// unroll. The combat and quick-time combat creators are left alone.
 //
-// Layout and signature from the Wii build's DWARF:
-//
-//   class zNPCType  /* 0x3C bytes */
-//   {
-//       /* +0x0  */ enum eNPCType npcTypeEnum;
-//       /* +0x4  */ enum eAnimSetType animSetType;
-//       /* +0x8  */ char* typeName;
-//       /* +0xC  */ zNPCBase* (*allocateNPCFunction)(...);
-//       /* +0x10 */ unsigned int npcTID_ID;
-//       /* +0x14 */ bool hasEntity;
-//       /* +0x18 */ CreatorI* logicCreator;
-//       /* +0x1C */ CreatorI* steeringCreator;
-//       /* +0x20 */ CreatorI* perceptionCreator;
-//       /* +0x24 */ CreatorI* combatCreator;
-//       /* +0x28 */ CreatorI* quickTimeCombatCreator;
-//       /* +0x2C */ CreatorI* fxCreator;
-//       /* +0x30 */ CreatorI* extraModelCreator[2];
-//   };
-//
-// The store order is 0, 4, 8, C, 10, 14, 18, 1C, 20, 2C, then a 2-iteration
-// loop over 0x30. So combatCreator (0x24) and quickTimeCombatCreator (0x28)
-// are NOT cleared, and that is not an omission here -- the retail code
-// skips them, and writing them would add two stores.
-//
-// NEAR-MISS at 84.53%, 19 words against retail's 19 -- the STRUCTURE is
-// identical and only the register NUMBERS differ:
-//
-//   retail                ours
-//   li  r10, 0            li  r9, 0
-//   mr  r9, r10           mr  r4, r9
-//   add r4, r3, r9        add r5, r3, r4
-//   stw r10, 0x30(r4)     stw r9, 0x30(r5)
-//
-// Retail keeps the zero in r10 and the loop offset in r9; we get r9 and r4,
-// because mwcc frees r4 as soon as its parameter has been stored and reuses
-// it. Five spellings were compiled and scored -- loop variable declared
-// first, initialised first, a named null local, both, and a while loop --
-// and all five sit at 8 of 19 words. So it is not declaration order either.
-//
-// It is NOT the optimisation setting: -O4,s is what took this function from
-// 14 words to the correct 19, and took zPlayerContainer to exact. What is
-// left here is allocation order alone.
+// NEAR MISS, 11 of 19 words. Retail keeps the zero in r10 and the
+// loop's byte offset in r9, copying the zero into r9 as its third
+// instruction, before the argument stores; ours copies it into r4,
+// the argument register the first store frees, and the copy cannot
+// rise above that store. Seven spellings leave it there: the index
+// declared first, zeroed at its declaration, register, unsigned, a
+// named null for the creators, and the shapes between. What is
+// left to find is what kept retail's index alive before the stores.
+// Layout from the DWARF (tools/dwarf_types.py --type zNPCType).
 
-namespace Sext {
-namespace AnimationSet {
-enum eAnimSetType {
-    eAnimSetType_Zero
-};
-}
-}
+class zNPCBase;
+class CreatorI;
 
 namespace World {
 class EntityHandleBase;
 }
 
-class zNPCBase;
-class CreatorI;
+enum eNPCType { eNPCType_ = 0x7FFFFFFF };
 
-enum eNPCType {
-    eNPCType_Zero
+namespace Sext {
+
+class AnimationSet {
+public:
+    enum eAnimSetType { eAnimSetType_ = 0x7FFFFFFF };
 };
+
+}  // namespace Sext
+
+typedef zNPCBase* (*zNPCAllocateFunction)(World::EntityHandleBase* handle);
 
 class zNPCType {
 public:
     void Setup(eNPCType type, Sext::AnimationSet::eAnimSetType animSet,
-               const char* name,
-               zNPCBase* (*allocate)(World::EntityHandleBase*),
+               const char* name, zNPCAllocateFunction allocate,
                unsigned int tid);
 
     eNPCType npcTypeEnum;
     Sext::AnimationSet::eAnimSetType animSetType;
-    char* typeName;
-    zNPCBase* (*allocateNPCFunction)(World::EntityHandleBase*);
+    const char* typeName;
+    zNPCAllocateFunction allocateNPCFunction;
     unsigned int npcTID_ID;
     bool hasEntity;
     CreatorI* logicCreator;
@@ -84,39 +55,14 @@ public:
     CreatorI* extraModelCreator[2];
 };
 
-// THE LINE TABLE CONFIRMS THE STATEMENT ORDER, so that is not the
-// lever. tools/dwarf_lines.py gives the original's own line number
-// for every instruction:
-//
-//   28-32  the five parameter stores, in this order
-//   34     hasEntity = false -- and its `li` is hoisted to the very
-//          first instruction, which is where the shared zero comes
-//          from
-//   36-39  logicCreator, steeringCreator, perceptionCreator,
-//          fxCreator
-//   40     the `for`, with `i` declared IN it (dwarf_locals: line 40)
-//   41     extraModelCreator[i] = 0
-//
-// which is this function, statement for statement. Six more spellings
-// of the index were swept after reading that -- declared first,
-// declared last, initialised at the top, initialised in the for, in a
-// nested block, and assigned as its own statement -- and ALL SIX sit
-// at 11 of 19, the same as today.
-//
-// The eleven are entirely r9/r10-versus-r4 and the position of one
-// `mr`: retail sets the loop's offset register BEFORE storing the
-// parameters, while r4-r8 are still live, so the allocator has to
-// reach past them; ours sets it after r4 is dead and reuses r4. The
-// source text is right and the difference is the scheduler's -- the
-// same conclusion xOGModelRefPtr reached from the other direction.
 void zNPCType::Setup(eNPCType type, Sext::AnimationSet::eAnimSetType animSet,
-                     const char* name,
-                     zNPCBase* (*allocate)(World::EntityHandleBase*),
+                     const char* name, zNPCAllocateFunction allocate,
                      unsigned int tid) {
     int i;
+
     npcTypeEnum = type;
     animSetType = animSet;
-    typeName = (char*)name;
+    typeName = name;
     allocateNPCFunction = allocate;
     npcTID_ID = tid;
     hasEntity = false;

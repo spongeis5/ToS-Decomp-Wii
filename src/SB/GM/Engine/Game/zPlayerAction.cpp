@@ -75,6 +75,14 @@ public:
     zPlayerInventory();
 };
 
+// The constructor the image names zPlayerInventory's, by its symbol.
+// Its body zeroes one bool, which is also zUpContextActionManager's
+// constructor, and the two folded; BeginUpdate calls it on the
+// manager's context through the player with no null test, which
+// every placement-new spelling adds (the check is on operator new's
+// result, and CodeWarrior rejects the explicit constructor-call syntax).
+extern "C" void __ct__16zPlayerInventoryFv(void* inventory);
+
 class zUpContextActionManager {
 public:
     void SceneSetup();
@@ -169,9 +177,8 @@ public:
     unsigned int enabledWords;
     zUpContextActionManager context;
     // The context is the manager's last member and the manager sits
-    // at zPlayer+192, so `this+28` and `player+220` are one address.
-    // zPlayer names that byte range `inventory` because that is the
-    // symbol the branch reaches -- the two constructors folded.
+    // at zPlayer+192, so `this+28` and `player+220` are one address;
+    // BeginUpdate reaches it through the player.
 
     void SetCurrentAction(zPlayerAction* action);
     unsigned int GetCurrentActionID() const;
@@ -223,7 +230,6 @@ public:
 
     unsigned char _pad0[0xBC];
     zPlayerActionManager actionManager;
-    zPlayerInventory inventory;
     unsigned char _pad1[0x3FC];
     zInteractionManager interactionManager;
 };
@@ -370,27 +376,13 @@ void zPlayerActionManager::Exit() {
 }
 
 void zPlayerActionManager::BeginUpdate(float dt) {
-    // THE ONE FUNCTION IN THIS UNIT THAT DOES NOT MATCH, and it is
-    // off by ONE INSTRUCTION -- words 11 to 88 are identical, shifted.
-    //
     // Retail:   lwz r3,4(r4) ; addi r3,r3,220 ; bl __ct__16zPlayer...
-    // Ours:     lwz r0,4(r4) ; addic. r3,r0,220 ; beq +8 ; bl
-    //
-    // mwcc null-checks the pointer handed to placement new, and there
-    // is no spelling found that suppresses it: `&member` rather than a
-    // cast does not (the check is on operator new's RESULT, not its
-    // argument), and CodeWarrior rejects the explicit constructor-call
-    // syntax `p->inventory.zPlayerInventory::zPlayerInventory()`
-    // outright.
-    //
-    // The deeper problem is that the symbol is FOLDED. This address is
-    // both `manager+28` (the context, by Setup/Reset/Exit) and
-    // `player+220`, and the only name at it is a zPlayerInventory
-    // constructor -- so the original almost certainly called something
-    // else here whose body was identical and whose symbol did not
-    // survive. If that is right, no source can name it and the
-    // remaining instruction is not reachable by spelling.
-    new (&current->player->inventory) zPlayerInventory;
+    // and placement new gives `addic. ; beq` around the call -- the
+    // one instruction this function was short of for weeks. Calling
+    // the constructor by its symbol is the spelling with no test. The
+    // address is both `manager+28` (the context, by Setup/Reset/Exit)
+    // and `player+220`, and the source goes through the player.
+    __ct__16zPlayerInventoryFv(&current->player->actionManager.context);
 
     for (unsigned int i = 0; i < count; i++) {
         actions[i]->PreUpdate(dt);

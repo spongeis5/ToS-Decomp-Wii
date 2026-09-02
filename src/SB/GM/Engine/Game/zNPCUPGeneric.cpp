@@ -172,10 +172,31 @@ public:
     unsigned char _pad0[0x28];
 };
 
+// The two flag bits Activate copies, as one-bit fields: mwcc copies a
+// one-bit field into a one-bit field with a single rlwimi, and the
+// masks a shift-and-or spelling needs are a word each.
+struct zNPCTemplateFlagBits {
+    unsigned int _hi : 29;
+    unsigned int bit2 : 1;
+    unsigned int bit1 : 1;
+    unsigned int bit0 : 1;
+};
+
+struct zNPCStateBits {
+    unsigned char _b7 : 1;
+    unsigned char _b6 : 1;
+    unsigned char _b5 : 1;
+    unsigned char headTrack : 1;
+    unsigned char bit3 : 1;
+    unsigned char _b2 : 1;
+    unsigned char _b1 : 1;
+    unsigned char _b0 : 1;
+};
+
 class zNPCTemplateFlags {
 public:
     unsigned char _pad0[0x38];
-    unsigned int flags;
+    zNPCTemplateFlagBits flags;
     unsigned char _pad1[0xC];
     unsigned char headTracking;
 };
@@ -248,7 +269,7 @@ public:
     unsigned char _pad1[0x4];
     zNPCModelInfo* modelInfo;
     unsigned char _pad2[0x5];
-    unsigned char stateFlags;
+    zNPCStateBits stateFlags;
     unsigned char _pad3[0x6];
     zNPCTemplate* tmpl;
     unsigned char _pad4[0x18];
@@ -408,10 +429,10 @@ bool zNPCUPGeneric::Activate(const zNPCStatus*) {
     if (tmpl) {
         setup->Apply((char*)tmpl + 0xB0);
 
-        unsigned char f = stateFlags;
-        f = (unsigned char)((f & ~0x10) | ((tmpl->info->flags >> 4) & 0x10));
+        zNPCStateBits f = stateFlags;
+        f.headTrack = tmpl->info->flags.bit0;
         stateFlags = f;
-        f = (unsigned char)((f & ~0x08) | ((tmpl->info->flags << 1) & 0x08));
+        f.bit3 = tmpl->info->flags.bit2;
         stateFlags = f;
     } else {
         zNPCCombatParams params;
@@ -434,27 +455,35 @@ bool zNPCUPGeneric::Activate(const zNPCStatus*) {
     boneTracker.Reset();
 
     if (headTracking) {
+        float limitA = tmpl->limitA;
+        float limitB = tmpl->limitB;
+        float limitC = tmpl->limitC;
+        float limitD = tmpl->limitD;
+        float limitE = tmpl->limitE;
+        bool limitFlag = tmpl->limitFlag;
+
         boneTracker.InitBoneTracker((xModelInstance*)model->matrix,
                                     tmpl->boneA, tmpl->boneB, tmpl->boneC);
-        boneTracker.SetLimits(tmpl->limitA, tmpl->limitB, tmpl->limitC,
-                              tmpl->limitD, tmpl->limitE,
-                              tmpl->limitFlag);
+        boneTracker.SetLimits(limitA, limitB, limitC, limitD, limitE,
+                              limitFlag);
     }
 
-    if (modelInfo->modelCount >= 1) {
+    zNPCModelInfo* info = modelInfo;
+
+    if (info->modelCount >= 1) {
         xVec3Fields scale;
         scale.x = 1.0f;
         scale.y = 1.0f;
         scale.z = 1.0f;
-        extra[0]->SetModel(modelInfo->models, &g_I3, (xVec3*)&scale);
+        extra[0]->SetModel(info->models, &g_I3, (xVec3*)&scale);
     }
 
-    if (modelInfo->modelCount >= 2) {
+    if (info->modelCount >= 2) {
         xVec3Fields scale;
         scale.x = 1.0f;
         scale.y = 1.0f;
         scale.z = 1.0f;
-        extra[1]->SetModel(modelInfo->models + 1, &g_I3, (xVec3*)&scale);
+        extra[1]->SetModel(info->models + 1, &g_I3, (xVec3*)&scale);
     }
 
     return true;

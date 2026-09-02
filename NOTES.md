@@ -415,8 +415,22 @@ nine Wii compilers, and the definitions in retail's order -- which the
 file is in now regardless, CreateAnimTable first, because a linked
 unit will need it.
 
-**`zNPCUPGeneric`'s other two.** `Activate` (536 bytes) is written
-and does not match yet; `SystemEvent` (200) does now: retail reads
+**`zNPCUPGeneric`'s other two.** `Activate` (536 bytes) went from 110
+to 123 of 134 words and stays a near-miss. Four things fell to the
+listing: the first flag insert takes bit 0 of the template flags
+moved UP four (`rlwimi r4,r0,4,27,27`), where ours shifted down --
+a value bug, not a spelling; each insert is one `rlwimi` with no
+separate mask, which is a one-bit bitfield copied into a one-bit
+bitfield on a local copy of the byte (`zNPCStateBits`,
+`zNPCTemplateFlagBits`), where a shift-and-or is a word each; the
+five limits and the flag are read into f27-f31 and r30 BEFORE
+`InitBoneTracker` and kept across it, which is locals declared
+before that call; and `modelInfo` is read once into r30 for both
+model blocks, a local. The eleven left are the two model blocks:
+retail loads the call's arguments before storing the scale and ours
+stores first; a real `xVec3` with an inline constructor is not
+inlined at all (a `bl`, like every helper with a local in it), so
+the field form with its cast stays. `SystemEvent` (200) does now: retail reads
 the event's uid into callee-saved registers BEFORE calling
 `World::GetEntityManager()` and keeps it across the call, and no
 spelling of the call expression does that -- a local

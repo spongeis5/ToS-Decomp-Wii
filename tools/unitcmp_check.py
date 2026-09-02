@@ -249,7 +249,7 @@ EXPECT = {
     "SB/GM/Engine/Game/zNPCManager": (1, 1),
     "SB/GM/Engine/Game/zPOWGroup": (1, 1),
     "SB/GM/Engine/Game/zPhysicsObject": (2, 2),
-    "SB/GM/Engine/Game/zPlanktonPlayer": (4, 4),
+    "SB/GM/Engine/Game/zPlanktonPlayer": (7, 7),
     "SB/GM/Engine/Game/zPlantTrap": (14, 14),
     "SB/GM/Engine/Game/zPlatform": (1, 1),
     "SB/GM/Engine/Game/zPlayerConstrainer": (3, 3),
@@ -298,6 +298,7 @@ EXPECT = {
     "SB/NG/Source/Engine/IO/Pad/ConsolePadDevice": (1, 1),
     "SB/NG/Source/Engine/Scaleform/ScaleformModule": (1, 1),
     "SB/NG/Source/Engine/UI/Font": (1, 1),
+    "SB/GM/Engine/Game/zShootingPlayer": (3, 3),
 }
 
 

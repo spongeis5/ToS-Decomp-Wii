@@ -7,18 +7,18 @@ numbers here, which move.
 ## State at time of writing
 
 ```
-Game Code:  28 of 777 files complete  88,428 / 2,116,508 bytes  1,090 / 10,686 fn
-            4.1780% of game code
+Game Code:  28 of 777 files complete  93,312 / 2,116,508 bytes  1,096 / 10,686 fn
+            4.4088% of game code
 
-Of those 1,090 functions, 785 are GENERATED -- machine-recognised
+Of those 1,096 functions, 781 are GENERATED -- machine-recognised
 shapes, not one of which is decompiling. They are real matched
 functions and the offsets and constants are recovered fact, but a
 count of them is not a count of decompiled code. HAND-WRITTEN IS
-305, across 43 units and 79,432 bytes, and that is the figure to
+315, across 45 units and 84,376 bytes, and that is the figure to
 compare against earlier ones.
 
 Data:       3 unit(s) carry their own, 396 bytes; 134 more could
-All:        3.01% matched              main.dol reproduces byte for byte
+All:        3.09% matched              main.dol reproduces byte for byte
 ```
 
 Every number above is written by `python tools/notes_state.py`,
@@ -548,12 +548,19 @@ have two distinct floats; the six that miss have three or more. It is
 not the pool table's section -- moving it to .data changed nothing in
 any of five units -- and not the strings flag. It is the allocator
 deciding to fold under pressure, the same family as the r27/r28/r29
-permutation, recorded and left. zPlanktonPlayer's one table (1,576
-bytes) came out 20 bytes short with 392 words differing and was
-taken back out; its unit stays 4 of 4.
-
-zShootingPlayer's one table (1,392 bytes, callbacks borrowed from
-zPlayerIdlePlankton) came out the same way and was not kept either.
+permutation, recorded and left -- until the three helpers and the
+padding, after which both idle units went in whole: zPlanktonPlayer
+6 of 6 and zShootingPlayer 2 of 2 (a unit that had no source at
+all). The two `AddStates` tables took the NewState helper; Plankton's
+also stores its 10th and 11th states into `talkState[0..1]` (DWARF).
+The two `AddInternalTransitions` were 20 bytes short with every word
+wrong for the reason IdleSB's was: retail keeps one float in f31
+across every call, and `dwarf_locals.py` names it `FAST_BLEND_TIME`,
+a local on the function's second line; declared with the image's
+value (0.06666667f, @255783) and passed where the calls pass it,
+both are exact. The 124-byte `AddTransitionsFrom` beside each is
+the action helper with its `c == 0` test kept, since its second
+callback is a parameter there, and was written from the listing.
 
 **The `bctrl` tables: 36 of the 38 in zSBPlayerActions match, and the
 bytes named two inlined helpers.** The shape is `lwz r3,0(this)`,

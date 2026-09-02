@@ -1,41 +1,23 @@
-// zNPCSearchMapLinkCostCalculator::CalculateCost -- one function.
+// zNPCSearchMapLinkCostCalculator::CalculateCost -- one function, read
+// from the image with tools/disasm.py. -1.0f is the refusal (the literal
+// at 8068BA4C) and 1.0f the multiplier (8068BA48). The three nav tests
+// are one `||` condition, which is why retail has one refusal block for
+// them; the type dispatch is a switch, which is the compare chain; the
+// multiplier is a const reference bound to the literal, which is what
+// keeps a multiply by one alive (a local float folds it, a division
+// stays a division) -- the same constructs matched the sibling
+// zPlayerAISearchMapLinkCostCalculator exactly on 2026-09-02. The group
+// in the second case is a case-local so the entity stays in a volatile
+// register; the two GetWallNet calls are the arguments of one call and
+// so evaluate right to left, the link's node fetched first.
 //
-// Read from the image with tools/disasm.py. -1.0f is the refusal (the
-// literal at 8068BA4C) and 1.0f the multiplier (8068BA48); every path that
-// cannot cost the link returns the first.
-//
-// The entity is loaded ONCE into r4 at the top of the switch and is still
-// there when the first branch calls CalculateWallNetCost -- that call
-// never sets r4. So the same pointer is both the thing whose type is
-// switched on and the zWallNet handed to the base, which is why it is
-// written as one variable and cast at the call.
-//
-// The two GetWallNet calls happen in the opposite order to the argument
-// list: the link's index is fetched first and ends up as the SECOND
-// argument. That is mwcc evaluating right to left, not two statements.
-
-// DOES NOT MATCH YET, and the reason is one multiply.
-//
-// Retail saves f31 -- `stfd f31,48(r1)` and `psq_st f31,56(r1)` --
-// loads 1.0f into it before the switch, and multiplies each cost by
-// it after the call returns. A callee-saved FPR is only needed
-// because the value has to survive a call, so in the original the
-// multiplier is live across one.
-//
-// mwcc FOLDS `x * 1.0f` away here whatever it is spelled as: as a
-// literal in the return expression, and as a local `float scale =
-// 1.0f` set before the switch and used after both calls. Neither
-// needs a register, so neither saves f31 and the frame comes out 0x30
-// where retail has 0x40 -- which shifts every word and is why the
-// diff reads 70 of 70.
-//
-// So the multiplier is probably NOT the constant it looks like. What
-// would produce this is a value the compiler cannot see through --
-// read from the object, or handed in -- that happens to be 1.0f, with
-// the literal pool entry belonging to something else in the unit.
-// The rest of the function is settled: the two flag tests, their
-// polarity, the switch values 0x62 and 0xB1, and the right-to-left
-// evaluation that fetches the link's index before the node's.
+// NEAR MISS, 49 of 74 words, all of them register allocation. Retail
+// keeps this in r31, map/node/link in r25..r27, q in r28, nav in r29 and
+// p in r30; ours keeps this in r25, the five parameters in r26..r30 in
+// order and nav in r31 -- which is exactly the order retail uses in the
+// sibling. Whatever put this last in retail here is not the base calls
+// qualified with `this->` (tried), not the switch, and not the
+// reference; it is what is left to find.
 
 class zSearchMap;
 class zSearchMapNode;
@@ -106,40 +88,32 @@ float zNPCSearchMapLinkCostCalculator::CalculateCost(
     zNavLink* nav = ((const zSearchMapLinkImpl*)link)->navLink;
 
     if (nav) {
-        if (!nav->IsEnabled()) {
-            return -1.0f;
-        }
-
-        unsigned int flags = nav->info->flags;
-
-        if (flags & 4) {
-            return -1.0f;
-        }
-
-        if (flags & 8) {
+        if (!nav->IsEnabled() || (nav->info->flags & 4) || (nav->info->flags & 8)) {
             return -1.0f;
         }
     }
 
-    zEntBase* ent = ((const zSearchMapImpl*)map)->entity;
-    float scale = 1.0f;
+    const float& scale = 1.0f;
 
-    if (ent->type == 0x62) {
-        return CalculateWallNetCost(
-                   (const zWallNet*)ent, link,
-                   ((const zSearchMapNodeImpl*)node)->index,
-                   ((const zSearchMapLinkImpl*)link)->node->index, p, q)
-               * scale;
+    switch (((const zSearchMapImpl*)map)->entity->type) {
+    case 0x62: {
+        float cost = CalculateWallNetCost(
+            (const zWallNet*)((const zSearchMapImpl*)map)->entity, link,
+            ((const zSearchMapNodeImpl*)node)->index,
+            ((const zSearchMapLinkImpl*)link)->node->index, p, q);
+
+        return cost * scale;
     }
+    case 0xB1: {
+        zWallNetGroup* group =
+            (zWallNetGroup*)((const zSearchMapImpl*)map)->entity;
+        float cost = CalculateWallNetGroupCost(
+            group->GetWallNet(((const zSearchMapNodeImpl*)node)->index),
+            group->GetWallNet(((const zSearchMapLinkImpl*)link)->node->index));
 
-    if (ent->type == 0xB1) {
-        return CalculateWallNetGroupCost(
-                   ((zWallNetGroup*)ent)->GetWallNet(
-                       ((const zSearchMapNodeImpl*)node)->index),
-                   ((zWallNetGroup*)ent)->GetWallNet(
-                       ((const zSearchMapLinkImpl*)link)->node->index))
-               * scale;
+        return cost * scale;
     }
-
-    return -1.0f;
+    default:
+        return -1.0f;
+    }
 }

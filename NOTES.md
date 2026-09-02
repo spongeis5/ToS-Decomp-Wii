@@ -7,18 +7,18 @@ numbers here, which move.
 ## State at time of writing
 
 ```
-Game Code:  59 of 777 files complete  101,100 / 2,116,608 bytes  1,157 / 10,696 fn
-            4.7765% of game code
+Game Code:  63 of 777 files complete  104,048 / 2,116,608 bytes  1,174 / 10,696 fn
+            4.9158% of game code
 
-Of those 1,157 functions, 778 are GENERATED -- machine-recognised
+Of those 1,174 functions, 778 are GENERATED -- machine-recognised
 shapes, not one of which is decompiling. They are real matched
 functions and the offsets and constants are recovered fact, but a
 count of them is not a count of decompiled code. HAND-WRITTEN IS
-379, across 87 units and 92,204 bytes, and that is the figure to
+396, across 97 units and 95,152 bytes, and that is the figure to
 compare against earlier ones.
 
 Data:       4 unit(s) carry their own, 412 bytes; 134 more could
-All:        3.26% matched              main.dol reproduces byte for byte
+All:        3.31% matched              main.dol reproduces byte for byte
 ```
 
 Every number above is written by `python tools/notes_state.py`,
@@ -1124,6 +1124,64 @@ Then one of these, in the order they are worth doing:
      matched and HomeMenu's reference went `undefined`. What is left is
      for the fragment to export the instance under that name without
      losing the name unitcmp and the report match it by.
+
+   Twelve more, nine exact and four linked (59 -> 63 complete): the
+   next by size from the near-complete list. Exact: `Renderable`
+   (Create, InitLocalColorMultiplier), `zSoundMask`, `zPlayerAI-
+   CommandGroup`, `WAD02_35_1` (the AVL insert of the handle tree),
+   `SaveErrorMsgBox` (on a pool header), `GlobalFXEntity`, `zEnv`,
+   `WAD00_12` (LangStringToLangID) and `zPlayerAISearchMapLinkCost-
+   Calculator`. Three near-misses, each with its file saying what was
+   tried: `Text` RenderText one word (the first allocation's size is
+   computed before the allocator's address in retail, after it in
+   ours, six spellings), `zNPCSearchMapLinkCostCalculator` 49 of 74
+   (its sibling matched with the same constructs; what is left is the
+   callee-saved order of its seven values, `this` last in retail),
+   and `zBouncer` BouncePlayer 136 of 184, every remaining word the
+   four-literal base and the register it costs. What they taught:
+
+   * `const float& scale = 1.0f;` keeps a multiply by one that a local
+     `float` folds away, and `x / scale` is a real division the
+     compiler does not fold either. Both calculators multiply their
+     cost by an f31 loaded from the pool; the reference is the
+     spelling. Their three nav tests are one `||` condition (one
+     refusal block, not three) and the type dispatch is a `switch`
+     (the compare chain), with the group in a case-local so the entity
+     stays in a volatile register; a net declared ahead of the group
+     takes the higher register.
+   * A temporary of an empty class is value-initialised, which zeroes
+     its byte on the stack; a named default-initialised local is not
+     (`Util::Referrer referrer;` in GlobalFXEntity).
+   * Struct assignment calls the implicit operator= OUT OF LINE:
+     `request.clip = args.clipRect` emitted `__as__Q22UI4Rect...` as an
+     extra function and called it, where retail copies member-wise;
+     and `dir = normal` in zBouncer IS such a call, `__as__5xVec3...`
+     being the image's own out-of-line implicit operator=.
+   * The compiler does not build `T x = f();` in place: it returns
+     into a temporary and copies. Retail's BouncePlayer names none of
+     its operator results -- the reflection is one expression and the
+     velocity is assigned from the product -- and only `dir` is a copy.
+   * `__attribute__((aligned(16)))` on a class's storage is honoured
+     and gives the dynamic frame alignment (zEnv, zBouncer); on the
+     class itself or through `__declspec` it is not.
+   * A comparator that is an EMPTY BASE of the template sits at offset
+     zero with the count (the AVL insert calls it with the tree's own
+     `this`): the empty-base optimisation holds. A member template
+     instantiated explicitly by name avoids instantiating members the
+     unit does not define.
+   * `TRCMsgBox`'s vptr follows its twelve members (0x34); the
+     DWARF's size said so and one word said where.
+   * `gen_poolprefix.py --whole` now writes a padding-only header for
+     a unit that builds no string pool but loads float literals,
+     finding its translation unit as the pool whose referrers span it
+     (`zBouncer.pool.h`, 41,320 bytes ahead).
+   * The four-literal wall again: BouncePlayer loads 2.0f, 1e-5f, 1.0f
+     and 0.0f, retail with a `lis` each, ours with an `addis` base
+     past the padding. Two mechanisms were tried and ruled out: the
+     literals introduced by a function ahead in the unit (reused, not
+     new) and introduced scattered among others (as retail's sit, 320
+     bytes apart). Neither moves the base. The same wall as
+     zPlayerWalkSB's and zPlayerIdleSB's.
 
    The four written whole to get there, all exact on the first
    compile: `WAD03`'s `NewArray<float, GlobalHeapEnum>` (a template

@@ -337,6 +337,17 @@ EXPECT = {
     "SB/GM/Engine/WAD02": (1, 1),
     "SB/NG/Source/Engine/Entities/ClipEntity": (1, 1),
     "SB/NG/Source/Engine/System/Main": (1, 1),
+    "SB/GM/Engine/Game/zBouncer": (1, 2),
+    "SB/GM/Engine/Game/zEnv": (2, 2),
+    "SB/GM/Engine/Game/zPlayerAICommandGroup": (2, 2),
+    "SB/GM/Engine/Game/zPlayerAISearchMapLinkCostCalculator": (1, 1),
+    "SB/GM/Engine/Game/zSoundMask": (2, 2),
+    "SB/GM/Engine/WAD00_12": (1, 1),
+    "SB/NG/Engine/WAD02_35_1": (1, 1),
+    "SB/NG/Source/Engine/Entities/GlobalFXEntity": (2, 2),
+    "SB/NG/Source/Engine/Graphics/Renderable": (2, 2),
+    "SB/NG/Source/Engine/TRC/Wii/SaveErrorMsgBox": (2, 2),
+    "SB/NG/Source/Engine/UI/Text": (0, 1),
 }
 
 

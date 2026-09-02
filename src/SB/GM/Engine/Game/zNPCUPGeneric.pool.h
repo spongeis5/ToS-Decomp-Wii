@@ -15,8 +15,10 @@
 // unit's translation unit forms (0x8067F370). mwcc shares one base
 // among a function's literals only when they sit under 32 KB
 // into .rodata, so a fragment compiled with nothing ahead is
-// one word short per table. This array is that distance,
-// measured; it is referenced by nothing and holds nothing.
+// one word short per table. The image shows only what the
+// linker kept, so the measured distance is a lower bound; the
+// array is that distance or 32 KB, whichever is more. It is
+// referenced by nothing and holds nothing.
 static const unsigned char kUnityRodataAhead[50872] = {1};
 
 static const char* const kUnityPoolPrefix[] = {

@@ -348,6 +348,15 @@ EXPECT = {
     "SB/NG/Source/Engine/Graphics/Renderable": (2, 2),
     "SB/NG/Source/Engine/TRC/Wii/SaveErrorMsgBox": (2, 2),
     "SB/NG/Source/Engine/UI/Text": (0, 1),
+    "SB/GM/Engine/Game/zBase": (3, 3),
+    "SB/GM/Engine/Game/zPOWManager": (3, 3),
+    "SB/GM/Engine/Game/zPOWObject": (3, 3),
+    "SB/GM/Engine/WAD00_7_1": (1, 1),
+    "SB/GM/Engine/WAD01_11": (1, 1),
+    "SB/NG/Engine/WAD01_22": (1, 1),
+    "SB/NG/Source/Engine/Entities/Blobs/Anims/ComboAnimBlobEntity": (2, 2),
+    "SB/NG/Source/Engine/Math/MathUtil": (1, 2),
+    "SB/NG/Source/Engine/Memory/Factory/FactoryMemTypeRegistry": (2, 2),
 }
 
 

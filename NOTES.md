@@ -7,18 +7,18 @@ numbers here, which move.
 ## State at time of writing
 
 ```
-Game Code:  63 of 777 files complete  104,048 / 2,116,608 bytes  1,174 / 10,696 fn
-            4.9158% of game code
+Game Code:  65 of 777 files complete  105,544 / 2,116,608 bytes  1,191 / 10,696 fn
+            4.9865% of game code
 
-Of those 1,174 functions, 778 are GENERATED -- machine-recognised
+Of those 1,191 functions, 778 are GENERATED -- machine-recognised
 shapes, not one of which is decompiling. They are real matched
 functions and the offsets and constants are recovered fact, but a
 count of them is not a count of decompiled code. HAND-WRITTEN IS
-396, across 97 units and 95,152 bytes, and that is the figure to
+413, across 106 units and 96,648 bytes, and that is the figure to
 compare against earlier ones.
 
 Data:       4 unit(s) carry their own, 412 bytes; 134 more could
-All:        3.31% matched              main.dol reproduces byte for byte
+All:        3.33% matched              main.dol reproduces byte for byte
 ```
 
 Every number above is written by `python tools/notes_state.py`,
@@ -763,6 +763,55 @@ the four-literal `zPlayerWalkSB::AddActionTransitions`: retail spells
 four `lis`, the rule forms a base for four, and no setting tried
 moves that line.
 
+**Measured again from the other side (2026-09-02): retail's game units
+never share a literal base at all.** A scan of every sized function in
+the game's text (10,780 of them, 80006000..80230000) for one `lis`
+that feeds two or more float-literal loads found 44 that share, every
+one in the engine's WAD01 unity unit (801C28C0..801E3DA0) or in Havok,
+against 1,521 that load two or more literals through a `lis` each.
+The debug link kept its relocation tables, and they say why the bytes
+differ: the engine's shared loads relocate against the section label
+`...rodata.0`, the game's every load against its own `@N` literal,
+and no game object defines a `...rodata.0` at all -- the first in the
+image is the engine unit's, at 80692C08. Our compiler emits that
+label and the shared form whenever its cost rule pays, so a game
+fragment compiled alone reaches retail's shape only where the rule
+would not share: three literals or fewer, past 32 KB of `.rodata`.
+`WAD00_7_1`'s SetRadius measured 24 bytes ahead in the image and
+retail spells three `lis`; with 32 KB ahead it matches, and 41,320,
+45,000, 60,000, 70,000 and 140,000 give the same bytes, so
+`gen_poolprefix.py` now floors the padding at 32 KB. The image cannot
+say how far retail's literals really sat: the linker script's
+FORCEACTIVE block exists because mwld drops unreferenced objects, and
+the DWARF describes no variables (0 in the ten unity units) and no
+dropped functions (0 of 10,062 subprograms lie outside the text), so
+what the compiler had ahead of a literal is a lower bound only.
+
+What the four-literal wall is NOT, each ruled out by a compile that
+was read back: every `-opt` sub-option (nocse, nolifetimes, noprop,
+noloopinvariants, nopeephole, nostrength, nointrinsics), -O2/-O3/-O4
+for size and for speed in the past-32 KB regime, -inline
+off/all/deferred, -ipa file, -Cpp_exceptions on, -RTTI on, -common,
+-fp_contract off, -str in every combination, -sdata2 4, -once,
+-func_align, -schedule, -use_lmw_stmw off, -g and -sym, CATS on,
+-proc, -align, -char, -enum, -abi, -model, every GameCube mwcc on
+disk (1.0 to 3.0a5.2; those before 3.0 reject `-enc`, dropped for the
+probe), `#pragma pool_data off` (the `@floatBase0` pool, one word the
+other way, as the flag), `#pragma section` with far_abs, near_abs and
+renamed constant, data and code sections, a string pool of 1, 3, 8
+and 40 KB, 2,000 literals ahead, 3,200 functions ahead, 80 KB of
+text, 70 KB of `.data` and of `.bss` ahead, and the literals emitted
+first by an unreferenced static function -- which the compiler does
+emit (48 bytes, LOCAL). The bouncer's four literals form a base at
+41,320, 70,000 and 140,000 bytes ahead under every one of these.
+Retail's game functions that are the first to load four or more of
+their literals number 37 of the 2,170 that load any (15 load six or
+more; `zBoardPlayer::Reset` 19 of 27), and every one spells a `lis`
+per literal. One earlier note here was wrong and is withdrawn: the
+bouncer object's by-symbol literal was not a reused one addressed
+differently, it was `Setup`'s single literal; the four fresh ones
+shared a base in every arrangement tried.
+
 ## report.json IS BLIND TO RELOCATION TARGETS
 
 The oracle compares the BITS of a relocated field, and both sides hold
@@ -1194,6 +1243,46 @@ Then one of these, in the order they are worth doing:
    functions of complete, `pad_*` excluded; what is left there is the
    exhausted near-misses and `WADSpeed`'s static initialiser, which
    needs its unit's data.
+
+   Nine more, eight exact and two linked (63 -> 65 complete), and the
+   literal-base question measured to its floor. Exact: `WAD01_11`
+   (`zBlackboard::Register<int>`, an explicit instantiation on a
+   `zVariableBase` whose vptr follows its eleven words, a class-level
+   `operator new` on the global heap), `WAD01_22` in NG
+   (`FreePhysicalMemory2`; the unit's other function is the compiler's
+   out-of-line `_GXRenderModeObj::operator=`, which an unused inline
+   assignment does not emit -- measured), `FactoryMemTypeRegistry`
+   (a guarded local static, a memset constructor), `ComboAnimBlob-
+   Entity`, `zPOWManager` (a module with its vptr after five words;
+   the manager is a file static in retail, so it matches and does not
+   link), `zPOWObject` (`Init` non-const, or the mangled name gains a
+   C), `zBase` (the RTTI parent walk as a do-while, the dispatch a
+   switch) and `WAD00_7_1` (SetRadius, on the padding floor below).
+   `MathUtil` 1 of 2: `DampSpring` exact, `StartupMathUtil` 14 of 35
+   -- retail keeps the row in r10, the next row in r9, the count in
+   r8, and three loop spellings each placed them elsewhere; the
+   paired-single `ConvertOBBToAABB` is not attempted. What they
+   taught:
+
+   * A game fragment's literals reach retail's shape (a `lis` per
+     literal) only past 32 KB of `.rodata`, and the distance the
+     image shows is a lower bound on retail's, so `gen_poolprefix.py`
+     floors its padding there: WAD00_7_1 measured 24 bytes and
+     matched at 32,768. The float-base section carries the whole
+     measurement -- 0 of 10,780 game functions share a base, 44
+     engine and Havok ones do, and the relocations of the debug link
+     say why -- with the list of everything that does not move the
+     four-literal wall, which BouncePlayer and the two AnimTable
+     tables still stand behind.
+   * `-pooldata off` is measured, not assumed: it pools the floats
+     into a `@floatBase0` and re-bases with `addi`, one word the
+     other way from retail (13 of 15 on SetRadius).
+   * A `T x = f();` of a struct is not built in place, and a struct
+     assignment's implicit `operator=` is out of line; both again.
+   * The compiler emits an unreferenced `static` function (48 bytes,
+     LOCAL) and its literals; the linker would drop it. A unit that
+     matches through a padding header cannot link either way: its
+     literals are its own `.rodata` and the split has none.
 
 3. **FixWmlType's last seven instructions.** 11,944 bytes in one
    function, generated by `tools/gen_wmltypes.py`. The dispatch

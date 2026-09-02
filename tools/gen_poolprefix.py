@@ -36,6 +36,16 @@ mwcc on disk, -O levels, -pooldata, -sdata2, -sym, and prior emission
 of the literals all left the rule where it is. The four-literal case
 (zPlayerWalkSB::AddActionTransitions) is still out of reach: retail
 spells four `lis` there and the rule forms a base.
+
+The distance measured from the image is a LOWER BOUND on retail's: the
+linker dropped every unreferenced object (the FORCEACTIVE block in the
+linker script exists to keep the few it must not), so the .rodata the
+compiler had ahead of a literal is not all in the image. WAD00_7_1's
+setter measures 24 bytes and retail spells three `lis` there, which
+under the rule needs 32 KB or more; so the array is never shorter than
+32 KB. Retail's game units never share at all -- 0 of 10,780 functions,
+against 44 in the engine's WAD01 and the SDK -- and their objects carry
+no `...rodata.0` label, the section base the shared form is built on.
 """
 import argparse
 import re
@@ -47,6 +57,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 import disasm as D                                       # noqa: E402
 
 ROOT = Path(__file__).resolve().parent.parent
+PAD_FLOOR = 32768   # bytes of .rodata ahead below which mwcc shares a base
 CFG = ROOT / "config/R8IE78"
 NL = chr(10)
 BS = chr(92)
@@ -242,9 +253,12 @@ def padding_only(args, us, raw, secs, funcs, objs, me_s, me_e):
         % ahead[0],
         "// a function's literals only when they sit under 32 KB into",
         "// .rodata, so a fragment compiled with nothing ahead shares a base",
-        "// retail does not. This array is that distance, measured; it is",
-        "// referenced by nothing and holds nothing.",
-        "static const unsigned char kUnityRodataAhead[%d] = {1};" % ahead[2],
+        "// retail does not. The image shows only what the linker kept, so",
+        "// the measured distance is a lower bound; the array is that",
+        "// distance or 32 KB, whichever is more. It is referenced by",
+        "// nothing and holds nothing.",
+        "static const unsigned char kUnityRodataAhead[%d] = {1};"
+        % max(ahead[2], PAD_FLOOR),
         "",
     ]
     text = NL.join(body)
@@ -361,10 +375,12 @@ def main():
             % ahead[0],
             "// among a function's literals only when they sit under 32 KB",
             "// into .rodata, so a fragment compiled with nothing ahead is",
-            "// one word short per table. This array is that distance,",
-            "// measured; it is referenced by nothing and holds nothing.",
+            "// one word short per table. The image shows only what the",
+            "// linker kept, so the measured distance is a lower bound; the",
+            "// array is that distance or 32 KB, whichever is more. It is",
+            "// referenced by nothing and holds nothing.",
             "static const unsigned char kUnityRodataAhead[%d] = {1};"
-            % ahead[2],
+            % max(ahead[2], PAD_FLOOR),
             "",
         ]
     body += [

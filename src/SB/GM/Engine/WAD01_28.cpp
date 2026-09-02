@@ -496,7 +496,11 @@ public:
     void AbsControl(float a0, float a1, float a2);
     float GetRigidBodyHeight();
 
-    unsigned char _pad0[0xAA4];
+    // The virtuals above put the vptr at 0, so the padding is four
+    // bytes shorter than the member's offset: fAA4 is at 0xAA4
+    // (halfExtents.y in the DWARF), and 0xAA4 of padding read it at
+    // 0xAA8 -- the one accessor of this unit that did not match.
+    unsigned char _pad0[0xAA0];
     float fAA4;
 };
 

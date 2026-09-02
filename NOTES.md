@@ -7,14 +7,14 @@ numbers here, which move.
 ## State at time of writing
 
 ```
-Game Code:  28 of 777 files complete  88,412 / 2,116,508 bytes  1,088 / 10,686 fn
-            4.1773% of game code
+Game Code:  28 of 777 files complete  88,428 / 2,116,508 bytes  1,090 / 10,686 fn
+            4.1780% of game code
 
-Of those 1,088 functions, 784 are GENERATED -- machine-recognised
+Of those 1,090 functions, 785 are GENERATED -- machine-recognised
 shapes, not one of which is decompiling. They are real matched
 functions and the offsets and constants are recovered fact, but a
 count of them is not a count of decompiled code. HAND-WRITTEN IS
-304, across 43 units and 79,424 bytes, and that is the figure to
+305, across 43 units and 79,432 bytes, and that is the figure to
 compare against earlier ones.
 
 Data:       3 unit(s) carry their own, 396 bytes; 134 more could
@@ -584,6 +584,18 @@ zPlayerLandHighSB::End's load as `this+4`, which is the base's
 `player`. A free function with a mangled signature is spelled by the
 ABI from the walk's snapshot, and every `bl` is recorded so an
 unspellable callee refuses the merge rather than vanishing.
+
+**`GetRigidBodyHeight`, the one accessor of WAD01_28 that never
+matched, was the generator's padding rule, and the rule was wrong for
+every stub whose virtuals come from vtable calls.** `gen_accessors.py`
+puts a class's first data member four bytes in only when a
+CONSTRUCTOR stores the vtable; a stub that declares virtuals because
+its methods call through slots (zBoardPlayer, 162 of them) gets the
+same vptr at 0 from the compiler and got no allowance, so `fAA4`
+sat at 0xAA8 and retail reads 0xAA4 (`halfExtents.y`). One line: the
+vptr counts when the stub declares any virtual. Regenerating every
+generated unit changed two -- WAD01_28 to 57 of 57 and
+zFloatingCollectible to 2 of 2 -- and nothing else.
 
 **The NewState permutation was the third inlined helper, and the four
 `AddStates` tables match.** zPlayerAction.cpp defines the member

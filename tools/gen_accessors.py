@@ -1879,7 +1879,13 @@ def main():
             L.append("    virtual void __vtable_anchor();")
             pad = vpad + 4
         else:
-            pad = 4 if key in poly else 0
+            # The vptr is at 0 whenever this stub declares a virtual at
+            # all -- a constructor storing the vtable (poly) OR a slot
+            # a vcall reaches (own) -- and the first data member sits
+            # after it. Counting only poly read zBoardPlayer's fAA4 at
+            # 0xAA8: 162 virtuals from vcalls, no constructor, and
+            # 0xAA4 of padding after a vptr the rule did not count.
+            pad = 4 if (key in poly or own) else 0
         for i, off in enumerate(sorted(fields[key])):
             if off > pad:
                 L.append("    unsigned char _pad%d[0x%X];" % (i, off - pad))

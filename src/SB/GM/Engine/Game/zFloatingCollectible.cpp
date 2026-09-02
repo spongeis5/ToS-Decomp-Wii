@@ -59,7 +59,7 @@ public:
     void Render();
     void SceneExit();
 
-    unsigned char _pad0[0x34];
+    unsigned char _pad0[0x30];
     int f34;
 };
 

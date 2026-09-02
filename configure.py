@@ -1589,7 +1589,11 @@ config.libs = [
     },
     {
         "lib": "Revolution",
-        "mw_version": config.linker_version,
+        # The retail image stamps every RVL_SDK library 0x4302_145: version
+        # 4.3 build 145, which is CodeWarrior for Wii 1.0, the release before
+        # the game's 1.1. Measured 2026-09-02 against 1.1: 680 -> 690 exact
+        # functions over 218 units, eight units better and none worse.
+        "mw_version": "Wii/1.0",
         "cflags": cflags_rvl_sdk,
         "progress_category": "Rev SDK",  # str | List[str]
         "objects": [

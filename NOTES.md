@@ -18,7 +18,7 @@ count of them is not a count of decompiled code. HAND-WRITTEN IS
 compare against earlier ones.
 
 Data:       4 unit(s) carry their own, 412 bytes; 134 more could
-All:        3.20% matched              main.dol reproduces byte for byte
+All:        3.26% matched              main.dol reproduces byte for byte
 ```
 
 Every number above is written by `python tools/notes_state.py`,
@@ -57,6 +57,53 @@ Independent corroboration for `-sdata 0`: `tools/dwarf_data.py` measured
 7,054 data references from the recovered units and found **zero** through
 r13 or r2.
 
+## The compiler is the one the game was built with
+
+Three independent lines of evidence, gathered 2026-09-02 when the question
+was asked, and none of them a recollection.
+
+**The disc says so.** `orig/R8IE78/files/SB09WiiMASTERWAD.elf`, the
+unstripped debug link shipped in the game's files, carries the build
+machine's include paths in its DWARF: `C:\Program Files\Freescale\CW for
+Wii v1.1\PowerPC_EABI_Support\Msl\...`, beside `C:\RVL_SDK\include\...`
+and the source tree under `C:\branches\SB09\main`. Its producer string
+names no version, only `MW EABI PPC C-Compiler`.
+
+**The bytes agree, with one tie.** `tools/compiler_sweep.py` rebuilds
+every game unit with a source file under each Wii compiler on disk and
+counts byte-identical functions with `unitcmp`'s own compare. Over 244
+units and 1,167 functions:
+
+| compiler (version, build) | exact | functions retail lacks |
+|---|---|---|
+| 1.0RC1, 1.0a, 1.0 (4.3 build 145 and earlier) | 1,149 | 0 |
+| 0x4201_127 (4.2 build 142) | 1,145 | 0 |
+| **1.1 (4.3 build 151)** | **1,151** | 0 |
+| 1.3 (4.3 build 172) | 1,151 | 0 |
+| 1.5, 1.6, 1.7 (builds 188 to 213) | 1,107 | 16 |
+
+The 1.0 family loses `xSpringy` and `xMat3x3Tolocal`. The later three
+stop inlining and shed 44 functions, most in `zSBPlayerActions` and
+`xString`, while emitting 16 that retail does not have. Only 1.1 and
+1.3 reproduce everything written so far and no unit separates them, so
+the bytes alone cannot exclude 1.3; the install path on the disc does.
+
+**The SDK was built with the release before.** Every `<< RVL_SDK - ...
+release build ... >>` stamp in the retail image reads `0x4302_145`,
+version 4.3 build 145, which `build/compilers/info.txt` maps to Wii 1.0,
+dated February to May 2009. Those are Nintendo's prebuilt libraries.
+`configure.py` had been compiling the Revolution library with 1.1;
+switched to 1.0 and rebuilt, the Revolution SDK category went from 680
+to 690 exact functions (99,356 to 103,236 bytes) over 218 units, eight
+units better (`WPAD` 14 -> 17, `scsystem`, `OSRtc`, `GXBump`, `dsp`,
+`OSAudioSystem`, `scapi_prdinfo`, `Pad`) and none worse, main.dol OK.
+`hbm` was already on 1.0.
+
+The caveat any decompilation carries: nothing proves the retail DOL and
+the debug link came off the same machine, only that the same studio in
+the same months had v1.1 installed and that v1.1 reproduces every byte
+written so far.
+
 ## Tools added
 
 | tool | what it does |
@@ -85,6 +132,7 @@ r13 or r2.
 | `gen_rttid.py` | the RTTID_Fix<T> family -- 175 functions from one template; `--survey` |
 | `reloc_audit.py` | which already-matched functions branch somewhere retail does not |
 | `disasm.py` | read one retail function, symbols resolved; `--unit`. 100% of the splits decode |
+| `compiler_sweep.py` | rebuild every unit with source under each Wii compiler and count exact functions; `--lib PREFIX` |
 
 `pip install pyelftools` is required for all of them.
 

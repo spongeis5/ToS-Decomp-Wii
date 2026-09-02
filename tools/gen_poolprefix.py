@@ -224,17 +224,29 @@ def padding_only(args, us, raw, secs, funcs, objs, me_s, me_e):
                                  % (args.unit, tu[0], base))
             tu = (base, lo, hi)
     if tu is None:
-        raise SystemExit("gen_poolprefix: no function in %s builds a "
-                         "@stringBase0 and no pool's translation unit "
-                         "spans it; nothing to do" % args.unit)
-    base, lo, hi = tu
-    ahead = rodata_ahead(raw, secs, funcs, lo, hi, me_s, me_e)
-    print("  unit %s: text %08X..%08X, builds no pool; its translation "
-          "unit is the one around @stringBase0 %08X (%08X..%08X)"
-          % (args.unit, me_s, me_e, base, lo, hi))
-    if not ahead:
-        raise SystemExit("gen_poolprefix: %s loads no float literal; "
-                         "nothing to do" % args.unit)
+        # No pool's referrers span the unit, so its translation unit cannot
+        # be told from the image. The distance is a lower bound anyway (the
+        # linker dropped what was unreferenced), and the floor is what the
+        # compiler's rule answers to: emit the floor, and say why.
+        own = rodata_ahead(raw, secs, funcs, me_s, me_e, me_s, me_e)
+        if not own:
+            raise SystemExit("gen_poolprefix: no function in %s builds a "
+                             "@stringBase0, no pool's translation unit "
+                             "spans it, and it loads no float literal; "
+                             "nothing to do" % args.unit)
+        print("  unit %s: text %08X..%08X, builds no pool, and no pool's "
+              "translation unit spans it; its first float literal is %08X"
+              % (args.unit, me_s, me_e, own[1]))
+        ahead = (own[0], own[1], 0)
+    else:
+        base, lo, hi = tu
+        ahead = rodata_ahead(raw, secs, funcs, lo, hi, me_s, me_e)
+        print("  unit %s: text %08X..%08X, builds no pool; its translation "
+              "unit is the one around @stringBase0 %08X (%08X..%08X)"
+              % (args.unit, me_s, me_e, base, lo, hi))
+        if not ahead:
+            raise SystemExit("gen_poolprefix: %s loads no float literal; "
+                             "nothing to do" % args.unit)
     print("  .rodata ahead: the TU's lowest .rodata address is %08X (%s),"
           " this unit's first float literal %08X (%s), %d bytes apart"
           % (ahead[0], D.name_at(funcs, objs, ahead[0]), ahead[1],
@@ -249,8 +261,9 @@ def padding_only(args, us, raw, secs, funcs, objs, me_s, me_e):
         "// ahead of its float literals: in the image the unit's first",
         "// literal (0x%08X) lies %d bytes past the lowest .rodata address"
         % (ahead[1], ahead[2]),
-        "// the translation unit forms (0x%08X). mwcc shares one base among"
-        % ahead[0],
+        "// the translation unit forms (0x%08X)%s. mwcc shares one base among"
+        % (ahead[0], "" if tu is not None else
+           ", or no pool's referrers span the unit and only the floor is known"),
         "// a function's literals only when they sit under 32 KB into",
         "// .rodata, so a fragment compiled with nothing ahead shares a base",
         "// retail does not. The image shows only what the linker kept, so",

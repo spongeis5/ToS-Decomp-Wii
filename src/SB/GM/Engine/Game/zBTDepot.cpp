@@ -61,8 +61,8 @@ inline T* NewArray(const H& heap, eMemMgrTag tag, unsigned long count) {
     return (T*)operator new(count * sizeof(T), heap, tag);
 }
 
-template <class T, class H>
-inline void DeleteArray(T* array, const H& heap, unsigned long count) {
+template <class H, class T>
+inline void DeleteArray(const H& heap, T* array, unsigned long count) {
     operator delete[](array, heap, count * sizeof(T));
 }
 #pragma always_inline off
@@ -205,7 +205,7 @@ Registered:
         }
     }
 
-    DeleteArray(counts, Memory::ThreadStack, depot.creatorCount);
+    DeleteArray(Memory::ThreadStack, counts, depot.creatorCount);
 }
 
 zBT* zBTDepot::FindTree(unsigned long long id) {

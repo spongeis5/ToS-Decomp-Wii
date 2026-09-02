@@ -90,8 +90,14 @@ the bytes alone cannot exclude 1.3; the install path on the disc does.
 
 **The SDK was built with the release before.** Every `<< RVL_SDK - ...
 release build ... >>` stamp in the retail image reads `0x4302_145`,
-version 4.3 build 145, which `build/compilers/info.txt` maps to Wii 1.0,
-dated February to May 2009. Those are Nintendo's prebuilt libraries.
+dated February to May 2009. Verified against the binaries, not the
+archive's inventory: `mwcceppc.exe -version` in `build/compilers/Wii/1.0`
+prints `Version 4.3 build 145` and preprocesses `__MWERKS__` to `0x4302`,
+the two halves of the stamp; 1.1 is build 151, 1.3 build 172, 1.5 to
+1.7 builds 188, 202 and 213, all `0x4302`, and the three 4.2 builds
+(1.0RC1, 1.0a, 0x4201_127) preprocess to `0x4201`. So the stamp names
+one binary on disk, and "Wii 1.0" is the archive's label for it. Those
+are Nintendo's prebuilt libraries.
 `configure.py` had been compiling the Revolution library with 1.1;
 switched to 1.0 and rebuilt, the Revolution SDK category went from 680
 to 690 exact functions (99,356 to 103,236 bytes) over 218 units, eight

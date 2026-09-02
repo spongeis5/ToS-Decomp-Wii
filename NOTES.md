@@ -7,18 +7,18 @@ numbers here, which move.
 ## State at time of writing
 
 ```
-Game Code:  28 of 777 files complete  97,092 / 2,116,508 bytes  1,100 / 10,686 fn
-            4.5874% of game code
+Game Code:  32 of 777 files complete  97,340 / 2,116,508 bytes  1,106 / 10,686 fn
+            4.5991% of game code
 
-Of those 1,100 functions, 781 are GENERATED -- machine-recognised
+Of those 1,106 functions, 778 are GENERATED -- machine-recognised
 shapes, not one of which is decompiling. They are real matched
 functions and the offsets and constants are recovered fact, but a
 count of them is not a count of decompiled code. HAND-WRITTEN IS
-319, across 46 units and 88,156 bytes, and that is the figure to
+328, across 50 units and 88,444 bytes, and that is the figure to
 compare against earlier ones.
 
 Data:       3 unit(s) carry their own, 396 bytes; 134 more could
-All:        3.14% matched              main.dol reproduces byte for byte
+All:        3.15% matched              main.dol reproduces byte for byte
 ```
 
 Every number above is written by `python tools/notes_state.py`,
@@ -866,19 +866,17 @@ Then one of these, in the order they are worth doing:
 1. **Write another unit.** This is the only column that means
    decompiling and it is the one that moved most this session: 92
    hand-written functions to 128. Seven units were written in one
-   sitting and five were byte-identical on the first compile. Units
-   within three functions of complete, measured after this session:
-
-   | bytes | left | unit |
-   |---|---|---|
-   | 3,904 | 3 of 3 | `zSBPlayerCharacterProxyCollisionListener` |
-   | 2,672 | 3 of 3 | `SB/NG/Engine/WAD01_13` |
-   | 1,956 | 1 of 1 | `Graphics/Space` |
-   | 1,920 | 1 of 1 | `x/xModelOpt` |
-   | 1,584 | 3 of 3 | `zBTSet` |
-   | 1,468 | 2 of 2 | `x/xParabola` |
-   | 1,092 | 2 of 2 | `zAnimList` |
-   | 928 | 2 of 2 | `zPathFinderSearchMapLinkCostCalculator` |
+   sitting and five were byte-identical on the first compile. Measured
+   on 2026-09-02 with the scratch `near_complete.py` over report.json:
+   **110 game units are within three functions of complete** once units
+   with no source at all are counted, and the smallest are one or two
+   functions of 16 to 120 bytes -- `WAD04_6_1`'s `FoundPath` (16),
+   `Graphics/Material`'s `RenderAttach`/`RenderDetach` (32), `WAD03_33`'s
+   `AddScale` (36), `Math/Quaternion`'s `Format` (56), `WAD00_7_1`'s
+   `SetRadius` (60), `WAD03_34`'s `Sub`/`dot` (64), `Math/Random`'s
+   `MakeSeed` (80). A unit whose split holds no data section is complete
+   the moment its functions match and are defined in retail's order
+   (entry 2 says the gate); the rest are matched bytes only.
 
    Re-derive the list rather than trusting it: it is a query over
    report.json for game units whose unmatched functions are few,
@@ -889,14 +887,38 @@ Then one of these, in the order they are worth doing:
 
 2. **Make a matched unit a linked one.** `complete` only moves when
    `configure.py` marks the unit `Matching`; until then dtk links the
-   carved object and ours is merely compared. Three went through this
-   session and main.dol stayed byte-identical (25 -> 28 complete). The
-   ones that did not need their DATA: a linked unit has to SUPPLY its
-   file-scope statics, not just reference them, which is what
-   `dwarf_data_carve.py --survey` (75 units) is for. `zLaserScanner`
-   links but shifts main.dol -- it is the only one of the three with a
-   float literal, so its `.rodata` pool lands somewhere retail's does
-   not. ALWAYS read `main.dol: OK` after flipping one.
+   carved object and ours is merely compared. 28 -> 32 complete on
+   2026-09-02, and the gate is now measured rather than guessed. A
+   unit links as it is when THREE things hold: its object carries no
+   data section at all (a float literal or a pooled string puts
+   `.rodata` where the split has none -- `zLaserScanner`); every
+   symbol it references is `scope:global` in symbols.txt (`xScene`
+   references two file statics, `sxAnimTemp*Pool`, that the carved
+   object keeps local, and the link says `undefined`); and its
+   functions are DEFINED IN RETAIL'S ORDER, because the link honours
+   definition order (`ScreenShot` shifted main.dol with two matched
+   functions the other way round). The scratch `linkscan.py` compiles
+   every fully matched NonMatching unit and reports the object's
+   non-text sections and its text against the split: 153 units had
+   no data in the SPLIT, two objects filled their split, and only
+   `GameWindow` linked; `WAD03`'s one function matches but its
+   remainder owns the unity unit's whole .rodata/.data/.bss. The
+   others need their DATA: a linked unit has to SUPPLY its file-scope
+   statics, which is what `dwarf_data_carve.py --survey` (134 units,
+   15 with no cut needed) is for. ALWAYS read `main.dol: OK` after
+   flipping one, and flip one at a time when a set fails.
+
+   The four written whole to get there, all exact on the first
+   compile: `WAD03`'s `NewArray<float, GlobalHeapEnum>` (a template
+   instantiation, 24 bytes, the return type in the mangled name),
+   `ScreenShot`'s `frameDumpGetNextFileName`, `zBTFactory`'s
+   `SceneInit`/`Destroy`/`Allocate`, and the `VirtualKeyboardModule`
+   constructor on the `System::Module` base GameWindow already used
+   (name, four event stages, then the virtuals, vptr at 0x14).
+   `near_complete.py` over report.json lists what is within N
+   functions of complete, `pad_*` excluded; what is left there is the
+   exhausted near-misses and `WADSpeed`'s static initialiser, which
+   needs its unit's data.
 
 3. **FixWmlType's last seven instructions.** 11,944 bytes in one
    function, generated by `tools/gen_wmltypes.py`. The dispatch

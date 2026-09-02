@@ -822,9 +822,11 @@ Then one of these, in the order they are worth doing:
    reaches) and `zPlayerWalkSB::AddActionTransitions`, the one
    four-literal table, where the compiler forms an `addis` base and
    retail spells four `lis`. The 439 `bctrl` functions image-wide are
-   mostly Havok and Scaleform; the next game rows are zPlantTrap (5,
-   1,496 bytes) and WAD01_21 (11, 1,396 bytes), and `--calls` on one
-   of them says in a minute whether the shape is the same.
+   mostly Havok and Scaleform, and the next game rows -- zPlantTrap
+   (5, 1,496 bytes) and WAD01_21 (11, 1,396 bytes) -- were read: they
+   are `Reset`, `Init`, `Save`, `Load` and the like, one virtual call
+   inside ordinary code, not tables. The table vein is closed; what is
+   left of it is ordinary decompilation.
 
 5. **Another shape.** `tools/shape_census.py` still ranks what is
    left. The biggest row is `addi b`, 97 functions and 776 bytes, of

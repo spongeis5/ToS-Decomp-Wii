@@ -7,14 +7,14 @@ numbers here, which move.
 ## State at time of writing
 
 ```
-Game Code:  32 of 777 files complete  97,340 / 2,116,508 bytes  1,106 / 10,686 fn
-            4.5991% of game code
+Game Code:  39 of 777 files complete  97,812 / 2,116,536 bytes  1,121 / 10,689 fn
+            4.6213% of game code
 
-Of those 1,106 functions, 778 are GENERATED -- machine-recognised
+Of those 1,121 functions, 778 are GENERATED -- machine-recognised
 shapes, not one of which is decompiling. They are real matched
 functions and the offsets and constants are recovered fact, but a
 count of them is not a count of decompiled code. HAND-WRITTEN IS
-328, across 50 units and 88,444 bytes, and that is the figure to
+343, across 60 units and 88,916 bytes, and that is the figure to
 compare against earlier ones.
 
 Data:       3 unit(s) carry their own, 396 bytes; 134 more could
@@ -907,6 +907,31 @@ Then one of these, in the order they are worth doing:
    statics, which is what `dwarf_data_carve.py --survey` (134 units,
    15 with no cut needed) is for. ALWAYS read `main.dol: OK` after
    flipping one, and flip one at a time when a set fails.
+
+   A FOURTH gate, found the same day with ten tiny units: the split
+   must END where the unit's last function ends. dtk gives a chunk
+   the alignment padding after its last function, our object ends
+   where the function does, and the carved object that follows is
+   placed right behind it -- the DOL diff was a twelve-byte shift of
+   everything after `WAD03_33`, 44,088 bytes in 233 runs. Leading
+   padding is harmless (`WAD04_6_1` starts four bytes before its
+   function and links, because the linker aligns our text). The
+   recipe is to move the split boundary in splits.txt back to the
+   last function's end, so the padding heads the NEXT unit's carved
+   chunk, then configure and read main.dol: OK -- three units went
+   through it at once and it held. 32 -> 39 complete.
+
+   The ten written for it, from the `near_complete.py --all` list:
+   `WAD04_6_1` FoundPath, `Graphics/Material` RenderAttach and
+   RenderDetach, `WAD03_33` xVec2::AddScale, `WAD03_34` Sub and dot,
+   `WAD02_9` DeptLookup's copy assignment, `WAD00_5_2` RemoveOwner,
+   `Math/Random` MakeSeed (STATIC: r3 is the seed, r4 the value),
+   `WAD02_24` the zNPCRayHitCollector constructor (the entity
+   assigned in the body, after the fraction; a float literal keeps
+   it from linking), `Math/Quaternion` Format (a pooled format string,
+   so a pool header and no link), and `WAD00_26`, where one of two
+   `Fix`es stays 6 of 7 words -- retail re-reads the member after the
+   test and four spellings fold it (the file says which).
 
    The four written whole to get there, all exact on the first
    compile: `WAD03`'s `NewArray<float, GlobalHeapEnum>` (a template

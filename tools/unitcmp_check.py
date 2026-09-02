@@ -300,6 +300,16 @@ EXPECT = {
     "SB/NG/Source/Engine/UI/Font": (1, 1),
     "SB/GM/Engine/Game/zShootingPlayer": (3, 3),
     "SB/GM/Engine/WAD02_26": (1, 1),
+    "SB/GM/Engine/WAD00_26": (1, 2),
+    "SB/GM/Engine/WAD02_24": (1, 1),
+    "SB/GM/Engine/WAD03_33": (1, 1),
+    "SB/GM/Engine/WAD03_34": (2, 2),
+    "SB/GM/Engine/WAD04_6_1": (1, 1),
+    "SB/NG/Engine/WAD00_5_2": (1, 1),
+    "SB/NG/Engine/WAD02_9": (1, 1),
+    "SB/NG/Source/Engine/Graphics/Material": (2, 2),
+    "SB/NG/Source/Engine/Math/Quaternion": (1, 1),
+    "SB/NG/Source/Engine/Math/Random": (1, 1),
 }
 
 

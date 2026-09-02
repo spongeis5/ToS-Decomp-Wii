@@ -1346,16 +1346,16 @@ SB/GM/Engine/Game/zSurfaces.cpp:
 	.text       start:0x8017AE70 end:0x8017B30C
 
 SB/GM/Engine/WAD03_33.cpp:
-	.text       start:0x8017B30C end:0x8017B340
+	.text       start:0x8017B30C end:0x8017B334
 
 SB/GM/Engine/Game/zSweptCircle.cpp:
-	.text       start:0x8017B340 end:0x8017B660
+	.text       start:0x8017B334 end:0x8017B660
 
 SB/GM/Engine/WAD03_34.cpp:
-	.text       start:0x8017B660 end:0x8017B6B0
+	.text       start:0x8017B660 end:0x8017B6AC
 
 SB/GM/Engine/Game/zTextBox.cpp:
-	.text       start:0x8017B6B0 end:0x8017BB7C
+	.text       start:0x8017B6AC end:0x8017BB7C
 
 SB/GM/Engine/WAD03_35.cpp:
 	.text       start:0x8017BB7C end:0x8017BB80
@@ -2163,10 +2163,10 @@ SB/NG/Source/Engine/Memory/MemTracker.cpp:
 	.text       start:0x801EBAD0 end:0x801EBD6C
 
 SB/NG/Engine/WAD02_9.cpp:
-	.text       start:0x801EBD6C end:0x801EBDA0
+	.text       start:0x801EBD6C end:0x801EBD94
 
 SB/NG/Source/Engine/Memory/PoolManager.cpp:
-	.text       start:0x801EBDA0 end:0x801EC374
+	.text       start:0x801EBD94 end:0x801EC374
 
 SB/NG/Engine/WAD02_10.cpp:
 	.text       start:0x801EC374 end:0x801EC380

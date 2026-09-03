@@ -132,8 +132,31 @@
 // spelled flat it would be a memberwise lfs/stfs, as WAD01_15.cpp
 // records. So the difference is how many registers the copy is allowed,
 // which is a question about what else is live at that point rather than
-// about the copy. That is where to start: retail is holding something
-// across this copy that ours has already finished with.
+// about the copy.
+//
+// AND RETAIL DOES THE OTHER COPY THE WAY WE DO. The if branch copies
+// the same type from the stack local `negated` at +80, and retail
+// spells that one with FOUR registers ascending -- lwz r5,r4,r3,r0
+// then four stores in order -- which is exactly what ours emits and it
+// matches. So the type is not the cause and neither is the number of
+// registers as such: the same 16-byte class is copied twice in one
+// function, four registers one way and two the other, and only the
+// second disagrees. Both read through the SAME pointer-free path in
+// ours and through r29 in retail, so it is not the source kind either.
+//
+// Six spellings swept, all tied at 8 of 121 except where noted:
+// as written; the else copy as `q.v = a.v`; both copies as `.v`; the
+// else copy through a named const reference. Two are much worse and
+// are not the answer: `q.v.data = a.v.data` is 73 of 116 (it shortens
+// the function by five instructions), and swapping the two branches so
+// the else becomes the then is 72 of 121.
+//
+// That leaves the instruction SCHEDULER, which is the same family
+// zNPCUpdateLOD::Reset and WAD02_20_1::IsInsideWallNet record in this
+// repository -- ours interleaving loads and stores differently from
+// retail with every word otherwise identical. Neither of those has
+// been reached either, and `#pragma scheduling off` is measured there
+// as costing more than it buys.
 //// MAKEEULER'S ARGUMENTS ARE ACCESSOR CALLS, and that is the whole of
 // it.  Retail loads the vector's z first, then y, then x -- right to
 // left.  Written `MakeEulerInternal(euler.data.x, euler.data.y,

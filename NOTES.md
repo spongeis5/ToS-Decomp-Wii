@@ -7,18 +7,18 @@ numbers here, which move.
 ## State at time of writing
 
 ```
-Game Code:  67 of 777 files complete  151,120 / 2,116,616 bytes  1,566 / 10,697 fn
-            7.1397% of game code
+Game Code:  67 of 777 files complete  151,556 / 2,116,616 bytes  1,570 / 10,697 fn
+            7.1603% of game code
 
-Of those 1,566 functions, 759 are GENERATED -- machine-recognised
+Of those 1,570 functions, 759 are GENERATED -- machine-recognised
 shapes, not one of which is decompiling. They are real matched
 functions and the offsets and constants are recovered fact, but a
 count of them is not a count of decompiled code. HAND-WRITTEN IS
-807, across 192 units and 142,468 bytes, and that is the figure to
+811, across 193 units and 142,904 bytes, and that is the figure to
 compare against earlier ones.
 
 Data:       4 unit(s) carry their own, 412 bytes; 134 more could
-All:        4.01% matched              main.dol reproduces byte for byte
+All:        4.02% matched              main.dol reproduces byte for byte
 ```
 
 Every number above is written by `python tools/notes_state.py`,
@@ -1673,6 +1673,26 @@ Then one of these, in the order they are worth doing:
 
    Both units say the same thing about records: the mechanism written
    down was worth keeping, the conclusion drawn from it was not.
+   **One more, written in this window rather than by an agent.**
+   `WAD01_14` is 4 of the 5 functions its object defines, 436 of the
+   unit's 624 bytes, no extra. Game Code 7.14% to 7.16%, 1,566 matched
+   functions to 1,570. Three of the four came from levers already
+   written down -- the failure-last shape for Activate, the two-type
+   split the mangled names forced, and the pragma placement above.
+
+   Its one near miss is worth naming because the tool is right and the
+   unit is not: Create is 16 of 46 words and the whole of it is ONE
+   instruction, the string. Retail forms the pool base in r31 and
+   spells each AddCamera argument `addi r4,r31,6514`; ours has the empty
+   string at offset 0 of its own pool and reaches it in one addi.
+   `gen_poolprefix.py` cannot fix it, in either mode: it builds a prefix
+   from the strings a unit is the FIRST to reference, and this unit
+   introduces none -- the empty string at +6514 is the tail of a string
+   an earlier file in WAD01.cpp put there. Refusing is the right
+   behaviour. What is missing is a mode that takes the prefix from a
+   pool OFFSET the unit references rather than from one it introduces,
+   and that is a small, well-defined change to a tool that generates
+   data rather than to one that decides whether something matches.
    **Seven more, and the record rule paid for itself six times and
    failed once.** Game Code 6.95% to 7.14%, 1,529 matched functions to
    1,566. Of the 51 functions the seven new units define, 38 are
@@ -2230,6 +2250,35 @@ first try once it was read that way. Where retail stores ASCENDING the
 statements are separate -- `flags = 0; changed = 0;` in the same
 function -- so the order distinguishes the two spellings rather than
 leaving it to taste.
+## always_inline AT THE END OF THE FILE AIMS AT A TEMPLATE ALONE
+
+mwcc instantiates a template at the END of the translation unit, so the
+state of `#pragma always_inline` THERE is what the instantiation sees --
+and an ordinary function, compiled where it appears, never sees it. That
+makes the bottom of the file a way to force inlining inside a template
+without touching anything else, and it is not obvious from the pragma's
+own description.
+
+`WAD01_14` needed it. `zCamMG2P`'s constructor is empty and its whole
+body is the implicit vtable store plus two member constructors, which
+retail has inline inside `zCamPool<zCamMG2P>::AddCamera`; -inline auto
+does not take it in any of four spellings (implicit, empty in-class,
+declared and defined inline outside the class, and the class given its
+own constructor). always_inline does, and the three placements are three
+different answers:
+
+  * before the class and left on -- AddCamera matches and EventCB is
+    ruined, 49 words against retail's 20, because Activate gets inlined
+    into it where retail tail-calls it;
+  * before the class with an off after it, or around the template with
+    an off after -- no effect at all, AddCamera stays 23 of 24;
+  * at the very end of the file, after every function -- AddCamera
+    matches and nothing else moves.
+
+It is still a pragma and still the closest measured state rather than
+what the original said. But the placement rule is a fact about the
+compiler, and it applies to every template this project has yet to
+write.
 ## Traps worth knowing
 
 **A survey that cannot see what is finished reports finished work as

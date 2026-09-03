@@ -37,8 +37,18 @@ class zEventSpyAsset;
 }  // namespace Sext
 
 void xBaseInit(xBase* base, const Sext::xBaseAsset* asset);
-void EventSpyEventWrapper(xBase* from, xBase* to, unsigned int event,
-                          Sext::EventAny* any);
+
+// A file static in retail, and static here, so the object defines the
+// same LOCAL mangled symbol. The report still counts this unit 5 of 6
+// (340 of its 368 bytes) while unitcmp counts 6 of 6: objdiff names a
+// local target symbol by appending its address to the mangled name, and
+// no C++ identifier can produce a name with a suffix past its own
+// mangling. The one local symbol paired anywhere in the report is a C
+// static whose identifier carries the address (revolution AXFXHooks);
+// spelling this one that way would mean an extern "C" function named
+// after the mangling, which is not the symbol retail emitted.
+static void EventSpyEventWrapper(xBase* from, xBase* to, unsigned int event,
+                                 Sext::EventAny* any);
 
 namespace World {
 
@@ -139,8 +149,8 @@ zEventSpy* Sext::zEventSpyAsset::Create(World::EntityHandleBase* handle,
     return spy;
 }
 
-void EventSpyEventWrapper(xBase* from, xBase* to, unsigned int event,
-                          Sext::EventAny* any) {
+static void EventSpyEventWrapper(xBase* from, xBase* to, unsigned int event,
+                                 Sext::EventAny* any) {
     to->HandleEvent(from, event, any);
 }
 

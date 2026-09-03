@@ -7,18 +7,18 @@ numbers here, which move.
 ## State at time of writing
 
 ```
-Game Code:  67 of 777 files complete  112,788 / 2,116,616 bytes  1,257 / 10,697 fn
-            5.3287% of game code
+Game Code:  67 of 777 files complete  125,308 / 2,116,616 bytes  1,377 / 10,697 fn
+            5.9202% of game code
 
-Of those 1,257 functions, 759 are GENERATED -- machine-recognised
+Of those 1,377 functions, 759 are GENERATED -- machine-recognised
 shapes, not one of which is decompiling. They are real matched
 functions and the offsets and constants are recovered fact, but a
 count of them is not a count of decompiled code. HAND-WRITTEN IS
-498, across 121 units and 104,136 bytes, and that is the figure to
+618, across 154 units and 116,656 bytes, and that is the figure to
 compare against earlier ones.
 
 Data:       4 unit(s) carry their own, 412 bytes; 134 more could
-All:        3.44% matched              main.dol reproduces byte for byte
+All:        3.62% matched              main.dol reproduces byte for byte
 ```
 
 Every number above is written by `python tools/notes_state.py`,
@@ -859,6 +859,30 @@ The mutation test lives in `unitcmp_check.py` beside the flag-drift
 one: move every retail address by four and the byte-identical count
 MUST fall, or the comparison is dead.
 
+## unitcmp COMPILED EVERY RUN TO ONE OBJECT PATH
+
+Found while fanning a batch of small units out to four parallel
+agents, which CLAUDE.md recommends. `compile_unit` wrote
+`build/_unitcmp.o` -- one fixed name, no lock -- and then read it
+back. Two runs at once therefore share it: the second run's compile
+lands between the first run's compile and its read, and the first
+run reports the SECOND unit's functions as its own answer. Nothing
+looks wrong when it happens. The names in that object are real
+retail names, so every line reads as an ordinary verdict, and the
+count at the bottom is a real count -- of the wrong unit.
+
+The object is now named per process and removed at exit. Validated
+the way CLAUDE.md asks: against six units whose answers were already
+recorded -- zEventSpy 6 of 6, RenderModeEntity 7 of 7, xUIDMgr 6 of
+6, zGameState 7 of 9, zDecal 4 of 6, zBTDepot 4 of 5 -- and then
+three runs started at once, each of which reported its own unit.
+
+Worth stating plainly, because the fix is small and the lesson is
+not: the tool had been right for every serial run since it was
+written, and the first thing that made it lie was using it the way
+the instructions recommend. A shared temporary is a correctness
+question the moment anything runs twice at once.
+
 ## The generators were not exhausted; the SHAPE SET was
 
 NOTES said the generators were finished because `gen_accessors
@@ -1432,6 +1456,97 @@ Then one of these, in the order they are worth doing:
      stands at every distance tried; the float-base section above lists
      what has been ruled out for it. zBouncer and zSBPlayerActions stand
      at the same line.
+
+   **Thirty-five units at once, written in parallel.** Game Code 5.33% to
+   5.92%, 1,257 functions to 1,377; report.json counts 121 of the 132
+   functions in the new units byte-identical, 12,592 bytes. 67 linked,
+   unchanged, because nearly every one carries its unity unit's literals.
+
+   TWENTY-EIGHT units are exact whole by `unitcmp.py`, which is the
+   stricter of the two counts: `MemoryUtil` 8 of 8, `WAD00_1_3` 8, `xTimer`
+   8, `zNavLink` 7, `WAD00_1_2` 6, `zBTNodeSequence` 5, `zPlayerBase` 5,
+   `zReference` 5, `ImmediatePrototypeEntity` 5, `zRandomModelList` 4,
+   `View` 4, `zCombatSystem` 4, `zFXRibbonPool` 4, `zNPCGroupBase` 4,
+   `zUIController` 4, `RawBlobEntity` 3, `xTagParser` 3, `xTextDepot` 3,
+   `zNPCAsset` 3, `zPhysicsObjectEntity` 3, `zProjectileEntity` 3,
+   `Channel` 2, and `MediaConfig`, `StartupConfig`, `WAD00_27`,
+   `WAD03_28`, `xRegionSupport` and `keycode` at one each. Seven are
+   partial and say so in their own files: `LightKitEntity` 5 of 6,
+   `zSoundPhysics` 3 of 5, `Exception` 2 of 3, `WAD01_5` 2 of 3,
+   `zNPCQuickTimeCombat` 2 of 4, `zNPCHelper` 1 of 3, and `WADSpeed_3`,
+   which needs a flag and a symbol name this batch did not change.
+
+   The two counts disagree in exactly two places, and each disagreement is
+   a tool answering a different question. `keycode` is 1 of 1 by unitcmp
+   and 0 of 1 in the report, because retail's symbol is LOCAL and objdiff
+   names a local target with its address appended, so nothing in our
+   object pairs with it; zEventSpy's event wrapper is the same case. And
+   `Exception` is 3 of 3 in the report and 2 of 3 by unitcmp: every
+   instruction word of its MapFileData destructor is identical and the one
+   that differs is a relocation's NAME, which the report cannot see -- the
+   blindness the section above this one is about. Where they differ, the
+   count that checks the branch target is the one to believe.
+
+   The method was six agents at a time on triaged lists, and every claim
+   re-measured here with `unitcmp.py` before it was believed. Two things
+   made that work and one nearly broke it:
+
+   * **`unitcmp.py` compiled every run to one object path.** Found by
+     running it the way this file recommends -- several agents at once --
+     and it is worth its own section above. A run could read the object
+     another had just written and report THAT unit's functions as its
+     answer, and nothing about the output looks wrong when it happens.
+   * **`disasm.py` annotated addresses it had already adjusted.** A
+     `lis` followed by an `addi` finishes an address, and the tool went
+     on annotating later accesses from the bare `lis`: MemoryUtil read as
+     though its initialiser and its getters touched two different sets of
+     variables. It also kept annotating through registers that had since
+     been LOADED from memory, so a member access off a runtime pointer
+     got a confident address in the engine's data. Both are fixed, the
+     high half now travels through `addi`/`addis` and dies on any write,
+     and the twelve units re-disassembled to check it changed 90
+     annotations and not one instruction.
+   * **A triage pass first.** Two things make a unit unreachable as a
+     fragment -- four or more distinct float literals in one function,
+     and defining or calling a symbol in a unity unit's unnamed namespace
+     -- and both are visible from the image before any source is written.
+     Checking them first is what kept 34 of 36 attempts productive.
+
+   What the units taught, each recorded in the file that used it:
+
+   * A conditional EXPRESSION whose true side is the value already in
+     hand gives retail's branch-to-else-then-jump-past pair; an `if`
+     inverts the branch and costs a word, and an `if` with an empty then
+     is folded away to the same thing. zNPCAsset's Prepare and zNavLink's
+     two nearest-distance choices are all this shape.
+   * A `return` written between the tests and the work stays there;
+     folded into the function's final return it moves to the end and
+     inverts the last branch.
+   * Declaration order picks the callee-saved pair, even for a local
+     assigned only inside a branch: zNPCAsset's template uid is declared
+     UNINITIALISED above the character id to take r31:r30.
+   * A function returning a class by value is copied into a NAMED
+     variable and not into an argument temporary, so xTagParser's font is
+     the temporary passed straight to the text box's create -- naming it
+     costs a second copy loop.
+   * A function-local static with a CONSTRUCTOR gets the guard byte the
+     image holds as @GUARD@; without one it is initialised statically and
+     the function is half the size.
+   * A pointer to member called in a loop is declared INSIDE the loop,
+     after the loop's object is read into its own local.
+   * A member read for a test and again for the call after it folds into
+     one load however it is spelled; where retail has two, the test reads
+     through a volatile view.
+   * The .bss padding lever again: three globals addressed from one base
+     put MemoryUtil's flag at displacement 6524, not 0.
+   * Assignment order picks floating-point registers too -- cross_ypos
+     assigns its negation first and cross_xpos its zero first, and the
+     stores come out in the same order either way.
+
+   And two units are matched by the bytes but not by the report, for the
+   same reason: `keycode` and `zEventSpy`'s event wrapper are LOCAL
+   symbols in retail, which objdiff names with their address appended, so
+   nothing in our object pairs with them. Each file says so.
 
 3. **FixWmlType's last seven instructions.** 11,944 bytes in one
    function, generated by `tools/gen_wmltypes.py`. The dispatch

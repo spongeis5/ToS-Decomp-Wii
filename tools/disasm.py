@@ -126,12 +126,15 @@ def signed(v, bits=16):
 
 class Decoded(object):
     def __init__(self, text, target=None, base_reg=None, disp=None,
-                 sets_hi=None, uses=None, known=True):
+                 sets_hi=None, uses=None, known=True, dest=None,
+                 writes=None):
         self.text = text
         self.target = target        # a branch destination
         self.base_reg = base_reg    # a D-form base register
         self.disp = disp            # its displacement
         self.sets_hi = sets_hi      # (register, value<<16) for lis
+        self.dest = dest            # register an addi/addis writes
+        self.writes = writes        # any register this writes
         self.known = known
 
 
@@ -197,7 +200,9 @@ def decode(w, addr):
             return Decoded("%-8sr%d,0x%04X" % ("lis", d, imm),
                            sets_hi=(d, imm << 16))
         return Decoded("%-8sr%d,r%d,%d" % (nm, d, a, signed(imm)),
-                       base_reg=a, disp=signed(imm))
+                       base_reg=a, disp=signed(imm),
+                       dest=d if nm in ("addi", "addis") else None,
+                       writes=d)
 
     if op in LOGIC_D:
         return Decoded("%-8sr%d,r%d,0x%04X" % (LOGIC_D[op], a, d, imm))
@@ -217,7 +222,9 @@ def decode(w, addr):
         nm = D_FORM[op]
         reg = ("f%d" if op in FLOAT_D else "r%d") % d
         return Decoded("%-8s%s,%d(r%d)" % (nm, reg, signed(imm), a),
-                       base_reg=a, disp=signed(imm))
+                       base_reg=a, disp=signed(imm),
+                       writes=(d if (nm[0] == "l" and
+                                     op not in FLOAT_D) else None))
 
     if op in (20, 21, 23):                            # rlwimi/rlwinm/rlwnm
         nm = {20: "rlwimi", 21: "rlwinm", 23: "rlwnm"}[op]
@@ -444,9 +451,30 @@ def show(raw, secs, funcs, objs, addr, size, name):
             nm = name_at(funcs, objs, full)
             note = "  = %08X%s" % (full, "  %s" % nm if nm else "")
 
+        mnem = dc.text.split()[0]
+
         if dc.sets_hi:
             hi[dc.sets_hi[0]] = dc.sets_hi[1]
-        elif dc.base_reg is None:
+        elif dc.dest is not None:
+            # addi/addis FINISHES the address: carry it, so a later
+            # D-form access through the register is annotated from
+            # the adjusted base and not from the bare lis.
+            if dc.base_reg in hi:
+                shift = 16 if mnem == "addis" else 0
+                hi[dc.dest] = ((hi[dc.base_reg] + (dc.disp << shift))
+                               & 0xFFFFFFFF)
+            elif dc.dest in hi:
+                del hi[dc.dest]
+        elif dc.base_reg is not None:
+            # A load writes a register, and an update form also
+            # writes its own base: either way the address a lis put
+            # there is gone, and annotating from it is a confident
+            # wrong answer rather than a missing one.
+            if dc.writes is not None and dc.writes in hi:
+                del hi[dc.writes]
+            if mnem.endswith("u") and dc.base_reg in hi:
+                del hi[dc.base_reg]
+        else:
             # Any write to a register invalidates a pending lis in it.
             m = re.match(r"\S+\s+r(\d+)", dc.text)
             if m and int(m.group(1)) in hi:

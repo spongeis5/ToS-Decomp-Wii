@@ -33,6 +33,8 @@ imported for its variables), and a stale copy would measure a build nobody
 makes.  So the copy is verified, and the module refuses to load if it drifts.
 """
 import re
+import atexit
+import os
 import subprocess
 import sys
 from pathlib import Path
@@ -327,14 +329,27 @@ def source_of(unit):
     return "src/" + unit + ".cpp"
 
 
+def _drop_object(path):
+    try:
+        os.unlink(path)
+    except OSError:
+        pass
+
+
 def compile_unit(unit, extra=()):
-    obj = REPO / "build/_unitcmp.o"
+    # Per PROCESS, not a fixed name: two runs at once (a batch of
+    # parallel agents) shared one path, and whichever read second got
+    # the other unit's object. Its function names are real retail
+    # names, so the verdict read as an ordinary answer for the unit
+    # that did not compile it.
+    obj = REPO / ("build/_unitcmp_%d.o" % os.getpid())
     r = subprocess.run(
         [CC] + BASE + list(extra) + ["-o", str(obj), source_of(unit)],
         cwd=str(REPO), capture_output=True, text=True)
     if r.returncode:
         return None, "COMPILE FAILED (exit %d)\n%s%s" % (
             r.returncode, r.stdout, r.stderr)
+    atexit.register(_drop_object, obj)
     return obj, None
 
 

@@ -423,6 +423,15 @@ EXPECT = {
     "SB/NG/Source/Engine/Graphics/Texture": (4, 5),
     "SB/NG/Source/Engine/Memory/MallocDebugWrapper": (6, 6),
     "SB/NG/Source/Engine/Memory/MemTracker": (5, 7),
+    "SB/GM/Engine/Core/x/xEvent": (4, 5),
+    "SB/GM/Engine/Game/zCamTargetSpline": (6, 6),
+    "SB/GM/Engine/Game/zNPCTemplate": (3, 5),
+    "SB/NG/Source/Engine/Entities/Blobs/CMeshBlobEntity": (5, 7),
+    "SB/NG/Source/Engine/Entities/GeometryEntity": (3, 6),
+    "SB/NG/Source/Engine/Entities/ImmediateInstanceArticle": (5, 7),
+    "SB/NG/Source/Engine/Entities/LightKitSceneEntity": (8, 8),
+    "SB/NG/Source/Engine/Memory/PoolManager": (7, 7),
+    "SB/NG/Source/Engine/Scaleform/ScaleformAllocator": (6, 6),
 }
 
 

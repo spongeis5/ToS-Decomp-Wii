@@ -1,12 +1,24 @@
 
 //
-// NEAR MISS, two of the four. AllAttached is 72 of 83 words and
-// RenderCounter 18 of 24 -- ours is four words short there, so a
-// whole construct is missing rather than a register being wrong.
-// Neither was carried further: the session that wrote this unit was
-// cut off with the two accessors already exact, and nothing here
-// records a spelling that was tried and rejected, because none was.
-// Start from the aligned diff:
+// NEAR MISS, two of the four.
+//
+// RenderCounter is 21 of 24 words, and its one remaining difference
+// is a branch form. Two of the four it was short came from the
+// hit-point test: retail materialises that comparison into a
+// register (fcmpo, cror, mfcr, rlwinm., bnelr) rather than branching
+// on the condition register, which is what an if on the comparison
+// gives -- the result has to be assigned to a bool LOCAL first, the
+// same lever zBTNodeCondition's SelfDone needed. A third came from
+// nesting the last two guards inside the attacking test instead of
+// leaving them as sequential early returns. What is left: retail
+// branches FORWARD to those two guards and falls through to a bare
+// blr (bne, blr), where ours returns conditionally (beqlr) and saves
+// the word. A goto to a label after an explicit return -- which is
+// that layout written out -- is folded back to the same beqlr.
+//
+// AllAttached is 72 of 83 words and has not been read: the session
+// that wrote this unit was cut off, and no spelling has been tried
+// and rejected for it. Start from the aligned diff:
 //
 //   python tools/unitcmp.py SB/GM/Engine/Game/zNPCQuickTimeCombat.cpp
 //
@@ -262,19 +274,19 @@ void zNPCQuickTimeCombat::RenderCounter() {
         return;
     }
 
-    if (currentHP <= 0.0f) {
+    bool dead = currentHP <= 0.0f;
+
+    if (dead) {
         return;
     }
 
-    if (!attacking) {
-        return;
-    }
+    if (attacking) {
+        if (attackStatus != eNPCCombatAttackStatus_None) {
+            return;
+        }
 
-    if (attackStatus != eNPCCombatAttackStatus_None) {
-        return;
-    }
-
-    if (elapsedTime >= currentTimeToReact) {
-        return;
+        if (elapsedTime >= currentTimeToReact) {
+            return;
+        }
     }
 }

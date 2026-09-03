@@ -39,12 +39,20 @@
 // index of `ms_slotsLast - 1` gives; the array base is read a third time
 // for it.
 //
-// NEAR MISS, two of the five. zSoundSourcesPhysics::Init is 31 of 66
-// words, ours five words short, and InitMemory 25 of 31 with the same
-// count both sides. The three that match were exact as written; the
-// session that wrote this unit was cut off before it read either
-// difference, so no spelling has been tried and rejected for them.
-// Start from the aligned diff:
+// NEAR MISS, two of the five.
+//
+// InitMemory is 25 of 31 words and every one of them is the same pair
+// of registers: retail holds the allocated block in r29 and the loop's
+// counter in r30, ours the other way round, with the byte offset in
+// r31 either way. That is the shape NOTES.md records as having four
+// other instances and no answer -- BuildMemory, Texture,
+// SkeletonBlobEntity and zNPCType::Setup. Declaring the counter above
+// the block, which is the lever that works elsewhere, changes nothing
+// here.
+//
+// Init is 31 of 66 words, ours five short, and has not been read: the
+// session that wrote this unit was cut off, so no spelling has been
+// tried and rejected for it. Start from the aligned diff:
 //
 //   python tools/unitcmp.py SB/GM/Engine/Game/zSoundPhysics.cpp
 //

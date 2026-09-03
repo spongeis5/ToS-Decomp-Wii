@@ -61,6 +61,34 @@
 // give the unit a path whose basename is the blob's, which is an edit to
 // splits.txt and configure.py and not to this file.
 //
+// Two things measured since, both of which the next attempt needs.
+//
+// APPENDING -O4,p DOES NOTHING. mwcc keeps the FIRST -O it is given,
+// so `python tools/unitcmp.py SB/NG/Engine/WADSpeed_3 `-O4,p`` --
+// unitcmp passes extra arguments after its own BASE -- compiles at
+// -O4,s and prints the -O4,s answer, which reads exactly like a
+// refutation of the paragraph above. The flag has to REPLACE -O4,s,
+// not follow it. Any harness that does the replacing should be checked
+// against a unit configure.py already records as flag-sensitive before
+// it is believed: zPlayerContainer::ContainsEnt is exact at -O4,s and
+// comes out 13 words against retail's 14 at -O4,p, and a harness that
+// cannot reproduce that is not evidence about anything else. Done that
+// way, -O4,p on this unit does what the paragraph says: both EXTRA
+// constructors disappear -- they inline into the initialiser -- and the
+// object is left holding the initialiser alone.
+//
+// AND THE TOOL WOULD NOT FOLLOW. project.py does support per-object
+// flags, but unitcmp's BASE is a hardcoded list carrying -O4,s and its
+// drift guard only checks that list against cflags_game. Give this unit
+// its own cflags in configure.py and the build compiles it at -O4,p
+// while unitcmp, unitcmp_pins, unitcmp_check and reloc_audit all keep
+// measuring it at -O4,s -- the tools would disagree with the build and
+// say so about the wrong thing. So the route is three edits, not two:
+// the path, the per-object flags, and teaching unitcmp to take a unit's
+// flags from configure.py rather than from a constant. The third is the
+// one to be careful with, because every other unit's verdict goes
+// through it.
+//
 // Spellings tried for the inlining under -O4,s, none of them moving a word:
 // the constructor defined in the class body, defined outside it as `inline`,
 // with #pragma always_inline on around the class and around the object

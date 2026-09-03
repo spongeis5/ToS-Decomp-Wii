@@ -2152,7 +2152,7 @@ first try once it was read that way. Where retail stores ASCENDING the
 statements are separate -- `flags = 0; changed = 0;` in the same
 function -- so the order distinguishes the two spellings rather than
 leaving it to taste.
-## Three traps worth knowing
+## Traps worth knowing
 
 **A survey that cannot see what is finished reports finished work as
 remaining.** `gen_survey.py` said in its own docstring that it counted only
@@ -2168,6 +2168,20 @@ re-run it, objdiff has no `base_path` for the unit and the object you are
 looking at is the TARGET, not your build. This produced a confident and
 completely wrong "byte-identical" reading once.
 
+**An APPENDED compiler flag can be silently ignored.** mwcc keeps the
+FIRST `-O` it is given, and unitcmp passes extra arguments after its own
+BASE, so `python tools/unitcmp.py <unit> '-O4,p'` compiles at -O4,s and
+prints the -O4,s answer. Nothing warns. It is the benign-looking value
+again, and worse than usual because it reads as a REFUTATION -- the
+claim under test was that a unit wants -O4,p, and the run says it
+changes nothing. To test an -O flag it has to REPLACE the one in BASE.
+And check the replacing harness against an answer already recorded
+before believing it about a new one: configure.py records
+zPlayerContainer::ContainsEnt as exact at -O4,s and 13 words against
+retail's 14 at -O4,p, and a harness that cannot reproduce that pair is
+not evidence about anything. This was found by running that control
+after an append-based test had already produced a confident wrong
+answer.
 **objdiff scoring 100% does not mean the unit links.** `zCamSplineCommonMix`
 compiled to byte-identical instructions while referring to a symbol that did
 not exist -- `Follower` is nested in `zCameraCurve`, and the DWARF gives leaf

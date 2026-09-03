@@ -76,6 +76,21 @@
 // in-class at line 191 and none of the four classes declares a
 // destructor. Start by finding what makes mwcc emit them anyway.
 //
+// What retail does, read out of __dt__Q28Graphics13GenericShaderFv
+// (0x801C17D0, 96 bytes): it calls __dt__12hkBaseObjectFv TWICE --
+// once on the RenderMode member at +76 with a flag of -1, once on
+// `this` with a flag of 0 -- and then __dl__FPv when the flag is
+// positive. So in retail NOTHING between RenderMode or Node and
+// hkBaseObject has a destructor of its own: either they were folded
+// onto it or they were never emitted. Ours names its own four, and
+// the branches then carry the wrong symbol as well.
+//
+// Swept on hkBaseObject's destructor, and none of the three removes
+// a single EXTRA: virtual and undefined as written, 3 of 12;
+// declared NOT virtual, 1 of 12; virtual with an empty inline body,
+// 4 of 13 -- that one matches one more function and emits one more.
+// So it is not hkBaseObject's spelling that forces them.
+//
 // WHAT THE BYTES SETTLED, and each of these was one compile:
 //
 //   * AN INTERMEDIATE CLASS WITH NO DECLARED DESTRUCTOR DOES NOT GET

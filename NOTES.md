@@ -7,18 +7,18 @@ numbers here, which move.
 ## State at time of writing
 
 ```
-Game Code:  67 of 777 files complete  125,308 / 2,116,616 bytes  1,377 / 10,697 fn
-            5.9202% of game code
+Game Code:  67 of 777 files complete  135,400 / 2,116,616 bytes  1,454 / 10,697 fn
+            6.3970% of game code
 
-Of those 1,377 functions, 759 are GENERATED -- machine-recognised
+Of those 1,454 functions, 759 are GENERATED -- machine-recognised
 shapes, not one of which is decompiling. They are real matched
 functions and the offsets and constants are recovered fact, but a
 count of them is not a count of decompiled code. HAND-WRITTEN IS
-618, across 154 units and 116,656 bytes, and that is the figure to
+695, across 170 units and 126,748 bytes, and that is the figure to
 compare against earlier ones.
 
 Data:       4 unit(s) carry their own, 412 bytes; 134 more could
-All:        3.62% matched              main.dol reproduces byte for byte
+All:        3.78% matched              main.dol reproduces byte for byte
 ```
 
 Every number above is written by `python tools/notes_state.py`,
@@ -1510,7 +1510,11 @@ Then one of these, in the order they are worth doing:
      fragment -- four or more distinct float literals in one function,
      and defining or calling a symbol in a unity unit's unnamed namespace
      -- and both are visible from the image before any source is written.
-     Checking them first is what kept 34 of 36 attempts productive.
+     Checking them first is what kept 34 of 36 attempts productive, and
+     `tools/unit_triage.py` is that check: it reads report.json for
+     what is left, disassembles each candidate once, and prints the
+     two blockers beside the size. Of the 23 untouched units at most
+     700 bytes and six functions, it calls 12 clear.
 
    What the units taught, each recorded in the file that used it:
 
@@ -1547,6 +1551,66 @@ Then one of these, in the order they are worth doing:
    same reason: `keycode` and `zEventSpy`'s event wrapper are LOCAL
    symbols in retail, which objdiff names with their address appended, so
    nothing in our object pairs with them. Each file says so.
+
+   **Sixteen more, the same way.** Game Code 5.92% to 6.40%, 1,377
+   functions to 1,454; 77 of the 84 functions in the new units are
+   byte-identical, 10,092 bytes. Eleven are exact whole: `zBTNodeCondition`
+   8, `zCamPool` 8, `MallocDebugWrapper` 6, `zLetterbox` 6,
+   `zNPCExtraModel` 6, `zUIUserString` 6, `MemTracker` 5, `zNPCBTAction` 5,
+   `zWallNetGroup` 5, `zFMV` 4 and `zSweptCircle` 3. Five are partial and
+   say so: `BuildMemory` 4 of 6, `Texture` 4 of 5, `iMath3` 3 of 4,
+   `SkeletonBlobEntity` 3 of 5 and `zPlayerTemplate` 2 of 3.
+
+   `tools/unit_triage.py` came out of this batch and is described above.
+
+   What they taught, each recorded in the file that used it:
+
+   * A conditional expression's TRUE side wants to be the value already
+     in hand: `0.0f > curDist ? 0.0f : curDist` gives the bare branch
+     retail has, where every `<=` form adds a cror.
+   * A ternary over ENUM constants stays a branch; over plain ints mwcc
+     folds it to `1 + (x == 4)` with cntlzw and a shift.
+   * A loop bound the DWARF types `int` can still be compared unsigned --
+     `i < 4U` is what gives cmplwi.
+   * mwcc lays a scope's locals out in REVERSE declaration order, which
+     is how eight output slots at fixed displacements were placed.
+   * A 64-bit equality has an operand order too: the argument pair first.
+   * A `NewArray` template needs an explicit `inline` even under
+     -inline auto, and even when its body is one expression.
+   * An appended character goes through TWO locals, an int then a char;
+     one char local drops retail's extsb. And a subscript carries its own
+     step, `buffer[length++]` and `buffer[--length]`.
+   * An and-chain of inequalities assigned to a LOCAL becomes the
+     shift-and-mask; used directly as an if's condition it short-circuits
+     into compares instead.
+   * A base the DWARF gives four bytes and no members is the derived
+     class's vtable pointer: declare it EMPTY, since a virtual of its own
+     pushes every slot below it down by one.
+   * `#pragma pool_strings off` is right for a unit whose strings the
+     image keeps as separate 4-aligned objects with duplicates unfolded.
+
+   Two things already written down needed amending, both measured:
+
+   * **The inliner's floor is not only four stores.** A helper with NO
+     stores and a loop is refused too, `#pragma always_inline on`
+     included -- zWallNetGroup's containment test, which had to be
+     written out in its caller.
+   * **unitcmp cannot tell an inlined one-expression predicate from a
+     bool local**, because both give the same bytes. `dwarf_lines.py` and
+     `dwarf_locals.py` can: the first puts the whole guard on one source
+     line, the second says the unit has no named local. Two units were
+     rewritten on that evidence with the bytes unchanged.
+
+   And one shape now has three instances and no answer: a loop's COUNTER
+   and the pointer it walks come out in the opposite callee-saved
+   registers from retail's, with every other word identical --
+   BuildMemory's two module hooks, Texture's LOD loop and
+   SkeletonBlobEntity's Create. Between them some forty spellings have
+   been swept -- the counter outside the loop, pre-increment, `!=`,
+   while, do/while, `register`, `long`, `short`, a const bound, pointer
+   arithmetic, every declaration order of the locals involved, and
+   compiler 1.3 -- and none moves a word. It is the same question
+   zNPCType::Setup has been asking since it was written.
 
 3. **FixWmlType's last seven instructions.** 11,944 bytes in one
    function, generated by `tools/gen_wmltypes.py`. The dispatch

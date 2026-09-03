@@ -446,6 +446,7 @@ EXPECT = {
     "SB/NG/Engine/WAD02_4_1": (2, 3),
     "SB/NG/Source/Engine/Entities/Wii/RVLFaceLibEntity": (4, 4),
     "SB/GM/Engine/WAD01_14": (4, 5),
+    "SB/NG/Source/Engine/Graphics/MaterialDepot": (6, 9),
 }
 
 

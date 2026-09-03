@@ -7,14 +7,14 @@ numbers here, which move.
 ## State at time of writing
 
 ```
-Game Code:  67 of 777 files complete  151,556 / 2,116,616 bytes  1,570 / 10,697 fn
-            7.1603% of game code
+Game Code:  67 of 777 files complete  151,900 / 2,116,616 bytes  1,576 / 10,697 fn
+            7.1765% of game code
 
-Of those 1,570 functions, 759 are GENERATED -- machine-recognised
+Of those 1,576 functions, 759 are GENERATED -- machine-recognised
 shapes, not one of which is decompiling. They are real matched
 functions and the offsets and constants are recovered fact, but a
 count of them is not a count of decompiled code. HAND-WRITTEN IS
-811, across 193 units and 142,904 bytes, and that is the figure to
+817, across 194 units and 143,248 bytes, and that is the figure to
 compare against earlier ones.
 
 Data:       4 unit(s) carry their own, 412 bytes; 134 more could
@@ -1673,6 +1673,16 @@ Then one of these, in the order they are worth doing:
 
    Both units say the same thing about records: the mechanism written
    down was worth keeping, the conclusion drawn from it was not.
+   **`MaterialDepot`, the first of the twelve.** 6 of the 9 functions
+   its object defines, 344 bytes; the five large ones and the
+   std::swap instantiation are not written. Two mangled names settled
+   the list types and were worth more than any spelling: retail's
+   `PushBack__Q24Util12NodeListBaseFPQ34Util12NodeListBase10NodeHeader`
+   puts three qualifiers on the parameter, so NodeHeader is nested
+   inside NodeListBase rather than at Util scope, and `Unlink` is
+   STATIC -- retail passes the node in r3, where a member call would
+   put `this`. Those two took Erase from 3 of 13 words to exact and
+   AddMaterial and AddEffect from one differing word each to exact.
    **One more, written in this window rather than by an agent.**
    `WAD01_14` is 4 of the 5 functions its object defines, 436 of the
    unit's 624 bytes, no extra. Game Code 7.14% to 7.16%, 1,566 matched
@@ -2279,6 +2289,40 @@ It is still a pragma and still the closest measured state rather than
 what the original said. But the placement rule is a fact about the
 compiler, and it applies to every template this project has yet to
 write.
+## WHAT 10% OF GAME CODE COSTS, measured
+
+Asked for 10%, the arithmetic is worth writing down rather than
+re-deriving. Game Code is 2,116,616 bytes. 10% is 211,661; at 7.18% the
+shortfall is about **60,000 bytes**. Three routes were measured, not
+guessed:
+
+**The generators are spent.** `gen_survey.py` finds 5 functions across 4
+units still holding a known shape. Whatever comes next is hand-written,
+or a shape nobody has recognised yet.
+
+**The big functions hold the mass but are the hardest.** The 50 largest
+unmatched game functions are 207,416 bytes, three and a half times the
+shortfall; the largest 200 are 477,212. But the biggest single one,
+`FixWmlType` at 11,944 bytes, is already 2,979 of 2,986 instructions
+aligned with seven left, and the section above lists what has been ruled
+out for those seven. Size and difficulty rise together.
+
+**The practical route is the largest blocker-free units.**
+`tools/unit_triage.py --bytes 12000 --functions 40` lists 81 units clear
+of both blockers, and the twelve largest come to roughly 61,700 bytes --
+just over the shortfall. In order: SkinBuilderWii 9,304, MaterialDepot
+6,472, zHudSB 5,976, EntityManager 5,348, zNeoDrive 5,168, zHintSphere
+5,056, zDestructibles 4,420, zPathFinderSearchPathEvaluator 4,164,
+WAD01_17_1 4,152, wiitextures 4,096, zBTBuilder 3,808, WAD02_22_1 3,752.
+Allow for the functions that will not fall and it is nearer twenty units.
+
+**The rate.** The session that measured this moved Game Code 6.70% to
+7.18% -- about 10,000 bytes -- across seven commits, and roughly a third
+of that came from three parallel agents rather than from the main
+session. So 60,000 bytes is on the order of six more sessions of that
+size, and parallel agents are the single largest lever on it. That is
+the number to plan against; it is not a figure anyone should have to
+discover twice.
 ## Traps worth knowing
 
 **A survey that cannot see what is finished reports finished work as

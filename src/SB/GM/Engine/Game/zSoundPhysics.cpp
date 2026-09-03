@@ -39,18 +39,21 @@
 // index of `ms_slotsLast - 1` gives; the array base is read a third time
 // for it.
 //
-// NEAR MISS, two of the five.
+// NEAR MISS, one of the five, and InitMemory is no longer it.
 //
-// InitMemory differs in 7 of its 31 words and every one of them is the
-// same pair of registers: retail holds the allocated block in r29 and
-// the loop's counter in r30, ours the other way round, with the byte
-// offset in r31 either way. That is the shape NOTES.md records as
-// having four other instances and no answer -- BuildMemory, Texture,
-// SkeletonBlobEntity and zNPCType::Setup. Declaring the counter above
-// the block, which is the lever that works elsewhere, changes nothing
-// here, and neither does defining the counter with a value above the
-// allocation: that one is worse, ten differing words against seven,
-// re-measured on the state this file is committed in.
+// InitMemory used to differ in 7 of its 31 words, every one of them the
+// same pair of registers -- retail holding the allocated block in r29
+// and the loop's counter in r30, ours the other way round -- and
+// NOTES.md records four other instances of that shape. Two things
+// together closed it, and NEITHER alone moved a word: taking the
+// allocation into a `void*` and casting that to the array separately,
+// AND declaring the loop counter above the allocation. Both, and it
+// goes to 1 of 31; either one on its own leaves it at 7. The last word
+// was not a register at all but a branch NAME: xMemAlloc's size
+// parameter was declared `unsigned long`, which mangles Ul where the
+// image has Ui, so the call named a symbol that is not there. The
+// relocation audit does not catch that on its own because it only
+// audits functions that already match.
 //
 // Init differs in 64 of the 61 words that can be compared -- ours is
 // 244 bytes against retail's 264, five instructions short -- and has
@@ -68,7 +71,7 @@ namespace Memory {
 enum GlobalHeapEnum { GlobalHeapEnum_ = 0x7FFFFFFF };
 }  // namespace Memory
 
-void* xMemAlloc(Memory::GlobalHeapEnum heap, unsigned long size, int align,
+void* xMemAlloc(Memory::GlobalHeapEnum heap, unsigned int size, int align,
                 eMemMgrTag tag);
 
 extern "C" unsigned long strlen(const char* s);
@@ -247,12 +250,15 @@ void zSoundSourcesPhysics::StopAll() {
 }
 
 void zSoundSourcesPhysics::InitMemory() {
-    zSoundAssetMultiple* storage = (zSoundAssetMultiple*)xMemAlloc(
-        (Memory::GlobalHeapEnum)0, 32 * sizeof(zSoundAssetMultiple), 0,
-        (eMemMgrTag)3);
+    unsigned int i;
+
+    void* block = xMemAlloc((Memory::GlobalHeapEnum)0,
+                            32 * sizeof(zSoundAssetMultiple), 0,
+                            (eMemMgrTag)3);
+    zSoundAssetMultiple* storage = (zSoundAssetMultiple*)block;
 
     if (storage != 0) {
-        for (unsigned int i = 0; i < 32; i++) {
+        for (i = 0; i < 32; i++) {
             new (&storage[i]) zSoundAssetMultiple();
         }
     }

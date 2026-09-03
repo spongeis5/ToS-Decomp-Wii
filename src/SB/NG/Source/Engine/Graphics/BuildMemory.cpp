@@ -62,6 +62,19 @@
 // HIGHER callee-saved register of the pair and ours the lower -- so it
 // is one mechanism, not two, and neither file has reached it.
 //
+// The lever that later closed two OTHER instances of the shape --
+// zSoundWiimoteSpeakerList::Init and zSoundSourcesPhysics::InitMemory,
+// where a THIRD local whose live range crosses the loop, together with
+// the counter declared above it, matched both exactly -- does not reach
+// these two. Neither loop has an allocation to put in that third local,
+// so the nearest thing was tried: a local pointer to g_renderBuildBuffer.
+// Measured, RenderStartup then RenderShutdown: as written 6 of 41 and 7
+// of 30; with the buffer local 11 and 13; with the counter hoisted 6 and
+// 7; with both 8 and 10. The third local makes it worse here, which is
+// the opposite of what it does there, so whatever the mechanism is it is
+// not simply register pressure. Texture.cpp records the same lever
+// failing on its own instance.
+//
 // What was tried here, none of it moving a word: the counter declared
 // outside the loop, initialised there, pre-incremented, `!= 2` instead
 // of `< 2`, a `while`, a `do/while` (which costs 2 words in

@@ -374,7 +374,7 @@ EXPECT = {
     "SB/GM/Engine/Game/zProjectileEntity": (3, 3),
     "SB/GM/Engine/Game/zRandomModelList": (4, 4),
     "SB/GM/Engine/Game/zReference": (5, 5),
-    "SB/GM/Engine/Game/zSoundPhysics": (3, 5),
+    "SB/GM/Engine/Game/zSoundPhysics": (4, 5),
     "SB/GM/Engine/Game/zUIController": (4, 4),
     "SB/GM/Engine/WAD00_1_2": (6, 6),
     "SB/GM/Engine/WAD00_1_3": (8, 8),
@@ -438,6 +438,13 @@ EXPECT = {
     "SB/GM/Engine/WAD02_20_1": (4, 5),
     "SB/NG/Engine/WAD01_15": (3, 3),
     "SB/NG/Source/Engine/Graphics/Shaders/GenericShader": (7, 8),
+    "SB/GM/Engine/Game/zBTClient": (9, 9),
+    "SB/GM/Engine/Game/zNPCNinjaManager": (4, 7),
+    "SB/GM/Engine/Game/zSoundWiimoteSpeaker": (9, 9),
+    "SB/NG/Engine/WAD00_17": (3, 12),
+    "SB/NG/Engine/WAD01_12_1": (7, 7),
+    "SB/NG/Engine/WAD02_4_1": (2, 3),
+    "SB/NG/Source/Engine/Entities/Wii/RVLFaceLibEntity": (4, 4),
 }
 
 

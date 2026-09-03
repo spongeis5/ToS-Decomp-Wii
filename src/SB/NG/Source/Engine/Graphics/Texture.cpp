@@ -72,7 +72,16 @@
 // stride and `this` all agree. It is the same symptom BuildMemory.cpp
 // records beside it -- retail's loop counter takes the HIGHER
 // callee-saved register of the pair and ours the lower -- and nothing
-// tried reaches it. Ruled out, none moving a word except where noted:
+// tried reaches it.
+//
+// The lever that later closed two OTHER instances of this shape --
+// zSoundWiimoteSpeakerList::Init and zSoundSourcesPhysics::InitMemory,
+// where taking the allocation into a `void*` and casting it separately,
+// TOGETHER with declaring the loop counter above it, moved both to an
+// exact match -- does not move this one. Measured all four ways: as
+// written 8 of 95, the void* alone 8, the counter first alone 13, and
+// both together 13. So the shape has an answer in some functions and
+// this is not it. Ruled out, none moving a word except where noted:
 // all six declaration orders of the three named locals hoisted to the
 // top of the function (the three that declare the counter first are 13
 // of 95, the rest 8); the counter declared outside the `for` (13); the

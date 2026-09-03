@@ -432,6 +432,12 @@ EXPECT = {
     "SB/NG/Source/Engine/Entities/LightKitSceneEntity": (8, 8),
     "SB/NG/Source/Engine/Memory/PoolManager": (7, 7),
     "SB/NG/Source/Engine/Scaleform/ScaleformAllocator": (6, 6),
+    "SB/GM/Engine/Core/x/iCameraNG": (8, 8),
+    "SB/GM/Engine/Game/zBuyScreen": (8, 8),
+    "SB/GM/Engine/Game/zNPCUpdateLOD": (4, 5),
+    "SB/GM/Engine/WAD02_20_1": (4, 5),
+    "SB/NG/Engine/WAD01_15": (3, 3),
+    "SB/NG/Source/Engine/Graphics/Shaders/GenericShader": (7, 8),
 }
 
 

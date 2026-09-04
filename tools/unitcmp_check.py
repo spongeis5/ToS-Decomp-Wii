@@ -451,6 +451,7 @@ EXPECT = {
     "SB/GM/Engine/Game/zHintSphere": (6, 7),
     "SB/GM/Engine/Game/zHudSB": (15, 19),
     "SB/GM/Engine/Game/zNeoDrive": (8, 9),
+    "SB/NG/Source/Engine/World/EntityManager": (2, 7),
 }
 
 

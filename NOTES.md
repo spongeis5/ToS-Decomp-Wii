@@ -7,14 +7,14 @@ numbers here, which move.
 ## State at time of writing
 
 ```
-Game Code:  67 of 777 files complete  154,572 / 2,116,616 bytes  1,606 / 10,697 fn
-            7.3028% of game code
+Game Code:  67 of 777 files complete  154,656 / 2,116,616 bytes  1,608 / 10,697 fn
+            7.3068% of game code
 
-Of those 1,606 functions, 759 are GENERATED -- machine-recognised
+Of those 1,608 functions, 759 are GENERATED -- machine-recognised
 shapes, not one of which is decompiling. They are real matched
 functions and the offsets and constants are recovered fact, but a
 count of them is not a count of decompiled code. HAND-WRITTEN IS
-847, across 198 units and 145,920 bytes, and that is the figure to
+849, across 199 units and 146,004 bytes, and that is the figure to
 compare against earlier ones.
 
 Data:       4 unit(s) carry their own, 412 bytes; 134 more could

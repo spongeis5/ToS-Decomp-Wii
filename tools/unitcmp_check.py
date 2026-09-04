@@ -447,6 +447,10 @@ EXPECT = {
     "SB/NG/Source/Engine/Entities/Wii/RVLFaceLibEntity": (4, 4),
     "SB/GM/Engine/WAD01_14": (4, 5),
     "SB/NG/Source/Engine/Graphics/MaterialDepot": (6, 9),
+    "SB/GM/Engine/Game/zDestructibles": (3, 6),
+    "SB/GM/Engine/Game/zHintSphere": (6, 7),
+    "SB/GM/Engine/Game/zHudSB": (15, 19),
+    "SB/GM/Engine/Game/zNeoDrive": (8, 9),
 }
 
 

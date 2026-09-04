@@ -7,18 +7,18 @@ numbers here, which move.
 ## State at time of writing
 
 ```
-Game Code:  67 of 777 files complete  151,900 / 2,116,616 bytes  1,576 / 10,697 fn
-            7.1765% of game code
+Game Code:  67 of 777 files complete  154,572 / 2,116,616 bytes  1,606 / 10,697 fn
+            7.3028% of game code
 
-Of those 1,576 functions, 759 are GENERATED -- machine-recognised
+Of those 1,606 functions, 759 are GENERATED -- machine-recognised
 shapes, not one of which is decompiling. They are real matched
 functions and the offsets and constants are recovered fact, but a
 count of them is not a count of decompiled code. HAND-WRITTEN IS
-817, across 194 units and 143,248 bytes, and that is the figure to
+847, across 198 units and 145,920 bytes, and that is the figure to
 compare against earlier ones.
 
 Data:       4 unit(s) carry their own, 412 bytes; 134 more could
-All:        4.02% matched              main.dol reproduces byte for byte
+All:        4.06% matched              main.dol reproduces byte for byte
 ```
 
 Every number above is written by `python tools/notes_state.py`,
@@ -1673,6 +1673,31 @@ Then one of these, in the order they are worth doing:
 
    Both units say the same thing about records: the mechanism written
    down was worth keeping, the conclusion drawn from it was not.
+   **Four units off the twelve-largest list.** Game Code 7.18% to
+   7.30%, 1,576 matched functions to 1,606. `zHudSB` 15 of the 19 its
+   object defines (1,540 bytes), `zNeoDrive` 8 of 9 (676),
+   `zHintSphere` 6 of 7 (332) and `zDestructibles` 3 of 6 (324). None
+   is written whole -- these are the tractable functions in units whose
+   large ones are still open -- and every one carries what differs.
+
+   Four shapes recurred and are worth having in one place:
+
+   * **The mangled name says static or member.** zHintSphere needed
+     both directions in one file: World::EntityManager::FindAsset is
+     STATIC, because retail calls GetEntityManager and then overwrites
+     r3 -- the manager it just returned -- with the first argument,
+     which is what a static reached through an object expression does;
+     and zHintSoundSourceManager::HintIsPlaying is a MEMBER, because
+     retail reads its argument from r4 and not r3.
+   * **A word load is not a bool.** zDestructibles tests the idle
+     sound with lwz where a bool member gives lbz, so what is tested is
+     the sound's first pointer.
+   * **cmpwi against cmplwi names the signedness of a field.**
+     HitFilters::gameType is signed, and that was a whole function's
+     single differing word.
+   * **xMat4x3 deriving from xMat3x3 pays twice.** zNeoDrive got both
+     assignment operators byte-identical for free from the shape
+     iCameraNG recovered.
    **`MaterialDepot`, the first of the twelve.** 6 of the 9 functions
    its object defines, 344 bytes; the five large ones and the
    std::swap instantiation are not written. Two mangled names settled
@@ -2323,6 +2348,28 @@ session. So 60,000 bytes is on the order of six more sessions of that
 size, and parallel agents are the single largest lever on it. That is
 the number to plan against; it is not a figure anyone should have to
 discover twice.
+## A UNIT WRITTEN A FUNCTION AT A TIME NEEDS gen_poolprefix --whole
+
+Nine of `zHudSB`'s functions were each exactly ONE word wrong, and
+the word was the string offset every time. The default prefix is
+everything in the pool BEFORE the first string the unit introduces --
+which is right for a unit written whole, and wrong for one written a
+function at a time, because the strings between that first one and the
+ones the written functions use live in functions not written yet. Every
+later offset then comes out short by exactly the bytes of the missing
+strings.
+
+`python tools/gen_poolprefix.py --whole <unit>.cpp` emits the pool's
+whole contents instead -- 360 strings rather than 39 for zHudSB -- and
+the nine matched at once. The tool's own help says this (`--whole`:
+"a unit written a function at a time needs its own strings at their
+retail offsets too"), which is easy to read past when the default has
+just produced a header that looks right.
+
+It is not a cure for everything: run against the four other near-miss
+units carrying a pool header -- zGameState, CMeshBlobEntity,
+zNPCUPGeneric and zSBPlayerActions -- it changes none of their counts,
+so their remaining functions differ for other reasons.
 ## Traps worth knowing
 
 **A survey that cannot see what is finished reports finished work as

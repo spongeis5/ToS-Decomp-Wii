@@ -7,18 +7,18 @@ numbers here, which move.
 ## State at time of writing
 
 ```
-Game Code:  67 of 777 files complete  154,656 / 2,116,616 bytes  1,608 / 10,697 fn
-            7.3068% of game code
+Game Code:  67 of 777 files complete  155,952 / 2,116,616 bytes  1,612 / 10,697 fn
+            7.3680% of game code
 
-Of those 1,608 functions, 759 are GENERATED -- machine-recognised
+Of those 1,612 functions, 759 are GENERATED -- machine-recognised
 shapes, not one of which is decompiling. They are real matched
 functions and the offsets and constants are recovered fact, but a
 count of them is not a count of decompiled code. HAND-WRITTEN IS
-849, across 199 units and 146,004 bytes, and that is the figure to
+853, across 199 units and 147,300 bytes, and that is the figure to
 compare against earlier ones.
 
 Data:       4 unit(s) carry their own, 412 bytes; 134 more could
-All:        4.06% matched              main.dol reproduces byte for byte
+All:        4.08% matched              main.dol reproduces byte for byte
 ```
 
 Every number above is written by `python tools/notes_state.py`,
@@ -2370,6 +2370,48 @@ It is not a cure for everything: run against the four other near-miss
 units carrying a pool header -- zGameState, CMeshBlobEntity,
 zNPCUPGeneric and zSBPlayerActions -- it changes none of their counts,
 so their remaining functions differ for other reasons.
+## ONE TEMPLATE BODY, TWO INSTANTIATIONS, TWICE THE BYTES
+
+EntityManager instantiates `EmbeddedTreeAVL<T, Cmp, OFFSET>` at node
+offsets 28 and 36 -- two of the three EmbeddedTreeNode offsets in
+EntityHandleBase -- so four of its members appear in the image ONCE PER
+INSTANTIATION. Getting AuxiliaryDelete and BalanceRight right matched
+1,296 bytes from two bodies, and Delete and BalanceLeft are another
+1,768 waiting on the same trick. Nothing else on the twelve-largest
+list pays twice like this; it is worth looking for the pattern before
+picking a unit.
+
+**mwcc 1.1 takes explicit instantiation.** `template class Foo<...>;` at
+file scope emits every member that has a definition, and the mangled
+names come out exactly right, offsets included. Without it nothing is
+emitted at all, because a template member nothing calls is never
+instantiated -- and a unit written a function at a time has not written
+the callers yet. The template is at GLOBAL scope here, which the
+mangled name says: no namespace qualifier on EmbeddedTreeAVL itself.
+
+**The balance factor is biased.** The node packs the right child and
+two balance bits into one word, and the accessor returns
+`(word & 3) - 1` -- the classic -1/0/+1 AVL factor. Retail computes
+`rlwinm` then `addi -1` and compares against 1, 0 and -1; spelling the
+balance as a plain 0/1/2 gives three direct compares and 120 differing
+words instead of 28. One test inside the double rotation is the
+exception and reads the RAW bits, because retail has a single
+`rlwinm.` and `bne` there where the biased form costs two more
+instructions.
+
+**Two register levers finished it, and both are already recorded
+elsewhere in this file.** Declaring the double rotation's two locals at
+the TOP of the case -- ahead of the ones the earlier branches use --
+took BalanceRight from 28 differing words to 6. Reading the child's
+packed word into ONE named local, and deriving both the balance and the
+right pointer from it rather than calling two accessors, took the last
+six: retail reads that word once and keeps it in a scratch register.
+
+It does not transfer wholesale to the mirror. BalanceLeft is written as
+the mirror and sits at 54 of 128 words at retail's exact 512 bytes, and
+hoisting the NODE's packed word the way BalanceRight hoists the CHILD's
+makes it WORSE -- 115 of 126 with the switch on the raw value, 116 of
+127 with the switch left on the accessor. Measured, not assumed.
 ## Traps worth knowing
 
 **A survey that cannot see what is finished reports finished work as

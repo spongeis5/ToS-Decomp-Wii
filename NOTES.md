@@ -7,18 +7,18 @@ numbers here, which move.
 ## State at time of writing
 
 ```
-Game Code:  67 of 777 files complete  160,164 / 2,116,616 bytes  1,643 / 10,697 fn
-            7.5670% of game code
+Game Code:  67 of 777 files complete  161,200 / 2,116,616 bytes  1,644 / 10,697 fn
+            7.6159% of game code
 
-Of those 1,643 functions, 759 are GENERATED -- machine-recognised
+Of those 1,644 functions, 759 are GENERATED -- machine-recognised
 shapes, not one of which is decompiling. They are real matched
 functions and the offsets and constants are recovered fact, but a
 count of them is not a count of decompiled code. HAND-WRITTEN IS
-884, across 200 units and 151,512 bytes, and that is the figure to
+885, across 200 units and 152,548 bytes, and that is the figure to
 compare against earlier ones.
 
 Data:       4 unit(s) carry their own, 412 bytes; 134 more could
-All:        4.15% matched              main.dol reproduces byte for byte
+All:        4.16% matched              main.dol reproduces byte for byte
 ```
 
 Every number above is written by `python tools/notes_state.py`,
@@ -2453,6 +2453,60 @@ function-scope `n` is hoisted above the null check and materialised
 in r31 for every use, 36 and 68 words off; declared inside each
 branch, both matched at once. The balance routines are the opposite
 because their switch needs the node immediately.
+## WHAT -O4's AUTO-INLINER TAKES, and three spellings that are one word
+
+zBlackboard's 1,036-byte payload dispatcher is the unit's only plain
+function bigger than a screen, and retail's has three copies of
+`GetVariableType` and one of `Read<xVec3>` INLINED into it -- while the
+four `Read<T>` the image holds out of line are called. The unit is now
+25 of 25 and every byte of it, and four things were measured on the
+way there.
+
+**The auto-inliner judges the source, not the bytes.** GetVariableType
+as `if (v != 0) { return v->type; } return eVarType_Invalid;` compiles
+to 52 bytes and is never inlined; as `return v != 0 ? v->type :
+eVarType_Invalid;` it compiles to the SAME 52 bytes and is inlined at
+every call. Nothing in the flags moves that line: `#pragma
+inline_max_auto_size(20/40/100)`, `inline_max_size`, `inline_depth`,
+`auto_inline on`, placed at the top of the file or before the caller,
+all leave every call standing, and `inline` on an out-of-class member
+template definition changes nothing. So when retail inlined a small
+function and yours will not, the lever is a more compact spelling of
+the CALLEE, and a ternary is the compact one.
+
+**A callee's locals are allocated LAST, and that is how a slot lands at
++8.** The inlined Read<xVec3> keeps its cast pointer at 8(r1) and the
+GetValue temporary at 64(r1) -- the lowest slot of each size class --
+because mwcc assigns stack slots in declaration order within a size
+class and an inlined body's locals come after all of the caller's. No
+spelling of Read<T> is compact enough to inline (six were measured,
+and the compact ones break the standalone bytes), so the case is
+written out by hand around a tiny in-class helper that IS taken:
+`template <class T> zVariable<T>* CastTo(zVariableBase* v) const` that
+declares the pointer, calls Cast and returns it. Its one local is the
+one that lands at +8. Written flat in the case, the same pointer takes
++32 in declaration order and pushes every later local down a word.
+
+**`== false` lays the early return inline.** `if (!Read(source, v))
+return false; return Write(...)` comes out with the Write as the
+fall-through and the `li r3,0` after it; retail has the false return
+inline and branches over it to the Write. An explicit `else`, a bool
+local, the ternary and the Write-first form all give the first layout.
+`if (Read(source, v) == false) return false;` gives retail's, in all
+five cases at once -- 36 words to 1.
+
+**A named temporary flips one side of an equality compare.**
+`if (GetVariableType(writeTo) != sourceType)` and its mirror both emit
+`cmpw r29,r0`; retail has `cmpw r0,r29`. Neither the operand order nor
+the type of sourceType (int, unsigned) moves it. `eVarType targetType =
+GetVariableType(writeTo); if (targetType != sourceType)` does. The
+same function also wanted `eVarType sourceType;` DECLARED before
+`unsigned int source` and assigned after -- r28/r29 the other way
+round otherwise, nine words.
+
+Read this section as a set: each of the four was the whole remaining
+difference at the time, and each was found by a five-way sweep that
+included the obvious spelling and the obvious spelling lost.
 ## Traps worth knowing
 
 **A survey that cannot see what is finished reports finished work as

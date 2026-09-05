@@ -11,11 +11,13 @@
 // data members so the vptr lands there, the same shape zSoundAsset and
 // EntityMgrModule carry).
 //
-// MEASURED: 24 of the 24 functions this object defines are
-// byte-identical, 2,084 bytes of the unit's 3,120 -- and fourteen of the
-// twenty-four are THREE template bodies written once: Write<T> (five
+// MEASURED: 25 of the 25 functions this object defines are
+// byte-identical -- all 3,120 bytes of the unit -- and fourteen of the
+// twenty-five are THREE template bodies written once: Write<T> (five
 // instantiations, 800 bytes), Read<T> (four, 416) and
-// zVariableDynamicCast::Cast<T> (five, 160). What the bytes fixed:
+// zVariableDynamicCast::Cast<T> (five, 160). The object also emits a
+// Read<xVec3> the unit does not hold; the image has it as a weak
+// instantiation elsewhere and it matches there. What the bytes fixed:
 //
 //   * Reset and ResetVariable call the variable's FIRST virtual: retail
 //     reads vtable+8, and under CodeWarrior's two-word vtable header that
@@ -54,9 +56,17 @@
 //     pointer walk, an inlined setter, a reference or pointer to the
 //     value, the counter above alone, the hop alone) moved nothing.
 //     Third confirmation of that lever; see NOTES.
-//
-// STILL UNWRITTEN: the payload dispatcher Write(const
-// Sext::BlackboardWritePayload*), 1,036 bytes, the unit's last function.
+//   * The 1,036-byte payload dispatcher took four more, each the whole
+//     remaining difference at the time (NOTES, "what -O4's auto-inliner
+//     takes"): GetVariableType spelled as a ternary is the same 52
+//     bytes standalone and is auto-inlined three times where the if/else
+//     is never taken; the xVec3 case's cast pointer must be an inlined
+//     callee's local to take slot +8, so it goes through a tiny in-class
+//     CastTo<T>; `if (Read(...) == false) return false;` lays the false
+//     return inline where `!Read` and every other spelling put the Write
+//     first; and a named `targetType` for one side of the type compare
+//     turns `cmpw r29,r0` into retail's `cmpw r0,r29`, with `eVarType
+//     sourceType` declared before `source` for r28/r29.
 
 enum eMemMgrTag { eMemMgrTag_ = 0x7FFFFFFF };
 
@@ -182,6 +192,86 @@ void zVariableDynamicCast::Cast(zVariableBase* v, zVariable<T>*& out) {
     }
 }
 
+class zPlayerContainer {
+public:
+    zPlayer* playerArray[4];
+    int numPlayers;
+};
+
+class xGlobals {
+public:
+    unsigned char _pad0[0x428];
+    zPlayerContainer players;
+};
+
+extern xGlobals* xglobals;
+
+namespace Sext {
+
+enum eSourceType {
+    eSourceType_Variable = 0,
+    eSourceType_Value = 1,
+    eSourceType_Reset = 2
+};
+
+enum eBlackboardVariableType {
+    eBlackboardVariableType_Integer = 0,
+    eBlackboardVariableType_Float = 1,
+    eBlackboardVariableType_Boolean = 2,
+    eBlackboardVariableType_Player = 3,
+    eBlackboardVariableType_Vector3 = 4,
+    eBlackboardVariableType_UID = 5,
+    eBlackboardVariableType_EventData = 6
+};
+
+// 0x20: the target id, the source kind, and a union of the three
+// sources. The value's own union sits at +8 of ValueStruct because the
+// uid in it is eight-aligned.
+class BlackboardWritePayload {
+public:
+    class VariableStruct {
+    public:
+        unsigned int VariableName;
+    };
+
+    class ValueStruct {
+    public:
+        eBlackboardVariableType type;
+        union {
+            struct {
+                int Accumulate;
+                int Value;
+            } Integer;
+            struct {
+                int Accumulate;
+                float Value;
+            } Float;
+            unsigned char Boolean;
+            int Player;
+            // mwcc warns (10402) that a union cannot hold xVec3 because
+            // of its declared operator=, then lays it out anyway; the
+            // bytes match, so the warning is expected on every build.
+            xVec3 Vector3;
+            uid UID;
+        };
+    };
+
+    class ResetStruct {
+    public:
+        unsigned char _pad0[0x1];
+    };
+
+    unsigned int WriteTo;
+    eSourceType SourceType;
+    union {
+        VariableStruct Variable;
+        ValueStruct Value;
+        ResetStruct Reset;
+    };
+};
+
+}  // namespace Sext
+
 class zBlackboard {
 public:
     unsigned int size;
@@ -196,11 +286,24 @@ public:
     void UnregisterVariableObserver(unsigned int id,
                                     Util::DelegateP0<void>* obs);
     bool ResetVariable(unsigned int id);
+    bool Write(const Sext::BlackboardWritePayload* payload);
 
     template <class T>
     bool Write(unsigned int id, const T& value);
     template <class T>
     bool Read(unsigned int id, T& out) const;
+
+    // Small enough for -O4 to inline, and that is its job: the payload
+    // dispatcher's xVec3 case needs the cast pointer allocated AFTER all
+    // of its own locals (slot +8), which only an inlined callee's local
+    // gets. Read<T> itself is never auto-inlined in any spelling.
+    template <class T>
+    zVariable<T>* CastTo(zVariableBase* v) const {
+        zVariable<T>* var;
+
+        zVariableDynamicCast::Cast(v, var);
+        return var;
+    }
 };
 
 void zVariableBase::RegisterObserver(Util::DelegateP0<void>* obs) {
@@ -280,14 +383,13 @@ void zBlackboard::Reset() {
     }
 }
 
+// A ternary, not an if: the same 52 bytes standalone, but small enough
+// that -O4's auto-inliner takes it into the payload dispatcher three
+// times, as retail's did. The if/else spelling is not taken.
 eVarType zBlackboard::GetVariableType(unsigned int id) const {
     zVariableBase* v = Find(id);
 
-    if (v != 0) {
-        return v->type;
-    }
-
-    return eVarType_Invalid;
+    return v != 0 ? v->type : eVarType_Invalid;
 }
 
 void zBlackboard::RegisterVariableObserver(unsigned int id,
@@ -391,3 +493,153 @@ template bool zBlackboard::Write<float>(unsigned int id, const float& value);
 template bool zBlackboard::Read<float>(unsigned int id, float& out) const;
 template bool zBlackboard::Write<int>(unsigned int id, const int& value);
 template bool zBlackboard::Read<int>(unsigned int id, int& out) const;
+
+bool zBlackboard::Write(const Sext::BlackboardWritePayload* payload) {
+    unsigned int writeTo = payload->WriteTo;
+
+    switch (payload->SourceType) {
+    case Sext::eSourceType_Variable: {
+        eVarType sourceType;
+        unsigned int source = payload->Variable.VariableName;
+
+        sourceType = GetVariableType(source);
+
+        eVarType targetType = GetVariableType(writeTo);
+
+        if (targetType != sourceType) {
+            return false;
+        }
+
+        switch (GetVariableType(writeTo)) {
+        case eVarType_S32: {
+            int value;
+
+            if (Read(source, value) == false) {
+                return false;
+            }
+
+            return Write(writeTo, value);
+        }
+        case eVarType_F32: {
+            float value;
+
+            if (Read(source, value) == false) {
+                return false;
+            }
+
+            return Write(writeTo, value);
+        }
+        case eVarType_zPlayerPtr: {
+            zPlayer* value;
+
+            if (Read(source, value) == false) {
+                return false;
+            }
+
+            return Write(writeTo, value);
+        }
+        case eVarType_xVec3: {
+            xVec3 value;
+            bool ok;
+            zVariableBase* var = Find(source);
+
+            if (var == 0) {
+                ok = false;
+            } else {
+                zVariable<xVec3>* result = CastTo<xVec3>(var);
+
+                if (result != 0) {
+                    value = result->GetValue();
+                    ok = true;
+                } else {
+                    ok = false;
+                }
+            }
+
+            if (ok == false) {
+                return false;
+            }
+
+            return Write(writeTo, value);
+        }
+        case eVarType_UID: {
+            Sext::uid value;
+
+            if (Read(source, value) == false) {
+                return false;
+            }
+
+            return Write(writeTo, value);
+        }
+        default:
+            return false;
+        }
+    }
+    case Sext::eSourceType_Value:
+        switch (payload->Value.type) {
+        case Sext::eBlackboardVariableType_Integer: {
+            int value = payload->Value.Integer.Value;
+
+            if (payload->Value.Integer.Accumulate == 1) {
+                int current;
+
+                if (Read(writeTo, current)) {
+                    current += value;
+                    return Write(writeTo, current);
+                }
+
+                return false;
+            }
+
+            return Write(writeTo, value);
+        }
+        case Sext::eBlackboardVariableType_Float: {
+            float value = payload->Value.Float.Value;
+
+            if (payload->Value.Float.Accumulate == 1) {
+                float current;
+
+                if (Read(writeTo, current)) {
+                    current += value;
+                    return Write(writeTo, current);
+                }
+
+                return false;
+            }
+
+            return Write(writeTo, value);
+        }
+        case Sext::eBlackboardVariableType_Boolean: {
+            int value = payload->Value.Boolean;
+
+            return Write(writeTo, value);
+        }
+        case Sext::eBlackboardVariableType_Player: {
+            int index = payload->Value.Player;
+            zPlayer* player = 0;
+
+            if (index >= 0 && index < xglobals->players.numPlayers) {
+                player = xglobals->players.playerArray[index];
+            }
+
+            return Write(writeTo, player);
+        }
+        case Sext::eBlackboardVariableType_Vector3: {
+            xVec3 value = payload->Value.Vector3;
+
+            return Write(writeTo, value);
+        }
+        case Sext::eBlackboardVariableType_UID: {
+            Sext::uid value = payload->Value.UID;
+
+            return Write(writeTo, value);
+        }
+        }
+
+        // no break: an unknown value kind resets the variable
+    case Sext::eSourceType_Reset:
+        return ResetVariable(writeTo);
+    }
+
+    return false;
+}

@@ -13,11 +13,14 @@
 // +0x3C and the flags from +0x40. EntityMgrModule 0x9C on System::Module
 // with the manager at +0x98. EntityManager 0x1C, a PoolList.
 //
-// MEASURED: 6 of the 13 functions this object defines are
-// byte-identical, 1,380 bytes -- and four of the six are TWO functions
-// written once. EmbeddedTreeAVL is instantiated at node offsets 28 and
-// 36, so AuxiliaryDelete (140 bytes) and BalanceRight (508) each match
-// in both instantiations: 1,296 bytes from two bodies.
+// MEASURED: 12 of the 17 functions this object defines are
+// byte-identical, 3,724 bytes -- and ten of the twelve are FIVE
+// template bodies written once. EmbeddedTreeAVL is instantiated at
+// node offsets 28 and 36, so AuxiliaryDelete (140 bytes), BalanceRight
+// (508), BalanceLeft (512), Delete (372) and Insert (288) each match in
+// both instantiations. The splits give Insert<36> (0x80206B30) to
+// WAD02_35_1, where it was already matched from its own source, so this
+// unit's own credit is 11 functions and 3,436 bytes.
 //
 // THE TEMPLATE IS FORCED WITH EXPLICIT INSTANTIATION. mwcc 1.1 takes
 // `template class EmbeddedTreeAVL<...>;` at file scope, and without it
@@ -25,7 +28,10 @@
 // called is never instantiated and this unit does not yet write the
 // callers. The mangled names come out exactly right, offsets and all.
 // The template is at GLOBAL scope, not in World -- the mangled name
-// carries no namespace on EmbeddedTreeAVL itself.
+// carries no namespace on EmbeddedTreeAVL itself. The comparator is an
+// empty BASE of the tree, not a member: Insert and Delete call
+// EntityHandleCmp::operator() with the tree's own `this` in r3, and
+// `count` is read at +0.
 //
 // THE BALANCE FACTOR IS BIASED. EmbeddedTreeNode packs the right child
 // and two balance bits into one word, and the accessor returns
@@ -46,23 +52,37 @@
 // pointer from it -- rather than calling two accessors -- took the last
 // six. Retail reads that word once and keeps it in a scratch register.
 //
-// NEAR MISS -- BalanceLeft, 54 of 128 words at retail's exact 512
-// bytes. It is BalanceRight mirrored and the mirror is written, but two
-// registers are swapped: ours puts the node's own node-pointer in r31
-// and the right child in r28 where retail has them the other way round.
-// Hoisting the NODE's packed word the way BalanceRight hoists the
-// CHILD's makes it worse, not better -- 115 of 126 with the switch on
-// the raw value and 116 of 127 with the switch left on Bal() -- so the
-// two functions do not want the same treatment, and that is measured
-// rather than assumed.
+// BalanceLeft IS NOT A MIRROR OF THE ORDER. Its double rotation tests
+// the node first and the right child second, like BalanceRight; the
+// mirror swaps WHICH test each gets (`mn->Bal() == 1` for the node,
+// the raw bits for the child). That was 54 -> 41 words. The register
+// swap -- ours had the node in r31 and the right child in r28 where
+// retail has them the other way round -- fell to declaring all four of
+// the case's locals (right, mid, mn, rn) at the TOP of the function,
+// ahead of `n`: 41 -> 7. Ten orderings were swept and only the ones
+// with `n` declared last reached 7. The last seven words are the
+// switch head, where retail keeps the node's packed word in r4 and the
+// switch value in r0, and a NAMED LOCAL for the switch value is what
+// gives that: `int bal = n->Bal(); switch (bal)`. Spelling the switch
+// expression inline instead (`(n->right_color_bal & 3) - 1`) drops an
+// instruction and lands 120 words off -- which is what the earlier
+// measurement that hoisting the packed word 'makes it worse' was
+// actually seeing.
+//
+// Insert AND Delete WANT `n` PER BRANCH, NOT PER FUNCTION. Retail folds
+// node+OFFSET into the displacement in the c<0 branch and computes the
+// address only where SetRight or operator= needs it as an argument; a
+// function-scope `n` is hoisted above the null check and materialised
+// in r31 for every use, 36 and 68 words off. Declared inside each
+// branch, both matched at once. The three balance routines are the
+// opposite, because their switch needs the node immediately.
 //
 // STILL UNWRITTEN, and this is where the rest of the unit's bytes are:
-// Delete (372 bytes, twice), Insert (288), Init (236), Done (240),
-// FindEntityHandleByType (316), InsertHandle, FindHandle, SetPool, the
-// two RemoveHandles, ByTypeInsert and the Iterator's SubtreeMin and
-// NodeBack -- the last two need a caller before they instantiate.
-//
-// Two more shapes the bytes fixed. System::Module's vtable pointer
+// Init (236), Done (240), FindEntityHandleByType (316), InsertHandle,
+// FindHandle, SetPool, the two RemoveHandles, ByTypeInsert and the
+// Iterator's SubtreeMin and NodeBack -- the last two need a caller
+// before they instantiate.
+//// Two more shapes the bytes fixed. System::Module's vtable pointer
 // lands at +0x14, so the first virtual is declared there and the
 // derived module's constructor gets its vtable store implicitly.
 // EntityManager::g_handleTypeTrees is a static member POINTER, not an
@@ -112,6 +132,7 @@ public:
 // with rlwinm 0,0,29 and every write goes through SetRight.
 class EmbeddedTreeNode {
 public:
+    EmbeddedTreeNode& operator=(const EmbeddedTreeNode& other);
     void SetRight(void* right);
 
     void* Right() const { return (void*)(right_color_bal & ~3); }
@@ -188,7 +209,7 @@ EntityManager* GetEntityManager();
 // node offsets 28 and 36, and four of its members appear in the image
 // once per instantiation.
 template <class T, class Cmp, int OFFSET>
-class EmbeddedTreeAVL {
+class EmbeddedTreeAVL : public Cmp {
 public:
     class Iterator {
     public:
@@ -205,6 +226,9 @@ public:
     T* BalanceLeft(T* node, int& change);
     T* BalanceRight(T* node, int& change);
     T* AuxiliaryDelete(T* node, T*& out, int& change);
+
+    unsigned int count;
+    T* root;
 };
 
 template <class T, class Cmp, int OFFSET>
@@ -225,10 +249,105 @@ void EmbeddedTreeAVL<T, Cmp, OFFSET>::Iterator::SubtreeMin() {
 }
 
 template <class T, class Cmp, int OFFSET>
-T* EmbeddedTreeAVL<T, Cmp, OFFSET>::BalanceLeft(T* node, int& change) {
-    EmbeddedTreeNode* n = (EmbeddedTreeNode*)((char*)node + OFFSET);
+T* EmbeddedTreeAVL<T, Cmp, OFFSET>::Insert(T* node, T* item, int& change) {
+    if (node == 0) {
+        EmbeddedTreeNode* in = (EmbeddedTreeNode*)((char*)item + OFFSET);
 
-    switch (n->Bal()) {
+        change = 1;
+        count = count + 1;
+        in->left = 0;
+        in->right_color_bal = 1;
+        return item;
+    }
+
+    int c = Cmp::operator()(item, node);
+
+    if (c < 0) {
+        EmbeddedTreeNode* n = (EmbeddedTreeNode*)((char*)node + OFFSET);
+
+        n->left = Insert((T*)n->left, item, change);
+
+        if (change != 0) {
+            node = BalanceRight(node, change);
+        }
+    } else if (c > 0) {
+        EmbeddedTreeNode* n = (EmbeddedTreeNode*)((char*)node + OFFSET);
+
+        n->SetRight(Insert((T*)n->Right(), item, change));
+
+        if (change != 0) {
+            node = BalanceLeft(node, change);
+        }
+    } else {
+        *(EmbeddedTreeNode*)((char*)item + OFFSET) =
+            *(EmbeddedTreeNode*)((char*)node + OFFSET);
+        change = 0;
+        node = item;
+    }
+
+    return node;
+}
+
+template <class T, class Cmp, int OFFSET>
+T* EmbeddedTreeAVL<T, Cmp, OFFSET>::Delete(T* node, T* item, int& change) {
+    if (node == 0) {
+        return 0;
+    }
+
+    int c = Cmp::operator()(item, node);
+
+    if (c < 0) {
+        EmbeddedTreeNode* n = (EmbeddedTreeNode*)((char*)node + OFFSET);
+
+        n->left = Delete((T*)n->left, item, change);
+
+        if (change < 0) {
+            node = BalanceLeft(node, change);
+        }
+    } else if (c > 0) {
+        EmbeddedTreeNode* n = (EmbeddedTreeNode*)((char*)node + OFFSET);
+
+        n->SetRight(Delete((T*)n->Right(), item, change));
+
+        if (change < 0) {
+            node = BalanceRight(node, change);
+        }
+    } else {
+        EmbeddedTreeNode* n = (EmbeddedTreeNode*)((char*)node + OFFSET);
+        T* tmp;
+
+        count = count - 1;
+        node = (T*)n->Right();
+
+        if (node == 0) {
+            node = (T*)n->left;
+            change = -1;
+        } else if (n->left == 0) {
+            change = -1;
+        } else {
+            n->left = AuxiliaryDelete((T*)n->left, tmp, change);
+            *(EmbeddedTreeNode*)((char*)tmp + OFFSET) = *n;
+            node = tmp;
+
+            if (change < 0) {
+                node = BalanceLeft(node, change);
+            }
+        }
+    }
+
+    return node;
+}
+
+template <class T, class Cmp, int OFFSET>
+T* EmbeddedTreeAVL<T, Cmp, OFFSET>::BalanceLeft(T* node, int& change) {
+    T* right;
+    T* mid;
+    EmbeddedTreeNode* mn;
+    EmbeddedTreeNode* rn;
+    EmbeddedTreeNode* n = (EmbeddedTreeNode*)((char*)node + OFFSET);
+    int bal = n->Bal();
+
+    switch (bal) {
     case -1:
         n->SetBal(0);
 
@@ -248,10 +367,8 @@ T* EmbeddedTreeAVL<T, Cmp, OFFSET>::BalanceLeft(T* node, int& change) {
         break;
 
     case 1: {
-        T* mid;
-        EmbeddedTreeNode* mn;
-        T* right = (T*)n->Right();
-        EmbeddedTreeNode* rn = (EmbeddedTreeNode*)((char*)right + OFFSET);
+        right = (T*)n->Right();
+        rn = (EmbeddedTreeNode*)((char*)right + OFFSET);
         int b = rn->Bal();
 
         if (b > 0) {
@@ -279,14 +396,14 @@ T* EmbeddedTreeAVL<T, Cmp, OFFSET>::BalanceLeft(T* node, int& change) {
             n->SetRight(mn->left);
             mn->left = node;
 
-            if ((mn->right_color_bal & 3) == 0) {
-                n->SetBal(1);
+            if (mn->Bal() == 1) {
+                n->SetBal(-1);
             } else {
                 n->SetBal(0);
             }
 
-            if (mn->Bal() == 1) {
-                rn->SetBal(-1);
+            if ((mn->right_color_bal & 3) == 0) {
+                rn->SetBal(1);
             } else {
                 rn->SetBal(0);
             }

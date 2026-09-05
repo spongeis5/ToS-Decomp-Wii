@@ -7,18 +7,18 @@ numbers here, which move.
 ## State at time of writing
 
 ```
-Game Code:  67 of 777 files complete  155,952 / 2,116,616 bytes  1,612 / 10,697 fn
-            7.3680% of game code
+Game Code:  67 of 777 files complete  158,008 / 2,116,616 bytes  1,617 / 10,697 fn
+            7.4651% of game code
 
-Of those 1,612 functions, 759 are GENERATED -- machine-recognised
+Of those 1,617 functions, 759 are GENERATED -- machine-recognised
 shapes, not one of which is decompiling. They are real matched
 functions and the offsets and constants are recovered fact, but a
 count of them is not a count of decompiled code. HAND-WRITTEN IS
-853, across 199 units and 147,300 bytes, and that is the figure to
+858, across 199 units and 149,356 bytes, and that is the figure to
 compare against earlier ones.
 
 Data:       4 unit(s) carry their own, 412 bytes; 134 more could
-All:        4.08% matched              main.dol reproduces byte for byte
+All:        4.11% matched              main.dol reproduces byte for byte
 ```
 
 Every number above is written by `python tools/notes_state.py`,
@@ -2375,11 +2375,12 @@ so their remaining functions differ for other reasons.
 EntityManager instantiates `EmbeddedTreeAVL<T, Cmp, OFFSET>` at node
 offsets 28 and 36 -- two of the three EmbeddedTreeNode offsets in
 EntityHandleBase -- so four of its members appear in the image ONCE PER
-INSTANTIATION. Getting AuxiliaryDelete and BalanceRight right matched
-1,296 bytes from two bodies, and Delete and BalanceLeft are another
-1,768 waiting on the same trick. Nothing else on the twelve-largest
-list pays twice like this; it is worth looking for the pattern before
-picking a unit.
+INSTANTIATION. Five bodies -- AuxiliaryDelete, BalanceRight,
+BalanceLeft, Delete and Insert -- matched 3,640 bytes in the object,
+3,352 of them credited to the unit (the splits give Insert<36> to
+WAD02_35_1, where it was already matched). Nothing else on the
+twelve-largest list pays twice like this; it is worth looking for the
+pattern before picking a unit.
 
 **mwcc 1.1 takes explicit instantiation.** `template class Foo<...>;` at
 file scope emits every member that has a definition, and the mangled
@@ -2407,11 +2408,36 @@ packed word into ONE named local, and deriving both the balance and the
 right pointer from it rather than calling two accessors, took the last
 six: retail reads that word once and keeps it in a scratch register.
 
-It does not transfer wholesale to the mirror. BalanceLeft is written as
-the mirror and sits at 54 of 128 words at retail's exact 512 bytes, and
-hoisting the NODE's packed word the way BalanceRight hoists the CHILD's
-makes it WORSE -- 115 of 126 with the switch on the raw value, 116 of
-127 with the switch left on the accessor. Measured, not assumed.
+**The mirror keeps the ORDER of the tests.** BalanceLeft's double
+rotation tests the node first and the child second, exactly like
+BalanceRight; mirroring swaps which test each gets, not their order.
+That was 54 differing words to 41.
+
+**Declare the case's locals before `n`.** Retail has the node in r28
+and the right child in r31; ours had them swapped. Ten declaration
+orders were swept and the only ones that reached 7 words declared all
+four case locals (right, mid, mn, rn) at the top of the FUNCTION,
+ahead of `n`. BalanceRight wanted its two double-rotation locals
+first within the case; BalanceLeft wants everything ahead of the
+node pointer. Same allocator, different answer, and only the sweep
+says which.
+
+**A named local for the switch value.** The last seven words were the
+switch head: retail keeps the node's packed word in r4 and the switch
+value in r0, ours had the word in r0 and reused r3. `int bal = n->Bal();`
+`switch (bal)` gives retail's allocation exactly. Spelling the switch
+expression inline -- `switch ((n->right_color_bal & 3) - 1)` -- is one
+instruction SHORTER and 120 words off, which is what the earlier
+measurement that 'hoisting the node's word makes it worse' was really
+seeing: the hoisted form had also inlined the expression.
+
+**Insert and Delete want `n` per branch.** Retail folds node+OFFSET
+into the displacement where it is only a base, and computes the
+address in the branch that passes it to SetRight or operator=. A
+function-scope `n` is hoisted above the null check and materialised
+in r31 for every use, 36 and 68 words off; declared inside each
+branch, both matched at once. The balance routines are the opposite
+because their switch needs the node immediately.
 ## Traps worth knowing
 
 **A survey that cannot see what is finished reports finished work as

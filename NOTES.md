@@ -7,18 +7,18 @@ numbers here, which move.
 ## State at time of writing
 
 ```
-Game Code:  67 of 777 files complete  158,008 / 2,116,616 bytes  1,617 / 10,697 fn
-            7.4651% of game code
+Game Code:  67 of 777 files complete  160,164 / 2,116,616 bytes  1,643 / 10,697 fn
+            7.5670% of game code
 
-Of those 1,617 functions, 759 are GENERATED -- machine-recognised
+Of those 1,643 functions, 759 are GENERATED -- machine-recognised
 shapes, not one of which is decompiling. They are real matched
 functions and the offsets and constants are recovered fact, but a
 count of them is not a count of decompiled code. HAND-WRITTEN IS
-858, across 199 units and 149,356 bytes, and that is the figure to
+884, across 200 units and 151,512 bytes, and that is the figure to
 compare against earlier ones.
 
 Data:       4 unit(s) carry their own, 412 bytes; 134 more could
-All:        4.11% matched              main.dol reproduces byte for byte
+All:        4.15% matched              main.dol reproduces byte for byte
 ```
 
 Every number above is written by `python tools/notes_state.py`,
@@ -2236,6 +2236,21 @@ So the third local helps in two functions and hurts in three, which
 means the mechanism is not simply register pressure and the lever is
 not the whole answer. `zNPCType::Setup` and `SkeletonBlobEntity` are
 the two instances nobody has tried it on.
+
+**Answered a third time, in a template.** `zBlackboard::Write<T>` --
+five instantiations from one body -- had the pointer the loop walks
+(`var`, retail r29) and the loop counter (retail r30) swapped in every
+instantiation, 8 or 9 words each, at retail's exact sizes. There is no
+allocation here for the third local to hold; the pointer comes back
+from `Cast(v, result)` through a reference. The same two halves closed
+it anyway: `void* p = result; var = (zVariable<T>*)p;` in two
+statements, AND `unsigned int i;` declared above `var`. Each half alone
+was measured and moved nothing, and thirty other shapes across six
+sweeps -- every declaration order, a named observer local, a pointer
+walk of the observers, an inlined setter, a reference or a pointer to
+the value -- moved nothing either. So when the symptom is this exact
+one, the recipe is worth trying whole before anything else, and the
+sweep that finds it is five variants, not thirty.
 
 One more thing came out of closing InitMemory, and it is not about
 registers. Its last differing word was a branch whose target NAME was

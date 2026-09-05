@@ -77,11 +77,30 @@
 // branch, both matched at once. The three balance routines are the
 // opposite, because their switch needs the node immediately.
 //
+// FindEntityByType AND CountEntityByType ARE NON-STATIC. Both read
+// their first argument from r4, not r3 -- an unused `this` sits in r3,
+// and the mangled names carry no `S`, so `static` is wrong. Dropping it
+// matched both. FindEntityByType also keeps the non-null path as the
+// fallthrough (`if (handle != 0) return handle->entity; return 0;`),
+// which is retail's beq-to-the-zero, not a bne-skip.
+//
+// NEAR MISS -- FindHandle, 19 of 30 words at 120 vs retail's 124 B. It
+// walks the by-uid tree (offset-28 nodes) inlining the three-way uid
+// compare, and reads g_handleSortedTree, a SECOND static member 8 bytes
+// ahead of g_handleTypeTrees. Retail keeps `id` in the argument pair
+// r3:r4 the whole walk and holds `node` in r5, moving it to r3 at a
+// single `mr r3,r5; blr`; ours lets `id` die and walks in r3, returning
+// early with `blelr`. A separate found-pointer (`found = node; break;`)
+// keeps id live and reaches retail's exact 124 bytes, but then puts
+// node in r8 -- 30 of 31 words. The exact spelling that pins node to r5
+// with id preserved has not fallen out of ten loop shapes; it is a
+// register-allocation target, not a structural one.
+//
 // STILL UNWRITTEN, and this is where the rest of the unit's bytes are:
 // Init (236), Done (240), FindEntityHandleByType (316), InsertHandle,
-// FindHandle, SetPool, the two RemoveHandles, ByTypeInsert and the
-// Iterator's SubtreeMin and NodeBack -- the last two need a caller
-// before they instantiate.
+// SetPool, the two RemoveHandles, ByTypeInsert and the Iterator's
+// SubtreeMin and NodeBack -- the last two need a caller before they
+// instantiate.
 //// Two more shapes the bytes fixed. System::Module's vtable pointer
 // lands at +0x14, so the first virtual is declared there and the
 // derived module's constructor gets its vtable store implicitly.
@@ -173,11 +192,13 @@ public:
     void Init();
     void Done();
 
-    static EntityHandleBase* FindEntityHandleByType(unsigned int type,
+    EntityHandleBase* FindEntityHandleByType(unsigned int type,
                                                     unsigned int index);
-    static Entity* FindEntityByType(unsigned int type, unsigned int index);
-    static unsigned int CountEntityByType(unsigned int type);
+    Entity* FindEntityByType(unsigned int type, unsigned int index);
+    unsigned int CountEntityByType(unsigned int type);
+    EntityHandleBase* FindHandle(uid id);
 
+    static TypeTree g_handleSortedTree;
     static TypeTree* g_handleTypeTrees;
 
     PoolList handleList;
@@ -528,6 +549,32 @@ T* EmbeddedTreeAVL<T, Cmp, OFFSET>::AuxiliaryDelete(T* node, T*& out,
 }
 
 
+World::EntityHandleBase* World::EntityManager::FindHandle(uid id) {
+    EntityHandleBase* node = (EntityHandleBase*)g_handleSortedTree.root;
+
+    while (node != 0) {
+        int c;
+
+        if (id < node->id) {
+            c = -1;
+        } else {
+            c = node->id < id;
+        }
+
+        if (c < 0) {
+            node = (EntityHandleBase*)
+                ((EmbeddedTreeNode*)((char*)node + 28))->left;
+        } else if (c > 0) {
+            EmbeddedTreeNode* n = (EmbeddedTreeNode*)((char*)node + 28);
+            node = (EntityHandleBase*)(n->right_color_bal & ~3);
+        } else {
+            return node;
+        }
+    }
+
+    return 0;
+}
+
 World::EntityManager* World::GetEntityManager() {
     return entityMgrMod.entityMgr;
 }
@@ -540,11 +587,11 @@ Entity* World::EntityManager::FindEntityByType(unsigned int type,
                                                unsigned int index) {
     EntityHandleBase* handle = FindEntityHandleByType(type, index);
 
-    if (handle == 0) {
-        return 0;
+    if (handle != 0) {
+        return handle->entity;
     }
 
-    return handle->entity;
+    return 0;
 }
 
 int World::EntityHandleCmp::operator()(const EntityHandleBase* a,

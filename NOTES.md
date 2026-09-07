@@ -7,18 +7,18 @@ numbers here, which move.
 ## State at time of writing
 
 ```
-Game Code:  67 of 777 files complete  195,120 / 2,116,616 bytes  1,947 / 10,697 fn
-            9.2185% of game code
+Game Code:  67 of 777 files complete  195,688 / 2,116,616 bytes  1,955 / 10,697 fn
+            9.2453% of game code
 
-Of those 1,947 functions, 757 are GENERATED -- machine-recognised
+Of those 1,955 functions, 757 are GENERATED -- machine-recognised
 shapes, not one of which is decompiling. They are real matched
 functions and the offsets and constants are recovered fact, but a
 count of them is not a count of decompiled code. HAND-WRITTEN IS
-1,190, across 208 units and 186,484 bytes, and that is the figure to
+1,198, across 208 units and 187,052 bytes, and that is the figure to
 compare against earlier ones.
 
 Data:       4 unit(s) carry their own, 412 bytes; 134 more could
-All:        4.67% matched              main.dol reproduces byte for byte
+All:        4.68% matched              main.dol reproduces byte for byte
 ```
 
 Every number above is written by `python tools/notes_state.py`,
@@ -2843,6 +2843,55 @@ Three are still out, each recorded at the class it builds:
     spends one or two registers fewer. That is also why retail's
     PathFollowMP saves r28..r31 through `_savegpr` and ours stores two
     by hand. Same instructions, same offsets, same order.
+### The same unit's own constructors: where the two pragmas sit
+
+The eleven constructors and the `Destroy` this unit defines took it to
+120 of 126, 195,688 bytes and 9.2453%. Writing them made the pragma
+above fight itself, and the arrangement that works is worth stating
+exactly, because both halves of it were measured wrong first:
+
+  * `always_inline on` at the FOOT of the file -- the placement the
+    WAD01_14 section recommends -- reaches the templates AND every
+    constructor defined above it, so the Creates fold those in too:
+    96 of 126.
+  * `always_inline on` at the top with `dont_inline on` round the
+    definitions is right, and gives 116 of 128 -- but **dont_inline
+    stops inlining INTO a function as well as out of it**. Under it
+    `zNPCBTMoveToAction`'s constructor called two constructors retail
+    folds, and the object gained both as functions retail's unit does
+    not have.
+  * So the two constructors whose own body needs a fold go AFTER the
+    explicit instantiations, outside the block: nothing is left to
+    inline them into, and the fold inside them happens. 120 of 126.
+
+One of those two folds went away for a different reason worth keeping:
+the intermediate `zNPCBTAction` exists only to add four bytes, and
+deriving the two MoveTo actions from `zBTAction` directly -- padding
+the four bytes by hand -- removes the constructor mwcc was emitting
+for it.
+
+**THE FLOAT ANCHOR FORMS AT THREE LITERALS, NOT FOUR.**
+`tools/unit_triage.py` counts a function unreachable at four or more
+distinct float literals. In this unit two is fine and three is not:
+`zNPCBTActionAnim` and `zSteeringPath` load two each and match, while
+`zWanderData` (5, 0.5, 10) and `zWallAvoidanceData` (24, 1, 0) each
+form one `lis`/`addi` base and read all three off it where retail
+spells a `lis` per literal -- 20 of 26 and 9 of 11, and nothing else
+in either differs. That is six functions of evidence from one unit,
+which is why the tool's threshold has NOT been changed on it: doing
+that would need the same count taken over the matched functions
+already in the tree, and a guard that fires on correct input is worse
+than none. The measurement is here so the next person starts from it.
+
+And `Destroy` is 21 of 61 words at 244 against 248, with everything
+up to the id test byte-identical, the case blocks already in retail's
+order and one word between them: retail's second id test branches TO
+the deallocation with a `b` to the exit in front of it, and ours
+branches past it. Five spellings give the same bytes -- an and-chain
+of inequalities round the call, an or-chain of equalities that breaks,
+the same with an explicit else, an EMPTY then with the call in the
+else, and a nested switch on the id -- and so does making slot 1
+return an enum instead of an unsigned int.
 ## What the misses have actually been
 
 Across every unit so far, the source text has almost never been the lever:

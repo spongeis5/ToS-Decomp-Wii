@@ -3,7 +3,8 @@
 // times: it takes sizeof(T) bytes from the behaviour-tree factory
 // (memory type 14), places a T on them, and -- for the 106 the NPC side
 // makes -- calls virtual slot 40 on the fresh object before handing it
-// back. The two accessors keep the asset and the client.
+// back. Destroy gives one back, eleven constructors are defined here,
+// and the two accessors keep the asset and the client.
 //
 // EVERY FACT HERE IS ONE OF FOUR THINGS THE BYTES SAY: the `li r4,N`
 // that is sizeof(T), the `bl __ct__...` that names the base whose
@@ -25,7 +26,12 @@
 // second store joins them; without the pragma mwcc emits __ct__<T> as
 // its own function and calls it, and twenty of these come out 112 bytes
 // against retail's 136 to 248. NOTES.md records the same lever on
-// ClipEntity.
+// ClipEntity. It sits at the FOOT of the file, because mwcc
+// instantiates a template at the end of the translation unit and reads
+// the pragma's state THERE, while an ordinary function is compiled
+// where it appears and never sees it -- which is what keeps the eleven
+// constructors below from being folded into the Creates that call
+// them.
 //
 // AND EACH T DECLARES AN OVERRIDE IT DOES NOT DEFINE, so mwcc REFERENCES
 // __vt__<T> instead of emitting it. A class whose first virtual is
@@ -55,7 +61,18 @@ inline void* operator new(unsigned long, void* p) { return p; }
 // The steering controls all keep the same 72 bytes in front of a vtable
 // pointer at +0x48, so the data is a base and the virtuals are the
 // derived class. The four floats and the flag at the end of it are what
-// the escort and jump controls set from their own constructors.
+// the stop, escort and jump controls set from their own constructors.
+class xVec3 {
+public:
+    xVec3& operator=(const xVec3& other);
+
+    static const xVec3 m_UnitAxisZ;
+
+    float x;
+    float y;
+    float z;
+};
+
 class zNPCSteeringControlData {
 public:
     unsigned char _pad0[0x34];
@@ -72,14 +89,24 @@ public:
     public:
         zWanderData();
 
-        unsigned char _pad0[0x1C];
+        xVec3 dir;
+        float fC;
+        float f10;
+        float f14;
+        bool f18;
+        bool f19;
+        unsigned char _pad0[0x1C - 0x1A];
     };
 
     class zWallAvoidanceData {
     public:
         zWallAvoidanceData();
 
-        unsigned char _pad0[0x20];
+        float f0;
+        float f4;
+        float f8;
+        bool fC;
+        unsigned char _pad0[0x20 - 0xD];
     };
 
     zNPCSteeringControl();
@@ -144,7 +171,13 @@ class zNPCBTActionAnim {
 public:
     zNPCBTActionAnim();
 
-    unsigned char _pad0[0x18];
+    int f0;
+    unsigned char _pad0[0x8 - 0x4];
+    float f8;
+    float fC;
+    unsigned char _pad1[0x14 - 0x10];
+    bool f14;
+    unsigned char _pad2[0x18 - 0x15];
 };
 
 class zNPCBTStuckRangeMultiplier {
@@ -161,26 +194,59 @@ public:
     unsigned char _pad0[0x20];
 };
 
+// Both springs set their rest value and then Reset; only the vector's
+// Reset is in this unit, and it copies the target over the current.
 class xSpringyVec3 {
 public:
     xSpringyVec3();
 
-    unsigned char _pad0[0x28];
+    void Reset();
+
+    float f0;
+    float f4;
+    float f8;
+    float fC;
+    xVec3 f10;
+    xVec3 f1C;
 };
 
 class xSpringyF32 {
 public:
     xSpringyF32();
 
-    unsigned char _pad0[0x30];
+    void Reset();
+
+    float f0;
+    float f4;
+    float f8;
+    unsigned char _pad0[0x10 - 0xC];
+    float f10;
+    unsigned char _pad1[0x30 - 0x14];
 };
 
-// The three path kinds share eight bytes and a vtable pointer at +8, and
+class zPathFinder {
+public:
+    zPathFinder();
+
+    unsigned char _pad0[0x2D4];
+};
+
+// Sixteen bytes and a vtable pointer at +0, so nothing sits in front of
+// it and the constructor is the store alone.
+class zNPCSearchMapLinkCostCalculator {
+public:
+    virtual void _v0();
+
+    unsigned char _pad0[0x10 - 0x4];
+};
+
+// The three path kinds share two floats and a vtable pointer at +8, and
 // each is built in line: the base constructor is a call, the vtable
 // store and the members after it are not.
 class zSteeringPathData {
 public:
-    unsigned char _pad0[0x8];
+    float f0;
+    float f4;
 };
 
 class zSteeringPath : public zSteeringPathData {
@@ -243,7 +309,8 @@ inline zNPCSteeringJumpControl::zNPCSteeringJumpControl() {
 // The action keeps its asset and its client in front of its vtable
 // pointer, which the constructor stores at +0xC. Ten virtuals: Destroy
 // reads slots 0, 1, 6 and 9, and every Create the NPC side makes calls
-// slot 8.
+// slot 8. Slot 0 answers what KIND of action it is and slot 1 an id,
+// which is why those two are the ones with a return type.
 class zBTActionData {
 public:
     const Sext::ActionBase* asset;
@@ -256,7 +323,7 @@ public:
     zBTAction();
 
     virtual int _v0();
-    virtual void _v1();
+    virtual unsigned int _v1();
     virtual void _v2();
     virtual void _v3();
     virtual void _v4();
@@ -286,7 +353,7 @@ T* zBTFactory::Create() {
 
 class zNPCBTAction : public zBTAction {
 public:
-    virtual void _v1();
+    virtual void _v2();
 
     template <class T> static T* Create();
 
@@ -306,34 +373,52 @@ T* zNPCBTAction::Create() {
     return action;
 }
 
+class zBTActionBuilder {
+public:
+    void Destroy(zBTAction* action) const;
+};
+
 void zBTAction::SetBTClient(zBTClient* value) { btClient = value; }
 void zBTAction::SetAsset(const Sext::ActionBase* value) { asset = value; }
 
 // The two whose own constructor is out of line: their Create calls it
 // and stores no vtable, and everything derived from them calls it too.
-class zNPCBTMoveToAction : public zNPCBTAction {
+// Both derive from zBTAction rather than zNPCBTAction: the four bytes
+// the intermediate class adds are padding either way, and going
+// through it makes mwcc emit its constructor as a function these two
+// then call, where retail runs zBTAction's own.
+class zNPCBTMoveToAction : public zBTAction {
 public:
     zNPCBTMoveToAction();
 
-    virtual void _v1();
+    virtual void _v2();
 
-    unsigned char _pad0[0x538 - 0x14];
+    unsigned char _pad0[0x18 - 0x10];
+    zNPCSteeringMoveToControl steering;
+    zNPCBTActionAnim anim;
+    zNPCBTStuckRangeMultiplier stuckRange;
+    unsigned char _pad1[0x250 - 0x24C];
+    zPathFinder pathFinder;
+    zNPCSearchMapLinkCostCalculator costCalculator;
+    int f534;
 };
 
-class zNPCBTSwarmMoveToAction : public zNPCBTAction {
+class zNPCBTSwarmMoveToAction : public zBTAction {
 public:
     zNPCBTSwarmMoveToAction();
 
-    virtual void _v1();
+    virtual void _v2();
 
-    unsigned char _pad0[0x28 - 0x14];
+    unsigned char _pad0[0x24 - 0x10];
+    bool f24;
+    unsigned char _pad1[0x28 - 0x25];
 };
 
 class zBTActionHandleEvent : public zBTAction {
 public:
     zBTActionHandleEvent() : f14(0), f18(0) {}
 
-    virtual void _v1();
+    virtual void _v2();
 
     unsigned char _pad0[0x4];
     int f14;
@@ -342,83 +427,83 @@ public:
 
 class zBTActionSendEvent : public zBTAction {
 public:
-    virtual void _v1();
+    virtual void _v2();
 };
 
 class zBTActionWriteToBlackboard : public zBTAction {
 public:
-    virtual void _v1();
+    virtual void _v2();
 };
 
 class zBTActionWriteVariable : public zBTAction {
 public:
-    virtual void _v1();
+    virtual void _v2();
 
     unsigned char _pad0[0x4];
 };
 
 class zNPCBTActionBossMeterHide : public zBTAction {
 public:
-    virtual void _v1();
+    virtual void _v2();
 
     unsigned char _pad0[0x4];
 };
 
 class zNPCBTActionBossMeterSet : public zBTAction {
 public:
-    virtual void _v1();
+    virtual void _v2();
 
     unsigned char _pad0[0x4];
 };
 
 class zNPCBTActionBossMeterShow : public zBTAction {
 public:
-    virtual void _v1();
+    virtual void _v2();
 
     unsigned char _pad0[0x4];
 };
 
 class zNPCBTBadgeCollectedAction : public zNPCBTAction {
 public:
-    virtual void _v1();
+    virtual void _v2();
 };
 
 class zNPCBTBounceAction : public zNPCBTAction {
 public:
-    virtual void _v1();
+    virtual void _v2();
 
     unsigned char _pad0[0x28];
 };
 
 class zNPCBTChumbotFistFlashAction : public zNPCBTAction {
 public:
-    virtual void _v1();
+    virtual void _v2();
 
     unsigned char _pad0[0x8];
 };
 
 class zNPCBTClearDamageInfoAction : public zNPCBTAction {
 public:
-    virtual void _v1();
+    virtual void _v2();
 };
 
 class zNPCBTDamagePlayerInRangeAction : public zNPCBTAction {
 public:
-    virtual void _v1();
+    virtual void _v2();
 
     unsigned char _pad0[0x10];
 };
 
 class zNPCBTDamagePlayerOnContactAction : public zNPCBTAction {
 public:
-    virtual void _v1();
+    virtual void _v2();
 
     unsigned char _pad0[0x4];
 };
 
 class zNPCBTDefeatedAction : public zNPCBTAction {
 public:
-    virtual void _v1();
+    virtual void _v2();
 
     zNPCSteeringStopControl steering;
     zNPCBTActionAnim anim;
@@ -433,14 +518,14 @@ public:
 // same way on three sub-objects.
 class zNPCBTEscortAction : public zNPCBTMoveToAction {
 public:
-    virtual void _v1();
+    virtual void _v2();
 
     zNPCSteeringEscortControl steering;
 };
 
 class zNPCBTExtraCollisionAction : public zNPCBTAction {
 public:
-    virtual void _v1();
+    virtual void _v2();
 
     unsigned char _pad0[0xC];
     bit_array_alloc bits;
@@ -450,7 +535,7 @@ class zNPCBTFaceFromEventAction : public zNPCBTAction {
 public:
     zNPCBTFaceFromEventAction() : f44(0) {}
 
-    virtual void _v1();
+    virtual void _v2();
 
     unsigned char _pad0[0x8];
     zNPCBTActionAnim anim;
@@ -462,33 +547,33 @@ public:
 
 class zNPCBTFadeInAction : public zNPCBTAction {
 public:
-    virtual void _v1();
+    virtual void _v2();
 
     unsigned char _pad0[0x4];
 };
 
 class zNPCBTFadeOutAction : public zNPCBTAction {
 public:
-    virtual void _v1();
+    virtual void _v2();
 
     unsigned char _pad0[0x4];
 };
 
 class zNPCBTFleeAction : public zNPCBTMoveToAction {
 public:
-    virtual void _v1();
+    virtual void _v2();
 
     unsigned char _pad0[0x4];
 };
 
 class zNPCBTFlutterAction : public zNPCBTMoveToAction {
 public:
-    virtual void _v1();
+    virtual void _v2();
 };
 
 class zNPCBTFollowPerceptionTargetAction : public zNPCBTAction {
 public:
-    virtual void _v1();
+    virtual void _v2();
 
     zNPCSteeringMoveToControl steering;
     zNPCBTActionAnim anim;
@@ -500,7 +585,7 @@ class zNPCBTFollowPlayerAction : public zNPCBTMoveToAction {
 public:
     zNPCBTFollowPlayerAction() : f538(0), f53C(0) {}
 
-    virtual void _v1();
+    virtual void _v2();
 
     int f538;
     int f53C;
@@ -509,33 +594,33 @@ public:
 
 class zNPCBTFollowProjectileAction : public zNPCBTMoveToAction {
 public:
-    virtual void _v1();
+    virtual void _v2();
 
     unsigned char _pad0[0x4];
 };
 
 class zNPCBTGenerateCollectiblesAction : public zNPCBTAction {
 public:
-    virtual void _v1();
+    virtual void _v2();
 
     unsigned char _pad0[0x14];
 };
 
 class zNPCBTGenerateSpinVortexAction : public zNPCBTAction {
 public:
-    virtual void _v1();
+    virtual void _v2();
 
     unsigned char _pad0[0x8];
 };
 
 class zNPCBTHideAction : public zNPCBTAction {
 public:
-    virtual void _v1();
+    virtual void _v2();
 };
 
 class zNPCBTHitAction : public zNPCBTAction {
 public:
-    virtual void _v1();
+    virtual void _v2();
 
     zNPCSteeringStopControl steering;
     zNPCBTActionAnim anim;
@@ -543,7 +628,7 @@ public:
 
 class zNPCBTIdleAction : public zNPCBTAction {
 public:
-    virtual void _v1();
+    virtual void _v2();
 
     zNPCSteeringStopControl steering;
     zNPCBTActionAnim anim;
@@ -559,7 +644,7 @@ public:
 // `lis r31 / addi r31` once and four `lfs fN,K(r31)`.
 class zNPCBTJumpAction : public zNPCBTAction {
 public:
-    virtual void _v1();
+    virtual void _v2();
 
     zNPCSteeringJumpControl steering;
     zNPCBTActionAnim anim;
@@ -568,19 +653,19 @@ public:
 
 class zNPCBTKillAction : public zNPCBTAction {
 public:
-    virtual void _v1();
+    virtual void _v2();
 };
 
 class zNPCBTMonitorPerceptionAction : public zNPCBTAction {
 public:
-    virtual void _v1();
+    virtual void _v2();
 
     unsigned char _pad0[0x8];
 };
 
 class zNPCBTOrbitAction : public zNPCBTMoveToAction {
 public:
-    virtual void _v1();
+    virtual void _v2();
 
     zNPCBTActionAnim anim;
     unsigned char _pad0[0x18];
@@ -595,7 +680,7 @@ public:
 // r28..r31 through _savegpr and this stores two by hand.
 class zNPCBTPathFollowMPAction : public zNPCBTAction {
 public:
-    virtual void _v1();
+    virtual void _v2();
 
     zNPCSteeringFollowPathControl steering;
     zNPCBTActionAnim anim;
@@ -607,14 +692,14 @@ public:
 
 class zNPCBTPathThruMPsShiftedAction : public zNPCBTMoveToAction {
 public:
-    virtual void _v1();
+    virtual void _v2();
 
     unsigned char _pad0[0x1C];
 };
 
 class zNPCBTPlanktonShakeAction : public zNPCBTAction {
 public:
-    virtual void _v1();
+    virtual void _v2();
 
     zNPCBTActionAnim anim0;
     zNPCBTActionAnim anim1;
@@ -627,7 +712,7 @@ public:
 
 class zNPCBTPlayAnimationAction : public zNPCBTAction {
 public:
-    virtual void _v1();
+    virtual void _v2();
 
     unsigned char _pad0[0xC];
     zNPCBTActionAnim anim;
@@ -639,7 +724,7 @@ class zNPCBTPlayAnimationTypeAction : public zNPCBTAction {
 public:
     zNPCBTPlayAnimationTypeAction() : f94(0) {}
 
-    virtual void _v1();
+    virtual void _v2();
 
     unsigned char _pad0[0x8];
     zNPCBTActionAnim anim;
@@ -652,146 +737,146 @@ public:
 
 class zNPCBTPlayEELFXAction : public zNPCBTAction {
 public:
-    virtual void _v1();
+    virtual void _v2();
 
     unsigned char _pad0[0x8];
 };
 
 class zNPCBTPlayFXAction : public zNPCBTAction {
 public:
-    virtual void _v1();
+    virtual void _v2();
 
     unsigned char _pad0[0x10];
 };
 
 class zNPCBTPlayNPCFXAction : public zNPCBTAction {
 public:
-    virtual void _v1();
+    virtual void _v2();
 
     unsigned char _pad0[0x8];
 };
 
 class zNPCBTPositionEntAtBoneAction : public zNPCBTAction {
 public:
-    virtual void _v1();
+    virtual void _v2();
 };
 
 class zNPCBTReleaseAttackAction : public zNPCBTAction {
 public:
-    virtual void _v1();
+    virtual void _v2();
 };
 
 class zNPCBTRemoveAction : public zNPCBTAction {
 public:
-    virtual void _v1();
+    virtual void _v2();
 };
 
 class zNPCBTRequestAttackAction : public zNPCBTAction {
 public:
-    virtual void _v1();
+    virtual void _v2();
 };
 
 class zNPCBTResetCurrentPlayerAction : public zNPCBTAction {
 public:
-    virtual void _v1();
+    virtual void _v2();
 };
 
 class zNPCBTRespondToKnockbackAction : public zNPCBTAction {
 public:
-    virtual void _v1();
+    virtual void _v2();
 };
 
 class zNPCBTRotateToFaceAction : public zNPCBTAction {
 public:
-    virtual void _v1();
+    virtual void _v2();
 };
 
 class zNPCBTSetCollectibleAction : public zNPCBTAction {
 public:
-    virtual void _v1();
+    virtual void _v2();
 };
 
 class zNPCBTSetCollidesAction : public zNPCBTAction {
 public:
-    virtual void _v1();
+    virtual void _v2();
 
     unsigned char _pad0[0x4];
 };
 
 class zNPCBTSetCurrentHitPointsAction : public zNPCBTAction {
 public:
-    virtual void _v1();
+    virtual void _v2();
 };
 
 class zNPCBTSetFlyingAction : public zNPCBTAction {
 public:
-    virtual void _v1();
+    virtual void _v2();
 };
 
 class zNPCBTSetHitProfileAction : public zNPCBTAction {
 public:
-    virtual void _v1();
+    virtual void _v2();
 };
 
 class zNPCBTSetInvulnerableAction : public zNPCBTAction {
 public:
-    virtual void _v1();
+    virtual void _v2();
 };
 
 class zNPCBTSetNeedCombatCleanupAction : public zNPCBTAction {
 public:
-    virtual void _v1();
+    virtual void _v2();
 };
 
 class zNPCBTSetNeedCombatTargetingCleanupAction : public zNPCBTAction {
 public:
-    virtual void _v1();
+    virtual void _v2();
 };
 
 class zNPCBTSetPlanktonShakableAction : public zNPCBTAction {
 public:
-    virtual void _v1();
+    virtual void _v2();
 
     unsigned char _pad0[0x4];
 };
 
 class zNPCBTSetRPSAttackStateAction : public zNPCBTAction {
 public:
-    virtual void _v1();
+    virtual void _v2();
 
     unsigned char _pad0[0x8];
 };
 
 class zNPCBTSetUndamageableAction : public zNPCBTAction {
 public:
-    virtual void _v1();
+    virtual void _v2();
 };
 
 class zNPCBTShootAction : public zNPCBTAction {
 public:
-    virtual void _v1();
+    virtual void _v2();
 };
 
 class zNPCBTShowAction : public zNPCBTAction {
 public:
-    virtual void _v1();
+    virtual void _v2();
 };
 
 class zNPCBTSnapToFloorAction : public zNPCBTAction {
 public:
-    virtual void _v1();
+    virtual void _v2();
 
     unsigned char _pad0[0x40];
 };
 
 class zNPCBTStartHeadTrackingAction : public zNPCBTAction {
 public:
-    virtual void _v1();
+    virtual void _v2();
 };
 
 class zNPCBTStopAction : public zNPCBTAction {
 public:
-    virtual void _v1();
+    virtual void _v2();
 
     zNPCSteeringStopControl steering;
     unsigned char _pad0[0x8];
@@ -799,12 +884,12 @@ public:
 
 class zNPCBTStopHeadTrackingAction : public zNPCBTAction {
 public:
-    virtual void _v1();
+    virtual void _v2();
 };
 
 class zNPCBTStrikeAction : public zNPCBTAction {
 public:
-    virtual void _v1();
+    virtual void _v2();
 
     zNPCSteeringStopControl steering;
     zNPCBTActionAnim anim;
@@ -812,7 +897,7 @@ public:
 
 class zNPCBTStunAction : public zNPCBTAction {
 public:
-    virtual void _v1();
+    virtual void _v2();
 
     zNPCSteeringStopControl steering;
     zNPCBTActionAnim anim;
@@ -820,12 +905,12 @@ public:
 
 class zNPCBTSwarmBadgeCollectedAction : public zNPCBTAction {
 public:
-    virtual void _v1();
+    virtual void _v2();
 };
 
 class zNPCBTSwarmBugCollectedAction : public zNPCBTAction {
 public:
-    virtual void _v1();
+    virtual void _v2();
 
     unsigned char _pad0[0x8];
 };
@@ -834,7 +919,7 @@ class zNPCBTSwarmFlockAction : public zNPCBTSwarmMoveToAction {
 public:
     zNPCBTSwarmFlockAction() : f228(0.5235988f), f22C(0.01f) {}
 
-    virtual void _v1();
+    virtual void _v2();
 
     unsigned char _pad0[0x200];
     float f228;
@@ -845,238 +930,343 @@ class zNPCBTSwarmFlutterAction : public zNPCBTSwarmMoveToAction {
 public:
     zNPCBTSwarmFlutterAction() : f28(0) {}
 
-    virtual void _v1();
+    virtual void _v2();
 
     int f28;
 };
 
 class zNPCBTSwarmPathFollowCircleAction : public zNPCBTAction {
 public:
-    virtual void _v1();
+    virtual void _v2();
 
     unsigned char _pad0[0x10];
 };
 
 class zNPCBTSwarmPathFollowMPAction : public zNPCBTAction {
 public:
-    virtual void _v1();
+    virtual void _v2();
 
     unsigned char _pad0[0x18];
 };
 
 class zNPCBTSwarmResetKilledMembersAction : public zNPCBTAction {
 public:
-    virtual void _v1();
+    virtual void _v2();
 };
 
 class zNPCBTSwarmWanderAction : public zNPCBTSwarmMoveToAction {
 public:
-    virtual void _v1();
+    virtual void _v2();
 };
 
 class zNPCBTTeleportAction : public zNPCBTAction {
 public:
-    virtual void _v1();
+    virtual void _v2();
 
     unsigned char _pad0[0x44];
 };
 
 class zNPCBTTextureSwapAction : public zNPCBTAction {
 public:
-    virtual void _v1();
+    virtual void _v2();
 };
 
 class zNPCBTWriteBlackboardUidPosition : public zNPCBTAction {
 public:
-    virtual void _v1();
+    virtual void _v2();
 };
 
 class zNPCBTWriteChildMovePointAction : public zNPCBTAction {
 public:
-    virtual void _v1();
+    virtual void _v2();
 };
 
 class zNPCBTWriteClosestPlayerAction : public zNPCBTAction {
 public:
-    virtual void _v1();
+    virtual void _v2();
 };
 
 class zNPCBTWriteCurHitPointsAction : public zNPCBTAction {
 public:
-    virtual void _v1();
+    virtual void _v2();
 };
 
 class zNPCBTWriteCurrentPosition : public zNPCBTAction {
 public:
-    virtual void _v1();
+    virtual void _v2();
 };
 
 class zNPCBTWriteGopherNextMovepointAction : public zNPCBTAction {
 public:
-    virtual void _v1();
+    virtual void _v2();
 };
 
 class zNPCBTWriteInsideWallnetAction : public zNPCBTAction {
 public:
-    virtual void _v1();
+    virtual void _v2();
 };
 
 class zNPCBTWriteLockedPlayerAction : public zNPCBTAction {
 public:
-    virtual void _v1();
+    virtual void _v2();
 };
 
 class zNPCBTWriteMaxHitPointsAction : public zNPCBTAction {
 public:
-    virtual void _v1();
+    virtual void _v2();
 };
 
 class zNPCBTWriteNetworkMovePointAction : public zNPCBTAction {
 public:
-    virtual void _v1();
+    virtual void _v2();
 };
 
 class zNPCBTWriteNumberOfMovepointsAction : public zNPCBTAction {
 public:
-    virtual void _v1();
+    virtual void _v2();
 };
 
 class zNPCBTWritePatrolMovePointAction : public zNPCBTAction {
 public:
-    virtual void _v1();
+    virtual void _v2();
 };
 
 class zNPCBTWritePatrolMovePointShiftedAction : public zNPCBTAction {
 public:
-    virtual void _v1();
+    virtual void _v2();
 
     unsigned char _pad0[0x4];
 };
 
 class zNPCBTWritePerceptionTargetPositionAction : public zNPCBTAction {
 public:
-    virtual void _v1();
+    virtual void _v2();
 
     unsigned char _pad0[0x4];
 };
 
 class zNPCBTWritePlayerPositionAction : public zNPCBTAction {
 public:
-    virtual void _v1();
+    virtual void _v2();
 };
 
 class zNPCBTWriteSquidBlockTimeAction : public zNPCBTAction {
 public:
-    virtual void _v1();
+    virtual void _v2();
 
     unsigned char _pad0[0x14];
 };
 
 class zNPCBTWriteSwarmHidePointAction : public zNPCBTAction {
 public:
-    virtual void _v1();
+    virtual void _v2();
 };
 
 class zNPCBTWriteSwarmPosKilledByPlayerAsBadgePosAction : public zNPCBTAction {
 public:
-    virtual void _v1();
+    virtual void _v2();
 
     unsigned char _pad0[0x4];
 };
 
 class zNPCBTWriteTargetPlayerAction : public zNPCBTAction {
 public:
-    virtual void _v1();
+    virtual void _v2();
 
     unsigned char _pad0[0x4];
 };
 
 class zNPCBTWriteTrapPositionAction : public zNPCBTAction {
 public:
-    virtual void _v1();
+    virtual void _v2();
 
     unsigned char _pad0[0xC];
 };
 
 class zNPCBTWriteWanderPositionAction : public zNPCBTAction {
 public:
-    virtual void _v1();
+    virtual void _v2();
 };
 
 class zNPCBT_Bomb_Shoot_Action : public zNPCBTAction {
 public:
-    virtual void _v1();
+    virtual void _v2();
 };
 
 class zNPCBT_GenericSpawnerInit_Action : public zNPCBTAction {
 public:
-    virtual void _v1();
+    virtual void _v2();
 
     unsigned char _pad0[0x4];
 };
 
 class zNPCBT_InstantSpawnNPC_Action : public zNPCBTAction {
 public:
-    virtual void _v1();
+    virtual void _v2();
 
     unsigned char _pad0[0x10];
 };
 
 class zNPCBT_SpawnNPC_ThrowToLocation_Action : public zNPCBTAction {
 public:
-    virtual void _v1();
+    virtual void _v2();
 
     unsigned char _pad0[0x40];
 };
 
 class zNPCBT_Spawner_SetRotateToFaceVariable : public zNPCBTAction {
 public:
-    virtual void _v1();
+    virtual void _v2();
 };
 
 class zNPCBT_Spawner_UnreserveNPC : public zNPCBTAction {
 public:
-    virtual void _v1();
+    virtual void _v2();
 };
 
 class zNPCBT_SplashDamage_Action : public zNPCBTAction {
 public:
-    virtual void _v1();
+    virtual void _v2();
 
     unsigned char _pad0[0x8];
 };
 
 class zNPCBT_Turret_GetVariantData_Action : public zNPCBTAction {
 public:
-    virtual void _v1();
+    virtual void _v2();
 };
 
 class zNPCFlyingBTWriteCurrentPosition : public zNPCBTAction {
 public:
-    virtual void _v1();
+    virtual void _v2();
 };
 
 class zNPCFlyingBTWriteInsideWallnetAction : public zNPCBTAction {
 public:
-    virtual void _v1();
+    virtual void _v2();
 };
 
 class zNPCFlyingBTWritePerceptionTargetPositionAction : public zNPCBTAction {
 public:
-    virtual void _v1();
+    virtual void _v2();
 
     unsigned char _pad0[0x4];
 };
 
 class zNPCFlyingBTWritePlayerPositionAction : public zNPCBTAction {
 public:
-    virtual void _v1();
+    virtual void _v2();
 };
 
 class zNPCFlyingBTWriteWanderPositionAction : public zNPCBTAction {
 public:
-    virtual void _v1();
+    virtual void _v2();
 };
+
+#pragma dont_inline on
+
+zNPCBTActionAnim::zNPCBTActionAnim() {
+    f0 = 0;
+    f8 = 0.2f;
+    fC = 0.0f;
+    f14 = true;
+}
+
+// 20 of 26 words, 108 against retail's 104, and the cause is the
+// float anchor: THREE distinct literals (5, 0.5 and 10) are
+// enough for mwcc to form one `lis`/`addi` base and read all
+// three off it, where retail spells a lis per literal. Two is
+// not -- zNPCBTActionAnim and zSteeringPath each load two and
+// match. tools/unit_triage.py counts the blocker at four.
+zNPCSteeringControl::zWanderData::zWanderData() {
+    dir = xVec3::m_UnitAxisZ;
+    fC = 5.0f;
+    f10 = 0.5f;
+    f14 = 10.0f;
+    f18 = true;
+    f19 = true;
+}
+
+// 9 of 11 words, 44 against retail's 48: the same three-literal
+// anchor as zWanderData above (24, 1 and 0).
+zNPCSteeringControl::zWallAvoidanceData::zWallAvoidanceData() {
+    f0 = 24.0f;
+    f4 = 1.0f;
+    f8 = 0.0f;
+    fC = true;
+}
+
+zNPCSteeringStopControl::zNPCSteeringStopControl() { f34 = 10.0f; }
+
+zSteeringPath::zSteeringPath() {
+    f0 = 0.5f;
+    f4 = 0.25f;
+}
+
+void xSpringyVec3::Reset() {
+    f1C = f10;
+    fC = 0.0f;
+    f8 = 0.0f;
+    f4 = 0.0f;
+}
+
+xSpringyVec3::xSpringyVec3() {
+    f0 = 10.0f;
+    f10.z = 0.0f;
+    f10.y = 0.0f;
+    f10.x = 0.0f;
+
+    Reset();
+}
+
+xSpringyF32::xSpringyF32() {
+    f0 = 10.0f;
+    f10 = 0.0f;
+    f8 = 0.0f;
+    f4 = 0.0f;
+
+    Reset();
+}
+
+// 21 of 61 words, 244 against retail's 248, and the whole
+// difference is one word: retail's SECOND id test is `bne` to the
+// deallocation with a `b` to the exit in front of it, where this
+// branches straight past. Five spellings give the same bytes --
+// an and-chain of inequalities round the call, an or-chain of
+// equalities that breaks, the same with an explicit else, an
+// EMPTY then with the call in the else, and a nested switch on
+// the id with the two constants as cases -- and the case block
+// order (this one second, the four that share a deallocation
+// last) is already what retail lays. Everything before the id
+// test is byte-identical, dispatch included.
+void zBTActionBuilder::Destroy(zBTAction* action) const {
+    action->_v6();
+
+    switch (action->_v0()) {
+    case 3:
+        action->_v9();
+        zBTFactory::factory.DeallocMem(action);
+        break;
+    case 0: {
+        unsigned int id = action->_v1();
+
+        if (id == 0xF7756BA5 || id == 0xFD239E46) {
+        } else {
+            zBTFactory::factory.DeallocMem(action);
+        }
+
+        break;
+    }
+    case 1:
+    case 2:
+    case 4:
+    case 5:
+        zBTFactory::factory.DeallocMem(action);
+        break;
+    }
+}
+
+#pragma dont_inline off
 
 template zBTActionHandleEvent* zBTFactory::Create<zBTActionHandleEvent>();
 template zBTActionSendEvent* zBTFactory::Create<zBTActionSendEvent>();
@@ -1191,3 +1381,7 @@ template zNPCFlyingBTWriteInsideWallnetAction* zNPCBTAction::Create<zNPCFlyingBT
 template zNPCFlyingBTWritePerceptionTargetPositionAction* zNPCBTAction::Create<zNPCFlyingBTWritePerceptionTargetPositionAction>();
 template zNPCFlyingBTWritePlayerPositionAction* zNPCBTAction::Create<zNPCFlyingBTWritePlayerPositionAction>();
 template zNPCFlyingBTWriteWanderPositionAction* zNPCBTAction::Create<zNPCFlyingBTWriteWanderPositionAction>();
+
+zNPCBTSwarmMoveToAction::zNPCBTSwarmMoveToAction() { f24 = false; }
+
+zNPCBTMoveToAction::zNPCBTMoveToAction() { f534 = 0; }

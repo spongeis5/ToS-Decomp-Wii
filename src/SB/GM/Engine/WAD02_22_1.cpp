@@ -20,9 +20,13 @@ public:
     unsigned char _base0[0x18];
     unsigned long long id;
     unsigned int baseType;
+    unsigned char UNUSED_linkCount;
+    unsigned char assertFlags;
+    unsigned short baseFlags;
 };
-class xEnt;
+
 class zNPCBase;
+class zNPCCombat;
 class xAnimState;
 class zCombatHitSpot;
 class xHierarchyNode;
@@ -30,11 +34,27 @@ class zNPCStatus;
 
 class xVec3 {
 public:
-    xVec3();
-
     float x;
     float y;
     float z;
+};
+
+namespace World {
+
+// position at +0x30, which is where the damage broadcast takes the
+// centre of the blow from.
+class xOGModel {
+public:
+    unsigned char _pad0[0x30];
+    xVec3 position;
+};
+
+}  // namespace World
+
+class xEnt {
+public:
+    unsigned char _base0[0x34];
+    World::xOGModel* model;
 };
 
 class xSphere {
@@ -246,10 +266,17 @@ public:
 class zNPCCombatCollisionListener : public zNPCCollisionListener {
 };
 
+// 0x1D0 in the DWARF, on an xEnt base at +0 and a zNPCComponent at
+// +0xBC -- so the word at +0xBC is that component's owner.
 class zNPCEntity {
 public:
     void RegisterCollisionListener(zNPCCollisionListener* listener);
     void UnregisterCollisionListener(zNPCCollisionListener* listener);
+
+    unsigned char _base0[0xBC];
+    zNPCBase* owner;
+    unsigned char _pad0[0x184 - 0xC0];
+    float damageColorTimer;
 };
 
 namespace Memory {
@@ -278,6 +305,18 @@ public:
 };
 
 void zCombatSystemUpdateEntity(xEnt* ent, float dt);
+
+enum ForceEvent { ForceEvent_ = 0x7FFFFFFF };
+
+void zEntEvent(xBase* from, unsigned int fromEvent, xBase* to,
+               unsigned int toEvent, Sext::EventAny* param,
+               ForceEvent force);
+
+void SendEventFromNpcToNpcsWithinDistance(xVec3* pos, xBase* from,
+                                          unsigned int fromEvent,
+                                          unsigned int toEvent,
+                                          Sext::EventAny* param,
+                                          float distance);
 int zCombatGetBaseAttackSB(Sext::eHitSource source);
 
 class zCombatDamageMultiplier {
@@ -288,6 +327,8 @@ public:
 
 class zCombatDamageInfo {
 public:
+    zCombatDamageInfo();
+
     int flags;
     xBase* from;
     float damage;
@@ -338,15 +379,19 @@ class zNPCComponent {
 public:
     zNPCBase* owner;
 
-    virtual void _v0();
-    virtual void _v1();
-    virtual void _v2();
+    virtual void _v0();   virtual void _v1();   virtual void _v2();
+    virtual void _v3();   virtual void _v4();   virtual void _v5();
+    virtual void _v6();   virtual void _v7();   virtual void _v8();
+    virtual void _v9();   virtual void _v10();
+    virtual void* _v11();
 };
 
 class zNPCBase {
 public:
     unsigned char _pad0[0x98];
     zNPCEntity* npcEntity;
+    unsigned char _pad1[0xA8 - 0x9C];
+    zNPCCombat* npcCombat;
 };
 
 extern unsigned int gSceneFrameCount;
@@ -371,6 +416,8 @@ public:
                                     const zCombatDamageInfo* info);
     eNPCHitReaction FindHitReaction(Sext::eHitSource source);
     void SetAttackState(Sext::eRPSAttackTypes type, float time);
+    bool HandleNPCDamage(xEnt* ent, const zCombatDamageInfo& info,
+                         zNPCGetsDamageInfo* out);
 
     int attackID;
     zCombat baseCombat;
@@ -716,4 +763,113 @@ eNPCHitReaction zNPCCombat::FindHitReaction(Sext::eHitSource source) {
     }
 
     return eNPCHitReaction_Unknown;
+}
+
+// BYTE-IDENTICAL AT 672 WHEN THE SECTION IS BIG ENOUGH, AND 660
+// HERE. This function reads four constants out of .rodata, which is
+// enough for mwcc to anchor a base register at the section and bake
+// the displacements in; retail materialises a high half per
+// reference, because in WAD02.cpp these constants are past the
+// signed 16-bit displacement from the section base. Compiled with
+// 36,000 bytes of .rodata placed AHEAD of them, this exact text is
+// 168 of 168 words. So nothing below is wrong: it is waiting on the
+// rest of its translation unit, the same as zNPCPerception's
+// IsInDirectPath, and the NOTES entry on REACH says how to tell.
+//
+// Two things did have to be found, and both were measured against
+// that padded build: `before` is a separate local in EACH case --
+// retail gives the damage branch f31 and the instadeath branch f30,
+// which one declaration at the top cannot do -- and the damage
+// multiplier needs a local of its own, below.
+bool zNPCCombat::HandleNPCDamage(xEnt* ent, const zCombatDamageInfo& info,
+                                 zNPCGetsDamageInfo* out) {
+    eNPCHitReaction reaction = FindHitReaction(ent, &info);
+
+    // A blow from something flagged at bit 8 only counts if it came
+    // through the environment.
+    if (info.from != 0 && (info.from->baseFlags & 0x100) &&
+        info.target != zHT_ENV) {
+        return false;
+    }
+
+    switch (reaction) {
+    case eNPCHitReaction_Block:
+    case eNPCHitReaction_Ignore:
+        return false;
+    case eNPCHitReaction_Unknown:
+    case eNPCHitReaction_Damage:
+        if (hitsDisabled) {
+            return false;
+        }
+
+        {
+        float before = baseCombat.currentHitPoints;
+        float after;
+
+        if (!damageDisabled) {
+            // The multiplier into a local of its own: spelled inline,
+            // either way round, the product comes out with its
+            // operands the other way and costs the one word.
+            float m = GetDamageMultiplier(info.source);
+
+            after = baseCombat.currentHitPoints - m * info.damage;
+
+            after = after > 0.0f ? after : 0.0f;
+
+            {
+                float hp[2];
+
+                hp[0] = baseCombat.currentHitPoints;
+                hp[1] = after;
+                zEntEvent((xBase*)ent, 0, (xBase*)ent, 0xC0648E27,
+                          (Sext::EventAny*)hp, (ForceEvent)1);
+            }
+
+            baseCombat.currentHitPoints = after;
+        }
+
+        out->SetFromCombatDamageInfo(ent, info, reaction,
+                                     baseCombat.currentHitPoints);
+
+        if (before > 0.0f) {
+            AddToDamageList(*out);
+        }
+
+        zEntEvent(info.from, 0, (xBase*)ent, 0x00130037, 0,
+                  (ForceEvent)1);
+
+        if (info.from != 0 && info.from->baseType == 0x55) {
+            xVec3 at = ((xEnt*)info.from)->model->position;
+
+            SendEventFromNpcToNpcsWithinDistance(&at, (xBase*)ent, 0,
+                                                 0xD4F680F7, 0, 20.0f);
+
+            if (((zNPCEntity*)ent)->owner->npcCombat != 0 &&
+                ((zNPCEntity*)ent)->owner->npcCombat->_v11() != 0) {
+                SendEventFromNpcToNpcsWithinDistance(
+                    &at, (xBase*)ent, 0, 0xEA07FF5B, 0, 20.0f);
+            }
+        }
+
+        if (before > baseCombat.currentHitPoints) {
+            ((zNPCEntity*)ent)->damageColorTimer = 0.25f;
+        }
+
+        return true;
+        }
+    case eNPCHitReaction_InstaDeath:
+        {
+        float before = baseCombat.currentHitPoints;
+        baseCombat.currentHitPoints = 0.0f;
+        out->SetFromCombatDamageInfo(ent, info, reaction, 0.0f);
+
+        if (before > 0.0f) {
+            AddToDamageList(*out);
+        }
+
+        return true;
+        }
+    }
+
+    return false;
 }

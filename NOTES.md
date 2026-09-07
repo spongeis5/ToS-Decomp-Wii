@@ -2558,6 +2558,20 @@ data in the object that the manifest does not name. Worth checking
 before assuming a near-miss is a source problem: how big is the
 section, and can one register reach all of it?
 
+**But run the padded build as a DIAGNOSTIC, because it separates two
+questions that otherwise stay tangled.** zNPCCombat's `HandleNPCDamage`
+measured 141 words out of 162 and looked like a rough draft. With the
+pad it measured 77 of 165 -- so the addressing was most of it, and what
+remained was small enough to sweep. Two real differences came out of
+that sweep and would have been invisible under the noise: `before` has
+to be a separate local in each case of the switch, because retail gives
+one branch f31 and the other f30; and the damage multiplier has to be a
+local, because spelled inline the product comes out with its operands
+the other way round no matter which order it is written. With both, the
+padded build is 168 of 168 and the real one is 165 of 168. The pad
+never goes in a commit -- it is a way to ask whether the source is
+wrong, and here the answer was no.
+
 Read this section as a set: each of the five was the whole remaining
 difference at the time, and each was found by a sweep that included the
 obvious spelling and the obvious spelling lost.
@@ -2684,14 +2698,29 @@ the compiler hoisted four loads of the source struct above the stores
 into the destination and used four registers where retail walks
 through r0 one field at a time. Seventeen words of 43.
 
-**Declaring a CONSTRUCTOR fixes it, and only it.** `xVec3();`, never
-defined and never called, makes the class non-POD, which is enough to
-stop mwcc reordering reads of one across writes to another -- and it
-leaves the copy-assignment trivial, so the generated operator= stays
-the flat eleven-word copy. Both functions match. So POD-ness is a
-lever on ALIASING, the copy-assignment is a separate lever, and a
-constructor separates them; reaching for `operator=` moves both at
-once and only one of them the right way.
+**Declaring a CONSTRUCTOR fixes it -- on the class being READ, not on
+the one being written and not on xVec3.** A constructor that is never
+defined and never called makes its class non-POD, which is enough to
+stop mwcc reordering reads of it across writes to something else, and
+it leaves the copy-assignment trivial, so the generated operator=
+stays the flat eleven-word copy.
+
+WHICH class matters, and the first answer here was wrong. Putting the
+constructor on `xVec3` also makes SetFromCombatDamageInfo match, and
+it costs `HandleNPCDamage` in the same unit: a non-POD xVec3 turns
+`xVec3 at = model->position;` from three inline word moves into a
+call, and that function goes from 3 words out to 75. Putting it on
+`zCombatDamageInfo` -- the struct whose members are being read --
+fixes the scheduling and leaves xVec3 alone. All eight combinations of
+a constructor on the three classes were measured; exactly the ones
+with zCombatDamageInfo non-POD and xVec3 POD get both functions.
+
+So POD-ness is a lever on ALIASING, the copy-assignment is a separate
+lever, and a constructor separates them; reaching for `operator=`
+moves both at once and only one of them the right way. And the class
+to put it on is the one whose loads are moving, which is worth
+checking rather than assuming -- a constructor on a widely used type
+like a vector reaches every copy-initialisation in the file.
 
 The corollary is worth stating plainly: a class in one of these files
 should be given the members it really has, not the minimum that

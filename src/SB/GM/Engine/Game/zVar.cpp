@@ -126,6 +126,14 @@ extern unsigned int SCENE_ID_MNU_START;
 // float -> unsigned, which is what a cast of one to the other calls.
 extern "C" unsigned int __cvt_fp2unsigned(float f);
 
+enum _tagTRCPadState { _tagTRCPadState_ = 0x7FFFFFFF };
+
+extern "C" int sprintf(char* dst, const char* fmt, ...);
+
+const char* xUtil_idtag2string(unsigned int tag, int which);
+void xTRCPadFindFirstPadState(int& pad, _tagTRCPadState state);
+int xTRCPadGetPadPort(int pad);
+
 // The localisation the title is running in, and whether it falls inside
 // a language group. The ids are the image's; their names are not.
 int xSTGetLocalizationEnum();
@@ -358,4 +366,62 @@ const char* var_text_UICancelImage() {
     }
 
     return BACK_PAD_DEFAULT;
+}
+
+// Each of these formats into a static buffer of its own and returns it,
+// so the text lives until the next call. The buffer sizes come from the
+// gaps between the symbols in the image and are the one thing in this
+// file that is inferred rather than read.
+//
+// NONE OF THE FIVE COUNTS, AND NOT BECAUSE OF THE SOURCE. Three are one
+// word from exact at retail's size, and that word is the same in each:
+// `addi r4,r4,<offset>`, the position of the format string inside the
+// pooled string section. Retail's is 10,018 and ours is 3, because the
+// pool belongs to the whole of WAD03.cpp and ours holds only the strings
+// on this page. It is a compile-time constant, not a relocation -- which
+// is why unitcmp does not mask it -- so no spelling of the source can
+// move it. CurrentScene is four bytes short for the same reason one
+// level along: with the string at a small offset mwcc folds it into the
+// low half of the address and spends one addi where retail spends two.
+// The format strings themselves are read out of the image.
+const char* var_text_CurrentScene() {
+    static char buffer[32];
+
+    sprintf(buffer, "%s", xUtil_idtag2string(globals.sceneCur->sceneID, 0));
+
+    return buffer;
+}
+
+const char* var_text_TrophyError() {
+    static char buffer[32];
+
+    sprintf(buffer, "%x", 24);
+
+    return buffer;
+}
+
+const char* var_text_MCMaxSpace() {
+    static char buffer[32];
+
+    sprintf(buffer, "%d", 24);
+
+    return buffer;
+}
+
+const char* var_text_MCMinSpace() {
+    static char buffer[32];
+
+    sprintf(buffer, "%d", 6);
+
+    return buffer;
+}
+
+const char* var_text_MissingPad() {
+    static char buffer[16];
+    int pad = 0;
+
+    xTRCPadFindFirstPadState(pad, (_tagTRCPadState)2);
+    sprintf(buffer, "%d", xTRCPadGetPadPort(pad) + 1);
+
+    return buffer;
 }

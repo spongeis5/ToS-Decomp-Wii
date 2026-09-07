@@ -2558,7 +2558,27 @@ data in the object that the manifest does not name. Worth checking
 before assuming a near-miss is a source problem: how big is the
 section, and can one register reach all of it?
 
-**But run the padded build as a DIAGNOSTIC, because it separates two
+**And the same thing happens to STRINGS, where nothing can be done at
+all.** zVar's five formatting functions are each one word from exact at
+retail's size, and the word is `addi r4,r4,<offset>` -- where the format
+string sits inside the pooled string section. Retail's offset is 10,018
+and ours is 3, because `-str reuse,pool,readonly` pools the strings of a
+whole translation unit and ours holds only the ones on this page. That
+offset is a compile-time constant rather than a relocation, so unitcmp
+does not mask it and no spelling of the source moves it. Where the
+offset is small enough mwcc also folds it into the low half of the
+address and spends one instruction where retail spends two, which is why
+one of the five is four bytes short as well as one word wrong.
+
+So the rule to carry is bigger than the base register: **a split unit
+cannot reproduce a compile-time offset into a pooled section**, and both
+`.rodata` constants and string literals are pooled. A function that
+formats a string is not a good target in a split, and one that reads
+three or more float constants is a coin toss. Neither is a reason to
+write the source differently -- it is a reason to check the section
+before spending a sweep on it.
+
+**Run the padded build as a DIAGNOSTIC, because it separates two
 questions that otherwise stay tangled.** zNPCCombat's `HandleNPCDamage`
 measured 141 words out of 162 and looked like a rough draft. With the
 pad it measured 77 of 165 -- so the addressing was most of it, and what

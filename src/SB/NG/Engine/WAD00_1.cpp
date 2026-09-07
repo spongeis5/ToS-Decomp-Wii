@@ -1,5 +1,5 @@
 // WAD00_1.cpp -- the Domains subsystem, 51 functions and 8,632 bytes in
-// the image. THIS FILE COVERS 34 OF THEM: 28 byte-identical and six
+// the image. THIS FILE COVERS 36 OF THEM: 30 byte-identical and six
 // recorded near-misses, four of them at retail's exact size -- StartLoad
 // by one word, AbortActivity by six, push_back by five, SubtreeMin by
 // nine, Insert by 269 of 320 at 1,280 against 1,284, and the tree
@@ -151,19 +151,22 @@ public:
         int idx;
     };
 
-    class ConstIterator {
+    class Iterator {
     public:
-        ConstIterator() {
+        Iterator() {
             it = 0;
             owner = 0;
         }
+
+        void operator++();
 
         T* it;
         Block* block;
         const BlockAllocatorArray<T>* owner;
     };
 
-    class Iterator : public ConstIterator {};
+    Iterator CreateIterator(T* p) const;
+    Iterator End();
 
     // Virtual FIRST, so the vtable pointer takes +0 and blockSize +4.
     virtual ~BlockAllocatorArray();
@@ -189,6 +192,43 @@ public:
 template <class T>
 BlockAllocatorArray<T>::~BlockAllocatorArray() {
     DeleteBlocks();
+}
+
+template <class T>
+typename BlockAllocatorArray<T>::Iterator
+BlockAllocatorArray<T>::CreateIterator(T* p) const {
+    Iterator ci;
+
+    ci.it = p;
+    ci.owner = this;
+    ci.block = blockPool;
+
+    while (ci.block != 0) {
+        // The flag LAST: retail gives it the lowest scratch register and
+        // the block and its pool the two above, which is declaration
+        // order. Declared first or in the middle it takes the highest
+        // and every use of all three shifts -- 7 and 9 words against 0.
+        T* pool = ci.block->pool;
+        int n = blockSize;
+        bool inBlock = false;
+
+        if (p >= pool && p <= pool + n) {
+            inBlock = true;
+        }
+
+        if (inBlock) {
+            return ci;
+        }
+
+        ci.block = ci.block->next;
+    }
+
+    return ci;
+}
+
+template <class T>
+typename BlockAllocatorArray<T>::Iterator BlockAllocatorArray<T>::End() {
+    return CreateIterator(backBlock->pool + ((size - 1) % blockSize + 1));
 }
 
 template <class T>
@@ -1247,3 +1287,11 @@ T* NewArray(const H& heap, eMemMgrTag tag, unsigned long count) {
 template void ::EmbeddedTreeAVL< ::World::EntityHandleBase,
                                  Domains::DomainHandleCmp,
                                  44>::Iterator::operator++();
+
+// Nothing here calls these yet either -- Init for ActUnloadAll does, and
+// it is not written.
+template Util::BlockAllocatorArray<unsigned long long>::Iterator
+Util::BlockAllocatorArray<unsigned long long>::CreateIterator(
+    unsigned long long* p) const;
+template Util::BlockAllocatorArray<unsigned long long>::Iterator
+Util::BlockAllocatorArray<unsigned long long>::End();

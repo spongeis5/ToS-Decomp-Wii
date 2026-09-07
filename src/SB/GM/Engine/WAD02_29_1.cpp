@@ -18,7 +18,6 @@
 // 0.0f the moment it is, and a target's line-of-sight cache starts at
 // -0.1f so the first check always runs.
 
-class xEnt;
 class xBase;
 class zWallNet;
 
@@ -32,9 +31,78 @@ public:
 
 class xVec3 {
 public:
+    xVec3& operator=(const xVec3& other);
+
+    static const xVec3 m_Null;
+
     float x;
     float y;
     float z;
+};
+
+class xSphere {
+public:
+    xVec3 center;
+    float r;
+};
+
+namespace World {
+
+class xOGModel {
+public:
+    unsigned char _pad0[0x30];
+    xVec3 position;
+};
+
+}  // namespace World
+
+void xModelGetBoneLocationNoScale(xVec3& out, const World::xOGModel& model,
+                                  unsigned long bone);
+
+class zNPCBound {
+public:
+    float GetBoundRadiusXZ() const;
+
+    unsigned char _pad0[0x10];
+    float radiusY;
+};
+
+class xHavokPhysicsObject {
+public:
+    void GetBoundingSphere(xSphere* out) const;
+};
+
+// The four ids the geometry accessors switch on are xBase type
+// constants; the image gives the values and the order of the tests, not
+// the names.
+class xEnt {
+public:
+    unsigned char _pad0[0x20];
+    unsigned int baseType;
+    unsigned char _pad1[0x34 - 0x24];
+    World::xOGModel* model;
+    unsigned char _pad2[0x80 - 0x38];
+    xHavokPhysicsObject physics;
+    unsigned char _pad3[0xF4 - 0x81];
+    zNPCBound npcBound;
+    unsigned char _pad4[0x214 - 0x108];
+    float radius;
+};
+
+class zWallNetCollis {
+public:
+    void Reset();
+
+    unsigned char _pad0[0x90];
+    unsigned int numberOfCollisions;
+    unsigned int closestCollision;
+    unsigned char _pad1[0xAC - 0x98];
+    zWallNet* wallNet;
+    unsigned char calculateDistance : 1;
+    unsigned char calculateNormal : 1;
+    unsigned char calculateExactPoint : 1;
+    unsigned char consumed : 1;
+    unsigned char hitIt : 1;
 };
 
 namespace Sext {
@@ -144,10 +212,18 @@ public:
     zNPCEntity* npcEnt;
 };
 
+// The vtable pointer sits at +4, after owner, which is what declaring
+// the virtual BELOW the data member gives. The constructor is here
+// rather than in zNPCPerception because retail stores owner = 0 before
+// it constructs the target array -- a member array is built between the
+// base constructor and the derived one's body.
 class zNPCComponent {
 public:
+    zNPCComponent() { owner = 0; }
+
     zNPCBase* owner;
-    unsigned char _pad0[0x8 - 0x4];
+
+    virtual void Update();
 };
 
 class zNPCPerception;
@@ -157,6 +233,9 @@ public:
     class zPerceptionType {
     public:
         void Update();
+        zWallNet* GetNPCWallNet();
+        bool CheckNodePerception(
+            const Sext::NPCPerceptionAsset::PerceptionNode* node);
         void Setup(Sext::NPCPerceptionAsset::PerceptionType* asset, zNPCPerceptionTarget* owner);
         void Cleanup();
         void SetPerceived(bool perceived);
@@ -184,6 +263,9 @@ public:
     void DisableTarget();
     bool IsPerceived(Sext::eNPCPerceptionType type);
     zNPCEntity* GetNPCEntity();
+    void GetTargetEntityCenter(xVec3& out);
+    float GetTargetEntityRadiusXZ();
+    float GetTargetEntityRadiusY();
 
     xEnt* targetEnt;
     zNPCPerception* ownerNpcPerc;
@@ -195,6 +277,8 @@ public:
 
 class zNPCPerception : public zNPCComponent {
 public:
+    zNPCPerception();
+
     zWallNet* npcWallNet;
     Sext::NPCPerceptionAsset* perceptionAsset;
     zNPCPerceptionTarget targets[4];
@@ -280,6 +364,98 @@ zNPCEntity* zNPCPerceptionTarget::GetNPCEntity() {
     return ownerNpcPerc->owner->npcEnt;
 }
 
+void zNPCPerceptionTarget::GetTargetEntityCenter(xVec3& out) {
+    xEnt* ent = targetEnt;
+
+    // An if CHAIN here, where the two radius accessors below are
+    // switches: retail lays the first body immediately after its own
+    // test and branches past it, which is what a chain gives. Written as
+    // a switch all four tests come first and the bodies follow, 17 words
+    // and four bytes out.
+    if (ent->baseType == 0x55) {
+        xModelGetBoneLocationNoScale(out, *ent->model, 0);
+        return;
+    }
+
+    if (ent->baseType == 0x38 || ent->baseType == 0x5A ||
+        ent->baseType == 0x56) {
+        out = ent->model->position;
+        return;
+    }
+
+    out = xVec3::m_Null;
+}
+
+float zNPCPerceptionTarget::GetTargetEntityRadiusXZ() {
+    xEnt* ent = targetEnt;
+
+    switch (ent->baseType) {
+    case 0x55:
+        return ent->radius;
+    case 0x38:
+        return ent->npcBound.GetBoundRadiusXZ();
+    case 0x5A: {
+        xSphere sphere;
+
+        ent->physics.GetBoundingSphere(&sphere);
+        return sphere.r;
+    }
+    case 0x56: {
+        xSphere sphere;
+
+        ent->physics.GetBoundingSphere(&sphere);
+        return sphere.r;
+    }
+    }
+
+    return 0.0f;
+}
+
+float zNPCPerceptionTarget::GetTargetEntityRadiusY() {
+    xEnt* ent = targetEnt;
+
+    switch (ent->baseType) {
+    case 0x55:
+        return ent->radius;
+    case 0x38:
+        return ent->npcBound.radiusY;
+    case 0x5A: {
+        xSphere sphere;
+
+        ent->physics.GetBoundingSphere(&sphere);
+        return sphere.r;
+    }
+    case 0x56: {
+        xSphere sphere;
+
+        ent->physics.GetBoundingSphere(&sphere);
+        return sphere.r;
+    }
+    }
+
+    return 0.0f;
+}
+
+void zNPCPerceptionTarget::zPerceptionType::Update() {
+    int count;
+    int i;
+
+    count = typeAsset->nodeCount;
+
+    for (i = 0; i < count; i++) {
+        if (CheckNodePerception(&typeAsset->nodes[i])) {
+            SetPerceived(true);
+            return;
+        }
+    }
+
+    SetPerceived(false);
+}
+
+zWallNet* zNPCPerceptionTarget::zPerceptionType::GetNPCWallNet() {
+    return ownerTarget->ownerNpcPerc->npcWallNet;
+}
+
 void zNPCPerceptionTarget::zPerceptionType::Setup(Sext::NPCPerceptionAsset::PerceptionType* asset,
                                                   zNPCPerceptionTarget* owner) {
     typeAsset = asset;
@@ -315,3 +491,23 @@ bool zNPCPerceptionTarget::zPerceptionType::IsPerceived() {
     return isPerceived;
 }
 
+zNPCPerception::zNPCPerception() {
+    // No loop here: the four targets are a member array with a
+    // constructor, so mwcc builds them itself, and it emits the same
+    // bottom-tested pointer walk the target's own constructor needed.
+    npcWallNet = 0;
+    perceptionAsset = 0;
+    status = 0;
+    targetBitMask = 0;
+}
+
+void zWallNetCollis::Reset() {
+    numberOfCollisions = 0;
+    closestCollision = 0;
+    calculateDistance = 0;
+    calculateNormal = 0;
+    calculateExactPoint = 0;
+    consumed = 0;
+    hitIt = 0;
+    wallNet = 0;
+}

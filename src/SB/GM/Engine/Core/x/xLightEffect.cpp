@@ -37,3 +37,71 @@ public:
 #pragma dont_inline on
 xLightEffectBase::xLightEffectBase(World::EntityHandleBase* a0) : World::xOGEntity(a0) {}
 #pragma dont_inline off
+
+// The asset Create below is one shape 33 Sext assets in this tree
+// share, read from the image with tools/disasm.py: take sizeof(T)
+// from the global heap (heap 0, tag 16, no clear), memset it, build
+// the entity on it, run the shared xBaseInit against the asset and
+// keep the asset at +0x3C. tools/twin_census.py is what paired it
+// with the written ones, and the class is padded to the size its own
+// allocation asks for.
+
+enum eMemMgrTag { eMemMgrTag_ = 0x7FFFFFFF };
+
+namespace Memory {
+enum GlobalHeapEnum { GlobalHeapEnum_ = 0x7FFFFFFF };
+
+void* AllocGlobalHeap(unsigned long size, GlobalHeapEnum heap, eMemMgrTag tag,
+                      bool clear);
+}  // namespace Memory
+
+extern "C" {
+void* memset(void* dst, int c, unsigned long n);
+}
+
+inline void* operator new(unsigned long, void* p) { return p; }
+
+class xBase;
+
+namespace Sext {
+class xBaseAsset;
+class Light_Effect_Flicker;
+}
+
+void xBaseInit(xBase* base, const Sext::xBaseAsset* asset);
+
+class xLightEffectFlicker : public xLightEffectBase {
+public:
+    xLightEffectFlicker(World::EntityHandleBase* handle) : xLightEffectBase(handle) {}
+
+    virtual void __vtable_anchor();
+
+    unsigned char _pad0[0x3C - 0x4];
+    Sext::Light_Effect_Flicker* asset;
+    unsigned char _pad1[0x40 - 0x40];
+};
+
+namespace Sext {
+
+class Light_Effect_Flicker {
+public:
+    static xLightEffectFlicker* Create(World::EntityHandleBase* handle,
+                                         Light_Effect_Flicker* asset);
+};
+
+}  // namespace Sext
+
+xLightEffectFlicker* Sext::Light_Effect_Flicker::Create(World::EntityHandleBase* handle,
+                                                      Light_Effect_Flicker* asset) {
+    xLightEffectFlicker* entity = new (memset(Memory::AllocGlobalHeap(
+                                sizeof(xLightEffectFlicker),
+                                (Memory::GlobalHeapEnum)0,
+                                (eMemMgrTag)16, false),
+                            0, sizeof(xLightEffectFlicker))) xLightEffectFlicker(handle);
+
+    xBaseInit((xBase*)entity, (const Sext::xBaseAsset*)asset);
+
+    entity->asset = asset;
+
+    return entity;
+}

@@ -37,3 +37,92 @@ public:
 unsigned char zProjectile::ReadyForCleanup() { return f5; }
 const int* zProjectile::GetPos() const { return &f8C; }
 unsigned int zProjectileSBBombNPC::GetExplosionHitSource() { return 0x0000002Du; }
+
+// The asset Create below is one shape 33 Sext assets in this tree
+// share, read from the image with tools/disasm.py: take sizeof(T)
+// from the global heap (heap 0, tag 16, no clear), memset it, build
+// the entity on it, run the shared xBaseInit against the asset and
+// keep the asset at +0x3C. tools/twin_census.py is what paired it
+// with the written ones, and the class is padded to the size its own
+// allocation asks for.
+
+enum eMemMgrTag { eMemMgrTag_ = 0x7FFFFFFF };
+
+namespace Memory {
+enum GlobalHeapEnum { GlobalHeapEnum_ = 0x7FFFFFFF };
+
+void* AllocGlobalHeap(unsigned long size, GlobalHeapEnum heap, eMemMgrTag tag,
+                      bool clear);
+}  // namespace Memory
+
+extern "C" {
+void* memset(void* dst, int c, unsigned long n);
+}
+
+inline void* operator new(unsigned long, void* p) { return p; }
+
+class xBase;
+
+namespace Sext {
+class xBaseAsset;
+class ProjectileAsset;
+}
+
+void xBaseInit(xBase* base, const Sext::xBaseAsset* asset);
+namespace World { class EntityHandleBase; }
+
+namespace World {
+
+class xOGEntity {
+public:
+    xOGEntity(World::EntityHandleBase* handle);
+
+    virtual void __vtable_anchor();
+};
+
+}  // namespace World
+
+class zProjectileAssetWrap : public World::xOGEntity {
+public:
+    zProjectileAssetWrap(World::EntityHandleBase* handle) : World::xOGEntity(handle) {}
+
+    virtual void __vtable_anchor();
+
+    unsigned char _pad0[0x3C - 0x4];
+    Sext::ProjectileAsset* asset;
+    unsigned char _pad1[0x40 - 0x40];
+};
+
+namespace Sext {
+
+class ProjectileAsset {
+public:
+    static zProjectileAssetWrap* Create(World::EntityHandleBase* handle,
+                                          ProjectileAsset* asset);
+};
+
+}  // namespace Sext
+
+// 7 of 32 words at exactly retail's 128 bytes, and the difference is
+// what the null test COVERS. Retail's `beq` clears the constructor,
+// the vtable store, the asset store AND the xBaseInit; this one
+// clears the first two and leaves the rest behind it. Writing the
+// last two inside an explicit `if (entity != 0)` does not merge with
+// the placement new's own test -- it adds a second one and the
+// function grows to 136 -- and swapping the two statements changes
+// nothing, because mwcc reorders them itself. xLightEffect's, which
+// is the same size and the same family, matches with the plain form.
+zProjectileAssetWrap* Sext::ProjectileAsset::Create(World::EntityHandleBase* handle,
+                                                  ProjectileAsset* asset) {
+    zProjectileAssetWrap* entity = new (memset(Memory::AllocGlobalHeap(
+                                sizeof(zProjectileAssetWrap),
+                                (Memory::GlobalHeapEnum)0,
+                                (eMemMgrTag)16, false),
+                            0, sizeof(zProjectileAssetWrap))) zProjectileAssetWrap(handle);
+
+    entity->asset = asset;
+
+    xBaseInit((xBase*)entity, (const Sext::xBaseAsset*)asset);
+
+    return entity;
+}

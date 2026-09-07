@@ -79,7 +79,7 @@ EXPECT = {
     "SB/GM/Engine/WAD00_2": (6, 6),
     "SB/GM/Engine/WAD01_21": (4, 4),
     "SB/GM/Engine/WAD02_38": (12, 12),
-    "SB/GM/Engine/WAD03_16": (3, 3),
+    "SB/GM/Engine/WAD03_16": (3, 4),
     "SB/GM/Engine/WAD03_2": (1, 1),
     # Three pins were LOWERED by hand on 2026-08-31 -- these two and
     # TRCMessageBox below -- and this is the only reason one ever is here:
@@ -216,7 +216,7 @@ EXPECT = {
     "SB/GM/Engine/Core/x/xEnt": (5, 5),
     "SB/GM/Engine/Core/x/xFX": (1, 1),
     "SB/GM/Engine/Core/x/xLight": (3, 3),
-    "SB/GM/Engine/Core/x/xLightEffect": (1, 1),
+    "SB/GM/Engine/Core/x/xLightEffect": (2, 2),
     "SB/GM/Engine/Core/x/xModel": (1, 1),
     "SB/GM/Engine/Core/x/xRumbleEmitter": (4, 4),
     "SB/GM/Engine/Core/x/xRumbleManager": (1, 1),
@@ -233,10 +233,10 @@ EXPECT = {
     "SB/GM/Engine/Game/zBungeeBall": (3, 3),
     "SB/GM/Engine/Game/zCamFollow": (2, 2),
     "SB/GM/Engine/Game/zCheckpoint": (2, 2),
-    "SB/GM/Engine/Game/zCollectibleSpawner": (2, 2),
+    "SB/GM/Engine/Game/zCollectibleSpawner": (3, 3),
     "SB/GM/Engine/Game/zCommonPlayerActions": (26, 26),
     "SB/GM/Engine/Game/zFXParticleLocator": (1, 1),
-    "SB/GM/Engine/Game/zFloatingCollectible": (2, 2),
+    "SB/GM/Engine/Game/zFloatingCollectible": (3, 3),
     "SB/GM/Engine/Game/zHitButton": (4, 4),
     "SB/GM/Engine/Game/zInteraction": (5, 5),
     "SB/GM/Engine/Game/zMainOGModule": (2, 2),
@@ -272,7 +272,7 @@ EXPECT = {
     "SB/GM/Engine/WAD01_28": (57, 57),
     "SB/GM/Engine/WAD01_29": (2, 2),
     "SB/GM/Engine/WAD02_6_1": (2, 2),
-    "SB/GM/Engine/WAD03_32_2": (1, 1),
+    "SB/GM/Engine/WAD03_32_2": (3, 3),
     "SB/GM/Engine/WAD03_3_3": (7, 7),
     "SB/GM/Engine/WAD04_14": (2, 2),
     "SB/GM/Engine/WAD04_8_2": (1, 1),
@@ -458,7 +458,7 @@ EXPECT = {
     "SB/GM/Engine/WAD02_29_1": (40, 42),
     "SB/GM/Engine/WAD02_22_1": (18, 21),
     "SB/GM/Engine/Game/zVar": (42, 47),
-    "SB/GM/Engine/WAD02_24_2": (9, 12),
+    "SB/GM/Engine/WAD02_24_2": (14, 17),
     "SB/GM/Engine/Game/zPlayerInputHuman": (42, 42),
 }
 

@@ -380,3 +380,87 @@ bool zNPCBTIsInPuppetModeCondition::Evaluate() const {
 
     return npc->puppetMode;
 }
+
+// FIVE ASSET CREATES THAT ARE ONE TAIL CALL EACH: `li r5,<id>; b`
+// into the NPC manager, with the id in the third argument. A
+// non-template symbol does not carry its return type, so what these
+// hand back is only known to be whatever the manager returns.
+
+namespace World { class EntityHandleBase; }
+
+class xBase;
+
+namespace Sext {
+class NPCAsset;
+class NPCGroupAsset;
+
+class AnimViewer {
+public:
+    static xBase* Create(World::EntityHandleBase* handle,
+                     AnimViewer* asset);
+};
+
+class NPCGeneric {
+public:
+    static xBase* Create(World::EntityHandleBase* handle,
+                     NPCGeneric* asset);
+};
+
+class GenericSpawner {
+public:
+    static xBase* Create(World::EntityHandleBase* handle,
+                     GenericSpawner* asset);
+};
+
+class GenericSwarm {
+public:
+    static xBase* Create(World::EntityHandleBase* handle,
+                     GenericSwarm* asset);
+};
+
+class NPCGroupCircle {
+public:
+    static xBase* Create(World::EntityHandleBase* handle,
+                     NPCGroupCircle* asset);
+};
+
+}  // namespace Sext
+
+class zNPCManager {
+public:
+    static xBase* CreateNPC(World::EntityHandleBase* handle,
+                            Sext::NPCAsset* asset, unsigned int type);
+    static xBase* CreateNPCGroup(World::EntityHandleBase* handle,
+                                 Sext::NPCGroupAsset* asset,
+                                 unsigned int type);
+};
+
+xBase* Sext::AnimViewer::Create(World::EntityHandleBase* handle,
+                                   AnimViewer* asset) {
+    return zNPCManager::CreateNPC(handle, (Sext::NPCAsset*)asset,
+                                  400);
+}
+
+xBase* Sext::NPCGeneric::Create(World::EntityHandleBase* handle,
+                                   NPCGeneric* asset) {
+    return zNPCManager::CreateNPC(handle, (Sext::NPCAsset*)asset,
+                                  432);
+}
+
+xBase* Sext::GenericSpawner::Create(World::EntityHandleBase* handle,
+                                       GenericSpawner* asset) {
+    return zNPCManager::CreateNPC(handle, (Sext::NPCAsset*)asset,
+                                  448);
+}
+
+xBase* Sext::GenericSwarm::Create(World::EntityHandleBase* handle,
+                                     GenericSwarm* asset) {
+    return zNPCManager::CreateNPC(handle, (Sext::NPCAsset*)asset,
+                                  416);
+}
+
+xBase* Sext::NPCGroupCircle::Create(World::EntityHandleBase* handle,
+                                    NPCGroupCircle* asset) {
+    return zNPCManager::CreateNPCGroup(
+        handle, (Sext::NPCGroupAsset*)asset, 32);
+}

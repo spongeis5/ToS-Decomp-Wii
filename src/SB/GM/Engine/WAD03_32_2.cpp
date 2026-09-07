@@ -33,3 +33,137 @@ public:
 #pragma dont_inline on
 MappedElectricity::MappedElectricity() : Electricity() {}
 #pragma dont_inline off
+
+// The asset Create(s) below are one shape 33 Sext assets in this tree
+// share, read from the image with tools/disasm.py: take sizeof(T)
+// from the global heap (heap 0, tag 16, no clear), memset it, run the
+// entity's own constructor on it -- a call, so no vtable is stored
+// here -- and then hand the asset to virtual slot 20. Each class is
+// padded to the size its own allocation asks for, and carries the
+// slots up to the one that is called; none of them is defined here,
+// so no vtable is emitted. tools/twin_census.py paired them.
+
+enum eMemMgrTag { eMemMgrTag_ = 0x7FFFFFFF };
+
+namespace Memory {
+enum GlobalHeapEnum { GlobalHeapEnum_ = 0x7FFFFFFF };
+
+void* AllocGlobalHeap(unsigned long size, GlobalHeapEnum heap, eMemMgrTag tag,
+                      bool clear);
+}  // namespace Memory
+
+extern "C" {
+void* memset(void* dst, int c, unsigned long n);
+}
+
+inline void* operator new(unsigned long, void* p) { return p; }
+namespace World { class EntityHandleBase; }
+
+namespace Sext {
+class ElectricArcAsset;
+class ElectricPointAsset;
+}  // namespace Sext
+
+class ElectricArc {
+public:
+    ElectricArc(World::EntityHandleBase* handle);
+
+    virtual void _v0();
+    virtual void _v1();
+    virtual void _v2();
+    virtual void _v3();
+    virtual void _v4();
+    virtual void _v5();
+    virtual void _v6();
+    virtual void _v7();
+    virtual void _v8();
+    virtual void _v9();
+    virtual void _v10();
+    virtual void _v11();
+    virtual void _v12();
+    virtual void _v13();
+    virtual void _v14();
+    virtual void _v15();
+    virtual void _v16();
+    virtual void _v17();
+    virtual void _v18();
+    virtual void _v19();
+    virtual void Init(Sext::ElectricArcAsset* asset);
+
+    unsigned char _pad0[0x110 - 0x4];
+};
+
+namespace Sext {
+
+class ElectricArcAsset {
+public:
+    static ElectricArc* Create(World::EntityHandleBase* handle,
+                                 ElectricArcAsset* asset);
+};
+
+}  // namespace Sext
+
+ElectricArc* Sext::ElectricArcAsset::Create(World::EntityHandleBase* handle,
+                                          ElectricArcAsset* asset) {
+    ElectricArc* entity = new (memset(Memory::AllocGlobalHeap(
+                                sizeof(ElectricArc),
+                                (Memory::GlobalHeapEnum)0,
+                                (eMemMgrTag)16, false),
+                            0, sizeof(ElectricArc))) ElectricArc(handle);
+
+    entity->Init(asset);
+
+    return entity;
+}
+
+class ElectricPoint {
+public:
+    ElectricPoint(World::EntityHandleBase* handle);
+
+    virtual void _v0();
+    virtual void _v1();
+    virtual void _v2();
+    virtual void _v3();
+    virtual void _v4();
+    virtual void _v5();
+    virtual void _v6();
+    virtual void _v7();
+    virtual void _v8();
+    virtual void _v9();
+    virtual void _v10();
+    virtual void _v11();
+    virtual void _v12();
+    virtual void _v13();
+    virtual void _v14();
+    virtual void _v15();
+    virtual void _v16();
+    virtual void _v17();
+    virtual void _v18();
+    virtual void _v19();
+    virtual void Init(Sext::ElectricPointAsset* asset);
+
+    unsigned char _pad0[0xD0 - 0x4];
+};
+
+namespace Sext {
+
+class ElectricPointAsset {
+public:
+    static ElectricPoint* Create(World::EntityHandleBase* handle,
+                                   ElectricPointAsset* asset);
+};
+
+}  // namespace Sext
+
+ElectricPoint* Sext::ElectricPointAsset::Create(World::EntityHandleBase* handle,
+                                              ElectricPointAsset* asset) {
+    ElectricPoint* entity = new (memset(Memory::AllocGlobalHeap(
+                                sizeof(ElectricPoint),
+                                (Memory::GlobalHeapEnum)0,
+                                (eMemMgrTag)16, false),
+                            0, sizeof(ElectricPoint))) ElectricPoint(handle);
+
+    entity->Init(asset);
+
+    return entity;
+}

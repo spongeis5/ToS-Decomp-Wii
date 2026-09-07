@@ -7,18 +7,18 @@ numbers here, which move.
 ## State at time of writing
 
 ```
-Game Code:  67 of 777 files complete  169,508 / 2,116,616 bytes  1,703 / 10,697 fn
-            8.0084% of game code
+Game Code:  67 of 777 files complete  170,380 / 2,116,616 bytes  1,710 / 10,697 fn
+            8.0496% of game code
 
-Of those 1,703 functions, 759 are GENERATED -- machine-recognised
+Of those 1,710 functions, 759 are GENERATED -- machine-recognised
 shapes, not one of which is decompiling. They are real matched
 functions and the offsets and constants are recovered fact, but a
 count of them is not a count of decompiled code. HAND-WRITTEN IS
-944, across 203 units and 160,856 bytes, and that is the figure to
+951, across 203 units and 161,728 bytes, and that is the figure to
 compare against earlier ones.
 
 Data:       4 unit(s) carry their own, 412 bytes; 134 more could
-All:        4.29% matched              main.dol reproduces byte for byte
+All:        4.30% matched              main.dol reproduces byte for byte
 ```
 
 Every number above is written by `python tools/notes_state.py`,
@@ -2597,6 +2597,48 @@ linked image, where the folded symbol is the same bytes, and reads 18 of
 21. Neither is wrong and neither should be quoted without saying which
 question it answers. reloc_audit already separates them: this file moved
 its folded count from 4 to 10 and its overstated count not at all.
+## `+=` IS NOT `x = x + y`, and declaration order picks the register
+
+zNPCPerception (WAD02_29_1) is 24 of 24 and every one of them came down
+to how a statement was spelled rather than what it did. Four spellings
+are worth carrying.
+
+**`+=` emits the accumulator first; the spelled-out form emits it
+second.** `types[i].perceivedTimer = types[i].perceivedTimer + dt`
+compiles to `fadds f0,f31,f0` -- the increment first -- and so does
+`dt + types[i].perceivedTimer`, so it is not operand order in the source
+that decides it. `types[i].perceivedTimer += dt` compiles to `fadds
+f0,f0,f31`, which is retail. A local for the old value does the same.
+One word of 75, and no reading of the source would have found it: the
+two forms are the same expression.
+
+**A do-while has no guard and no counter.** A loop over a fixed-size
+member array wants a BOTTOM-TESTED pointer walk with the end written
+inline in the condition. A counted `for` costs one instruction (mwcc puts
+the trip count in ctr); the same pointer walk as a `while` costs five,
+because a top test needs a guard and a computed trip count; and hoisting
+`&types[6]` into a local of its own is eight words out. Four forms
+measured, one match. Where the array is a MEMBER with a constructor, do
+not write the loop at all -- mwcc emits exactly this shape itself, and
+the loop's position then tells you which statements belong to the base
+constructor and which to the derived one's body.
+
+**An if chain and a switch are different shapes on the same values.** A
+chain lays each body immediately after its own test and branches past
+it; a switch puts every test first and the bodies after. This file needs
+one of each on the same four type ids -- GetTargetEntityCenter is a
+chain, the two radius accessors are switches -- and swapping either is
+17 words and four bytes out. The image says which; nothing else does.
+
+**Which local is DECLARED first decides which register it gets**, and it
+is not first USE. Three functions here turned on it: Setup wanted its
+trip count declared before its counter, SetAssetAuto wanted the 64-bit id
+declared (uninitialised) before the result pointer and assigned after,
+and AllAttached wanted the asset pointer in a local of its own so the
+store between the two loads landed there. In every case the variable
+declared FIRST takes the higher register, initialising at the point of
+declaration reorders them, and no rewriting of the loop or the
+expression moves it.
 ## Traps worth knowing
 
 **A survey that cannot see what is finished reports finished work as

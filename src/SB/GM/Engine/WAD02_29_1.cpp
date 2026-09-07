@@ -18,8 +18,17 @@
 // 0.0f the moment it is, and a target's line-of-sight cache starts at
 // -0.1f so the first check always runs.
 
-class xBase;
 class zWallNet;
+
+// The type id every scene object carries; the image gives the values
+// this file tests against and the order of the tests, not their names.
+class xBase {
+public:
+    unsigned char _pad0[0x20];
+    unsigned int baseType;
+};
+
+xBase* zSceneFindObject(unsigned long long id);
 
 // DisableTarget sends its event from the NPC's own base entity, which
 // the disassembly reaches at +0xBC of the zNPCEntity.
@@ -75,10 +84,8 @@ public:
 // The four ids the geometry accessors switch on are xBase type
 // constants; the image gives the values and the order of the tests, not
 // the names.
-class xEnt {
+class xEnt : public xBase {
 public:
-    unsigned char _pad0[0x20];
-    unsigned int baseType;
     unsigned char _pad1[0x34 - 0x24];
     World::xOGModel* model;
     unsigned char _pad2[0x80 - 0x38];
@@ -163,6 +170,14 @@ public:
     float HeightDown;
 };
 
+class CharacterAsset {
+public:
+    unsigned char _pad0[0xC0];
+    unsigned long long perceptionAssetID;
+};
+
+class NPCAsset;
+
 class NPCPerceptionAsset {
 public:
     class PerceptionNode {
@@ -199,6 +214,22 @@ public:
 
 }  // namespace Sext
 
+const Sext::CharacterAsset* zNPCAsset_GetCharacterAsset(
+    const Sext::NPCAsset* asset);
+
+namespace World {
+
+class EntityManager {
+public:
+    // Static: retail passes only the id, in r3:r4, and discards the
+    // manager the getter returned.
+    static void* FindAsset(unsigned long long id);
+};
+
+EntityManager* GetEntityManager();
+
+}  // namespace World
+
 // zEntEvent(from, fromEvent, to, toEvent, param, force) -- the disable
 // path sends one event with no parameter and the force flag set.
 enum ForceEvent { ForceEvent_ = 0x7FFFFFFF };
@@ -206,9 +237,22 @@ enum ForceEvent { ForceEvent_ = 0x7FFFFFFF };
 void zEntEvent(xBase* from, unsigned int fromEvent, xBase* to,
                unsigned int toEvent, Sext::EventAny* param, ForceEvent force);
 
+// The asset at +0x60 carries the uid of the NPC's wall net; the field's
+// own name is not recovered, only its offset and what AllAttached does
+// with it.
+class zNPCAssetData {
+public:
+    unsigned char _pad0[0x148];
+    unsigned long long wallNetID;
+};
+
+class zNPCStatus;
+
 class zNPCBase {
 public:
-    unsigned char _pad0[0x98];
+    unsigned char _pad0[0x60];
+    zNPCAssetData* assetData;
+    unsigned char _pad1[0x98 - 0x64];
     zNPCEntity* npcEnt;
 };
 
@@ -263,6 +307,7 @@ public:
     void DisableTarget();
     bool IsPerceived(Sext::eNPCPerceptionType type);
     zNPCEntity* GetNPCEntity();
+    void PostUpdate(float dt);
     void GetTargetEntityCenter(xVec3& out);
     float GetTargetEntityRadiusXZ();
     float GetTargetEntityRadiusY();
@@ -278,6 +323,13 @@ public:
 class zNPCPerception : public zNPCComponent {
 public:
     zNPCPerception();
+
+    void SetAssetAuto(const Sext::NPCAsset* asset);
+    void SetTarget(unsigned int index, xEnt* ent);
+    void RemoveTarget(unsigned int index);
+    void AllAttached();
+    void Detached(zNPCStatus* status);
+    void PostUpdate(float dt);
 
     zWallNet* npcWallNet;
     Sext::NPCPerceptionAsset* perceptionAsset;
@@ -336,6 +388,45 @@ void zNPCPerceptionTarget::Cleanup() {
 
     for (i = 0; i < 6; i++) {
         types[i].Cleanup();
+    }
+}
+
+void zNPCPerceptionTarget::PostUpdate(float dt) {
+    bool anyPerceived;
+    int i;
+
+    if (targetEnt == 0) {
+        return;
+    }
+
+    anyPerceived = false;
+    losCache.LOSTimer = losCache.LOSTimer - dt;
+
+    for (i = 0; i < 6; i++) {
+        if (types[i].typeAsset != 0) {
+            // += , not x = x + dt: the compound form emits fadds with
+            // the accumulator FIRST, the spelled-out form emits it
+            // second, and either operand order of the spelled-out form
+            // gives the same wrong one. One word of 75.
+            types[i].perceivedTimer += dt;
+            types[i].isDirty = true;
+
+            if (!anyPerceived && types[i].IsPerceived()) {
+                anyPerceived = true;
+            }
+        }
+    }
+
+    if (anyPerceived != perceivedAny) {
+        if (perceivedAny) {
+            zEntEvent(ownerNpcPerc->owner->npcEnt->baseEnt, 0,
+                      (xBase*)targetEnt, 0x03EECE48, 0, (ForceEvent)1);
+        } else {
+            zEntEvent(ownerNpcPerc->owner->npcEnt->baseEnt, 0,
+                      (xBase*)targetEnt, 0xEE71365E, 0, (ForceEvent)1);
+        }
+
+        perceivedAny = anyPerceived;
     }
 }
 
@@ -510,4 +601,80 @@ void zWallNetCollis::Reset() {
     consumed = 0;
     hitIt = 0;
     wallNet = 0;
+}
+
+void zNPCPerception::SetAssetAuto(const Sext::NPCAsset* asset) {
+    // id DECLARED first and assigned after: retail keeps its two halves
+    // in r31 and r30 and the result in r29, and either order that
+    // initialises id where it is declared rotates all three.
+    unsigned long long id;
+    Sext::NPCPerceptionAsset* found = 0;
+
+    id = zNPCAsset_GetCharacterAsset(asset)->perceptionAssetID;
+
+    if (id != 0) {
+        found = (Sext::NPCPerceptionAsset*)World::GetEntityManager()
+                    ->FindAsset(id);
+    }
+
+    perceptionAsset = found;
+}
+
+void zNPCPerception::SetTarget(unsigned int index, xEnt* ent) {
+    RemoveTarget(index);
+    targets[index].targetEnt = ent;
+    targetBitMask = targetBitMask | (1 << index);
+
+    if (perceptionAsset != 0) {
+        targets[index].Setup(perceptionAsset, this);
+    }
+}
+
+void zNPCPerception::RemoveTarget(unsigned int index) {
+    zNPCPerceptionTarget* t = &targets[index];
+
+    t->DisableTarget();
+    targetBitMask = targetBitMask & ~(1 << index);
+    t->Cleanup();
+}
+
+void zNPCPerception::AllAttached() {
+    // The asset pointer into a local of its own: retail's npcWallNet = 0
+    // store sits BETWEEN that load and the uid load, which is where it
+    // lands only when the two are separate statements.
+    zNPCAssetData* data = owner->assetData;
+    unsigned long long id;
+
+    npcWallNet = 0;
+    id = data->wallNetID;
+
+    if (id != 0) {
+        xBase* obj = zSceneFindObject(id);
+
+        if (obj != 0 && obj->baseType == 0x62) {
+            npcWallNet = (zWallNet*)obj;
+        }
+    }
+}
+
+void zNPCPerception::Detached(zNPCStatus* status) {
+    int i;
+
+    perceptionAsset = 0;
+
+    for (i = 0; i < 4; i++) {
+        targets[i].DisableTarget();
+    }
+}
+
+void zNPCPerception::PostUpdate(float dt) {
+    unsigned int i;
+
+    if (perceptionAsset == 0) {
+        return;
+    }
+
+    for (i = 0; i < 4; i++) {
+        targets[i].PostUpdate(dt);
+    }
 }

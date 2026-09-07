@@ -460,6 +460,17 @@ EXPECT = {
     "SB/GM/Engine/Game/zVar": (42, 47),
     "SB/GM/Engine/WAD02_24_2": (14, 17),
     "SB/GM/Engine/Game/zPlayerInputHuman": (42, 42),
+    "SB/GM/Engine/Core/x/xCamTransition": (1, 1),
+    "SB/GM/Engine/Core/x/xCounter": (1, 1),
+    "SB/GM/Engine/Core/x/xMovePoint": (1, 1),
+    "SB/GM/Engine/Core/x/xScreenFade": (1, 1),
+    "SB/GM/Engine/Game/zCameraCurve": (1, 1),
+    "SB/GM/Engine/Game/zConditional": (1, 1),
+    "SB/GM/Engine/Game/zLensFlare": (1, 1),
+    "SB/GM/Engine/Game/zPortal": (1, 1),
+    "SB/GM/Engine/Game/zScript": (1, 1),
+    "SB/GM/Engine/Game/zTextBox": (1, 1),
+    "SB/GM/Engine/Game/zUIFlashOnScreenText": (1, 1),
 }
 
 

@@ -7,10 +7,10 @@ numbers here, which move.
 ## State at time of writing
 
 ```
-Game Code:  67 of 777 files complete  215,336 / 2,116,616 bytes  2,089 / 10,697 fn
-            10.1736% of game code
+Game Code:  67 of 777 files complete  216,700 / 2,116,616 bytes  2,100 / 10,697 fn
+            10.2380% of game code
 
-Of those 2,089 functions, 726 are GENERATED -- machine-recognised
+Of those 2,100 functions, 737 are GENERATED -- machine-recognised
 shapes, not one of which is decompiling. They are real matched
 functions and the offsets and constants are recovered fact, but a
 count of them is not a count of decompiled code. HAND-WRITTEN IS
@@ -18,7 +18,7 @@ count of them is not a count of decompiled code. HAND-WRITTEN IS
 compare against earlier ones.
 
 Data:       4 unit(s) carry their own, 412 bytes; 134 more could
-All:        4.97% matched              main.dol reproduces byte for byte
+All:        4.99% matched              main.dol reproduces byte for byte
 ```
 
 Every number above is written by `python tools/notes_state.py`,
@@ -140,6 +140,7 @@ written so far.
 | `disasm.py` | read one retail function, symbols resolved; `--unit`. 100% of the splits decode |
 | `compiler_sweep.py` | rebuild every unit with source under each Wii compiler and count exact functions; `--lib PREFIX` |
 | `twin_census.py` | which unmatched functions are BYTE-TWINS of ones already written; `--unsolved` names every member |
+| `transplant.py` | the fill sheet: every field that differs between a solved function and its twin, and source when a template fits; `--emit --out` |
 
 `pip install pyelftools` is required for all of them.
 
@@ -3120,6 +3121,86 @@ and it cuts both ways:
   `return false` after the computation, so the test has to be written the
   other way round from the obvious one. Same instructions, different
   order, six words apart.
+
+## THE FILL SHEET, and two guards that saw what the oracle could not
+
+`twin_census.py` says which unsolved function has the same instruction
+skeleton as one already written. It stopped there, and the rest was
+hand work: read both listings, spot what differs, retype the source.
+`transplant.py` does that step. Two functions in one cluster agree on
+every opcode and every register, so only three kinds of field can
+differ -- a branch displacement, a 16-bit immediate, and the halves of
+a lis/addi address. Walking the two word arrays in lockstep therefore
+yields the COMPLETE list of what the source has to change, with
+nothing else in it. A near-miss hunted by eye is a search; this is a
+form.
+
+For zHintSphere against xGroup: 31 instructions, 23 byte-identical,
+3 differing only in a displacement while reaching the same symbol --
+not holes, the source that produced them is unchanged -- and FOUR
+holes: the allocation size spelled twice, the vtable, and the init.
+
+THE SKELETON IS NOT THE SHAPE, which is the same lesson `size is not
+shape` taught one level up. The 124-byte Sext Create cluster holds
+eight solved members and a first version of `describe()` read all
+eight as `entity->Init(asset)`. Five of them are not: they call a FREE
+function -- `zEnvInit(entity, asset)`, `xTimerInit`, `zUI_Init` -- and
+the entity goes in r3 either way, as `this` or as the first argument.
+One skeleton, two C++ constructs, and the instructions cannot tell
+them apart. THE MANGLED NAME CAN: a member carries `__<class>F` and a
+free function carries `__F`. Validating against all eight rather than
+one is what found it, and 3 of 8 was the score before the fix.
+
+THE SAME CLUSTER ALSO HIDES THE BASE. Three of the eight derive from
+`zUI` and one from `zEnt`, not from `World::xOGEntity`, and emitting
+the xOGEntity layout for one of those places the vtable and every
+offset wrong while compiling cleanly. The template refuses instead.
+
+AND IT HIDES THE SIGNATURE, which cost a rebuild and is the best part.
+The template declared every init as taking the Sext asset BY POINTER.
+Retail does not: `xCamTransition::Init` takes `const
+Sext::transition_time&`, `xScreenFade::load` takes
+`xScreenFade::asset_type&` -- a class nested in the entity --  and
+`zCameraCurve::Init` takes a `zCameraCurveAsset*` that is not in
+namespace Sext at all. A pointer and a reference are both an address
+in r4, so ALL ELEVEN UNITS MATCHED BYTE FOR BYTE EITHER WAY and
+report.json called them 100% both times.
+
+Two guards said otherwise, independently, and both were right:
+`unitcmp.py` resolves branch targets by NAME and scored those five
+units 0 of 1, and `reloc_audit.py` put them under `folded` -- a symbol
+nowhere in the image -- beside the real linker folds. Neither needed
+the other. The true signature never had to be guessed: the `bl` in the
+target's own disassembly resolves through the retail symbol table, so
+its mangled parameter list was in hand the whole time. Declaring what
+retail declares took folded from 22 back to 17, left the bytes
+untouched, and raised those five pins from 0/1 to 1/1.
+
+WHAT THE COMPILER ALREADY WROTE DOWN. The retail ELF is an unstripped
+CodeWarrior link carrying 4.68 MB of DWARF 2, and for this cluster it
+placed 22 of 22 unsolved members in a named source file -- including
+the 17 that `twin_census` could only call `(no source file yet)`. The
+line table for zHintSphere's Create reads 923 through 927 over five
+lines, which says the original was one `new` expression, one init call
+and a return: the shape that was already being written. That is not
+the compiler being run backwards. It is the compiler having been asked
+to record the correspondence at the time, and nobody stripping it.
+
+Eleven of the cluster's members were emitted, compiled and matched on
+the first build: xScreenFade, xCounter, xCamTransition, xMovePoint,
+zConditional, zCameraCurve, zPortal, zLensFlareSpawnPt,
+zUIFlashOnScreenText, zScript and ztextbox. Eight of the remaining
+eleven the template refuses by name -- another base, a nested entity
+type, an unqualified asset -- and three name a unit configure.py has
+no Object row for.
+
+THEY COUNT AS GENERATED, and that is the point of the split. A tool
+emitted those eleven files; the decompiling happened once, by hand, on
+the donor. `written_vs_generated.py` learned a third banner and
+hand-written stayed at 1,363 across 223 units while generated went 726
+to 737. Eleven more matched functions and not one more function of
+decompiling -- which is exactly what that figure exists to keep
+separate.
 
 Two things that are NOT levers, measured rather than assumed: which
 overload of a name gets picked (CodeWarrior mangles static and non-static

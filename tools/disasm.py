@@ -407,18 +407,29 @@ def name_at(funcs, objs, addr):
     return None
 
 
-def show(raw, secs, funcs, objs, addr, size, name):
+def annotate(raw, secs, funcs, objs, addr, size):
+    """One function's instructions, with every symbol already resolved.
+
+    -> (words, rows, unknown), where a row is (address, word, label,
+    Decoded, note): `note` is the resolved branch target, or the address
+    a lis/addi pair builds and what lives at it.
+
+    This is the whole of what `show` prints, and the whole of what a
+    caller that is NOT printing needs. It exists so that a second
+    consumer -- `transplant.py`, which reads two functions side by side
+    -- does not grow its own copy of the lis-tracking below. That
+    tracking is the part of this file that is easiest to get subtly
+    wrong, and a second wrong copy would name the wrong global with
+    total confidence, which is the failure mode this project pays most
+    for.
+    """
     body = read(raw, secs, addr, size)
     if body is None:
-        sys.exit("disasm: %08X is in no loaded section" % addr)
+        return None, None, None
     words = struct.unpack(">" + "I" * (size // 4), body)
 
-    print("  %s" % name)
-    print("  %08X..%08X   %d bytes, %d instruction(s)"
-          % (addr, addr + size, size, len(words)))
-    print("")
-
     hi = {}
+    rows = []
     unknown = 0
     labels = {}
     for i, w in enumerate(words):
@@ -480,7 +491,22 @@ def show(raw, secs, funcs, objs, addr, size, name):
             if m and int(m.group(1)) in hi:
                 del hi[int(m.group(1))]
 
-        lab = labels.get(at, "")
+        rows.append((at, w, labels.get(at, ""), dc, note))
+
+    return words, rows, unknown
+
+
+def show(raw, secs, funcs, objs, addr, size, name):
+    words, rows, unknown = annotate(raw, secs, funcs, objs, addr, size)
+    if words is None:
+        sys.exit("disasm: %08X is in no loaded section" % addr)
+
+    print("  %s" % name)
+    print("  %08X..%08X   %d bytes, %d instruction(s)"
+          % (addr, addr + size, size, len(words)))
+    print("")
+
+    for at, w, lab, dc, note in rows:
         print("  %08X  %08X  %-4s %-34s%s"
               % (at, w, lab + ":" if lab else "", dc.text, note))
 

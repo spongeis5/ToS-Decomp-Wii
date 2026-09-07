@@ -11,7 +11,10 @@
 // link kept debug info for. zNPCPerception 0x1E8, zNPCPerceptionTarget
 // 0x74, zPerceptionType 0x10, zLOSCache 0x8; on the asset side
 // Sext::NPCPerceptionAsset::PerceptionType 0x10 and PerceptionNode 0x28, whose shape union
-// runs from +4 to +0x1B.
+// runs from +4 to +0x1B. The entity chain is from the same place:
+// xEnt 0xC0, zNPCEntity 0x1D0 on it, zPlayer 0x480 on it and
+// zCommonPlayer 0x8A0 on zPlayer -- which is why the geometry
+// accessors below cast rather than reading everything off an xEnt.
 //
 // The float literals are read from .rodata rather than named by address:
 // a fresh perception type starts at FLT_MAX (never perceived), goes to
@@ -35,12 +38,6 @@ public:
 
 xBase* zSceneFindObject(unsigned long long id);
 
-// Only the player carries a noise level, which is why the sound sphere
-// begins by testing the target's type id.
-class zCommonPlayer {
-public:
-    float GetNoiseLevel();
-};
 
 namespace World {
 class xOGModel;
@@ -106,14 +103,6 @@ public:
     float z;
 };
 
-// One of the five extra points an entity offers a line-of-sight test,
-// 16 bytes apart with a count at +0x1C0. Only the leading xVec3 is
-// read here; what fills the fourth word is not recovered.
-class xLOSPoint {
-public:
-    xVec3 point;
-    unsigned char _pad0[0x10 - 0xC];
-};
 
 // 0x14 in the DWARF, and its position is at +0, which is why the same
 // pointer serves as both the xVec3 and the zWallNetPositionXZ argument.
@@ -164,9 +153,10 @@ public:
     void GetBoundingSphere(xSphere* out) const;
 };
 
-// The four ids the geometry accessors switch on are xBase type
-// constants; the image gives the values and the order of the tests, not
-// the names.
+// 0xC0 in the DWARF, and the accessors below reach PAST it through a
+// cast, because the field they want belongs to whichever concrete type
+// the base id names. The four ids are xBase type constants; the image
+// gives the values and the order of the tests, not the names.
 class xEnt : public xBase {
 public:
     unsigned char _pad1[0x34 - 0x24];
@@ -175,21 +165,35 @@ public:
 
     // A one-bit field, the eighth from the top of the word at +0x48:
     // retail rotates by 8 and masks bit 31, which normalises it to 0 or
-    // 1 the way a bitfield read does and a mask does not. Its name is
-    // not recovered, only its position and that it gates perception.
+    // 1 the way a bitfield read does and a mask does not. zVar's
+    // zVarEntryCB_IsVisible reads this same bit at this same offset,
+    // which is where the name comes from.
     unsigned int _bits0 : 7;
-    unsigned int perceivable : 1;
+    unsigned int visible : 1;
     unsigned int _bits1 : 24;
 
     unsigned char _pad3[0x80 - 0x4C];
     xHavokPhysicsObject physics;
-    unsigned char _pad4[0xF4 - 0x81];
-    zNPCBound npcBound;
-    unsigned char _pad5[0x170 - 0x108];
-    xLOSPoint losPoints[5];
-    int losPointCount;
-    unsigned char _pad6[0x214 - 0x1C4];
-    float radius;
+    unsigned char _pad4[0xC0 - 0x81];
+};
+// 0x480 in the DWARF, on the same 0xC0 entity base. The three members
+// below are the ones this file reaches past an xEnt for, and it only
+// does so once the base id has been checked for 0x55.
+class zPlayer : public xEnt {
+public:
+    unsigned char _pad0[0x170 - 0xC0];
+    xSphere extraSpheres[5];
+    int numExtraSpheres;
+    unsigned char _pad1[0x214 - 0x1C4];
+    float capRadius;
+    unsigned char _pad2[0x480 - 0x218];
+};
+
+// 0x8A0, and the only thing on it this file wants is the noise the
+// player is making, which is what the sound sphere gates on.
+class zCommonPlayer : public zPlayer {
+public:
+    float GetNoiseLevel();
 };
 
 class zWallNetCollis {
@@ -632,9 +636,9 @@ float zNPCPerceptionTarget::GetTargetEntityRadiusXZ() {
 
     switch (ent->baseType) {
     case 0x55:
-        return ent->radius;
+        return ((zPlayer*)ent)->capRadius;
     case 0x38:
-        return ent->npcBound.GetBoundRadiusXZ();
+        return ((zNPCEntity*)ent)->npcBound.GetBoundRadiusXZ();
     case 0x5A: {
         xSphere sphere;
 
@@ -657,9 +661,9 @@ float zNPCPerceptionTarget::GetTargetEntityRadiusY() {
 
     switch (ent->baseType) {
     case 0x55:
-        return ent->radius;
+        return ((zPlayer*)ent)->capRadius;
     case 0x38:
-        return ent->npcBound.radiusY;
+        return ((zNPCEntity*)ent)->npcBound.radiusY;
     case 0x5A: {
         xSphere sphere;
 
@@ -829,7 +833,7 @@ void zNPCPerception::PostUpdate(float dt) {
 bool zNPCPerceptionTarget::zPerceptionType::CheckNodePerception(
     const Node* node) {
     // The flag is on the TARGET ENTITY, not the NPC.
-    if (!ownerTarget->targetEnt->perceivable) {
+    if (!ownerTarget->targetEnt->visible) {
         return false;
     }
 
@@ -1631,7 +1635,7 @@ bool zNPCPerceptionTarget::zLOSCache::CheckLineOfSight(
     npc->GetBoundCenter(npcCenter);
     ent = target->targetEnt;
 
-    // Only the player gets the extra points and the bone: everything
+    // Only the player gets the extra spheres and the bone: everything
     // else is one ray at its centre.
     if (ent->baseType == 0x55) {
         target->GetTargetEntityCenter(targetCenter);
@@ -1642,11 +1646,12 @@ bool zNPCPerceptionTarget::zLOSCache::CheckLineOfSight(
             return true;
         }
 
-        count = ent->losPointCount;
+        count = ((zPlayer*)ent)->numExtraSpheres;
 
         for (i = 0; i < count; i++) {
             if (zNPCPerception::CheckLineOfSight(
-                    &npcCenter, &ent->losPoints[i].point, npc, ent,
+                    &npcCenter,
+                    &((zPlayer*)ent)->extraSpheres[i].center, npc, ent,
                     layer)) {
                 isInLOS = true;
                 return true;

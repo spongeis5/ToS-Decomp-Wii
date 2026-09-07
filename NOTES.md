@@ -7,18 +7,18 @@ numbers here, which move.
 ## State at time of writing
 
 ```
-Game Code:  67 of 777 files complete  161,200 / 2,116,616 bytes  1,644 / 10,697 fn
-            7.6159% of game code
+Game Code:  67 of 777 files complete  165,008 / 2,116,616 bytes  1,656 / 10,697 fn
+            7.7958% of game code
 
-Of those 1,644 functions, 759 are GENERATED -- machine-recognised
+Of those 1,656 functions, 759 are GENERATED -- machine-recognised
 shapes, not one of which is decompiling. They are real matched
 functions and the offsets and constants are recovered fact, but a
 count of them is not a count of decompiled code. HAND-WRITTEN IS
-885, across 200 units and 152,548 bytes, and that is the figure to
+897, across 201 units and 156,356 bytes, and that is the figure to
 compare against earlier ones.
 
 Data:       4 unit(s) carry their own, 412 bytes; 134 more could
-All:        4.16% matched              main.dol reproduces byte for byte
+All:        4.22% matched              main.dol reproduces byte for byte
 ```
 
 Every number above is written by `python tools/notes_state.py`,
@@ -2453,7 +2453,7 @@ function-scope `n` is hoisted above the null check and materialised
 in r31 for every use, 36 and 68 words off; declared inside each
 branch, both matched at once. The balance routines are the opposite
 because their switch needs the node immediately.
-## WHAT -O4's AUTO-INLINER TAKES, and three spellings that are one word
+## WHAT -O4's AUTO-INLINER TAKES, and where the body sits in the file
 
 zBlackboard's 1,036-byte payload dispatcher is the unit's only plain
 function bigger than a screen, and retail's has three copies of
@@ -2504,9 +2504,39 @@ same function also wanted `eVarType sourceType;` DECLARED before
 `unsigned int source` and assigned after -- r28/r29 the other way
 round otherwise, nine words.
 
-Read this section as a set: each of the four was the whole remaining
-difference at the time, and each was found by a five-way sweep that
-included the obvious spelling and the obvious spelling lost.
+**And the inliner cannot take a body it has not read yet.** zBTBuilder's
+`Build` calls a 20-byte `NewArray<zBTNode*>` in retail and inlined it in
+ours -- 84 of 90 words, and 8 bytes too long. Two statements in the body
+is the lever that stopped the six `BuildXNode` from being inlined and it
+does nothing here; neither does `#pragma dont_inline on` around the
+definition. `#pragma dont_inline` around the CALLER does stop it and
+takes three wrappers out of line with it -- the unit goes from 12 of 12
+functions to 10 of 15, and Build to 67 of 88 at 352 bytes. What works
+is moving the template's DEFINITION to the foot of the file, below
+its callers, leaving a declaration where it was: 84 words to 2, and the
+size exact. So position in the translation unit is a lever, and it is the
+one to reach for when the callee is a template and no spelling of it is
+uninviting enough.
+
+That call was worth more than its own bytes, and this is the part worth
+carrying forward. Keeping it a call keeps the ADDRESS of a
+reference-bound constant live, and that was the THIRD reference into
+this unit's `.data` from `Build`. With two, mwcc spent a hi/lo
+relocation pair on each -- two instructions where retail has one, which
+is the whole 8-byte overrun. With three it materialised the section base
+in r30 and reached all of them at displacements (168, 172, 176), which
+is retail's shape and one a hi/lo pair cannot be made to look like.
+
+Two counts are not a threshold and this does not say where the line is;
+what it says is that the number of references to a section decides the
+addressing, so a function that is one reference short of retail's is a
+function whose CALLS are wrong, not whose loads are. The only other
+point measured is the same function's `.bss`: nine references to three
+statics, base register, no help needed.
+
+Read this section as a set: each of the five was the whole remaining
+difference at the time, and each was found by a sweep that included the
+obvious spelling and the obvious spelling lost.
 ## Traps worth knowing
 
 **A survey that cannot see what is finished reports finished work as

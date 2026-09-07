@@ -453,6 +453,7 @@ EXPECT = {
     "SB/GM/Engine/Game/zNeoDrive": (8, 9),
     "SB/NG/Source/Engine/World/EntityManager": (14, 18),
     "SB/GM/Engine/Game/zBlackboard": (25, 25),
+    "SB/GM/Engine/Game/zBTBuilder": (12, 12),
 }
 
 

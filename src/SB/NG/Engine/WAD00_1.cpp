@@ -1,12 +1,13 @@
 // WAD00_1.cpp -- the Domains subsystem, 51 functions and 8,632 bytes in
-// the image. THIS FILE COVERS 24 OF THEM: 21 byte-identical and three
+// the image. THIS FILE COVERS 29 OF THEM: 26 byte-identical and three
 // recorded near-misses (StartLoad by one word and AbortActivity by six,
 // both at retail's exact size, and Insert by 269 of 320 at 1,280 against
-// 1,284), plus one function the image does not hold under the name we
-// give it.
+// 1,284), plus two functions the image does not hold under the names we
+// give them.
 //
-// unitcmp reads that as 13 of 21 and report.json as 18 of 21, and both
-// are right. Five of the eighteen reach a symbol the linker FOLDED:
+// unitcmp reads that as 18 of 31 and report.json as 26 of 52 (2,948
+// bytes), and both are right. Eight of the twenty-six reach a symbol the
+// linker FOLDED:
 // unitcmp checks the branch-target NAME and calls those a difference,
 // report.json resolves the branch by ADDRESS in the linked image, where
 // the folded symbol is the same bytes. Quote whichever question you are
@@ -18,16 +19,21 @@
 // of the stream, ActRegisterEnts walks the handle tree, ActUnloadAll
 // walks the UID array back out.
 //
-// FIVE FUNCTIONS HERE REACH A SYMBOL THE IMAGE FOLDED AWAY. PoolList's
-// constructor is empty, and every empty constructor in the image folded
-// onto Math::Matrix33's -- four bytes, one blr, at 0x800075C0.
-// BlockAllocatorArray<unsigned long long>::Block's constructor and the
-// Delete that frees a Block folded onto the <void*> instantiation's, and
-// PoolList<Activity*>::SetPool onto PoolList<zBTTask*>'s. A fragment
-// cannot reproduce a fold: it can only name its own symbol and say so.
-// The five are DomainPriv's constructor (1 differing word of 34),
-// PushBlock (2 of 66), DeleteBlocks (1 of 28), MakeActivityQue (1 of 20)
-// and KillActivityQue (1 of 21) -- every other word of each agrees.
+// EIGHT FUNCTIONS HERE REACH A SYMBOL THE IMAGE FOLDED AWAY, over nine
+// branches -- PushBlock has two. PoolList's constructor is empty, and
+// every empty constructor in the image folded onto Math::Matrix33's --
+// four bytes, one blr, at 0x800075C0. BlockAllocatorArray<unsigned long
+// long>::Block's constructor, the Delete that frees a Block and the
+// DeleteArray that frees the TOC array all folded onto the <void*>
+// instantiation's Delete; PoolList<Activity*>::SetPool folded onto
+// PoolList<zBTTask*>'s; and NewArray<MemHandle*> onto NewArray<float>.
+// A fragment cannot reproduce a fold: it can only name its own symbol
+// and say so. The eight are DomainPriv's constructor (1 differing word
+// of 34), PushBlock (2 of 66), DeleteBlocks (1 of 28), KillUIDArray
+// (1 of 35), MakeActivityQue (1 of 20), KillActivityQue (1 of 21),
+// MakePackTOCArray (1 of 20) and KillPackTOCArray (1 of 38) -- every
+// other word of each agrees, and report.json counts all eight as
+// matched because it resolves the branch by address.
 //
 // Layouts from the DWARF (tools/dwarf_types.py), which covers this file
 // completely -- WAD00.cpp is one of the eleven compile units the retail
@@ -79,10 +85,26 @@ inline void Free(const H& heap, void* p) {
     }
 }
 
-template <class T, class H>
-inline T* NewArray(const H& heap, eMemMgrTag tag, unsigned long count) {
-    return (T*)Memory::AllocGlobalHeap(count * sizeof(T), heap, tag, false);
+// Inlined at its one call site, which is what retail's MakeActivityQue
+// has -- the count there is a constant, so count * sizeof(T) folds to a
+// single li and the inline is cheaper than the call.
+template <class H>
+inline void* Alloc(const H& heap, eMemMgrTag tag, unsigned long size) {
+    return Memory::AllocGlobalHeap(size, heap, tag, false);
 }
+
+// DECLARED here, DEFINED at the foot: retail CALLS this from
+// MakePackTOCArray, where the count is a runtime value and the inline
+// costs an instruction rather than saving one. With the body up here the
+// auto-inliner takes it and MakePackTOCArray is 84 bytes against 80.
+template <class T, class H>
+T* NewArray(const H& heap, eMemMgrTag tag, unsigned long count);
+
+// Out of line in retail, and its branch folds onto Delete<..Block> --
+// the same symbol and the same fold Exception.cpp records. Declared and
+// not defined, so this unit emits no copy.
+template <class H, class T>
+void DeleteArray(const H& heap, T* array, unsigned long count);
 
 // Non-const H& here, which is what retail's mangled name says (R, not
 // RC), and DeleteBlocks does pass the array's own heap member. The image
@@ -216,6 +238,24 @@ public:
 }  // namespace Math
 
 namespace Domains {
+class DomainPriv;
+}  // namespace Domains
+
+namespace Loader {
+
+class LoadStream;
+
+class LSPoolModule {
+public:
+    LoadStream* GrabLoadStream();
+    void FreeLoadStream(LoadStream* stream);
+};
+
+extern LSPoolModule lsPoolMod;
+
+}  // namespace Loader
+
+namespace Domains {
 
 enum enStage {
     INACTIVE,
@@ -240,7 +280,6 @@ enum enStatus {
 };
 
 class ProgressCB;
-class LoadStream;
 class Domain;
 
 }  // namespace Domains
@@ -683,10 +722,33 @@ public:
     int checkPoint;
 };
 
-class MemHandle;
+class AllocEntry {
+public:
+    unsigned char _pad0[0xC];
+    void* block;
+};
+
+class MemHandle {
+public:
+    unsigned char lockFlags;
+    unsigned char memCBidx;
+    unsigned short mustAlign;
+    AllocEntry* entry;
+};
+
+class DynaMem {
+public:
+    static void Release(MemHandle* handle);
+};
 
 class ActLoadParcel : public Activity {
 public:
+    void Finish(DomainPriv* dom);
+    void MakePackTOCArray(int n);
+    void KillPackTOCArray();
+    void InsertPackTOC(MemHandle* handle);
+    void* GetNthPackTOC(int n);
+
     enStage stage;
     MemHandle* memDomData;
     unsigned short parcelLangID;
@@ -697,6 +759,7 @@ public:
 };
 
 class ActLoadTextureParcel : public ActLoadParcel {};
+
 
 class ActLoadMemFastParcel : public ActLoadParcel {};
 
@@ -755,7 +818,7 @@ public:
 
     Domain* parentDom;
     char domainName[128];
-    LoadStream* loadStream;
+    Loader::LoadStream* loadStream;
     Util::PoolList<Activity*> activityQueue;
     Util::BlockAllocatorArray<unsigned long long> myUIDsArray;
     ::EmbeddedTreeAVL< ::World::EntityHandleBase, DomainHandleCmp, 44>
@@ -1058,14 +1121,54 @@ void DomainPriv::QueueActivity(Activity* act) {
 
 void DomainPriv::MakeActivityQue() {
     activityQueue.SetPool(
-        NewArray<Util::PoolList<Activity*>::NodeType>(
-            Memory::GlobalHeap, (eMemMgrTag)68, 64),
+        (Util::PoolList<Activity*>::NodeType*)Alloc(
+            Memory::GlobalHeap, (eMemMgrTag)68,
+            64 * sizeof(Util::PoolList<Activity*>::NodeType)),
         64);
 }
 
 void DomainPriv::KillActivityQue() {
     Free(Memory::GlobalHeap, activityQueue.poolHead);
     activityQueue.SetPool(0, 0);
+}
+
+void ActLoadParcel::Finish(DomainPriv* dom) {
+    Loader::lsPoolMod.FreeLoadStream(dom->loadStream);
+    dom->loadStream = 0;
+}
+
+void ActLoadParcel::MakePackTOCArray(int n) {
+    tocHandles = NewArray<MemHandle*>(Memory::GlobalHeap, (eMemMgrTag)68, n);
+    tocCount = 0;
+    tocArraySize = n;
+}
+
+void ActLoadParcel::KillPackTOCArray() {
+    if (tocHandles != 0) {
+        int i;
+
+        for (i = 0; i < tocCount; i++) {
+            MemHandle* handle = tocHandles[i];
+
+            tocHandles[i] = 0;
+            handle->lockFlags = handle->lockFlags & ~1;
+            DynaMem::Release(handle);
+        }
+
+        DeleteArray(Memory::GlobalHeap, tocHandles, tocArraySize);
+        tocHandles = 0;
+        tocArraySize = 0;
+        tocCount = 0;
+    }
+}
+
+void ActLoadParcel::InsertPackTOC(MemHandle* handle) {
+    tocHandles[tocCount] = handle;
+    tocCount = tocCount + 1;
+}
+
+void* ActLoadParcel::GetNthPackTOC(int n) {
+    return tocHandles[n]->entry->block;
 }
 
 }  // namespace Domains
@@ -1077,4 +1180,9 @@ void Delete(H& heap, T* p) {
     }
 
     Free(heap, p);
+}
+
+template <class T, class H>
+T* NewArray(const H& heap, eMemMgrTag tag, unsigned long count) {
+    return (T*)Memory::AllocGlobalHeap(count * sizeof(T), heap, tag, false);
 }

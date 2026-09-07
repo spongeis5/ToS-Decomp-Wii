@@ -7,18 +7,18 @@ numbers here, which move.
 ## State at time of writing
 
 ```
-Game Code:  67 of 777 files complete  181,780 / 2,116,616 bytes  1,837 / 10,697 fn
-            8.5882% of game code
+Game Code:  67 of 777 files complete  195,120 / 2,116,616 bytes  1,947 / 10,697 fn
+            9.2185% of game code
 
-Of those 1,837 functions, 759 are GENERATED -- machine-recognised
+Of those 1,947 functions, 757 are GENERATED -- machine-recognised
 shapes, not one of which is decompiling. They are real matched
 functions and the offsets and constants are recovered fact, but a
 count of them is not a count of decompiled code. HAND-WRITTEN IS
-1,078, across 207 units and 173,128 bytes, and that is the figure to
+1,190, across 208 units and 186,484 bytes, and that is the figure to
 compare against earlier ones.
 
 Data:       4 unit(s) carry their own, 412 bytes; 134 more could
-All:        4.47% matched              main.dol reproduces byte for byte
+All:        4.67% matched              main.dol reproduces byte for byte
 ```
 
 Every number above is written by `python tools/notes_state.py`,
@@ -2781,6 +2781,68 @@ not exist -- `Follower` is nested in `zCameraCurve`, and the DWARF gives leaf
 names only. objdiff scores instructions; it does not check that a relocation
 names something real. Always `ninja` and check `main.dol: OK`.
 
+## 113 INSTANTIATIONS OF ONE TEMPLATE: the BT action factory
+
+`WAD01_1_1` is one function template written 113 times, and it went
+from 2 of 2 to 112 of 115 in one sitting -- 13,340 bytes, Game Code
+8.5882% to 9.2185%. Every class in it came out of four facts per
+instantiation, all of them in the bytes: the `li r4,N` that is
+`sizeof(T)`, the `bl __ct__...` that names whose constructor runs, the
+`addi r3,r31,N` in front of each member constructor call, and the
+stores between them. `disasm.py --unit` prints all four, and the sizes
+of the member types fall out of the gaps between the offsets, so a
+short script turned the dump into declarations.
+
+**The body is the placement new `zBTNodeCondition::CreateTask` already
+needed**, null case first:
+
+    void* mem = factory.AllocMem(sizeof(T),
+                                 (Memory::eFactoryMemType)14);
+    T* action = !mem ? 0 : new (mem) T();
+
+Retail tests the allocation TWICE -- once for the expression and once
+inside the new -- and lays the zero block before the constructor. 93 of
+the 113 need nothing else; the other twenty construct members.
+
+**`#pragma always_inline on` IS WHAT PUTS THOSE CONSTRUCTORS IN LINE,
+and here it goes at the TOP of the file.** -inline auto takes a
+constructor whose body is the base call and one vtable store, and
+declines it the moment a member constructor or a second store joins
+them -- four spellings were tried before the pragma, including the
+constructor declared and defined `inline` outside the class. Without
+it mwcc emits `__ct__<T>` as its own function and calls it, and those
+twenty come out 112 bytes against retail's 136 to 248 while the object
+defines twenty constructors retail's unit does not have. With it, 111
+of 115 matched in one compile and nothing that already matched moved.
+The always_inline section above records the same lever needing the END
+of the file in WAD01_14; the difference is that this file has no
+ordinary function for a leading pragma to ruin -- its two accessors are
+one store each and stayed matched.
+
+**AND EACH T DECLARES AN OVERRIDE IT DOES NOT DEFINE.** A class whose
+first virtual is defined nowhere in the unit gets no vtable of its own
+here: mwcc REFERENCES `__vt__<T>` rather than emitting it, which is
+what keeps this object from defining 113 tables the manifest does not
+name. Leave the override off and the class defines one -- measured on
+the intermediate `zNPCBTAction`, 48 bytes of it, before every T got a
+`virtual void _v1();`.
+
+Three are still out, each recorded at the class it builds:
+
+  * `Create<zNPCBTJumpAction>` is the four-float blocker
+    `tools/unit_triage.py` counts, seen here rather than assumed: the
+    constructor loads 16, 2, 5 and 10, and this object anchors ONE base
+    register and reads all four off it where retail -- past 32 KB of
+    constants -- spells a `lis` per literal. 45 of 57 words at exactly
+    retail's 228 bytes.
+  * `Create<zNPCBTEscortAction>` (42 of 47) and
+    `Create<zNPCBTPathFollowMPAction>` (39 of 60) miss the same way as
+    each other: retail HOLDS a register on the sub-object being built
+    and stores its vtable pointer through that, where this folds
+    sub-object plus field into one displacement off the object and so
+    spends one or two registers fewer. That is also why retail's
+    PathFollowMP saves r28..r31 through `_savegpr` and ours stores two
+    by hand. Same instructions, same offsets, same order.
 ## What the misses have actually been
 
 Across every unit so far, the source text has almost never been the lever:

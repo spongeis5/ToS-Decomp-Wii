@@ -455,7 +455,7 @@ EXPECT = {
     "SB/GM/Engine/Game/zBlackboard": (25, 25),
     "SB/GM/Engine/Game/zBTBuilder": (12, 12),
     "SB/NG/Engine/WAD00_1": (22, 42),
-    "SB/GM/Engine/WAD02_29_1": (28, 28),
+    "SB/GM/Engine/WAD02_29_1": (29, 29),
 }
 
 

@@ -18,7 +18,12 @@
 // 0.0f the moment it is, and a target's line-of-sight cache starts at
 // -0.1f so the first check always runs.
 
-class zWallNet;
+class xVec3;
+
+class zWallNet {
+public:
+    bool IsInsideWallNetXZ(const xVec3& p) const;
+};
 
 // The type id every scene object carries; the image gives the values
 // this file tests against and the order of the tests, not their names.
@@ -34,6 +39,8 @@ xBase* zSceneFindObject(unsigned long long id);
 // the disassembly reaches at +0xBC of the zNPCEntity.
 class zNPCEntity {
 public:
+    void GetBoundCenter(xVec3& out) const;
+
     unsigned char _pad0[0xBC];
     xBase* baseEnt;
 };
@@ -41,6 +48,8 @@ public:
 class xVec3 {
 public:
     xVec3& operator=(const xVec3& other);
+    void Sub(const xVec3& a, const xVec3& b);
+    float length2() const;
 
     static const xVec3 m_Null;
 
@@ -125,6 +134,8 @@ public:
 namespace Sext {
 
 class EventAny;
+
+enum eCollisionLayer { eCollisionLayer_ = 0x7FFFFFFF };
 
 enum eNPCPerceptionType {
     eNPCPerception_TargetReachable,
@@ -302,6 +313,7 @@ public:
         bool CheckAngularCylinderPerceptionWithoutTargetBounds(
             const Node* node);
         bool CheckInNPCWallsPerception(const Node* node);
+        bool IsInDirectPath(const zNPCEntity* npc, const zWallNet* wallNet);
         void Setup(Sext::NPCPerceptionAsset::PerceptionType* asset, zNPCPerceptionTarget* owner);
         void Cleanup();
         void SetPerceived(bool perceived);
@@ -317,6 +329,10 @@ public:
 
     class zLOSCache {
     public:
+        bool CheckLineOfSight(const zNPCEntity* npc,
+                              zNPCPerceptionTarget* target,
+                              Sext::eCollisionLayer layer, bool force);
+
         float LOSTimer;
         bool isInLOS;
         unsigned char _pad0[0x8 - 0x5];
@@ -476,9 +492,6 @@ bool zNPCPerceptionTarget::IsPerceived(Sext::eNPCPerceptionType type) {
     return false;
 }
 
-zNPCEntity* zNPCPerceptionTarget::GetNPCEntity() {
-    return ownerNpcPerc->owner->npcEnt;
-}
 
 void zNPCPerceptionTarget::GetTargetEntityCenter(xVec3& out) {
     xEnt* ent = targetEnt;
@@ -568,9 +581,6 @@ void zNPCPerceptionTarget::zPerceptionType::Update() {
     SetPerceived(false);
 }
 
-zWallNet* zNPCPerceptionTarget::zPerceptionType::GetNPCWallNet() {
-    return ownerTarget->ownerNpcPerc->npcWallNet;
-}
 
 void zNPCPerceptionTarget::zPerceptionType::Setup(Sext::NPCPerceptionAsset::PerceptionType* asset,
                                                   zNPCPerceptionTarget* owner) {
@@ -756,4 +766,69 @@ xEnt* zNPCPerception::GetTargetClosest() {
     }
 
     return targets[index].targetEnt;
+}
+
+bool zNPCPerceptionTarget::zPerceptionType::CheckSpherePerception(
+    const Node* node) {
+    // Declared in this order because the FIRST takes the highest stack
+    // slot: retail has targetCenter at 32, npcCenter at 20, delta at 8.
+    xVec3 targetCenter;
+    xVec3 npcCenter;
+    xVec3 delta;
+    float radius = node->Sphere.Radius;
+    zNPCEntity* npc;
+    zWallNet* wallNet;
+
+    // Already perceived: widen the radius, so a target has to leave by
+    // more than it entered by.
+    if (isPerceived) {
+        radius = radius * node->HysteresisRatio;
+    }
+
+    ownerTarget->GetTargetEntityCenter(targetCenter);
+    radius = radius * radius;
+    npc = ownerTarget->GetNPCEntity();
+    npc->GetBoundCenter(npcCenter);
+    delta.Sub(targetCenter, npcCenter);
+
+    if (delta.length2() > radius) {
+        return false;
+    }
+
+    wallNet = GetNPCWallNet();
+
+    if (wallNet != 0) {
+        if (node->flags & 2) {
+            if (!wallNet->IsInsideWallNetXZ(targetCenter)) {
+                return false;
+            }
+        }
+
+        if (node->flags & 4) {
+            if (!IsInDirectPath(npc, wallNet)) {
+                return false;
+            }
+        }
+    }
+
+    if (node->flags & 1) {
+        if (!ownerTarget->losCache.CheckLineOfSight(
+                npc, ownerTarget,
+                (Sext::eCollisionLayer)node->LOSCollisionLayer, false)) {
+            return false;
+        }
+    }
+
+    return true;
+}
+
+// DEFINED here, below every caller: with the bodies above them the
+// auto-inliner takes both into the perception checks, where retail
+// calls them (NOTES, where the body sits in the file).
+zWallNet* zNPCPerceptionTarget::zPerceptionType::GetNPCWallNet() {
+    return ownerTarget->ownerNpcPerc->npcWallNet;
+}
+
+zNPCEntity* zNPCPerceptionTarget::GetNPCEntity() {
+    return ownerNpcPerc->owner->npcEnt;
 }

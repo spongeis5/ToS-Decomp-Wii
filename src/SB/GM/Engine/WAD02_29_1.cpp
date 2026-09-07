@@ -88,11 +88,21 @@ class xEnt : public xBase {
 public:
     unsigned char _pad1[0x34 - 0x24];
     World::xOGModel* model;
-    unsigned char _pad2[0x80 - 0x38];
+    unsigned char _pad2[0x48 - 0x38];
+
+    // A one-bit field, the eighth from the top of the word at +0x48:
+    // retail rotates by 8 and masks bit 31, which normalises it to 0 or
+    // 1 the way a bitfield read does and a mask does not. Its name is
+    // not recovered, only its position and that it gates perception.
+    unsigned int _bits0 : 7;
+    unsigned int perceivable : 1;
+    unsigned int _bits1 : 24;
+
+    unsigned char _pad3[0x80 - 0x4C];
     xHavokPhysicsObject physics;
-    unsigned char _pad3[0xF4 - 0x81];
+    unsigned char _pad4[0xF4 - 0x81];
     zNPCBound npcBound;
-    unsigned char _pad4[0x214 - 0x108];
+    unsigned char _pad5[0x214 - 0x108];
     float radius;
 };
 
@@ -278,8 +288,20 @@ public:
     public:
         void Update();
         zWallNet* GetNPCWallNet();
-        bool CheckNodePerception(
-            const Sext::NPCPerceptionAsset::PerceptionNode* node);
+        typedef Sext::NPCPerceptionAsset::PerceptionNode Node;
+
+        bool CheckNodePerception(const Node* node);
+        bool CheckSpherePerception(const Node* node);
+        bool CheckSoundSpherePerception(const Node* node);
+        bool CheckCylinderPerception(const Node* node);
+        bool CheckAngularSpherePerception(const Node* node);
+        bool CheckAngularSpherePerceptionWithTargetBounds(const Node* node);
+        bool CheckAngularSpherePerceptionWithoutTargetBounds(const Node* node);
+        bool CheckAngularCylinderPerception(const Node* node);
+        bool CheckAngularCylinderPerceptionWithTargetBounds(const Node* node);
+        bool CheckAngularCylinderPerceptionWithoutTargetBounds(
+            const Node* node);
+        bool CheckInNPCWallsPerception(const Node* node);
         void Setup(Sext::NPCPerceptionAsset::PerceptionType* asset, zNPCPerceptionTarget* owner);
         void Cleanup();
         void SetPerceived(bool perceived);
@@ -328,6 +350,9 @@ public:
     void SetTarget(unsigned int index, xEnt* ent);
     void RemoveTarget(unsigned int index);
     void AllAttached();
+    int GetTargetIndexClosestMatching(Sext::eNPCPerceptionType type,
+                                      bool perceivedOnly);
+    xEnt* GetTargetClosest();
     void Detached(zNPCStatus* status);
     void PostUpdate(float dt);
 
@@ -677,4 +702,58 @@ void zNPCPerception::PostUpdate(float dt) {
     for (i = 0; i < 4; i++) {
         targets[i].PostUpdate(dt);
     }
+}
+
+bool zNPCPerceptionTarget::zPerceptionType::CheckNodePerception(
+    const Node* node) {
+    // The flag is on the TARGET ENTITY, not the NPC.
+    if (!ownerTarget->targetEnt->perceivable) {
+        return false;
+    }
+
+    switch (node->Shape) {
+    case 0:
+        return CheckSpherePerception(node);
+    case 1:
+        return CheckSoundSpherePerception(node);
+    case 2:
+        return CheckCylinderPerception(node);
+    case 3:
+        return CheckAngularSpherePerception(node);
+    case 4:
+        return CheckAngularCylinderPerception(node);
+    case 5:
+        return CheckInNPCWallsPerception(node);
+    }
+
+    return false;
+}
+
+bool zNPCPerceptionTarget::zPerceptionType::CheckAngularSpherePerception(
+    const Node* node) {
+    if (node->AngularSphere.UseTargetBounds) {
+        return CheckAngularSpherePerceptionWithTargetBounds(node);
+    }
+
+    return CheckAngularSpherePerceptionWithoutTargetBounds(node);
+}
+
+bool zNPCPerceptionTarget::zPerceptionType::CheckAngularCylinderPerception(
+    const Node* node) {
+    if (node->AngularCylinder.UseTargetBounds) {
+        return CheckAngularCylinderPerceptionWithTargetBounds(node);
+    }
+
+    return CheckAngularCylinderPerceptionWithoutTargetBounds(node);
+}
+
+xEnt* zNPCPerception::GetTargetClosest() {
+    int index =
+        GetTargetIndexClosestMatching(Sext::END_eNPCPerception_ENUM, true);
+
+    if (index < 0) {
+        return 0;
+    }
+
+    return targets[index].targetEnt;
 }

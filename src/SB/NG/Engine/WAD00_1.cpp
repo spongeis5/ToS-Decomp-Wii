@@ -1,8 +1,9 @@
 // WAD00_1.cpp -- the Domains subsystem, 51 functions and 8,632 bytes in
-// the image. THIS FILE COVERS 33 OF THEM: 28 byte-identical and five
+// the image. THIS FILE COVERS 34 OF THEM: 28 byte-identical and six
 // recorded near-misses, four of them at retail's exact size -- StartLoad
 // by one word, AbortActivity by six, push_back by five, SubtreeMin by
-// nine, and Insert by 269 of 320 at 1,280 against 1,284. Plus two
+// nine, Insert by 269 of 320 at 1,280 against 1,284, and the tree
+// iterator's increment by 35 of 44 at 176 against 184. Plus two
 // functions the image does not hold under the names we give them.
 //
 // unitcmp reads that as 18 of 31 and report.json as 26 of 52 (2,948
@@ -360,6 +361,7 @@ public:
 
         EmbeddedTreeNode* NodeBack() const;
         void SubtreeMin();
+        void operator++();
 
         EmbeddedTreeAVL<T, Cmp, OFFSET>* owner;
         FixedKeyArray itpath;
@@ -389,6 +391,42 @@ void EmbeddedTreeAVL<T, Cmp, OFFSET>::Iterator::FixedKeyArray::push_back(
 template <class T, class Cmp, int OFFSET>
 EmbeddedTreeNode* EmbeddedTreeAVL<T, Cmp, OFFSET>::Iterator::NodeBack() const {
     return (EmbeddedTreeNode*)((char*)itpath.data[itpath.count - 1] + OFFSET);
+}
+
+template <class T, class Cmp, int OFFSET>
+void EmbeddedTreeAVL<T, Cmp, OFFSET>::Iterator::operator++() {
+    // 35 OF 44 WORDS, 176 bytes against 184. Retail's third guard
+    // compiles to a branch INTO the body followed by a branch past it,
+    // where ours is one beq -- two instructions, and the rest of the
+    // difference is the register the right pointer takes. Three separate
+    // early returns and this one && chain measure the same, so the shape
+    // of the guard is not what does it.
+    if (owner != 0 && owner->root != 0 && itpath.count != 0) {
+        T* right = (T*)NodeBack()->Right();
+
+        if (right != 0) {
+            int n = itpath.count;
+
+            itpath.data[n] = right;
+            itpath.count = n + 1;
+            SubtreeMin();
+            return;
+        }
+
+        for (;;) {
+            T* child = itpath.data[itpath.count - 1];
+
+            itpath.count = itpath.count - 1;
+
+            if (itpath.count == 0) {
+                return;
+            }
+
+            if (NodeBack()->left == child) {
+                return;
+            }
+        }
+    }
 }
 
 // 269 OF 320 WORDS, 1,280 bytes against retail's 1,284 -- one
@@ -1202,3 +1240,10 @@ template <class T, class H>
 T* NewArray(const H& heap, eMemMgrTag tag, unsigned long count) {
     return (T*)Memory::AllocGlobalHeap(count * sizeof(T), heap, tag, false);
 }
+
+// Nothing in this file calls the iterator's increment yet -- retail's
+// Execute for ActRegisterEnts and ActUnloadAll do, and neither is
+// written. Instantiated explicitly so the body is emitted and measured.
+template void ::EmbeddedTreeAVL< ::World::EntityHandleBase,
+                                 Domains::DomainHandleCmp,
+                                 44>::Iterator::operator++();

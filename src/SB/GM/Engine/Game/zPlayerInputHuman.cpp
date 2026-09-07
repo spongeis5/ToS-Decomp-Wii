@@ -52,6 +52,10 @@ namespace zPlayerInputNS {
 
 enum PadButton { PadButton_ = 0x7FFFFFFF };
 
+enum Action { Action_ = 0x7FFFFFFF };
+
+enum Direction { Direction_ = 0x7FFFFFFF };
+
 enum PadType {
     PADTYPE_DEBUG = 0,
     PADTYPE_MENU = 1,
@@ -60,6 +64,17 @@ enum PadType {
     PADTYPE_PAUSE = 4,
     PADTYPE_LAST = 5,
 };
+
+// An action maps to a pad type and a button mask, and which table it
+// is looked up in depends on the layout the pad reports.
+class ButtonMap {
+public:
+    PadType type;
+    unsigned int mask;
+};
+
+extern const ButtonMap wiiButtonMap[];
+extern const ButtonMap defaultButtonMap[];
 
 }  // namespace zPlayerInputNS
 
@@ -97,7 +112,8 @@ public:
     int layout;
     int subLayout;
     bool gamecubeConnected;
-    unsigned char _pad1[0x18 - 0x11];
+    unsigned char _pad1[0x14 - 0x11];
+    unsigned int buttons;
     unsigned int pressed;
     unsigned char _pad2[0x2C - 0x1C];
     float stickMag;
@@ -181,10 +197,6 @@ public:
     void DisableWiiClassicController();
     void EnableWiiClassicController();
     bool IsWiiClassicControllerConnected();
-    float GetStickAng(unsigned int index, zPlayerInputNS::PadType type);
-    float GetStickMag(unsigned int index, zPlayerInputNS::PadType type);
-    float GetStickNormMag(unsigned int index,
-                          zPlayerInputNS::PadType type);
     bool FlyCheatBoost();
     void GetWMPAngles(float* pitch, float* yaw, float* roll);
     void GetWMPAngularSpeeds(float* pitch, float* yaw, float* roll);
@@ -193,9 +205,13 @@ public:
     xVec2 GetWMPLocalSwing2D();
     void Reset();
     bool IsControllerConnected();
+    zPlayerInputNS::Direction StickOn(unsigned int index,
+                                      zPlayerInputNS::PadType type);
+    zPlayerInputNS::Direction AngleToDirection(float angle);
+    int On(zPlayerInputNS::Action action, bool exact, bool useMap);
 
     virtual void _v0();
-    virtual void _v1();
+    virtual int GetLayoutKind();
     virtual int GetControllerType();
     virtual void _v3();
     virtual void _v4();
@@ -222,9 +238,12 @@ public:
                                zPlayerInputNS::PadType type);
     virtual void _v25();
     virtual void _v26();
-    virtual void _v27();
-    virtual void _v28();
-    virtual void _v29();
+    virtual float GetStickMag(unsigned int index,
+                              zPlayerInputNS::PadType type);
+    virtual float GetStickNormMag(unsigned int index,
+                                  zPlayerInputNS::PadType type);
+    virtual float GetStickAng(unsigned int index,
+                              zPlayerInputNS::PadType type);
     virtual void _v30();
     virtual void _v31();
     virtual void _v32();
@@ -716,4 +735,62 @@ bool zPlayerInputHuman::IsControllerConnected() {
     }
 
     return TRC::trcModule->padManager.CheckPadConnected(curPort);
+}
+
+zPlayerInputNS::Direction zPlayerInputHuman::StickOn(
+    unsigned int index, zPlayerInputNS::PadType type) {
+    // One shared exit: retail's two failing tests branch to the same
+    // li r3,4, which an early return per test cannot produce.
+    if (!ValidateStick(index, type) || GetStickMag(index, type) < 0.5f) {
+        return (zPlayerInputNS::Direction)4;
+    }
+
+    return AngleToDirection(GetStickAng(index, type));
+}
+
+// Every failing path but one falls through to a single return at the
+// foot; an early return for the disabled case puts it in the wrong
+// place and costs the whole function.
+int zPlayerInputHuman::On(zPlayerInputNS::Action action, bool exact,
+                          bool useMap) {
+    if (!isDisabled) {
+        if (useMap) {
+            unsigned int mask;
+            zPlayerInputNS::PadType type;
+
+            // Both halves read the pair themselves; hoisting a pointer
+            // to the entry out of the branch costs four words.
+            if (GetLayoutKind() == 4) {
+                type = zPlayerInputNS::wiiButtonMap[action].type;
+                mask = zPlayerInputNS::wiiButtonMap[action].mask;
+            } else {
+                type = zPlayerInputNS::defaultButtonMap[action].type;
+                mask = zPlayerInputNS::defaultButtonMap[action].mask;
+            }
+
+            if (disabledTypes[type]) {
+                return 0;
+            }
+
+            if (curPadType == type) {
+                if (exact) {
+                    return curPad->buttons & mask;
+                }
+
+                return (mask & curPad->buttons) == mask;
+            }
+
+            if (type == zPlayerInputNS::PADTYPE_MISC) {
+                if (exact) {
+                    return curPad->buttons & mask;
+                }
+
+                return (mask & curPad->buttons) == mask;
+            }
+        } else {
+            return (action & curPad->buttons) == action;
+        }
+    }
+
+    return 0;
 }

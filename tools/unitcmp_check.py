@@ -458,6 +458,7 @@ EXPECT = {
     "SB/GM/Engine/WAD02_29_1": (40, 42),
     "SB/GM/Engine/WAD02_22_1": (18, 21),
     "SB/GM/Engine/Game/zVar": (42, 47),
+    "SB/GM/Engine/WAD02_24_2": (9, 12),
 }
 
 

@@ -224,7 +224,7 @@ EXPECT = {
     "SB/GM/Engine/Core/x/xUIDMgr": (6, 6),
     "SB/GM/Engine/Core/x/xstransvc": (2, 2),
     "SB/GM/Engine/Game/zBTAction": (1, 1),
-    "SB/GM/Engine/Game/zBTConditionBuilder": (1, 1),
+    "SB/GM/Engine/Game/zBTConditionBuilder": (63, 63),
     "SB/GM/Engine/Game/zBTNode": (1, 1),
     "SB/GM/Engine/Game/zBTNodeAction": (1, 1),
     "SB/GM/Engine/Game/zBTNodeDecorator": (1, 1),

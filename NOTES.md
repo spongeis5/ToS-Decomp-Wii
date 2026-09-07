@@ -7,18 +7,18 @@ numbers here, which move.
 ## State at time of writing
 
 ```
-Game Code:  67 of 777 files complete  199,480 / 2,116,616 bytes  1,956 / 10,697 fn
-            9.4245% of game code
+Game Code:  67 of 777 files complete  209,180 / 2,116,616 bytes  2,018 / 10,697 fn
+            9.8828% of game code
 
-Of those 1,956 functions, 757 are GENERATED -- machine-recognised
+Of those 2,018 functions, 756 are GENERATED -- machine-recognised
 shapes, not one of which is decompiling. They are real matched
 functions and the offsets and constants are recovered fact, but a
 count of them is not a count of decompiled code. HAND-WRITTEN IS
-1,199, across 208 units and 190,844 bytes, and that is the figure to
+1,262, across 209 units and 200,552 bytes, and that is the figure to
 compare against earlier ones.
 
 Data:       4 unit(s) carry their own, 412 bytes; 134 more could
-All:        4.74% matched              main.dol reproduces byte for byte
+All:        4.88% matched              main.dol reproduces byte for byte
 ```
 
 Every number above is written by `python tools/notes_state.py`,
@@ -2924,6 +2924,54 @@ constants `Destroy` refuses to free are exactly the two ids Build
 answers with `gActionAlwaysComplete` and `gActionAlwaysFail` -- one
 unit, and the id slot, the shared globals and the deallocation rule
 all agree.
+## THE SAME SHAPE A SECOND TIME: zBTConditionBuilder, 63 of 63
+
+The condition side of the behaviour tree is the action side again --
+one function template per owner, 60 instantiations, a switch that
+turns a type id into one, a Destroy -- and writing it from the dump
+took one sitting and no spellings: **9,708 bytes, the whole unit**,
+Game Code 9.4245% to 9.8828%.
+
+`families.py` in the scratchpad is what found it: group every symbol
+with a `<` in it by what is left when the type is removed, and the
+families fall out with their byte counts and how many are already
+matched. `Create<>__15zNPCBTConditionFPCc` was 54 members and 6,264
+bytes with none matched, sitting next to the 106 that had just been
+done. That question is worth asking again whenever a template family
+lands.
+
+Three things differed from the action side, all of them in the bytes:
+
+  * The condition keeps two words in front of its vtable pointer at
+    +8, not three in front of one at +0xC, and there is no base
+    constructor to call -- so every Create is the allocation, the
+    vtable store and one virtual, and the six on the plain factory
+    never touch a callee-saved register at all.
+  * **The NPC side's Create takes the condition's NAME**, and retail
+    reaches it as one pooled base plus a baked-in offset. That is the
+    string-pool blocker, and `gen_poolprefix.py --whole` is the
+    answer: 395 strings, 4,712 bytes of prefix, and the offsets come
+    out right.
+  * The asset setter Build calls is named **zBTAction's**. The
+    condition's own would be `stw r4,0(r3); blr`, byte for byte the
+    action's, and the image holds one function under that name, so
+    the call is written through it.
+
+Three traps in reading a switch out of a dump, all of which cost a
+compile here:
+
+  * **A case block is not a fixed number of lines.** Reading five
+    from the label let the three-word block that answers with
+    `gConditionFalse` swallow the next block's `bl` and come out as a
+    Create. Cut at the next label.
+  * **Not every case makes something.** Two answer with a shared
+    global and then run the same setup, and dropping them left the
+    binary search on a different SET of values: identical tree shape,
+    different constants from the second compare on, 595 of 669 words.
+  * **A setter defined in the same unit gets folded into the
+    caller.** `SetBTClient` came out as `lwz`/`stw` in line where
+    retail calls it; `#pragma dont_inline` round the definition is
+    the guard, and there is nothing inside it to block.
 ## What the misses have actually been
 
 Across every unit so far, the source text has almost never been the lever:

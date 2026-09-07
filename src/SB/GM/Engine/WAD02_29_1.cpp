@@ -63,6 +63,10 @@ public:
 // SQUARED tangent in three dimensions and compares against tanHAngle
 // squared; the cylinder form takes the tangent in the XZ plane and
 // compares against tanHAngle itself.
+namespace Math {
+float rsqrt(float x);
+}  // namespace Math
+
 class zNPCHelper {
 public:
     static float GetTanTheta2(const xVec3* from, const xVec3* forward,
@@ -1119,6 +1123,94 @@ bool zNPCPerceptionTarget::zPerceptionType::
     // Not squared: GetTanThetaXZ returns the tangent, where the sphere's
     // GetTanTheta2 returns its square.
     if (tanXZ > tanHAngle) {
+        return false;
+    }
+
+    wallNet = GetNPCWallNet();
+
+    if (wallNet != 0) {
+        if (node->flags & 2) {
+            if (!wallNet->IsInsideWallNetXZ(targetCenter)) {
+                return false;
+            }
+        }
+
+        if (node->flags & 4) {
+            if (!IsInDirectPath(npc, wallNet)) {
+                return false;
+            }
+        }
+    }
+
+    if (node->flags & 1) {
+        if (!ownerTarget->losCache.CheckLineOfSight(
+                npc, ownerTarget,
+                (Sext::eCollisionLayer)node->LOSCollisionLayer, false)) {
+            return false;
+        }
+    }
+
+    return true;
+}
+bool zNPCPerceptionTarget::zPerceptionType::
+    CheckAngularSpherePerceptionWithTargetBounds(const Node* node) {
+    // 3 OF 137 WORDS, size exact. The ternary's temporary takes f30
+    // where retail takes f31, and the squared distance is compared out
+    // of f1 where retail compares a copy in f28. Four declaration orders
+    // of the three float locals measure the same.
+    xVec3 npcCenter;
+    xVec3 targetCenter;
+    xVec3 delta;
+    float targetRadius;
+    float tanHAngle;
+    float radius;
+    float sumRadius2;
+    float dist2;
+    float tan2;
+    float distance;
+    float tanBound;
+    float expanded;
+    zNPCEntity* npc;
+    zWallNet* wallNet;
+
+    // Whichever of the target's two bound radii is larger.
+    targetRadius = ownerTarget->GetTargetEntityRadiusXZ() >
+                           ownerTarget->GetTargetEntityRadiusY()
+                       ? ownerTarget->GetTargetEntityRadiusXZ()
+                       : ownerTarget->GetTargetEntityRadiusY();
+    tanHAngle = node->AngularSphere.tanHAngle;
+    radius = node->AngularSphere.Radius;
+
+    if (isPerceived) {
+        tanHAngle = tanHAngle * node->HysteresisRatio;
+        radius = radius * node->HysteresisRatio;
+    }
+
+    npc = ownerTarget->GetNPCEntity();
+    npc->GetBoundCenter(npcCenter);
+    ownerTarget->GetTargetEntityCenter(targetCenter);
+    sumRadius2 = (radius + targetRadius) * (radius + targetRadius);
+    delta.Sub(targetCenter, npcCenter);
+    dist2 = delta.length2();
+
+    if (dist2 > sumRadius2) {
+        return false;
+    }
+
+    tan2 = zNPCHelper::GetTanTheta2(&npcCenter, &npc->model->forward,
+                                    &targetCenter);
+
+    if (tan2 < 0.0f) {
+        return false;
+    }
+
+    // The cone widened by the angle the target's own radius subtends:
+    // tan(A + B) = (tanA + tanB) / (1 - tanA tanB).
+    distance = dist2 * Math::rsqrt(dist2);
+    tanBound = targetRadius / distance;
+    expanded = (tanHAngle + tanBound) / (1.0f - tanHAngle * tanBound);
+
+    if (tan2 > expanded * expanded) {
         return false;
     }
 

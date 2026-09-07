@@ -268,7 +268,7 @@ EXPECT = {
     "SB/GM/Engine/Game/zWallNetPositionXZ": (1, 1),
     "SB/GM/Engine/WAD00_32": (177, 177),
     "SB/GM/Engine/WAD01_13_1": (2, 2),
-    "SB/GM/Engine/WAD01_1_1": (120, 126),
+    "SB/GM/Engine/WAD01_1_1": (121, 127),
     "SB/GM/Engine/WAD01_28": (57, 57),
     "SB/GM/Engine/WAD01_29": (2, 2),
     "SB/GM/Engine/WAD02_6_1": (1, 1),

@@ -324,7 +324,7 @@ public:
 
     virtual int _v0();
     virtual unsigned int _v1();
-    virtual void _v2();
+    virtual void _v2(Sext::ActionBase* asset);
     virtual void _v3();
     virtual void _v4();
     virtual void _v5();
@@ -335,6 +335,9 @@ public:
 
     void SetAsset(const Sext::ActionBase* value);
     void SetBTClient(zBTClient* value);
+
+    static zBTAction gActionAlwaysComplete;
+    static zBTAction gActionAlwaysFail;
 };
 
 class zBTFactory {
@@ -353,7 +356,7 @@ T* zBTFactory::Create() {
 
 class zNPCBTAction : public zBTAction {
 public:
-    virtual void _v2();
+    virtual void _v2(Sext::ActionBase* asset);
 
     template <class T> static T* Create();
 
@@ -373,9 +376,13 @@ T* zNPCBTAction::Create() {
     return action;
 }
 
+// The builder keeps the client it hands every action it makes.
 class zBTActionBuilder {
 public:
+    zBTAction* Build(int type, Sext::ActionBase* asset) const;
     void Destroy(zBTAction* action) const;
+
+    zBTClient* btClient;
 };
 
 void zBTAction::SetBTClient(zBTClient* value) { btClient = value; }
@@ -391,7 +398,7 @@ class zNPCBTMoveToAction : public zBTAction {
 public:
     zNPCBTMoveToAction();
 
-    virtual void _v2();
+    virtual void _v2(Sext::ActionBase* asset);
 
     unsigned char _pad0[0x18 - 0x10];
     zNPCSteeringMoveToControl steering;
@@ -407,7 +414,7 @@ class zNPCBTSwarmMoveToAction : public zBTAction {
 public:
     zNPCBTSwarmMoveToAction();
 
-    virtual void _v2();
+    virtual void _v2(Sext::ActionBase* asset);
 
     unsigned char _pad0[0x24 - 0x10];
     bool f24;
@@ -418,7 +425,7 @@ class zBTActionHandleEvent : public zBTAction {
 public:
     zBTActionHandleEvent() : f14(0), f18(0) {}
 
-    virtual void _v2();
+    virtual void _v2(Sext::ActionBase* asset);
 
     unsigned char _pad0[0x4];
     int f14;
@@ -427,83 +434,83 @@ public:
 
 class zBTActionSendEvent : public zBTAction {
 public:
-    virtual void _v2();
+    virtual void _v2(Sext::ActionBase* asset);
 };
 
 class zBTActionWriteToBlackboard : public zBTAction {
 public:
-    virtual void _v2();
+    virtual void _v2(Sext::ActionBase* asset);
 };
 
 class zBTActionWriteVariable : public zBTAction {
 public:
-    virtual void _v2();
+    virtual void _v2(Sext::ActionBase* asset);
 
     unsigned char _pad0[0x4];
 };
 
 class zNPCBTActionBossMeterHide : public zBTAction {
 public:
-    virtual void _v2();
+    virtual void _v2(Sext::ActionBase* asset);
 
     unsigned char _pad0[0x4];
 };
 
 class zNPCBTActionBossMeterSet : public zBTAction {
 public:
-    virtual void _v2();
+    virtual void _v2(Sext::ActionBase* asset);
 
     unsigned char _pad0[0x4];
 };
 
 class zNPCBTActionBossMeterShow : public zBTAction {
 public:
-    virtual void _v2();
+    virtual void _v2(Sext::ActionBase* asset);
 
     unsigned char _pad0[0x4];
 };
 
 class zNPCBTBadgeCollectedAction : public zNPCBTAction {
 public:
-    virtual void _v2();
+    virtual void _v2(Sext::ActionBase* asset);
 };
 
 class zNPCBTBounceAction : public zNPCBTAction {
 public:
-    virtual void _v2();
+    virtual void _v2(Sext::ActionBase* asset);
 
     unsigned char _pad0[0x28];
 };
 
 class zNPCBTChumbotFistFlashAction : public zNPCBTAction {
 public:
-    virtual void _v2();
+    virtual void _v2(Sext::ActionBase* asset);
 
     unsigned char _pad0[0x8];
 };
 
 class zNPCBTClearDamageInfoAction : public zNPCBTAction {
 public:
-    virtual void _v2();
+    virtual void _v2(Sext::ActionBase* asset);
 };
 
 class zNPCBTDamagePlayerInRangeAction : public zNPCBTAction {
 public:
-    virtual void _v2();
+    virtual void _v2(Sext::ActionBase* asset);
 
     unsigned char _pad0[0x10];
 };
 
 class zNPCBTDamagePlayerOnContactAction : public zNPCBTAction {
 public:
-    virtual void _v2();
+    virtual void _v2(Sext::ActionBase* asset);
 
     unsigned char _pad0[0x4];
 };
 
 class zNPCBTDefeatedAction : public zNPCBTAction {
 public:
-    virtual void _v2();
+    virtual void _v2(Sext::ActionBase* asset);
 
     zNPCSteeringStopControl steering;
     zNPCBTActionAnim anim;
@@ -518,14 +525,14 @@ public:
 // same way on three sub-objects.
 class zNPCBTEscortAction : public zNPCBTMoveToAction {
 public:
-    virtual void _v2();
+    virtual void _v2(Sext::ActionBase* asset);
 
     zNPCSteeringEscortControl steering;
 };
 
 class zNPCBTExtraCollisionAction : public zNPCBTAction {
 public:
-    virtual void _v2();
+    virtual void _v2(Sext::ActionBase* asset);
 
     unsigned char _pad0[0xC];
     bit_array_alloc bits;
@@ -535,7 +542,7 @@ class zNPCBTFaceFromEventAction : public zNPCBTAction {
 public:
     zNPCBTFaceFromEventAction() : f44(0) {}
 
-    virtual void _v2();
+    virtual void _v2(Sext::ActionBase* asset);
 
     unsigned char _pad0[0x8];
     zNPCBTActionAnim anim;
@@ -547,33 +554,33 @@ public:
 
 class zNPCBTFadeInAction : public zNPCBTAction {
 public:
-    virtual void _v2();
+    virtual void _v2(Sext::ActionBase* asset);
 
     unsigned char _pad0[0x4];
 };
 
 class zNPCBTFadeOutAction : public zNPCBTAction {
 public:
-    virtual void _v2();
+    virtual void _v2(Sext::ActionBase* asset);
 
     unsigned char _pad0[0x4];
 };
 
 class zNPCBTFleeAction : public zNPCBTMoveToAction {
 public:
-    virtual void _v2();
+    virtual void _v2(Sext::ActionBase* asset);
 
     unsigned char _pad0[0x4];
 };
 
 class zNPCBTFlutterAction : public zNPCBTMoveToAction {
 public:
-    virtual void _v2();
+    virtual void _v2(Sext::ActionBase* asset);
 };
 
 class zNPCBTFollowPerceptionTargetAction : public zNPCBTAction {
 public:
-    virtual void _v2();
+    virtual void _v2(Sext::ActionBase* asset);
 
     zNPCSteeringMoveToControl steering;
     zNPCBTActionAnim anim;
@@ -585,7 +592,7 @@ class zNPCBTFollowPlayerAction : public zNPCBTMoveToAction {
 public:
     zNPCBTFollowPlayerAction() : f538(0), f53C(0) {}
 
-    virtual void _v2();
+    virtual void _v2(Sext::ActionBase* asset);
 
     int f538;
     int f53C;
@@ -594,33 +601,33 @@ public:
 
 class zNPCBTFollowProjectileAction : public zNPCBTMoveToAction {
 public:
-    virtual void _v2();
+    virtual void _v2(Sext::ActionBase* asset);
 
     unsigned char _pad0[0x4];
 };
 
 class zNPCBTGenerateCollectiblesAction : public zNPCBTAction {
 public:
-    virtual void _v2();
+    virtual void _v2(Sext::ActionBase* asset);
 
     unsigned char _pad0[0x14];
 };
 
 class zNPCBTGenerateSpinVortexAction : public zNPCBTAction {
 public:
-    virtual void _v2();
+    virtual void _v2(Sext::ActionBase* asset);
 
     unsigned char _pad0[0x8];
 };
 
 class zNPCBTHideAction : public zNPCBTAction {
 public:
-    virtual void _v2();
+    virtual void _v2(Sext::ActionBase* asset);
 };
 
 class zNPCBTHitAction : public zNPCBTAction {
 public:
-    virtual void _v2();
+    virtual void _v2(Sext::ActionBase* asset);
 
     zNPCSteeringStopControl steering;
     zNPCBTActionAnim anim;
@@ -628,7 +635,7 @@ public:
 
 class zNPCBTIdleAction : public zNPCBTAction {
 public:
-    virtual void _v2();
+    virtual void _v2(Sext::ActionBase* asset);
 
     zNPCSteeringStopControl steering;
     zNPCBTActionAnim anim;
@@ -644,7 +651,7 @@ public:
 // `lis r31 / addi r31` once and four `lfs fN,K(r31)`.
 class zNPCBTJumpAction : public zNPCBTAction {
 public:
-    virtual void _v2();
+    virtual void _v2(Sext::ActionBase* asset);
 
     zNPCSteeringJumpControl steering;
     zNPCBTActionAnim anim;
@@ -653,19 +660,19 @@ public:
 
 class zNPCBTKillAction : public zNPCBTAction {
 public:
-    virtual void _v2();
+    virtual void _v2(Sext::ActionBase* asset);
 };
 
 class zNPCBTMonitorPerceptionAction : public zNPCBTAction {
 public:
-    virtual void _v2();
+    virtual void _v2(Sext::ActionBase* asset);
 
     unsigned char _pad0[0x8];
 };
 
 class zNPCBTOrbitAction : public zNPCBTMoveToAction {
 public:
-    virtual void _v2();
+    virtual void _v2(Sext::ActionBase* asset);
 
     zNPCBTActionAnim anim;
     unsigned char _pad0[0x18];
@@ -680,7 +687,7 @@ public:
 // r28..r31 through _savegpr and this stores two by hand.
 class zNPCBTPathFollowMPAction : public zNPCBTAction {
 public:
-    virtual void _v2();
+    virtual void _v2(Sext::ActionBase* asset);
 
     zNPCSteeringFollowPathControl steering;
     zNPCBTActionAnim anim;
@@ -692,14 +699,14 @@ public:
 
 class zNPCBTPathThruMPsShiftedAction : public zNPCBTMoveToAction {
 public:
-    virtual void _v2();
+    virtual void _v2(Sext::ActionBase* asset);
 
     unsigned char _pad0[0x1C];
 };
 
 class zNPCBTPlanktonShakeAction : public zNPCBTAction {
 public:
-    virtual void _v2();
+    virtual void _v2(Sext::ActionBase* asset);
 
     zNPCBTActionAnim anim0;
     zNPCBTActionAnim anim1;
@@ -712,7 +719,7 @@ public:
 
 class zNPCBTPlayAnimationAction : public zNPCBTAction {
 public:
-    virtual void _v2();
+    virtual void _v2(Sext::ActionBase* asset);
 
     unsigned char _pad0[0xC];
     zNPCBTActionAnim anim;
@@ -724,7 +731,7 @@ class zNPCBTPlayAnimationTypeAction : public zNPCBTAction {
 public:
     zNPCBTPlayAnimationTypeAction() : f94(0) {}
 
-    virtual void _v2();
+    virtual void _v2(Sext::ActionBase* asset);
 
     unsigned char _pad0[0x8];
     zNPCBTActionAnim anim;
@@ -737,146 +744,146 @@ public:
 
 class zNPCBTPlayEELFXAction : public zNPCBTAction {
 public:
-    virtual void _v2();
+    virtual void _v2(Sext::ActionBase* asset);
 
     unsigned char _pad0[0x8];
 };
 
 class zNPCBTPlayFXAction : public zNPCBTAction {
 public:
-    virtual void _v2();
+    virtual void _v2(Sext::ActionBase* asset);
 
     unsigned char _pad0[0x10];
 };
 
 class zNPCBTPlayNPCFXAction : public zNPCBTAction {
 public:
-    virtual void _v2();
+    virtual void _v2(Sext::ActionBase* asset);
 
     unsigned char _pad0[0x8];
 };
 
 class zNPCBTPositionEntAtBoneAction : public zNPCBTAction {
 public:
-    virtual void _v2();
+    virtual void _v2(Sext::ActionBase* asset);
 };
 
 class zNPCBTReleaseAttackAction : public zNPCBTAction {
 public:
-    virtual void _v2();
+    virtual void _v2(Sext::ActionBase* asset);
 };
 
 class zNPCBTRemoveAction : public zNPCBTAction {
 public:
-    virtual void _v2();
+    virtual void _v2(Sext::ActionBase* asset);
 };
 
 class zNPCBTRequestAttackAction : public zNPCBTAction {
 public:
-    virtual void _v2();
+    virtual void _v2(Sext::ActionBase* asset);
 };
 
 class zNPCBTResetCurrentPlayerAction : public zNPCBTAction {
 public:
-    virtual void _v2();
+    virtual void _v2(Sext::ActionBase* asset);
 };
 
 class zNPCBTRespondToKnockbackAction : public zNPCBTAction {
 public:
-    virtual void _v2();
+    virtual void _v2(Sext::ActionBase* asset);
 };
 
 class zNPCBTRotateToFaceAction : public zNPCBTAction {
 public:
-    virtual void _v2();
+    virtual void _v2(Sext::ActionBase* asset);
 };
 
 class zNPCBTSetCollectibleAction : public zNPCBTAction {
 public:
-    virtual void _v2();
+    virtual void _v2(Sext::ActionBase* asset);
 };
 
 class zNPCBTSetCollidesAction : public zNPCBTAction {
 public:
-    virtual void _v2();
+    virtual void _v2(Sext::ActionBase* asset);
 
     unsigned char _pad0[0x4];
 };
 
 class zNPCBTSetCurrentHitPointsAction : public zNPCBTAction {
 public:
-    virtual void _v2();
+    virtual void _v2(Sext::ActionBase* asset);
 };
 
 class zNPCBTSetFlyingAction : public zNPCBTAction {
 public:
-    virtual void _v2();
+    virtual void _v2(Sext::ActionBase* asset);
 };
 
 class zNPCBTSetHitProfileAction : public zNPCBTAction {
 public:
-    virtual void _v2();
+    virtual void _v2(Sext::ActionBase* asset);
 };
 
 class zNPCBTSetInvulnerableAction : public zNPCBTAction {
 public:
-    virtual void _v2();
+    virtual void _v2(Sext::ActionBase* asset);
 };
 
 class zNPCBTSetNeedCombatCleanupAction : public zNPCBTAction {
 public:
-    virtual void _v2();
+    virtual void _v2(Sext::ActionBase* asset);
 };
 
 class zNPCBTSetNeedCombatTargetingCleanupAction : public zNPCBTAction {
 public:
-    virtual void _v2();
+    virtual void _v2(Sext::ActionBase* asset);
 };
 
 class zNPCBTSetPlanktonShakableAction : public zNPCBTAction {
 public:
-    virtual void _v2();
+    virtual void _v2(Sext::ActionBase* asset);
 
     unsigned char _pad0[0x4];
 };
 
 class zNPCBTSetRPSAttackStateAction : public zNPCBTAction {
 public:
-    virtual void _v2();
+    virtual void _v2(Sext::ActionBase* asset);
 
     unsigned char _pad0[0x8];
 };
 
 class zNPCBTSetUndamageableAction : public zNPCBTAction {
 public:
-    virtual void _v2();
+    virtual void _v2(Sext::ActionBase* asset);
 };
 
 class zNPCBTShootAction : public zNPCBTAction {
 public:
-    virtual void _v2();
+    virtual void _v2(Sext::ActionBase* asset);
 };
 
 class zNPCBTShowAction : public zNPCBTAction {
 public:
-    virtual void _v2();
+    virtual void _v2(Sext::ActionBase* asset);
 };
 
 class zNPCBTSnapToFloorAction : public zNPCBTAction {
 public:
-    virtual void _v2();
+    virtual void _v2(Sext::ActionBase* asset);
 
     unsigned char _pad0[0x40];
 };
 
 class zNPCBTStartHeadTrackingAction : public zNPCBTAction {
 public:
-    virtual void _v2();
+    virtual void _v2(Sext::ActionBase* asset);
 };
 
 class zNPCBTStopAction : public zNPCBTAction {
 public:
-    virtual void _v2();
+    virtual void _v2(Sext::ActionBase* asset);
 
     zNPCSteeringStopControl steering;
     unsigned char _pad0[0x8];
@@ -884,12 +891,12 @@ public:
 
 class zNPCBTStopHeadTrackingAction : public zNPCBTAction {
 public:
-    virtual void _v2();
+    virtual void _v2(Sext::ActionBase* asset);
 };
 
 class zNPCBTStrikeAction : public zNPCBTAction {
 public:
-    virtual void _v2();
+    virtual void _v2(Sext::ActionBase* asset);
 
     zNPCSteeringStopControl steering;
     zNPCBTActionAnim anim;
@@ -897,7 +904,7 @@ public:
 
 class zNPCBTStunAction : public zNPCBTAction {
 public:
-    virtual void _v2();
+    virtual void _v2(Sext::ActionBase* asset);
 
     zNPCSteeringStopControl steering;
     zNPCBTActionAnim anim;
@@ -905,12 +912,12 @@ public:
 
 class zNPCBTSwarmBadgeCollectedAction : public zNPCBTAction {
 public:
-    virtual void _v2();
+    virtual void _v2(Sext::ActionBase* asset);
 };
 
 class zNPCBTSwarmBugCollectedAction : public zNPCBTAction {
 public:
-    virtual void _v2();
+    virtual void _v2(Sext::ActionBase* asset);
 
     unsigned char _pad0[0x8];
 };
@@ -919,7 +926,7 @@ class zNPCBTSwarmFlockAction : public zNPCBTSwarmMoveToAction {
 public:
     zNPCBTSwarmFlockAction() : f228(0.5235988f), f22C(0.01f) {}
 
-    virtual void _v2();
+    virtual void _v2(Sext::ActionBase* asset);
 
     unsigned char _pad0[0x200];
     float f228;
@@ -930,237 +937,237 @@ class zNPCBTSwarmFlutterAction : public zNPCBTSwarmMoveToAction {
 public:
     zNPCBTSwarmFlutterAction() : f28(0) {}
 
-    virtual void _v2();
+    virtual void _v2(Sext::ActionBase* asset);
 
     int f28;
 };
 
 class zNPCBTSwarmPathFollowCircleAction : public zNPCBTAction {
 public:
-    virtual void _v2();
+    virtual void _v2(Sext::ActionBase* asset);
 
     unsigned char _pad0[0x10];
 };
 
 class zNPCBTSwarmPathFollowMPAction : public zNPCBTAction {
 public:
-    virtual void _v2();
+    virtual void _v2(Sext::ActionBase* asset);
 
     unsigned char _pad0[0x18];
 };
 
 class zNPCBTSwarmResetKilledMembersAction : public zNPCBTAction {
 public:
-    virtual void _v2();
+    virtual void _v2(Sext::ActionBase* asset);
 };
 
 class zNPCBTSwarmWanderAction : public zNPCBTSwarmMoveToAction {
 public:
-    virtual void _v2();
+    virtual void _v2(Sext::ActionBase* asset);
 };
 
 class zNPCBTTeleportAction : public zNPCBTAction {
 public:
-    virtual void _v2();
+    virtual void _v2(Sext::ActionBase* asset);
 
     unsigned char _pad0[0x44];
 };
 
 class zNPCBTTextureSwapAction : public zNPCBTAction {
 public:
-    virtual void _v2();
+    virtual void _v2(Sext::ActionBase* asset);
 };
 
 class zNPCBTWriteBlackboardUidPosition : public zNPCBTAction {
 public:
-    virtual void _v2();
+    virtual void _v2(Sext::ActionBase* asset);
 };
 
 class zNPCBTWriteChildMovePointAction : public zNPCBTAction {
 public:
-    virtual void _v2();
+    virtual void _v2(Sext::ActionBase* asset);
 };
 
 class zNPCBTWriteClosestPlayerAction : public zNPCBTAction {
 public:
-    virtual void _v2();
+    virtual void _v2(Sext::ActionBase* asset);
 };
 
 class zNPCBTWriteCurHitPointsAction : public zNPCBTAction {
 public:
-    virtual void _v2();
+    virtual void _v2(Sext::ActionBase* asset);
 };
 
 class zNPCBTWriteCurrentPosition : public zNPCBTAction {
 public:
-    virtual void _v2();
+    virtual void _v2(Sext::ActionBase* asset);
 };
 
 class zNPCBTWriteGopherNextMovepointAction : public zNPCBTAction {
 public:
-    virtual void _v2();
+    virtual void _v2(Sext::ActionBase* asset);
 };
 
 class zNPCBTWriteInsideWallnetAction : public zNPCBTAction {
 public:
-    virtual void _v2();
+    virtual void _v2(Sext::ActionBase* asset);
 };
 
 class zNPCBTWriteLockedPlayerAction : public zNPCBTAction {
 public:
-    virtual void _v2();
+    virtual void _v2(Sext::ActionBase* asset);
 };
 
 class zNPCBTWriteMaxHitPointsAction : public zNPCBTAction {
 public:
-    virtual void _v2();
+    virtual void _v2(Sext::ActionBase* asset);
 };
 
 class zNPCBTWriteNetworkMovePointAction : public zNPCBTAction {
 public:
-    virtual void _v2();
+    virtual void _v2(Sext::ActionBase* asset);
 };
 
 class zNPCBTWriteNumberOfMovepointsAction : public zNPCBTAction {
 public:
-    virtual void _v2();
+    virtual void _v2(Sext::ActionBase* asset);
 };
 
 class zNPCBTWritePatrolMovePointAction : public zNPCBTAction {
 public:
-    virtual void _v2();
+    virtual void _v2(Sext::ActionBase* asset);
 };
 
 class zNPCBTWritePatrolMovePointShiftedAction : public zNPCBTAction {
 public:
-    virtual void _v2();
+    virtual void _v2(Sext::ActionBase* asset);
 
     unsigned char _pad0[0x4];
 };
 
 class zNPCBTWritePerceptionTargetPositionAction : public zNPCBTAction {
 public:
-    virtual void _v2();
+    virtual void _v2(Sext::ActionBase* asset);
 
     unsigned char _pad0[0x4];
 };
 
 class zNPCBTWritePlayerPositionAction : public zNPCBTAction {
 public:
-    virtual void _v2();
+    virtual void _v2(Sext::ActionBase* asset);
 };
 
 class zNPCBTWriteSquidBlockTimeAction : public zNPCBTAction {
 public:
-    virtual void _v2();
+    virtual void _v2(Sext::ActionBase* asset);
 
     unsigned char _pad0[0x14];
 };
 
 class zNPCBTWriteSwarmHidePointAction : public zNPCBTAction {
 public:
-    virtual void _v2();
+    virtual void _v2(Sext::ActionBase* asset);
 };
 
 class zNPCBTWriteSwarmPosKilledByPlayerAsBadgePosAction : public zNPCBTAction {
 public:
-    virtual void _v2();
+    virtual void _v2(Sext::ActionBase* asset);
 
     unsigned char _pad0[0x4];
 };
 
 class zNPCBTWriteTargetPlayerAction : public zNPCBTAction {
 public:
-    virtual void _v2();
+    virtual void _v2(Sext::ActionBase* asset);
 
     unsigned char _pad0[0x4];
 };
 
 class zNPCBTWriteTrapPositionAction : public zNPCBTAction {
 public:
-    virtual void _v2();
+    virtual void _v2(Sext::ActionBase* asset);
 
     unsigned char _pad0[0xC];
 };
 
 class zNPCBTWriteWanderPositionAction : public zNPCBTAction {
 public:
-    virtual void _v2();
+    virtual void _v2(Sext::ActionBase* asset);
 };
 
 class zNPCBT_Bomb_Shoot_Action : public zNPCBTAction {
 public:
-    virtual void _v2();
+    virtual void _v2(Sext::ActionBase* asset);
 };
 
 class zNPCBT_GenericSpawnerInit_Action : public zNPCBTAction {
 public:
-    virtual void _v2();
+    virtual void _v2(Sext::ActionBase* asset);
 
     unsigned char _pad0[0x4];
 };
 
 class zNPCBT_InstantSpawnNPC_Action : public zNPCBTAction {
 public:
-    virtual void _v2();
+    virtual void _v2(Sext::ActionBase* asset);
 
     unsigned char _pad0[0x10];
 };
 
 class zNPCBT_SpawnNPC_ThrowToLocation_Action : public zNPCBTAction {
 public:
-    virtual void _v2();
+    virtual void _v2(Sext::ActionBase* asset);
 
     unsigned char _pad0[0x40];
 };
 
 class zNPCBT_Spawner_SetRotateToFaceVariable : public zNPCBTAction {
 public:
-    virtual void _v2();
+    virtual void _v2(Sext::ActionBase* asset);
 };
 
 class zNPCBT_Spawner_UnreserveNPC : public zNPCBTAction {
 public:
-    virtual void _v2();
+    virtual void _v2(Sext::ActionBase* asset);
 };
 
 class zNPCBT_SplashDamage_Action : public zNPCBTAction {
 public:
-    virtual void _v2();
+    virtual void _v2(Sext::ActionBase* asset);
 
     unsigned char _pad0[0x8];
 };
 
 class zNPCBT_Turret_GetVariantData_Action : public zNPCBTAction {
 public:
-    virtual void _v2();
+    virtual void _v2(Sext::ActionBase* asset);
 };
 
 class zNPCFlyingBTWriteCurrentPosition : public zNPCBTAction {
 public:
-    virtual void _v2();
+    virtual void _v2(Sext::ActionBase* asset);
 };
 
 class zNPCFlyingBTWriteInsideWallnetAction : public zNPCBTAction {
 public:
-    virtual void _v2();
+    virtual void _v2(Sext::ActionBase* asset);
 };
 
 class zNPCFlyingBTWritePerceptionTargetPositionAction : public zNPCBTAction {
 public:
-    virtual void _v2();
+    virtual void _v2(Sext::ActionBase* asset);
 
     unsigned char _pad0[0x4];
 };
 
 class zNPCFlyingBTWritePlayerPositionAction : public zNPCBTAction {
 public:
-    virtual void _v2();
+    virtual void _v2(Sext::ActionBase* asset);
 };
 
 class zNPCFlyingBTWriteWanderPositionAction : public zNPCBTAction {
 public:
-    virtual void _v2();
+    virtual void _v2(Sext::ActionBase* asset);
 };
 
 #pragma dont_inline on
@@ -1264,6 +1271,375 @@ void zBTActionBuilder::Destroy(zBTAction* action) const {
         zBTFactory::factory.DeallocMem(action);
         break;
     }
+}
+
+// The switch is 115 cases in the order the image lays their blocks,
+// which is source order: 113 that make one action each, and two that
+// answer with a shared global and skip the setup entirely -- and those
+// two ids are exactly the pair Destroy above refuses to free.
+//
+// The setup block comes FIRST and the fallback last, because that is
+// where retail puts them: `beq` past the setup to a block that loads
+// the always-fail action.
+zBTAction* zBTActionBuilder::Build(int type,
+                                   Sext::ActionBase* asset) const {
+    zBTAction* action = 0;
+
+    switch (type) {
+    case 0xF7756BA5:
+        return &zBTAction::gActionAlwaysComplete;
+    case 0xFD239E46:
+        return &zBTAction::gActionAlwaysFail;
+    case 0xD0762FE1:
+        action = zBTFactory::Create<zBTActionSendEvent>();
+        break;
+    case 0xC65A85F5:
+        action = zBTFactory::Create<zBTActionHandleEvent>();
+        break;
+    case 0x83993522:
+        action = zBTFactory::Create<zNPCBTActionBossMeterShow>();
+        break;
+    case 0x82201CCF:
+        action = zBTFactory::Create<zNPCBTActionBossMeterHide>();
+        break;
+    case 0x04E9B695:
+        action = zBTFactory::Create<zNPCBTActionBossMeterSet>();
+        break;
+    case 0xFC57E1DA:
+        action = zBTFactory::Create<zBTActionWriteVariable>();
+        break;
+    case 0x307680C0:
+        action = zBTFactory::Create<zBTActionWriteToBlackboard>();
+        break;
+    case 0x957664BB:
+        action = zNPCBTAction::Create<zNPCBTIdleAction>();
+        break;
+    case 0x60878ADC:
+        action = zNPCBTAction::Create<zNPCBTRotateToFaceAction>();
+        break;
+    case 0xA91E4975:
+        action = zNPCBTAction::Create<zNPCBTPlayFXAction>();
+        break;
+    case 0xCE65A00C:
+        action = zNPCBTAction::Create<zNPCBTPlayNPCFXAction>();
+        break;
+    case 0x2EF33CDB:
+        action = zNPCBTAction::Create<zNPCBTPlayEELFXAction>();
+        break;
+    case 0xE04735A5:
+        action = zNPCBTAction::Create<zNPCBTPlayAnimationAction>();
+        break;
+    case 0x9E397889:
+        action = zNPCBTAction::Create<zNPCBTBadgeCollectedAction>();
+        break;
+    case 0x22E53567:
+        action = zNPCBTAction::Create<zNPCBTPlayAnimationTypeAction>();
+        break;
+    case 0x96CE7A88:
+        action = zNPCBTAction::Create<zNPCBTShowAction>();
+        break;
+    case 0x95556235:
+        action = zNPCBTAction::Create<zNPCBTHideAction>();
+        break;
+    case 0x429D6C58:
+        action = zNPCBTAction::Create<zNPCBTSetCollidesAction>();
+        break;
+    case 0x7863C327:
+        action = zNPCBTAction::Create<zNPCBTGenerateCollectiblesAction>();
+        break;
+    case 0x4A506C9D:
+        action = zNPCBTAction::Create<zNPCBTSetCollectibleAction>();
+        break;
+    case 0xDED3AF67:
+        action = zNPCBTAction::Create<zNPCBTFadeOutAction>();
+        break;
+    case 0x153E2F18:
+        action = zNPCBTAction::Create<zNPCBTFadeInAction>();
+        break;
+    case 0x4A91ECAE:
+        action = zNPCBTAction::Create<zNPCBTStartHeadTrackingAction>();
+        break;
+    case 0xC4F700D8:
+        action = zNPCBTAction::Create<zNPCBTStopHeadTrackingAction>();
+        break;
+    case 0xAFE1279C:
+        action = zNPCBTAction::Create<zNPCBTExtraCollisionAction>();
+        break;
+    case 0xA84C3D3A:
+        action = zNPCBTAction::Create<zNPCBTPositionEntAtBoneAction>();
+        break;
+    case 0xA33E487B:
+        action = zNPCBTAction::Create<zNPCBTTextureSwapAction>();
+        break;
+    case 0xF05CA191:
+        action = zNPCBTAction::Create<zNPCBTWriteCurHitPointsAction>();
+        break;
+    case 0x129E8F7D:
+        action = zNPCBTAction::Create<zNPCBTWriteMaxHitPointsAction>();
+        break;
+    case 0x4E2D3614:
+        action = zNPCBTAction::Create<zNPCBTWriteInsideWallnetAction>();
+        break;
+    case 0x23FC0BC6:
+        action = zNPCBTAction::Create<zNPCFlyingBTWriteInsideWallnetAction>();
+        break;
+    case 0x0109BB57:
+        action = zNPCBTAction::Create<zNPCBTWriteNumberOfMovepointsAction>();
+        break;
+    case 0x9F954932:
+        action = zNPCBTAction::Create<zNPCBTWriteLockedPlayerAction>();
+        break;
+    case 0x75A4F8D7:
+        action = zNPCBTAction::Create<zNPCBTWriteClosestPlayerAction>();
+        break;
+    case 0x46B1E1A5:
+        action = zNPCBTAction::Create<zNPCBTWriteTargetPlayerAction>();
+        break;
+    case 0xBD13F938:
+        action = zNPCBTAction::Create<zNPCBTWritePatrolMovePointAction>();
+        break;
+    case 0xD3DBCD1D:
+        action = zNPCBTAction::Create<zNPCBTWritePatrolMovePointShiftedAction>();
+        break;
+    case 0x4AA40A6E:
+        action = zNPCBTAction::Create<zNPCBTWriteChildMovePointAction>();
+        break;
+    case 0x1B9BE8AD:
+        action = zNPCBTAction::Create<zNPCBTWriteWanderPositionAction>();
+        break;
+    case 0x847342C3:
+        action = zNPCBTAction::Create<zNPCFlyingBTWriteWanderPositionAction>();
+        break;
+    case 0xB4B6E161:
+        action = zNPCBTAction::Create<zNPCBTWritePlayerPositionAction>();
+        break;
+    case 0x1D8E3B77:
+        action = zNPCBTAction::Create<zNPCFlyingBTWritePlayerPositionAction>();
+        break;
+    case 0x457818A1:
+        action = zNPCBTAction::Create<zNPCBTWriteTrapPositionAction>();
+        break;
+    case 0x2F5C488C:
+        action = zNPCBTAction::Create<zNPCBTWriteNetworkMovePointAction>();
+        break;
+    case 0x5272A24B:
+        action = zNPCBTAction::Create<zNPCBTWriteBlackboardUidPosition>();
+        break;
+    case 0xBBFADCF3:
+        action = zNPCBTAction::Create<zNPCBTWriteCurrentPosition>();
+        break;
+    case 0x622DF635:
+        action = zNPCBTAction::Create<zNPCFlyingBTWriteCurrentPosition>();
+        break;
+    case 0x6D7B2193:
+        action = zNPCBTAction::Create<zNPCBTResetCurrentPlayerAction>();
+        break;
+    case 0xE7F37266:
+        action = zNPCBTAction::Create<zNPCBTSetNeedCombatCleanupAction>();
+        break;
+    case 0x003D16CD:
+        action = zNPCBTAction::Create<zNPCBTSetNeedCombatTargetingCleanupAction>();
+        break;
+    case 0xDF79BEFD:
+        action = zNPCBTAction::Create<zNPCBTDefeatedAction>();
+        break;
+    case 0x96D1A1FD:
+        action = zNPCBTAction::Create<zNPCBTStunAction>();
+        break;
+    case 0x14AE9360:
+        action = zNPCBTAction::Create<zNPCBTHitAction>();
+        break;
+    case 0x1C5B3812:
+        action = zNPCBTAction::Create<zNPCBTDamagePlayerOnContactAction>();
+        break;
+    case 0x2BA8AFD4:
+        action = zNPCBTAction::Create<zNPCBTShootAction>();
+        break;
+    case 0x95BC4F25:
+        action = zNPCBTAction::Create<zNPCBTKillAction>();
+        break;
+    case 0x26DFF12B:
+        action = zNPCBTAction::Create<zNPCBTRemoveAction>();
+        break;
+    case 0x2A5BD78D:
+        action = zNPCBTAction::Create<zNPCBTStrikeAction>();
+        break;
+    case 0xD1DD8099:
+        action = zNPCBTAction::Create<zNPCBTDamagePlayerInRangeAction>();
+        break;
+    case 0x698F47B8:
+        action = zNPCBTAction::Create<zNPCBTSetInvulnerableAction>();
+        break;
+    case 0x5DAFAAC1:
+        action = zNPCBTAction::Create<zNPCBTSetUndamageableAction>();
+        break;
+    case 0x2840596C:
+        action = zNPCBTAction::Create<zNPCBTRequestAttackAction>();
+        break;
+    case 0xEDF31EB4:
+        action = zNPCBTAction::Create<zNPCBTReleaseAttackAction>();
+        break;
+    case 0x0387DC96:
+        action = zNPCBTAction::Create<zNPCBTSetCurrentHitPointsAction>();
+        break;
+    case 0x3E831EED:
+        action = zNPCBTAction::Create<zNPCBTSetHitProfileAction>();
+        break;
+    case 0xEE05B233:
+        action = zNPCBTAction::Create<zNPCBTMoveToAction>();
+        break;
+    case 0x959D267D:
+        action = zNPCBTAction::Create<zNPCBTJumpAction>();
+        break;
+    case 0x33986A11:
+        action = zNPCBTAction::Create<zNPCBTFollowPlayerAction>();
+        break;
+    case 0x55910AB7:
+        action = zNPCBTAction::Create<zNPCBTEscortAction>();
+        break;
+    case 0x9511909D:
+        action = zNPCBTAction::Create<zNPCBTFleeAction>();
+        break;
+    case 0xD9EFDBC9:
+        action = zNPCBTAction::Create<zNPCBTFlutterAction>();
+        break;
+    case 0xC686B2E1:
+        action = zNPCBTAction::Create<zNPCBTFollowProjectileAction>();
+        break;
+    case 0x3CF0C7FE:
+        action = zNPCBTAction::Create<zNPCBTTeleportAction>();
+        break;
+    case 0x3DE3F5BC:
+        action = zNPCBTAction::Create<zNPCBTPathFollowMPAction>();
+        break;
+    case 0x96D19EED:
+        action = zNPCBTAction::Create<zNPCBTStopAction>();
+        break;
+    case 0xA5B7D8C8:
+        action = zNPCBTAction::Create<zNPCBTFaceFromEventAction>();
+        break;
+    case 0xE6C57417:
+        action = zNPCBTAction::Create<zNPCBTOrbitAction>();
+        break;
+    case 0x725C0C42:
+        action = zNPCBTAction::Create<zNPCBTSetFlyingAction>();
+        break;
+    case 0xFA2D2570:
+        action = zNPCBTAction::Create<zNPCBTSnapToFloorAction>();
+        break;
+    case 0xEF418FCA:
+        action = zNPCBTAction::Create<zNPCBTSwarmWanderAction>();
+        break;
+    case 0x928A25FC:
+        action = zNPCBTAction::Create<zNPCBTSwarmFlockAction>();
+        break;
+    case 0xBA6835FF:
+        action = zNPCBTAction::Create<zNPCBTSwarmFlutterAction>();
+        break;
+    case 0x3E0941AD:
+        action = zNPCBTAction::Create<zNPCBTWriteSwarmHidePointAction>();
+        break;
+    case 0xDC3A1307:
+        action = zNPCBTAction::Create<zNPCBTWriteSwarmPosKilledByPlayerAsBadgePosAction>();
+        break;
+    case 0x7FD6A393:
+        action = zNPCBTAction::Create<zNPCBTSwarmBugCollectedAction>();
+        break;
+    case 0x12E94D45:
+        action = zNPCBTAction::Create<zNPCBTSwarmMoveToAction>();
+        break;
+    case 0xCC3A4DFE:
+        action = zNPCBTAction::Create<zNPCBTSwarmPathFollowMPAction>();
+        break;
+    case 0xA1CEE0D3:
+        action = zNPCBTAction::Create<zNPCBTSwarmPathFollowCircleAction>();
+        break;
+    case 0x5CA86C4C:
+        action = zNPCBTAction::Create<zNPCBTSwarmBadgeCollectedAction>();
+        break;
+    case 0x55875237:
+        action = zNPCBTAction::Create<zNPCBTSwarmResetKilledMembersAction>();
+        break;
+    case 0x7838E47C:
+        action = zNPCBTAction::Create<zNPCBT_GenericSpawnerInit_Action>();
+        break;
+    case 0xF0A20B00:
+        action = zNPCBTAction::Create<zNPCBT_SpawnNPC_ThrowToLocation_Action>();
+        break;
+    case 0x6F6FDA6B:
+        action = zNPCBTAction::Create<zNPCBT_Spawner_SetRotateToFaceVariable>();
+        break;
+    case 0x634DA9A4:
+        action = zNPCBTAction::Create<zNPCBT_Spawner_UnreserveNPC>();
+        break;
+    case 0x9DB83D10:
+        action = zNPCBTAction::Create<zNPCBT_InstantSpawnNPC_Action>();
+        break;
+    case 0x90416D1C:
+        action = zNPCBTAction::Create<zNPCBTPathThruMPsShiftedAction>();
+        break;
+    case 0x4766616F:
+        action = zNPCBTAction::Create<zNPCBTSetRPSAttackStateAction>();
+        break;
+    case 0x2A17999B:
+        action = zNPCBTAction::Create<zNPCBTClearDamageInfoAction>();
+        break;
+    case 0xCF8433D5:
+        action = zNPCBTAction::Create<zNPCBTWriteGopherNextMovepointAction>();
+        break;
+    case 0xFF2A858A:
+        action = zNPCBTAction::Create<zNPCBTPlanktonShakeAction>();
+        break;
+    case 0x3F7C56C9:
+        action = zNPCBTAction::Create<zNPCBTSetPlanktonShakableAction>();
+        break;
+    case 0x1F36793B:
+        action = zNPCBTAction::Create<zNPCBTBounceAction>();
+        break;
+    case 0x10D63B7A:
+        action = zNPCBTAction::Create<zNPCBTRespondToKnockbackAction>();
+        break;
+    case 0x4B135530:
+        action = zNPCBTAction::Create<zNPCBTGenerateSpinVortexAction>();
+        break;
+    case 0xDA789044:
+        action = zNPCBTAction::Create<zNPCBTMonitorPerceptionAction>();
+        break;
+    case 0x54497409:
+        action = zNPCBTAction::Create<zNPCBT_SplashDamage_Action>();
+        break;
+    case 0x9950E449:
+        action = zNPCBTAction::Create<zNPCBT_Bomb_Shoot_Action>();
+        break;
+    case 0x23FCD139:
+        action = zNPCBTAction::Create<zNPCBT_Turret_GetVariantData_Action>();
+        break;
+    case 0x88671173:
+        action = zNPCBTAction::Create<zNPCBTWriteSquidBlockTimeAction>();
+        break;
+    case 0xCD037DAD:
+        action = zNPCBTAction::Create<zNPCBTChumbotFistFlashAction>();
+        break;
+    case 0x3FED91AA:
+        action = zNPCBTAction::Create<zNPCBTWritePerceptionTargetPositionAction>();
+        break;
+    case 0x2BBED830:
+        action = zNPCBTAction::Create<zNPCFlyingBTWritePerceptionTargetPositionAction>();
+        break;
+    case 0xAFFF3262:
+        action = zNPCBTAction::Create<zNPCBTFollowPerceptionTargetAction>();
+        break;
+    }
+
+    if (action != 0) {
+        action->SetBTClient(btClient);
+        action->SetAsset(asset);
+        action->_v2(asset);
+
+        return action;
+    }
+
+    return &zBTAction::gActionAlwaysFail;
 }
 
 #pragma dont_inline off

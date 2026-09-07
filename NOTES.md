@@ -7,18 +7,18 @@ numbers here, which move.
 ## State at time of writing
 
 ```
-Game Code:  67 of 777 files complete  195,688 / 2,116,616 bytes  1,955 / 10,697 fn
-            9.2453% of game code
+Game Code:  67 of 777 files complete  199,480 / 2,116,616 bytes  1,956 / 10,697 fn
+            9.4245% of game code
 
-Of those 1,955 functions, 757 are GENERATED -- machine-recognised
+Of those 1,956 functions, 757 are GENERATED -- machine-recognised
 shapes, not one of which is decompiling. They are real matched
 functions and the offsets and constants are recovered fact, but a
 count of them is not a count of decompiled code. HAND-WRITTEN IS
-1,198, across 208 units and 187,052 bytes, and that is the figure to
+1,199, across 208 units and 190,844 bytes, and that is the figure to
 compare against earlier ones.
 
 Data:       4 unit(s) carry their own, 412 bytes; 134 more could
-All:        4.68% matched              main.dol reproduces byte for byte
+All:        4.74% matched              main.dol reproduces byte for byte
 ```
 
 Every number above is written by `python tools/notes_state.py`,
@@ -2892,6 +2892,38 @@ of inequalities round the call, an or-chain of equalities that breaks,
 the same with an explicit else, an EMPTY then with the call in the
 else, and a nested switch on the id -- and so does making slot 1
 return an enum instead of an unsigned int.
+### And Build matched on the first compile: 3,792 bytes, 948 words
+
+`zBTActionBuilder::Build` is the switch that turns a type id into an
+action, 115 cases over the 113 Creates and two shared globals, and it
+came out byte-identical with 121 relocations masked WITHOUT ONE
+SPELLING TRIED. That is worth stating because it is the second time a
+large mwcc switch has done it -- `FixWmlType`'s 307-case dispatch is
+the other -- and it means the compiler's binary search over case
+values is fully determined by the SET of values and needs nothing from
+the source but them:
+
+  * The id for a case is the constant the compare in front of its
+    `beq` builds, which `disasm.py` already prints as `= XXXXXXXX` on
+    the `addi`.
+  * The BODY is whatever the label sits on -- here one `bl Create<T>`
+    each, or a global for the two that skip the setup.
+  * The block order in the image IS the source order, so listing the
+    cases by address gives the switch to write.
+
+Two traps in reading it. The `beq` that ends the null test at the FOOT
+of the function is not a case, so a compare only arms the next branch
+when it was against the switch's own value -- taking every `beq`
+invented a 116th case. And the setup block comes FIRST with the
+fallback last, because retail branches PAST the setup to the block
+that loads the always-fail action; written the other way round the
+whole tail moves.
+
+It also answered a question from the function above it. The two
+constants `Destroy` refuses to free are exactly the two ids Build
+answers with `gActionAlwaysComplete` and `gActionAlwaysFail` -- one
+unit, and the id slot, the shared globals and the deallocation rule
+all agree.
 ## What the misses have actually been
 
 Across every unit so far, the source text has almost never been the lever:

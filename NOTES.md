@@ -7,18 +7,18 @@ numbers here, which move.
 ## State at time of writing
 
 ```
-Game Code:  67 of 777 files complete  165,008 / 2,116,616 bytes  1,656 / 10,697 fn
-            7.7958% of game code
+Game Code:  67 of 777 files complete  167,272 / 2,116,616 bytes  1,674 / 10,697 fn
+            7.9028% of game code
 
-Of those 1,656 functions, 759 are GENERATED -- machine-recognised
+Of those 1,674 functions, 759 are GENERATED -- machine-recognised
 shapes, not one of which is decompiling. They are real matched
 functions and the offsets and constants are recovered fact, but a
 count of them is not a count of decompiled code. HAND-WRITTEN IS
-897, across 201 units and 156,356 bytes, and that is the figure to
+915, across 202 units and 158,620 bytes, and that is the figure to
 compare against earlier ones.
 
 Data:       4 unit(s) carry their own, 412 bytes; 134 more could
-All:        4.22% matched              main.dol reproduces byte for byte
+All:        4.25% matched              main.dol reproduces byte for byte
 ```
 
 Every number above is written by `python tools/notes_state.py`,
@@ -2537,6 +2537,54 @@ statics, base register, no help needed.
 Read this section as a set: each of the five was the whole remaining
 difference at the time, and each was found by a sweep that included the
 obvious spelling and the obvious spelling lost.
+## A CLASS TEMPLATE'S MEMBERS NEVER INLINE, and what constness does to a heap
+
+Domains (WAD00_1) is built on two families of helper -- `Util::
+BlockAllocatorArray<T>` and a set of allocate/free templates that take
+the heap as a parameter -- and both taught something the next unit that
+uses them will want.
+
+**No member of a class template inlines into a caller.** DomainPriv's
+constructor has the array's vtable pointer and its six fields written
+out where retail has them, because ELEVEN spellings of a member that
+would produce them all came out as a CALL: a constructor taking (heap,
+tag) defined in the class, defined out of it, with `inline`, with a
+member-initialiser list instead of assignments, an ordinary `Init`
+member instead of a constructor, one with no calls of its own, and
+`#pragma always_inline on` placed inside the class body and again around
+the whole template at namespace scope. Every one of them: a call. The
+same file inlines a PLAIN class's constructor without being asked --
+CreateActivity inlines two iterator constructors and the vtable-pointer
+stores of six Activity subclasses. So the rule is about the template,
+not about constructors and not about size, and the answer when retail
+has a template member's body inline is to write the statements at the
+call site.
+
+**`const H&` makes the static; a by-value copy moves the load.** The
+image holds four unnamed 4-byte STT_OBJECTs for this file (@21996,
+@22450, @22661, @22708) and reads a heap enum out of each. They are
+reference-bound constants -- mwcc materialises one when a CONSTANT binds
+to a `const H&`, and refuses the deduction outright for a non-const `H&`
+("does not match"), which is how retail's `Delete` mangling can say `R`
+while the free that binds a constant must be a different function. And
+the LOAD through that reference lands where the reference is copied, not
+where it is used: `Free(const H& heap, void* p)` whose body starts
+`H h = heap;` puts the load ahead of the null test, which is where
+retail has it in all four callers. Written without the copy the load
+sits inside the `if`, and four functions are wrong by the same four
+words.
+
+**A fold is not a difference, and the two tools disagree on purpose.**
+Six branches in this file name a symbol the linker folded away -- an
+empty constructor onto `Math::Matrix33::Matrix33()` (four bytes, one
+`blr`), a `Block` constructor and a `Delete` onto the
+`BlockAllocatorArray<void*>` instantiation, a `SetPool` onto
+`PoolList<zBTTask*>`'s. unitcmp checks the branch-target NAME and reads
+the unit 13 of 21; report.json resolves the branch by ADDRESS in the
+linked image, where the folded symbol is the same bytes, and reads 18 of
+21. Neither is wrong and neither should be quoted without saying which
+question it answers. reloc_audit already separates them: this file moved
+its folded count from 4 to 10 and its overstated count not at all.
 ## Traps worth knowing
 
 **A survey that cannot see what is finished reports finished work as

@@ -7,10 +7,10 @@ numbers here, which move.
 ## State at time of writing
 
 ```
-Game Code:  67 of 777 files complete  219,560 / 2,116,616 bytes  2,126 / 10,697 fn
-            10.3732% of game code
+Game Code:  67 of 777 files complete  220,240 / 2,116,616 bytes  2,131 / 10,697 fn
+            10.4053% of game code
 
-Of those 2,126 functions, 750 are GENERATED -- machine-recognised
+Of those 2,131 functions, 755 are GENERATED -- machine-recognised
 shapes, not one of which is decompiling. They are real matched
 functions and the offsets and constants are recovered fact, but a
 count of them is not a count of decompiled code. HAND-WRITTEN IS
@@ -18,7 +18,7 @@ count of them is not a count of decompiled code. HAND-WRITTEN IS
 compare against earlier ones.
 
 Data:       4 unit(s) carry their own, 412 bytes; 134 more could
-All:        5.04% matched              main.dol reproduces byte for byte
+All:        5.05% matched              main.dol reproduces byte for byte
 ```
 
 Every number above is written by `python tools/notes_state.py`,
@@ -3289,6 +3289,36 @@ Two of the thirteen -- Sext::ScreenWarp and Sext::FXScreenWarp -- land
 in one unit, so that file carries one preamble and both bodies.
 
 Generated went 737 to 750 and hand-written did not move.
+
+### The third shape: the init is a VIRTUAL, and the slot is in the word
+
+136 bytes, 3 solved against 7 unsolved. Same as the 124-byte Create --
+base constructor, vtable stored here -- except the init is dispatched
+through the vtable, so the hole set gains a SLOT and loses the init
+symbol. A call through a vtable names nothing, which is why the
+parameter type is the one thing about this shape the image cannot
+say; it is spelled as the asset, which is what it is called with.
+
+The slot is (K - 8) / 4 of the `lwz r12,K(r12)`, because a CodeWarrior
+vtable pointer points eight bytes past its start. zEventSpy, already
+matched, reads 88 -> slot 20, and its source declares Init as the
+twenty-first virtual. That is the check that the arithmetic is right.
+
+10 of 10 members gave up entity, asset, size, base and slot. Five
+were written and matched: zSlope and zSinkingSurface at slot 32 on
+zInteractionUP, zTrampoline at 32 on zEnt, zLedge and zFog at 20 on
+World::xOGEntity.
+
+THE BASE CARRIES NOTHING BUT ITS CONSTRUCTOR, and that is not a
+shortcut. The vptr the derived class's own virtuals create sits at +0
+either way, so how sizeof splits between base and derived changes no
+code -- all the padding rides on the derived class and the file makes
+no claim about a layout it cannot see. zEventSpy.cpp declares
+World::xOGEntity exactly that way and matches.
+
+zDirection was skipped: its file exists and is a gen_accessors one,
+so taking it over would move generated functions into the written
+column for one function. TriggerPhantom has no Object row at all.
 
 Two things that are NOT levers, measured rather than assumed: which
 overload of a name gets picked (CodeWarrior mangles static and non-static

@@ -1,6 +1,6 @@
 // WAD00_1.cpp -- the Domains subsystem, 51 functions and 8,632 bytes in
-// the image. THIS FILE COVERS 36 OF THEM: 30 byte-identical and six
-// recorded near-misses, four of them at retail's exact size -- StartLoad
+// the image. THIS FILE COVERS 37 OF THEM: 30 byte-identical and seven
+// recorded near-misses, five of them at retail's exact size -- StartLoad
 // by one word, AbortActivity by six, push_back by five, SubtreeMin by
 // nine, Insert by 269 of 320 at 1,280 against 1,284, and the tree
 // iterator's increment by 35 of 44 at 176 against 184. Plus two
@@ -320,7 +320,6 @@ enum enStatus {
     OBSOLETE,
 };
 
-class ProgressCB;
 class Domain;
 
 }  // namespace Domains
@@ -813,8 +812,22 @@ public:
     virtual bool IsDone();
 };
 
+// Only two of the monitor's vtable slots are reached from this file,
+// +0x10 and +0x14; the two below them are declared to place those. Each
+// is called with the domain and two zeroes -- r4 still holds the domain
+// at the call and mwcc would have loaded it otherwise.
+class ProgressCB {
+public:
+    virtual void Reserved0();
+    virtual void Reserved1();
+    virtual void OnLoaded(DomainPriv* dom, int a, int b);
+    virtual void OnActive(DomainPriv* dom, int a, int b);
+};
+
 class ActCheckpoint : public Activity {
 public:
+    void Execute(DomainPriv* dom);
+
     int checkPoint;
 };
 
@@ -1212,6 +1225,42 @@ void DomainPriv::MakeActivityQue() {
 void DomainPriv::KillActivityQue() {
     Free(Memory::GlobalHeap, activityQueue.poolHead);
     activityQueue.SetPool(0, 0);
+}
+
+// 8 OF 49 WORDS, size exact, and the same two differences in each of the
+// two notifying cases: retail keeps the domain in a temporary of its own
+// where we reuse the result register, and it materialises the two zero
+// arguments in the opposite order. A named local for the domain does not
+// move the first, and five parameter typings -- int/int, void*/int,
+// int/void*, bool/int, int/bool -- do not move the second.
+void ActCheckpoint::Execute(DomainPriv* dom) {
+    switch (checkPoint) {
+    case 0: {
+        Domain* owner = dom->parentDom;
+        ProgressCB* mon = owner->progressMon;
+
+        if (mon != 0) {
+            mon->OnLoaded(dom, 0, 0);
+        }
+
+        dom->parentDom->domStatus = LOADED;
+        break;
+    }
+    case 1: {
+        Domain* owner = dom->parentDom;
+        ProgressCB* mon = owner->progressMon;
+
+        if (mon != 0) {
+            mon->OnActive(dom, 0, 0);
+        }
+
+        dom->parentDom->domStatus = ACTIVE;
+        break;
+    }
+    case 2:
+        dom->parentDom->domStatus = OBSOLETE;
+        break;
+    }
 }
 
 void ActRegisterEnts::Init(DomainPriv* dom) {

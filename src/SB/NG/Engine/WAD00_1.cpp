@@ -1,9 +1,9 @@
 // WAD00_1.cpp -- the Domains subsystem, 51 functions and 8,632 bytes in
-// the image. THIS FILE COVERS 29 OF THEM: 26 byte-identical and three
-// recorded near-misses (StartLoad by one word and AbortActivity by six,
-// both at retail's exact size, and Insert by 269 of 320 at 1,280 against
-// 1,284), plus two functions the image does not hold under the names we
-// give them.
+// the image. THIS FILE COVERS 33 OF THEM: 28 byte-identical and five
+// recorded near-misses, four of them at retail's exact size -- StartLoad
+// by one word, AbortActivity by six, push_back by five, SubtreeMin by
+// nine, and Insert by 269 of 320 at 1,280 against 1,284. Plus two
+// functions the image does not hold under the names we give them.
 //
 // unitcmp reads that as 18 of 31 and report.json as 26 of 52 (2,948
 // bytes), and both are right. Eight of the twenty-six reach a symbol the
@@ -353,6 +353,11 @@ public:
             T* data[56];
         };
 
+        Iterator() {
+            itpath.count = 0;
+            owner = 0;
+        }
+
         EmbeddedTreeNode* NodeBack() const;
         void SubtreeMin();
 
@@ -366,11 +371,19 @@ public:
     T* root;
 };
 
+// 5 of 7 words, size exact, and all of it one register: retail computes
+// count + 1 before the element address and we compute it after. Three
+// statement orders were measured -- the store first, a named local for
+// count + 1, and the count store first -- and none moved it. SubtreeMin
+// carries the same difference (9 of 24, size exact) because the same
+// statements are written out inside its loop.
 template <class T, class Cmp, int OFFSET>
 void EmbeddedTreeAVL<T, Cmp, OFFSET>::Iterator::FixedKeyArray::push_back(
     T* item) {
-    data[count] = item;
-    count = count + 1;
+    int n = count;
+
+    data[n] = item;
+    count = n + 1;
 }
 
 template <class T, class Cmp, int OFFSET>
@@ -610,7 +623,12 @@ void EmbeddedTreeAVL<T, Cmp, OFFSET>::Iterator::SubtreeMin() {
     T* left = (T*)NodeBack()->left;
 
     while (left != 0) {
-        itpath.push_back(left);
+        // push_back written out: retail inlines it here and nothing
+        // inlines a member into a class template's member.
+        int n = itpath.count;
+
+        itpath.data[n] = left;
+        itpath.count = n + 1;
 
         left = (T*)NodeBack()->left;
     }
@@ -763,31 +781,17 @@ class ActLoadTextureParcel : public ActLoadParcel {};
 
 class ActLoadMemFastParcel : public ActLoadParcel {};
 
-// 56 entries and a count: 0xE4, and the tree iterator that holds one is
-// 0xE8, which is what makes ActRegisterEnts 244 bytes.
-class FixedKeyArray {
-public:
-    int count;
-    World::EntityHandleBase* data[56];
-};
+typedef ::EmbeddedTreeAVL< ::World::EntityHandleBase, DomainHandleCmp, 44>
+    HandleTree;
 
-class HandleTree;
-
-class HandleTreeIterator {
-public:
-    HandleTreeIterator() {
-        itpath.count = 0;
-        owner = 0;
-    }
-
-    HandleTree* owner;
-    FixedKeyArray itpath;
-};
-
+// 0xF4: Activity 8, the stage, and the tree iterator's 0xE8 -- 56 path
+// entries and a count.
 class ActRegisterEnts : public Activity {
 public:
+    void Init(DomainPriv* dom);
+
     enStage stage;
-    HandleTreeIterator it_handle;
+    HandleTree::Iterator it_handle;
 };
 
 class ActUnloadAll : public Activity {
@@ -1130,6 +1134,18 @@ void DomainPriv::MakeActivityQue() {
 void DomainPriv::KillActivityQue() {
     Free(Memory::GlobalHeap, activityQueue.poolHead);
     activityQueue.SetPool(0, 0);
+}
+
+void ActRegisterEnts::Init(DomainPriv* dom) {
+    it_handle.owner = &dom->myHandleTree;
+    it_handle.itpath.count = 0;
+
+    if (dom->myHandleTree.root != 0) {
+        it_handle.itpath.push_back(dom->myHandleTree.root);
+        it_handle.SubtreeMin();
+    }
+
+    stage = READY;
 }
 
 void ActLoadParcel::Finish(DomainPriv* dom) {

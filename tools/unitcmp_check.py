@@ -62,7 +62,7 @@ EXPECT = {
     # recorded near misses.  The unit has 14 functions in all.
     "SB/GM/Engine/Core/x/xString": (7, 7),
     "SB/GM/Engine/Core/x/xGameInterface": (3, 3),
-    "SB/GM/Engine/Core/x/xGroup": (1, 1),
+    "SB/GM/Engine/Core/x/xGroup": (2, 2),
     "SB/GM/Engine/Game/zButtonMasherWidget": (2, 2),
     "SB/GM/Engine/Game/zDecal": (4, 6),
     "SB/GM/Engine/Game/zJawFlapper": (2, 2),
@@ -268,7 +268,7 @@ EXPECT = {
     "SB/GM/Engine/Game/zWallNetPositionXZ": (1, 1),
     "SB/GM/Engine/WAD00_32": (177, 177),
     "SB/GM/Engine/WAD01_13_1": (2, 2),
-    "SB/GM/Engine/WAD01_1_1": (121, 127),
+    "SB/GM/Engine/WAD01_1_1": (123, 127),
     "SB/GM/Engine/WAD01_28": (57, 57),
     "SB/GM/Engine/WAD01_29": (2, 2),
     "SB/GM/Engine/WAD02_6_1": (1, 1),

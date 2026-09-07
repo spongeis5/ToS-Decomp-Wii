@@ -39,6 +39,8 @@
 // what keeps this object from defining 113 tables the manifest does not
 // name.
 
+#include "SB/GM/Engine/WAD01_1_1.pool.h"
+
 #pragma always_inline on
 
 namespace Sext { class ActionBase; }

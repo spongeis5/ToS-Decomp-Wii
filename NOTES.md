@@ -7,14 +7,14 @@ numbers here, which move.
 ## State at time of writing
 
 ```
-Game Code:  67 of 777 files complete  212,844 / 2,116,616 bytes  2,060 / 10,697 fn
-            10.0559% of game code
+Game Code:  67 of 777 files complete  213,120 / 2,116,616 bytes  2,063 / 10,697 fn
+            10.0689% of game code
 
-Of those 2,060 functions, 755 are GENERATED -- machine-recognised
+Of those 2,063 functions, 754 are GENERATED -- machine-recognised
 shapes, not one of which is decompiling. They are real matched
 functions and the offsets and constants are recovered fact, but a
 count of them is not a count of decompiled code. HAND-WRITTEN IS
-1,305, across 210 units and 204,228 bytes, and that is the figure to
+1,309, across 211 units and 204,512 bytes, and that is the figure to
 compare against earlier ones.
 
 Data:       4 unit(s) carry their own, 412 bytes; 134 more could
@@ -139,6 +139,7 @@ written so far.
 | `reloc_audit.py` | which already-matched functions branch somewhere retail does not |
 | `disasm.py` | read one retail function, symbols resolved; `--unit`. 100% of the splits decode |
 | `compiler_sweep.py` | rebuild every unit with source under each Wii compiler and count exact functions; `--lib PREFIX` |
+| `twin_census.py` | which unmatched functions are BYTE-TWINS of ones already written; `--unsolved` names every member |
 
 `pip install pyelftools` is required for all of them.
 
@@ -2932,13 +2933,13 @@ turns a type id into one, a Destroy -- and writing it from the dump
 took one sitting and no spellings: **9,708 bytes, the whole unit**,
 Game Code 9.4245% to 9.8828%.
 
-`families.py` in the scratchpad is what found it: group every symbol
-with a `<` in it by what is left when the type is removed, and the
-families fall out with their byte counts and how many are already
-matched. `Create<>__15zNPCBTConditionFPCc` was 54 members and 6,264
-bytes with none matched, sitting next to the 106 that had just been
-done. That question is worth asking again whenever a template family
-lands.
+It was found by grouping every symbol with a `<` in it by what is
+left when the type between the brackets is removed, and reading off
+the byte counts and how many members are already matched.
+`Create<>__15zNPCBTConditionFPCc` was 54 members and 6,264 bytes with
+none matched, sitting next to the 106 that had just been done.
+`tools/twin_census.py` now asks the more general form of that
+question and does not need the names to be similar at all.
 
 Three things differed from the action side, all of them in the bytes:
 
@@ -3009,6 +3010,71 @@ them in the category it has for this, taking the folded total from 14
 to 17 with 0 overstated. report.json resolves the branch by ADDRESS
 and counts the bytes; the linked image genuinely cannot say which of
 the three names was written.
+## TWO QUESTIONS NOBODY HAD ASKED, AND WHAT THEY PAID
+
+### Does the .rodata padding actually convert the float anchor?
+
+`gen_poolprefix.py` has emitted a padding array since the pool work,
+and its docstring states the rule exactly -- under 32 KB into
+`.rodata` mwcc shares one base among a function's literals from three
+up; past 32 KB it spells a `lis` each up to three and forms an
+`addis` base for four or more. Nobody had put a header on a unit that
+builds NO string pool just for the padding, and nobody had tested the
+rule from both sides at once.
+
+WAD01_1_1 is that test. Its first literal sits 41,320 bytes into its
+translation unit's `.rodata`; the fragment compiled alone puts it at
+nothing. With the header in:
+
+  * `zWanderData` and `zWallAvoidanceData`, THREE literals each, went
+    from one word short to byte-identical. 121 of 127 to 123 of 127.
+  * `Create<zNPCBTJumpAction>`, FOUR literals, got WORSE -- 228 bytes
+    and 45 words out became 232 and 50 -- which is the `addis` base
+    the same rule predicts past 32 KB.
+
+So the rule holds in both directions, and it reconciles a
+contradiction this session had already recorded: the measurement said
+the anchor forms at THREE literals and `unit_triage.py` counts the
+blocker at FOUR. Neither is wrong. **Three is the threshold for a
+fragment compiled bare; four is the threshold for one carrying its
+pool header.** `unit_triage.py` states the padded rule and does not
+say so, which is why a unit it calls clear can still lose its
+three-literal functions.
+
+### Is any unmatched function a byte-twin of one already written?
+
+`shape_census.py` asks what the unmatched functions share with each
+other, by primary opcode, so a generator can be written for the
+biggest shape. The question nobody had asked is the one that puts the
+matched and the unmatched in ONE clustering: **which unsolved
+function is the same shape as something already solved?**
+
+`tools/twin_census.py` answers it. The key is every instruction with
+its registers, with only the branch displacements and the low sixteen
+bits of the immediate forms blanked -- stricter than an opcode
+signature, looser than the bytes. Of 10,284 game functions read,
+**110 clusters hold both a solved member and an unsolved one: 530
+unsolved functions, 26,408 bytes**, which is 1.25% of Game Code
+sitting in shapes somebody has already written.
+
+The largest is one family across four sizes: `Sext::<Asset>::Create`,
+which takes a block from the global heap, memsets it, places the
+entity and runs an init -- 31 unsolved at 96 bytes against 2 written,
+23 at 124 against 7, 7 at 136 against 3. Then 14
+`AddTransitionsFrom` at 124 against 2, several destructor clusters,
+and 83 eight-byte adjustor thunks against 3.
+
+**The method was tested before it was believed.**
+`Sext::xGroupAsset::Create` was written by reading
+`Sext::UI_Model::Create` in zUIModel.cpp and changing the type, its
+size and which init runs. It matched on the first compile, 124 bytes,
+and its retail disassembly was never read for anything but the three
+constants.
+
+A cluster is a LEAD, not a proof: the key blanks the sizes and
+offsets, and those are exactly what the source still has to get
+right. What it removes is not knowing the shape at all, which is the
+part that costs days.
 ## What the misses have actually been
 
 Across every unit so far, the source text has almost never been the lever:

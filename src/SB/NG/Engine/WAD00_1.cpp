@@ -1,8 +1,9 @@
 // WAD00_1.cpp -- the Domains subsystem, 51 functions and 8,632 bytes in
-// the image. THIS FILE COVERS 21 OF THEM, 2,264 bytes: 18 byte-identical
-// and two recorded near-misses at retail's exact size (StartLoad by one
-// word, AbortActivity by six), plus one function the image does not hold
-// under the name we give it.
+// the image. THIS FILE COVERS 24 OF THEM: 21 byte-identical and three
+// recorded near-misses (StartLoad by one word and AbortActivity by six,
+// both at retail's exact size, and Insert by 269 of 320 at 1,280 against
+// 1,284), plus one function the image does not hold under the name we
+// give it.
 //
 // unitcmp reads that as 13 of 21 and report.json as 18 of 21, and both
 // are right. Five of the eighteen reach a symbol the linker FOLDED:
@@ -89,14 +90,13 @@ inline T* NewArray(const H& heap, eMemMgrTag tag, unsigned long count) {
 // <unsigned long long> one is identical code and the linker folded them,
 // so a fragment naming <Ux> names a symbol the image does not have.
 // reloc_audit reports that as folded, which it is.
+// DECLARED here, DEFINED at the foot of the file. Retail calls this from
+// both DeleteBlocks and KillUIDArray; with the body up here the
+// auto-inliner takes it into DeleteBlocks and costs two instructions.
+// The inliner can only take a body it has already read (NOTES, where the
+// body sits in the file).
 template <class H, class T>
-void Delete(H& heap, T* p) {
-    if (p != 0) {
-        p->~T();
-    }
-
-    Free(heap, p);
-}
+void Delete(H& heap, T* p);
 
 template <class H, class T>
 inline void Delete(const H& heap, T* p) {
@@ -245,9 +245,337 @@ class Domain;
 
 }  // namespace Domains
 
+namespace Util {
+
+// 36 bytes an entry, `order` at +28 -- the layout RTTID.cpp recovered.
+struct RTTIDData {
+    unsigned char _pad0[0x14];
+    RTTIDData* child;
+    RTTIDData* next;
+    unsigned int order;
+    void* create;
+};
+
+extern RTTIDData g_rttidDataTable[];
+
+}  // namespace Util
+
 namespace World {
-class EntityHandleBase;
+
+// The tree node lives at +44 and +48, inside the padding: Insert writes
+// the new node's left at 44 and its right/colour/balance word at 48.
+class EntityHandleBase {
+public:
+    unsigned long long id;
+    unsigned char _pad0[0x34 - 0x8];
+    unsigned int typeID;
+    unsigned char _pad1[0x48 - 0x38];
+};
+
 }  // namespace World
+
+// The right pointer carries the node's balance in its low two bits, so
+// every read masks with ~3 and every write goes through SetRight. Same
+// class as EntityManager's, where this tree matches at offsets 28 and 36;
+// here it is the same template at offset 44 with another comparator.
+class EmbeddedTreeNode {
+public:
+    EmbeddedTreeNode& operator=(const EmbeddedTreeNode& other);
+    void SetRight(void* right);
+
+    void* Right() const { return (void*)(right_color_bal & ~3); }
+    int Bal() const { return (right_color_bal & 3) - 1; }
+    void SetBal(int b) {
+        right_color_bal = (right_color_bal & ~3) | (b + 1);
+    }
+
+    void* left;
+    long right_color_bal;
+};
+
+EmbeddedTreeNode& EmbeddedTreeNode::operator=(const EmbeddedTreeNode& other) {
+    left = other.left;
+    right_color_bal = other.right_color_bal;
+    return *this;
+}
+
+// The iterator keeps a 56-entry path array, not EntityManager's 28-entry
+// stack: 0xE8, which is what makes ActRegisterEnts 244 bytes.
+template <class T, class Cmp, int OFFSET>
+class EmbeddedTreeAVL : public Cmp {
+public:
+    class Iterator {
+    public:
+        class FixedKeyArray {
+        public:
+            void push_back(T* item);
+
+            int count;
+            T* data[56];
+        };
+
+        EmbeddedTreeNode* NodeBack() const;
+        void SubtreeMin();
+
+        EmbeddedTreeAVL<T, Cmp, OFFSET>* owner;
+        FixedKeyArray itpath;
+    };
+
+    T* Insert(T* node, T* item, int& change);
+
+    unsigned int count;
+    T* root;
+};
+
+template <class T, class Cmp, int OFFSET>
+void EmbeddedTreeAVL<T, Cmp, OFFSET>::Iterator::FixedKeyArray::push_back(
+    T* item) {
+    data[count] = item;
+    count = count + 1;
+}
+
+template <class T, class Cmp, int OFFSET>
+EmbeddedTreeNode* EmbeddedTreeAVL<T, Cmp, OFFSET>::Iterator::NodeBack() const {
+    return (EmbeddedTreeNode*)((char*)itpath.data[itpath.count - 1] + OFFSET);
+}
+
+// 269 OF 320 WORDS, 1,280 bytes against retail's 1,284 -- one
+// instruction short, and every difference downstream of one register:
+// retail holds `item` in r29 and we hold it in r28.
+//
+// Retail's Insert has three things inlined that mwcc will not inline for
+// us, so all three are written out at their call sites here: BalanceLeft,
+// BalanceRight and the comparator. The image holds no BalanceLeft or
+// BalanceRight for this instantiation and no DomainHandleCmp::operator(),
+// so retail's compiler took all three; ours takes none. Twenty-three
+// spellings were measured across this file and Util::BlockAllocatorArray:
+// `inline` on the definition and on the declaration, #pragma
+// always_inline inside the class and around it, inline_max_size,
+// inline_max_auto_size and inline_depth at the callee and at the top of
+// the unit, a member of the Cmp base, a free function template, and four
+// spellings of the comparator including two ternary chains. Every one of
+// them stood out of line. What DOES inline into a class template's
+// member is a tiny free template (Free reaches DeleteBlocks) and a
+// one-expression accessor (Bal, SetBal and Right reach here), so the
+// rule is not simply about templates.
+//
+// After writing all three out, the remaining difference is register
+// allocation, and neither the comparison directions (four combinations)
+// nor the placement of the balance locals (hoisted to the branch or
+// declared in the case) moves it.
+template <class T, class Cmp, int OFFSET>
+T* EmbeddedTreeAVL<T, Cmp, OFFSET>::Insert(T* node, T* item, int& change) {
+    if (node == 0) {
+        EmbeddedTreeNode* in = (EmbeddedTreeNode*)((char*)item + OFFSET);
+
+        change = 1;
+        count = count + 1;
+        in->left = 0;
+        in->right_color_bal = 1;
+        return item;
+    }
+
+    int c;
+
+    if (Util::g_rttidDataTable[node->typeID].order <
+        Util::g_rttidDataTable[item->typeID].order) {
+        c = -1;
+    } else if (Util::g_rttidDataTable[node->typeID].order >
+               Util::g_rttidDataTable[item->typeID].order) {
+        c = 1;
+    } else if (node->id < item->id) {
+        c = -1;
+    } else {
+        c = item->id < node->id;
+    }
+
+    if (c < 0) {
+        EmbeddedTreeNode* n = (EmbeddedTreeNode*)((char*)node + OFFSET);
+
+        n->left = Insert((T*)n->left, item, change);
+
+        if (change != 0) {
+            switch (n->Bal()) {
+            case 1:
+                n->SetBal(0);
+
+                if (change > 0) {
+                    change = 0;
+                }
+
+                break;
+
+            case 0:
+                n->SetBal(-1);
+
+                if (change < 0) {
+                    change = 0;
+                }
+
+                break;
+
+            case -1: {
+                T* mid;
+                EmbeddedTreeNode* mn;
+                T* left = (T*)n->left;
+                EmbeddedTreeNode* ln =
+                    (EmbeddedTreeNode*)((char*)left + OFFSET);
+                long raw = ln->right_color_bal;
+                int b = (raw & 3) - 1;
+
+                if (b < 0) {
+                    n->left = (void*)(raw & ~3);
+                    ln->SetRight(node);
+                    n->SetBal(0);
+                    node = left;
+                    ln->SetBal(0);
+                } else if (b == 0) {
+                    n->left = (void*)(raw & ~3);
+                    ln->SetRight(node);
+                    n->SetBal(-1);
+                    node = left;
+                    ln->SetBal(1);
+
+                    if (change < 0) {
+                        change = 0;
+                    }
+                } else {
+                    mid = (T*)(raw & ~3);
+                    mn = (EmbeddedTreeNode*)((char*)mid + OFFSET);
+
+                    ln->SetRight(mn->left);
+                    mn->left = left;
+                    n->left = mn->Right();
+                    mn->SetRight(node);
+
+                    if ((mn->right_color_bal & 3) == 0) {
+                        n->SetBal(1);
+                    } else {
+                        n->SetBal(0);
+                    }
+
+                    if (mn->Bal() == 1) {
+                        ln->SetBal(-1);
+                    } else {
+                        ln->SetBal(0);
+                    }
+
+                    node = mid;
+                    mn->SetBal(0);
+                }
+
+                if (change > 0) {
+                    change = 0;
+                }
+
+                break;
+            }
+            }
+        }
+    } else if (c > 0) {
+        T* right;
+        T* mid;
+        EmbeddedTreeNode* mn;
+        EmbeddedTreeNode* rn;
+        EmbeddedTreeNode* n = (EmbeddedTreeNode*)((char*)node + OFFSET);
+
+        n->SetRight(Insert((T*)n->Right(), item, change));
+
+        if (change != 0) {
+            int bal = n->Bal();
+
+            switch (bal) {
+            case -1:
+                n->SetBal(0);
+
+                if (change > 0) {
+                    change = 0;
+                }
+
+                break;
+
+            case 0:
+                n->SetBal(1);
+
+                if (change < 0) {
+                    change = 0;
+                }
+
+                break;
+
+            case 1: {
+                right = (T*)n->Right();
+                rn = (EmbeddedTreeNode*)((char*)right + OFFSET);
+                int b = rn->Bal();
+
+                if (b > 0) {
+                    n->SetRight(rn->left);
+                    rn->left = node;
+                    n->SetBal(0);
+                    node = right;
+                    rn->SetBal(0);
+                } else if (b == 0) {
+                    n->SetRight(rn->left);
+                    rn->left = node;
+                    n->SetBal(1);
+                    node = right;
+                    rn->SetBal(-1);
+
+                    if (change < 0) {
+                        change = 0;
+                    }
+                } else {
+                    mid = (T*)rn->left;
+                    mn = (EmbeddedTreeNode*)((char*)mid + OFFSET);
+
+                    rn->left = mn->Right();
+                    mn->SetRight(right);
+                    n->SetRight(mn->left);
+                    mn->left = node;
+
+                    if (mn->Bal() == 1) {
+                        n->SetBal(-1);
+                    } else {
+                        n->SetBal(0);
+                    }
+
+                    if ((mn->right_color_bal & 3) == 0) {
+                        rn->SetBal(1);
+                    } else {
+                        rn->SetBal(0);
+                    }
+
+                    node = mid;
+                    mn->SetBal(0);
+                }
+
+                if (change > 0) {
+                    change = 0;
+                }
+
+                break;
+            }
+            }
+        }
+    } else {
+        *(EmbeddedTreeNode*)((char*)item + OFFSET) =
+            *(EmbeddedTreeNode*)((char*)node + OFFSET);
+        change = 0;
+        node = item;
+    }
+
+    return node;
+}
+template <class T, class Cmp, int OFFSET>
+void EmbeddedTreeAVL<T, Cmp, OFFSET>::Iterator::SubtreeMin() {
+    T* left = (T*)NodeBack()->left;
+
+    while (left != 0) {
+        itpath.push_back(left);
+
+        left = (T*)NodeBack()->left;
+    }
+}
 
 // The queue's constructor is folded onto Math::Matrix33's in the image:
 // identical code, one symbol kept. PoolList is {int size; NodeHeader
@@ -295,7 +623,31 @@ public:
 
 namespace Domains {
 
-class DomainHandleCmp {};
+// Inlined into Insert by retail, which is what a plain class's member
+// does here -- unlike anything belonging to a class template. Handles
+// order by their TYPE's sort order first and by uid within a type.
+class DomainHandleCmp {
+public:
+    int operator()(const ::World::EntityHandleBase* item,
+                   const ::World::EntityHandleBase* node) const {
+        unsigned int a = Util::g_rttidDataTable[node->typeID].order;
+        unsigned int b = Util::g_rttidDataTable[item->typeID].order;
+
+        if (a < b) {
+            return -1;
+        }
+
+        if (a > b) {
+            return 1;
+        }
+
+        if (node->id < item->id) {
+            return -1;
+        }
+
+        return item->id < node->id;
+    }
+};
 
 enum enActType {
     eActType_Checkpoint,
@@ -381,18 +733,6 @@ public:
     Util::BlockAllocatorArray<unsigned long long>::Iterator it_buid;
 };
 
-template <class Cmp>
-class CmpHolder : public Cmp {
-public:
-    unsigned long size;
-};
-
-template <class T, class Cmp, int OFFSET>
-class EmbeddedTreeAVL {
-public:
-    CmpHolder<Cmp> cmp;
-    T* m_root;
-};
 
 class DomainPriv {
 public:
@@ -410,13 +750,16 @@ public:
     void MakeActivityQue();
     void KillActivityQue();
     void ProcActivityQue();
+    void KillUIDArray();
+    void AddUIDItem(::World::EntityHandleBase* handle);
 
     Domain* parentDom;
     char domainName[128];
     LoadStream* loadStream;
     Util::PoolList<Activity*> activityQueue;
     Util::BlockAllocatorArray<unsigned long long> myUIDsArray;
-    EmbeddedTreeAVL<World::EntityHandleBase, DomainHandleCmp, 44> myHandleTree;
+    ::EmbeddedTreeAVL< ::World::EntityHandleBase, DomainHandleCmp, 44>
+        myHandleTree;
     int UidProcessIdx;
     unsigned int refMask;
     unsigned short currLangID;
@@ -474,13 +817,49 @@ DomainPriv::DomainPriv() {
     myUIDsArray.DeleteBlocks();
     myUIDsArray.blockSize = 256;
     myUIDsArray.PushBlock();
-    myHandleTree.cmp.size = 0;
-    myHandleTree.m_root = 0;
+    myHandleTree.count = 0;
+    myHandleTree.root = 0;
     domainName[0] = 0;
     loadStream = 0;
 }
 
 DomainPriv::~DomainPriv() {}
+
+void DomainPriv::KillUIDArray() {
+    Util::BlockAllocatorArray<unsigned long long>::Block* b =
+        myUIDsArray.blockPool->next;
+
+    while (b != 0) {
+        Util::BlockAllocatorArray<unsigned long long>::Block* cur = b;
+
+        b = b->next;
+        Free(myUIDsArray.heap, cur->pool);
+        Delete(myUIDsArray.heap, cur);
+    }
+
+    myUIDsArray.blockPool->next = 0;
+    myUIDsArray.backBlock = myUIDsArray.blockPool;
+    myUIDsArray.blockCount = 1;
+    myUIDsArray.size = 0;
+    myHandleTree.count = 0;
+    myHandleTree.root = 0;
+}
+
+void DomainPriv::AddUIDItem(::World::EntityHandleBase* handle) {
+    unsigned long long id = handle->id;
+
+    if (myUIDsArray.size == myUIDsArray.blockCount * myUIDsArray.blockSize) {
+        myUIDsArray.PushBlock();
+    }
+
+    myUIDsArray.size = myUIDsArray.size + 1;
+    myUIDsArray.backBlock
+        ->pool[(myUIDsArray.size - 1) % myUIDsArray.blockSize] = id;
+
+    int change = 0;
+
+    myHandleTree.root = myHandleTree.Insert(myHandleTree.root, handle, change);
+}
 
 void DomainPriv::Init(const char* name, unsigned int mask, Domain* parent) {
     strcpy(domainName, name);
@@ -690,3 +1069,12 @@ void DomainPriv::KillActivityQue() {
 }
 
 }  // namespace Domains
+
+template <class H, class T>
+void Delete(H& heap, T* p) {
+    if (p != 0) {
+        p->~T();
+    }
+
+    Free(heap, p);
+}

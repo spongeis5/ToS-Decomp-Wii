@@ -454,7 +454,7 @@ EXPECT = {
     "SB/NG/Source/Engine/World/EntityManager": (14, 18),
     "SB/GM/Engine/Game/zBlackboard": (25, 25),
     "SB/GM/Engine/Game/zBTBuilder": (12, 12),
-    "SB/NG/Engine/WAD00_1": (13, 21),
+    "SB/NG/Engine/WAD00_1": (15, 25),
 }
 
 

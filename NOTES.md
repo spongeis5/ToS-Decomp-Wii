@@ -7,18 +7,18 @@ numbers here, which move.
 ## State at time of writing
 
 ```
-Game Code:  67 of 777 files complete  167,272 / 2,116,616 bytes  1,674 / 10,697 fn
-            7.9028% of game code
+Game Code:  67 of 777 files complete  167,604 / 2,116,616 bytes  1,677 / 10,697 fn
+            7.9185% of game code
 
-Of those 1,674 functions, 759 are GENERATED -- machine-recognised
+Of those 1,677 functions, 759 are GENERATED -- machine-recognised
 shapes, not one of which is decompiling. They are real matched
 functions and the offsets and constants are recovered fact, but a
 count of them is not a count of decompiled code. HAND-WRITTEN IS
-915, across 202 units and 158,620 bytes, and that is the figure to
+918, across 202 units and 158,952 bytes, and that is the figure to
 compare against earlier ones.
 
 Data:       4 unit(s) carry their own, 412 bytes; 134 more could
-All:        4.25% matched              main.dol reproduces byte for byte
+All:        4.26% matched              main.dol reproduces byte for byte
 ```
 
 Every number above is written by `python tools/notes_state.py`,
@@ -2544,21 +2544,33 @@ BlockAllocatorArray<T>` and a set of allocate/free templates that take
 the heap as a parameter -- and both taught something the next unit that
 uses them will want.
 
-**No member of a class template inlines into a caller.** DomainPriv's
-constructor has the array's vtable pointer and its six fields written
-out where retail has them, because ELEVEN spellings of a member that
-would produce them all came out as a CALL: a constructor taking (heap,
-tag) defined in the class, defined out of it, with `inline`, with a
-member-initialiser list instead of assignments, an ordinary `Init`
-member instead of a constructor, one with no calls of its own, and
-`#pragma always_inline on` placed inside the class body and again around
-the whole template at namespace scope. Every one of them: a call. The
-same file inlines a PLAIN class's constructor without being asked --
-CreateActivity inlines two iterator constructors and the vtable-pointer
-stores of six Activity subclasses. So the rule is about the template,
-not about constructors and not about size, and the answer when retail
-has a template member's body inline is to write the statements at the
-call site.
+**A class's member function does not inline into a class template's
+member.** DomainPriv's constructor has the array's vtable pointer and its
+six fields written out, and the AVL tree's Insert has BalanceLeft,
+BalanceRight and its comparator written out, because TWENTY-THREE
+spellings between them all came out as a CALL: a constructor taking
+(heap, tag) defined in the class, defined out of it, with `inline`, with
+a member-initialiser list instead of assignments, an ordinary `Init`
+member instead of a constructor, one with no calls of its own, `#pragma
+always_inline on` inside the class body and again around the whole
+template at namespace scope, `inline_max_size`, `inline_max_auto_size`
+and `inline_depth` at the callee and at the top of the unit, a
+comparator reached through the tree's Cmp base, the same comparator as a
+free function template, and four spellings of it including two ternary
+chains. Every one of them: a call.
+
+Two things DO inline into a class template's member, which is how the
+rule is bounded rather than guessed at. A tiny FREE template does --
+`Free()` reaches `BlockAllocatorArray<T>::DeleteBlocks`, and matching it
+depended on that. And a one-expression accessor of a plain class does --
+`EmbeddedTreeNode::Bal`, `SetBal` and `Right` are all inlined into
+Insert. What never arrives is a class's member function carrying real
+code. The same file inlines a PLAIN class's constructor into a plain
+function without being asked: CreateActivity takes two iterator
+constructors and the vtable-pointer stores of six Activity subclasses.
+So the rule is about the CALLER being a class template's member, not
+about constructors and not about size, and the answer when retail has a
+body inline there is to write the statements at the call site.
 
 **`const H&` makes the static; a by-value copy moves the load.** The
 image holds four unnamed 4-byte STT_OBJECTs for this file (@21996,

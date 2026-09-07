@@ -7,18 +7,18 @@ numbers here, which move.
 ## State at time of writing
 
 ```
-Game Code:  67 of 777 files complete  216,700 / 2,116,616 bytes  2,100 / 10,697 fn
-            10.2380% of game code
+Game Code:  67 of 777 files complete  218,312 / 2,116,616 bytes  2,113 / 10,697 fn
+            10.3142% of game code
 
-Of those 2,100 functions, 737 are GENERATED -- machine-recognised
+Of those 2,113 functions, 737 are GENERATED -- machine-recognised
 shapes, not one of which is decompiling. They are real matched
 functions and the offsets and constants are recovered fact, but a
 count of them is not a count of decompiled code. HAND-WRITTEN IS
-1,363, across 223 units and 206,804 bytes, and that is the figure to
+1,376, across 223 units and 208,416 bytes, and that is the figure to
 compare against earlier ones.
 
 Data:       4 unit(s) carry their own, 412 bytes; 134 more could
-All:        4.99% matched              main.dol reproduces byte for byte
+All:        5.02% matched              main.dol reproduces byte for byte
 ```
 
 Every number above is written by `python tools/notes_state.py`,
@@ -3201,6 +3201,44 @@ hand-written stayed at 1,363 across 223 units while generated went 726
 to 737. Eleven more matched functions and not one more function of
 decompiling -- which is exactly what that figure exists to keep
 separate.
+
+### The second cluster: thirteen animation tables, three holes each
+
+The fill sheet is not about asset Creates. Pointed at
+`AddTransitionsFrom`, 2 solved against 14 unsolved at 124 bytes, it
+read 27 of 31 instructions byte-identical, ONE call reaching the same
+symbol from a different address, and exactly THREE holes: the
+destination state string and the two halves of a check callback's
+address. The donor's source -- zPlayerIdlePlankton, already matched --
+is a single call to the action helper, so the whole of the work was
+reading two values per target out of the image.
+
+Both are there to be read. The state string is a POOLED literal, so
+the `addi` forms `@stringBase0 + K` and the bytes at that address are
+the string; the callback is a plain symbol. 16 of 16 members gave up
+both, and the two already written came back "Idle01" and anIdleCheck,
+which is what their source says -- the check that the extraction was
+right before any of it was used.
+
+THE CHECK IS NOT ALWAYS THE ACTION'S OWN, and assuming it was cost a
+compile. zPlayerLandSB calls `zSBPlayerAction::anSBLandCheck`, and
+zPlayerIdleShooting -- matched long before this -- calls
+`zPlayerIdlePlankton::anIdleCheck`. The mangled symbol carries the
+owner; the first version threw it away and kept only the method name.
+That is the same mistake as reading a free init as a member, one
+cluster later: the name has more in it than the shape does.
+
+Four of the strings this file had never used are inside the pool
+prefix `gen_poolprefix.py` already wrote, so `-str reuse` folded the
+references onto them and no offset moved. Thirteen matched on the
+first compile; zSBPlayerActions went 93 of 95 to 106 of 108, and the
+two that still differ are the ones that already did -- zPlayerIdleSB's
+6,568-byte table and zPlayerWalkSB's four-literal one, which
+gen_poolprefix.py's own header records as out of reach.
+
+The fourteenth, zPlayerIdleHub, is in WAD03_22.cpp: a gen_accessors
+file with no pool prefix, where taking it over for one function would
+move three generated functions into the written column. Left.
 
 Two things that are NOT levers, measured rather than assumed: which
 overload of a name gets picked (CodeWarrior mangles static and non-static

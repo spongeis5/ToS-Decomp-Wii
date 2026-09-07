@@ -35,6 +35,13 @@ public:
 
 xBase* zSceneFindObject(unsigned long long id);
 
+// Only the player carries a noise level, which is why the sound sphere
+// begins by testing the target's type id.
+class zCommonPlayer {
+public:
+    float GetNoiseLevel();
+};
+
 // DisableTarget sends its event from the NPC's own base entity, which
 // the disassembly reaches at +0xBC of the zNPCEntity.
 class zNPCEntity {
@@ -50,6 +57,7 @@ public:
     xVec3& operator=(const xVec3& other);
     void Sub(const xVec3& a, const xVec3& b);
     float length2() const;
+    float Distance2XZ(const xVec3& other) const;
 
     static const xVec3 m_Null;
 
@@ -822,9 +830,162 @@ bool zNPCPerceptionTarget::zPerceptionType::CheckSpherePerception(
     return true;
 }
 
+
+bool zNPCPerceptionTarget::zPerceptionType::CheckSoundSpherePerception(
+    const Node* node) {
+    xVec3 targetCenter;
+    xVec3 npcCenter;
+    xVec3 delta;
+    float radius;
+    zNPCEntity* npc;
+    zWallNet* wallNet;
+
+    if (ownerTarget->targetEnt->baseType != 0x55) {
+        return false;
+    }
+
+    if (((zCommonPlayer*)ownerTarget->targetEnt)->GetNoiseLevel() <
+        node->SoundSphere.SoundSphereDetectionNoise) {
+        return false;
+    }
+
+    radius = node->SoundSphere.Radius;
+
+    if (isPerceived) {
+        radius = radius * node->HysteresisRatio;
+    }
+
+    ownerTarget->GetTargetEntityCenter(targetCenter);
+    radius = radius * radius;
+    npc = ownerTarget->GetNPCEntity();
+    npc->GetBoundCenter(npcCenter);
+    delta.Sub(targetCenter, npcCenter);
+
+    if (delta.length2() > radius) {
+        return false;
+    }
+
+    wallNet = GetNPCWallNet();
+
+    if (wallNet != 0) {
+        if (node->flags & 2) {
+            if (!wallNet->IsInsideWallNetXZ(targetCenter)) {
+                return false;
+            }
+        }
+
+        if (node->flags & 4) {
+            if (!IsInDirectPath(npc, wallNet)) {
+                return false;
+            }
+        }
+    }
+
+    if (node->flags & 1) {
+        if (!ownerTarget->losCache.CheckLineOfSight(
+                npc, ownerTarget,
+                (Sext::eCollisionLayer)node->LOSCollisionLayer, false)) {
+            return false;
+        }
+    }
+
+    return true;
+}
+
+bool zNPCPerceptionTarget::zPerceptionType::CheckCylinderPerception(
+    const Node* node) {
+    xVec3 npcCenter;
+    xVec3 targetCenter;
+    float radius = node->Cylinder.Radius;
+    float heightUp = node->Cylinder.HeightUp;
+    float heightDown = node->Cylinder.HeightDown;
+    float dy;
+    float radius2;
+    zNPCEntity* npc;
+    zWallNet* wallNet;
+
+    if (isPerceived) {
+        radius = radius * node->HysteresisRatio;
+        heightUp = heightUp * node->HysteresisRatio;
+        heightDown = heightDown * node->HysteresisRatio;
+    }
+
+    npc = ownerTarget->GetNPCEntity();
+    npc->GetBoundCenter(npcCenter);
+    ownerTarget->GetTargetEntityCenter(targetCenter);
+    dy = targetCenter.y - npcCenter.y;
+
+    if (dy < -heightDown || dy > heightUp) {
+        return false;
+    }
+
+    radius2 = radius * radius;
+
+    if (npcCenter.Distance2XZ(targetCenter) > radius2) {
+        return false;
+    }
+
+    wallNet = GetNPCWallNet();
+
+    if (wallNet != 0) {
+        if (node->flags & 2) {
+            if (!wallNet->IsInsideWallNetXZ(targetCenter)) {
+                return false;
+            }
+        }
+
+        if (node->flags & 4) {
+            if (!IsInDirectPath(npc, wallNet)) {
+                return false;
+            }
+        }
+    }
+
+    if (node->flags & 1) {
+        if (!ownerTarget->losCache.CheckLineOfSight(
+                npc, ownerTarget,
+                (Sext::eCollisionLayer)node->LOSCollisionLayer, false)) {
+            return false;
+        }
+    }
+
+    return true;
+}
+bool zNPCPerceptionTarget::zPerceptionType::CheckInNPCWallsPerception(
+    const Node* node) {
+    xVec3 npcCenter;
+    xVec3 targetCenter;
+    float heightUp;
+    float heightDown;
+    float dy;
+    zWallNet* wallNet = GetNPCWallNet();
+
+    if (wallNet == 0) {
+        return false;
+    }
+
+    heightUp = node->InNPCWalls.HeightUp;
+    heightDown = node->InNPCWalls.HeightDown;
+
+    if (isPerceived) {
+        heightUp = heightUp * node->HysteresisRatio;
+        heightDown = heightDown * node->HysteresisRatio;
+    }
+
+    ownerTarget->GetNPCEntity()->GetBoundCenter(npcCenter);
+    ownerTarget->GetTargetEntityCenter(targetCenter);
+    dy = targetCenter.y - npcCenter.y;
+
+    if (dy < -heightDown || dy > heightUp) {
+        return false;
+    }
+
+    return wallNet->IsInsideWallNetXZ(targetCenter);
+}
 // DEFINED here, below every caller: with the bodies above them the
 // auto-inliner takes both into the perception checks, where retail
-// calls them (NOTES, where the body sits in the file).
+// calls them (NOTES, where the body sits in the file). Anything written
+// AFTER them inlines them again -- keep them last.
 zWallNet* zNPCPerceptionTarget::zPerceptionType::GetNPCWallNet() {
     return ownerTarget->ownerNpcPerc->npcWallNet;
 }

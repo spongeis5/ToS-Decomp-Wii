@@ -7,18 +7,18 @@ numbers here, which move.
 ## State at time of writing
 
 ```
-Game Code:  67 of 777 files complete  174,464 / 2,116,616 bytes  1,725 / 10,697 fn
-            8.2426% of game code
+Game Code:  67 of 777 files complete  174,928 / 2,116,616 bytes  1,726 / 10,697 fn
+            8.2645% of game code
 
-Of those 1,725 functions, 759 are GENERATED -- machine-recognised
+Of those 1,726 functions, 759 are GENERATED -- machine-recognised
 shapes, not one of which is decompiling. They are real matched
 functions and the offsets and constants are recovered fact, but a
 count of them is not a count of decompiled code. HAND-WRITTEN IS
-966, across 203 units and 165,812 bytes, and that is the figure to
+967, across 203 units and 166,276 bytes, and that is the figure to
 compare against earlier ones.
 
 Data:       4 unit(s) carry their own, 412 bytes; 134 more could
-All:        4.36% matched              main.dol reproduces byte for byte
+All:        4.37% matched              main.dol reproduces byte for byte
 ```
 
 Every number above is written by `python tools/notes_state.py`,
@@ -2533,6 +2533,30 @@ addressing, so a function that is one reference short of retail's is a
 function whose CALLS are wrong, not whose loads are. The only other
 point measured is the same function's `.bss`: nine references to three
 statics, base register, no help needed.
+
+**The count is only half of it: the other half is REACH, and in a split
+unit reach is not a property of the source.** zNPCPerception's
+`IsInDirectPath` reads three constants out of `.rodata` -- 0.0f, 1e-05f,
+1.0f -- and by the paragraph above that is enough to hoist a base, which
+is exactly what ours does: `lis`/`addi` into r31 and three displacements.
+Retail spends a high half per reference instead, so the extra `addi`
+makes us 69 words where retail has 70, and taking r31 for the base pushes
+every other local down a register. Nothing in the source is wrong.
+Compiling the same text with 36,000 bytes of `.rodata` placed AHEAD of
+the three constants -- so that no signed 16-bit displacement can reach
+them from the section base -- makes the function byte-identical at 280.
+
+So mwcc anchors at the SECTION, not at the first constant, and the
+hoist is available only while the whole span fits the displacement
+field. That is a fact about the retail image as much as about us: it
+says WAD02.cpp carries at least 32KB of `.rodata` before these three,
+where our split of it carries 0x18 bytes in total. A function whose
+only difference is a hoisted base against a small section is therefore
+not a function to keep sweeping -- it is one waiting on the rest of its
+translation unit, and padding the section to fake the distance would put
+data in the object that the manifest does not name. Worth checking
+before assuming a near-miss is a source problem: how big is the
+section, and can one register reach all of it?
 
 Read this section as a set: each of the five was the whole remaining
 difference at the time, and each was found by a sweep that included the

@@ -42,12 +42,24 @@ public:
     float GetNoiseLevel();
 };
 
-// DisableTarget sends its event from the NPC's own base entity, which
-// the disassembly reaches at +0xBC of the zNPCEntity.
 namespace World {
 class xOGModel;
 }  // namespace World
 
+class zNPCBase;
+
+class zNPCBound {
+public:
+    float GetBoundRadiusXZ() const;
+
+    unsigned char _pad0[0x10];
+    float radiusY;
+};
+
+// 0x1D0 in the DWARF, deriving from xEnt at +0 and from zNPCComponent
+// at +0xBC. So the word DisableTarget sends its event from is that
+// component's OWNER -- the zNPCBase -- and it reaches zEntEvent as an
+// xBase* because a zNPCBase is one. The bound is at +0xF4.
 class zNPCEntity {
 public:
     void GetBoundCenter(xVec3& out) const;
@@ -55,7 +67,9 @@ public:
     unsigned char _pad0[0x34];
     World::xOGModel* model;
     unsigned char _pad1[0xBC - 0x38];
-    xBase* baseEnt;
+    zNPCBase* owner;
+    unsigned char _pad2[0xF4 - 0xC0];
+    zNPCBound npcBound;
 };
 
 // The angular tests measure the tangent of the angle between the NPC's
@@ -83,12 +97,42 @@ public:
     void Sub(const xVec3& a, const xVec3& b);
     float length2() const;
     float Distance2XZ(const xVec3& other) const;
+    xVec3& operator*=(float s);
 
     static const xVec3 m_Null;
 
     float x;
     float y;
     float z;
+};
+
+// One of the five extra points an entity offers a line-of-sight test,
+// 16 bytes apart with a count at +0x1C0. Only the leading xVec3 is
+// read here; what fills the fourth word is not recovered.
+class xLOSPoint {
+public:
+    xVec3 point;
+    unsigned char _pad0[0x10 - 0xC];
+};
+
+// 0x14 in the DWARF, and its position is at +0, which is why the same
+// pointer serves as both the xVec3 and the zWallNetPositionXZ argument.
+class zWallNetPositionXZ {
+public:
+    xVec3 curPos;
+    zWallNet* curWallNet;
+    int curTriangleId;
+};
+
+class zWallNetCollis;
+
+class zIWallNet {
+public:
+    static bool IntersectsSweptCircle(const zWallNet* wallNet,
+                                      const zWallNetPositionXZ* from,
+                                      const xVec3* dir, float radius,
+                                      float distance,
+                                      zWallNetCollis& collis);
 };
 
 class xSphere {
@@ -109,16 +153,11 @@ public:
 
 }  // namespace World
 
+int xModelGetBoneCount(const World::xOGModel* model);
+
 void xModelGetBoneLocationNoScale(xVec3& out, const World::xOGModel& model,
                                   unsigned long bone);
 
-class zNPCBound {
-public:
-    float GetBoundRadiusXZ() const;
-
-    unsigned char _pad0[0x10];
-    float radiusY;
-};
 
 class xHavokPhysicsObject {
 public:
@@ -146,12 +185,17 @@ public:
     xHavokPhysicsObject physics;
     unsigned char _pad4[0xF4 - 0x81];
     zNPCBound npcBound;
-    unsigned char _pad5[0x214 - 0x108];
+    unsigned char _pad5[0x170 - 0x108];
+    xLOSPoint losPoints[5];
+    int losPointCount;
+    unsigned char _pad6[0x214 - 0x1C4];
     float radius;
 };
 
 class zWallNetCollis {
 public:
+    zWallNetCollis() { Reset(); }
+
     void Reset();
 
     unsigned char _pad0[0x90];
@@ -303,7 +347,11 @@ void zEntEvent(xBase* from, unsigned int fromEvent, xBase* to,
                unsigned int toEvent, Sext::EventAny* param, ForceEvent force);
 
 class zNPCStatus;
+class zNPCSteeringOld;
+class zNPCSteering;
 
+// From the DWARF: 0xC0, an xOGEntity base at +0, npcStatus at +0x40,
+// npcAsset at +0x60, npcEntity at +0x98 and the two steerings after it.
 class zNPCBase {
 public:
     void GetPosition(xVec3& out);
@@ -312,6 +360,8 @@ public:
     const Sext::NPCAsset* asset;
     unsigned char _pad1[0x98 - 0x64];
     zNPCEntity* npcEnt;
+    zNPCSteeringOld* npcSteeringOld;
+    zNPCSteering* npcSteering;
 };
 
 // The vtable pointer sits at +4, after owner, which is what declaring
@@ -326,6 +376,22 @@ public:
     zNPCBase* owner;
 
     virtual void Update();
+};
+
+// 0x48 in the DWARF, a zNPCComponent at +0 -- so the vtable is at +4,
+// after the owner. The accessor this file calls sits at vtable +0x4C,
+// which is slot 17 counting Update as slot 0; the slots between exist
+// only to put it there. zNPCSteering's own entry there is null and the
+// implementation is zNPCSingleSteering::GetWallNetPosition.
+class zNPCSteering : public zNPCComponent {
+public:
+    virtual void _v1();   virtual void _v2();   virtual void _v3();
+    virtual void _v4();   virtual void _v5();   virtual void _v6();
+    virtual void _v7();   virtual void _v8();   virtual void _v9();
+    virtual void _v10();  virtual void _v11();  virtual void _v12();
+    virtual void _v13();  virtual void _v14();  virtual void _v15();
+    virtual void _v16();
+    virtual const zWallNetPositionXZ* GetWallNetPosition() const;
 };
 
 class zNPCPerception;
@@ -411,6 +477,10 @@ public:
     xEnt* GetTargetClosest();
     bool AreTargetsPerceived(unsigned int mask,
                              Sext::eNPCPerceptionType type, bool all);
+    // Static: the five arguments go in r3 through r7 with no this.
+    static bool CheckLineOfSight(const xVec3* from, const xVec3* to,
+                                 const zNPCEntity* npc, const xEnt* ent,
+                                 Sext::eCollisionLayer layer);
     void Detached(zNPCStatus* status);
     void PostUpdate(float dt);
 
@@ -502,10 +572,10 @@ void zNPCPerceptionTarget::PostUpdate(float dt) {
 
     if (anyPerceived != perceivedAny) {
         if (perceivedAny) {
-            zEntEvent(ownerNpcPerc->owner->npcEnt->baseEnt, 0,
+            zEntEvent((xBase*)ownerNpcPerc->owner->npcEnt->owner, 0,
                       (xBase*)targetEnt, 0x03EECE48, 0, (ForceEvent)1);
         } else {
-            zEntEvent(ownerNpcPerc->owner->npcEnt->baseEnt, 0,
+            zEntEvent((xBase*)ownerNpcPerc->owner->npcEnt->owner, 0,
                       (xBase*)targetEnt, 0xEE71365E, 0, (ForceEvent)1);
         }
 
@@ -515,7 +585,7 @@ void zNPCPerceptionTarget::PostUpdate(float dt) {
 
 void zNPCPerceptionTarget::DisableTarget() {
     if (targetEnt != 0) {
-        zEntEvent((xBase*)ownerNpcPerc->owner->npcEnt->baseEnt, 0,
+        zEntEvent((xBase*)ownerNpcPerc->owner->npcEnt->owner, 0,
                   (xBase*)targetEnt, 0x03EECE48, 0, (ForceEvent)1);
     }
 
@@ -1527,6 +1597,129 @@ bool zNPCPerception::AreTargetsPerceived(unsigned int mask,
     }
 
     return all;
+}
+bool zNPCPerceptionTarget::zLOSCache::CheckLineOfSight(
+    const zNPCEntity* npc, zNPCPerceptionTarget* target,
+    Sext::eCollisionLayer layer, bool force) {
+    xVec3 npcCenter;
+    xVec3 targetCenter;
+    xVec3 bonePos;
+    xVec3 center;
+    xEnt* ent;
+    int count;
+    int i;
+
+    // THE CACHE NEVER ANSWERS. Every path through this sets the flag
+    // to true, so the return below it is unreachable and the ray test
+    // runs on every call; the timer is still written and still counted
+    // down by PostUpdate. Three li r0,1 and no li r0,0, read out of
+    // the image and confirmed against the raw DOL word at 0x800F7718
+    // rather than the disassembler. Left as retail has it.
+    bool recheck = true;
+
+    if (force) {
+        recheck = true;
+    } else if (LOSTimer < 0.0f) {
+        recheck = true;
+    }
+
+    if (!recheck) {
+        return isInLOS;
+    }
+
+    LOSTimer = 0.5f;
+    npc->GetBoundCenter(npcCenter);
+    ent = target->targetEnt;
+
+    // Only the player gets the extra points and the bone: everything
+    // else is one ray at its centre.
+    if (ent->baseType == 0x55) {
+        target->GetTargetEntityCenter(targetCenter);
+
+        if (zNPCPerception::CheckLineOfSight(&npcCenter, &targetCenter,
+                                            npc, ent, layer)) {
+            isInLOS = true;
+            return true;
+        }
+
+        count = ent->losPointCount;
+
+        for (i = 0; i < count; i++) {
+            if (zNPCPerception::CheckLineOfSight(
+                    &npcCenter, &ent->losPoints[i].point, npc, ent,
+                    layer)) {
+                isInLOS = true;
+                return true;
+            }
+        }
+
+        if (xModelGetBoneCount(ent->model) > 3) {
+            xModelGetBoneLocationNoScale(bonePos, *ent->model, 3);
+        } else {
+            xModelGetBoneLocationNoScale(bonePos, *ent->model, 0);
+        }
+
+        if (zNPCPerception::CheckLineOfSight(&npcCenter, &bonePos, npc,
+                                            ent, layer)) {
+            isInLOS = true;
+            return true;
+        }
+
+        isInLOS = false;
+        return false;
+    }
+
+    target->GetTargetEntityCenter(center);
+    isInLOS = zNPCPerception::CheckLineOfSight(&npcCenter, &center, npc,
+                                              ent, layer);
+
+    return isInLOS;
+}
+// 69 WORDS OF RETAIL'S 70, AND THE SOURCE IS NOT WHAT IS WRONG. This
+// function reads three constants out of .rodata -- 0.0f, 1e-05f and
+// 1.0f -- and mwcc anchors a base register at the SECTION and bakes
+// the displacements in, which costs an addi and takes r31, so pos
+// lands in r30 and every register below it shifts. Retail materialises
+// a high half per reference instead. The difference is not in the
+// source: compiled with 36,000 bytes of .rodata placed AHEAD of the
+// constants, so that no signed 16-bit displacement can reach them from
+// the section base, this function is byte-identical at 280 -- measured,
+// not argued. So retail's WAD02.cpp carries at least 32KB of .rodata
+// before these three, and our split of it carries 0x18 bytes in total.
+// That is the same class of thing as the units that reproduce OFFSETS
+// rather than a placeable layout, and padding the section to fake it
+// would put data here that the manifest does not name.
+bool zNPCPerceptionTarget::zPerceptionType::IsInDirectPath(
+    const zNPCEntity* npc, const zWallNet* wallNet) {
+    xVec3 targetCenter;
+    xVec3 delta;
+    const zWallNetPositionXZ* pos;
+    float radius;
+    float distance;
+
+    ownerTarget->GetTargetEntityCenter(targetCenter);
+    pos = npc->owner->npcSteering->GetWallNetPosition();
+    radius = npc->npcBound.GetBoundRadiusXZ();
+    delta.Sub(targetCenter, pos->curPos);
+
+    // Flattened: the sweep is a circle on the wall net, so the height
+    // difference plays no part in either the direction or the length.
+    delta.y = 0.0f;
+    distance = delta.length2();
+    distance = distance * Math::rsqrt(distance);
+
+    if (distance < 1e-05f) {
+        return true;
+    }
+
+    delta *= 1.0f / distance;
+
+    zWallNetCollis collis;
+
+    collis.Reset();
+
+    return !zIWallNet::IntersectsSweptCircle(wallNet, pos, &delta, radius,
+                                             distance, collis);
 }
 // DEFINED here, below every caller: with the bodies above them the
 // auto-inliner takes both into the perception checks, where retail

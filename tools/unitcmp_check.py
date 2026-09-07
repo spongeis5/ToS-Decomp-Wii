@@ -471,6 +471,18 @@ EXPECT = {
     "SB/GM/Engine/Game/zScript": (1, 1),
     "SB/GM/Engine/Game/zTextBox": (1, 1),
     "SB/GM/Engine/Game/zUIFlashOnScreenText": (1, 1),
+    "SB/GM/Engine/Core/x/xFunctionGenerator": (1, 1),
+    "SB/GM/Engine/Game/zAnimList": (1, 1),
+    "SB/GM/Engine/Game/zFountain": (1, 1),
+    "SB/GM/Engine/Game/zInflatablePlatform": (1, 1),
+    "SB/GM/Engine/Game/zLocatorEntity": (1, 1),
+    "SB/GM/Engine/Game/zPlanktonReticle": (1, 1),
+    "SB/GM/Engine/Game/zPlayerLocationEnt": (1, 1),
+    "SB/GM/Engine/Game/zPuckReflector": (1, 1),
+    "SB/GM/Engine/Game/zRubberBand": (1, 1),
+    "SB/GM/Engine/Game/zScreenWarp": (2, 2),
+    "SB/GM/Engine/Game/zSoundsNamed": (1, 1),
+    "SB/GM/Engine/Game/zTikiScreen": (1, 1),
 }
 
 

@@ -7,10 +7,10 @@ numbers here, which move.
 ## State at time of writing
 
 ```
-Game Code:  67 of 777 files complete  218,312 / 2,116,616 bytes  2,113 / 10,697 fn
-            10.3142% of game code
+Game Code:  67 of 777 files complete  219,560 / 2,116,616 bytes  2,126 / 10,697 fn
+            10.3732% of game code
 
-Of those 2,113 functions, 737 are GENERATED -- machine-recognised
+Of those 2,126 functions, 750 are GENERATED -- machine-recognised
 shapes, not one of which is decompiling. They are real matched
 functions and the offsets and constants are recovered fact, but a
 count of them is not a count of decompiled code. HAND-WRITTEN IS
@@ -18,7 +18,7 @@ count of them is not a count of decompiled code. HAND-WRITTEN IS
 compare against earlier ones.
 
 Data:       4 unit(s) carry their own, 412 bytes; 134 more could
-All:        5.02% matched              main.dol reproduces byte for byte
+All:        5.04% matched              main.dol reproduces byte for byte
 ```
 
 Every number above is written by `python tools/notes_state.py`,
@@ -3239,6 +3239,56 @@ gen_poolprefix.py's own header records as out of reach.
 The fourteenth, zPlayerIdleHub, is in WAD03_22.cpp: a gen_accessors
 file with no pool prefix, where taking it over for one function would
 move three generated functions into the written column. Left.
+
+### The second template: 96 bytes, and five ways a name resolves wrong
+
+`sext_create_ctor` is the other half of the asset-Create family: the
+entity's own constructor takes the handle AND the asset, so nothing
+stores a vtable and nothing runs afterwards. It needs no base class at
+all -- the constructor is a call, so the only thing about the layout
+the file knows is sizeof, read off the `li r3,N`. Thirteen emitted,
+thirteen matched.
+
+Validated against all 18 already-matched members first: 12 described
+correctly, 0 wrong, and 6 REFUSED because their entity is a nested
+type -- FX::zFXInstance, xRumble::boxEmitter -- which cannot be
+defined by a qualified name. A refusal is not a miss; it is the
+template saying it does not describe this one.
+
+THE COMPILER FOUND FIVE BUGS AND EVERY ONE WAS A SCOPE QUESTION. In
+order, because the order is the lesson:
+
+  * `param_start` took the FIRST `__` in the symbol, which for
+    `__ct__` opens the name rather than separating it from the class.
+    Every constructor parsed to nothing. Matching the separator by
+    what FOLLOWS it -- F, or a class -- is what class_of already did.
+  * `Pv` is a void pointer and `v` alone is the no-parameter marker;
+    telling them apart needs the count of modifiers consumed. And `U`
+    is the unsigned prefix of a builtin, not a modifier beside P and
+    R -- nothing in the first cluster used one, so that bug could not
+    show, and it would have declared `int` where retail has
+    `unsigned int`.
+  * The entity class is emitted BEFORE the Sext namespace and its
+    constructor names the asset, so the asset needs a forward
+    declaration ahead of it. The template only wrote one for the
+    uncommon case.
+  * zSoundsNamed's constructor takes the asset BY REFERENCE. Same
+    lesson as the init signatures one cluster earlier -- a pointer and
+    a reference are one address in the register and two spellings in
+    the source -- except this one does not compile, so mwcc caught it
+    rather than reloc_audit.
+  * AND THE ENTITY CAN SHARE ITS NAME WITH THE ASSET. Sext::ScreenWarp
+    ::Create returns the global ScreenWarp, and inside that
+    definition the unqualified name finds the enclosing class first,
+    so `sizeof(ScreenWarp)` measured the asset. Both templates now
+    write the entity from the global scope inside the Create body.
+    This is the third time the same rule has bitten: an unqualified
+    name inside `Sext::<Asset>::Create` is not the global one.
+
+Two of the thirteen -- Sext::ScreenWarp and Sext::FXScreenWarp -- land
+in one unit, so that file carries one preamble and both bodies.
+
+Generated went 737 to 750 and hand-written did not move.
 
 Two things that are NOT levers, measured rather than assumed: which
 overload of a name gets picked (CodeWarrior mangles static and non-static

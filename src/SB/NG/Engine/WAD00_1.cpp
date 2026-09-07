@@ -1,6 +1,6 @@
 // WAD00_1.cpp -- the Domains subsystem, 51 functions and 8,632 bytes in
-// the image. THIS FILE COVERS 37 OF THEM: 30 byte-identical and seven
-// recorded near-misses, five of them at retail's exact size -- StartLoad
+// the image. THIS FILE COVERS 40 OF THEM: 30 byte-identical and ten
+// recorded near-misses, eight of them at retail's exact size -- StartLoad
 // by one word, AbortActivity by six, push_back by five, SubtreeMin by
 // nine, Insert by 269 of 320 at 1,280 against 1,284, and the tree
 // iterator's increment by 35 of 44 at 176 against 184. Plus two
@@ -282,9 +282,82 @@ namespace Domains {
 class DomainPriv;
 }  // namespace Domains
 
+// One enStage serves both the domain activities and the load stream's
+// connect stage -- the DWARF names the same enum for ActLoadParcel::stage
+// and ConnectInfo::stage, so it is not inside either namespace.
+enum enStage {
+    INACTIVE,
+    READY,
+    FREEMERGE,
+    TETRIS,
+    CLEANING,
+    FLATLINE,
+    SIRTET,
+};
+
+namespace HEStructs {
+
+enum enParcelType {
+    PARCEL_TYPE_UNDEFINED,
+    PARCEL_TYPE_EXCLUSIVE,
+    PARCEL_TYPE_SHARED,
+    PARCEL_TYPE_FROMDOMAIN,
+};
+
+}  // namespace HEStructs
+
 namespace Loader {
 
-class LoadStream;
+enum enStatus { LS_STATUS_ };
+
+enum enWorkState {
+    WORK_STATE_UNSPECIFIED,
+    WORK_STATE_CONNECT,
+    WORK_STATE_TRANSFER,
+    WORK_STATE_DISCONNECT,
+};
+
+enum enPriority { LS_PRIORITY_ };
+
+class SectionKey {
+public:
+    void SetValues(int typeID, const char* name, unsigned short langID,
+                   HEStructs::enParcelType type, const char* fromDomain,
+                   int key);
+
+    int sectionTypeID;
+    char* sectionName;
+    unsigned short packLangID;
+    unsigned char _pad0[0xC - 0xA];
+    int userKey;
+    HEStructs::enParcelType parcelType;
+    char* fromDomainName;
+};
+
+class ConnectInfo {
+public:
+    enStage stage;
+    SectionKey sectionKey;
+    unsigned char _pad0[0x2C - 0x1C];
+    enPriority readPriority;
+};
+
+class LSWorker {
+public:
+    enStatus status;
+    enWorkState workState;
+    bool isError;
+    unsigned char _pad0[0xC - 0x9];
+    ConnectInfo connectInfo;
+    unsigned char _pad1[0x50 - 0x3C];
+};
+
+class LoadStream {
+public:
+    unsigned char mediaFile[0x68];
+    LSWorker worker;
+    unsigned char _pad0[0x208 - 0xB8];
+};
 
 class LSPoolModule {
 public:
@@ -297,16 +370,6 @@ extern LSPoolModule lsPoolMod;
 }  // namespace Loader
 
 namespace Domains {
-
-enum enStage {
-    INACTIVE,
-    READY,
-    FREEMERGE,
-    TETRIS,
-    CLEANING,
-    FLATLINE,
-    SIRTET,
-};
 
 enum enStatus {
     INITING,
@@ -852,6 +915,7 @@ public:
 
 class ActLoadParcel : public Activity {
 public:
+    void Prepare(DomainPriv* dom);
     void Finish(DomainPriv* dom);
     void MakePackTOCArray(int n);
     void KillPackTOCArray();
@@ -867,10 +931,15 @@ public:
     int tocCount;
 };
 
-class ActLoadTextureParcel : public ActLoadParcel {};
+class ActLoadTextureParcel : public ActLoadParcel {
+public:
+    void Prepare(DomainPriv* dom);
+};
 
-
-class ActLoadMemFastParcel : public ActLoadParcel {};
+class ActLoadMemFastParcel : public ActLoadParcel {
+public:
+    void Prepare(DomainPriv* dom);
+};
 
 typedef ::EmbeddedTreeAVL< ::World::EntityHandleBase, DomainHandleCmp, 44>
     HandleTree;
@@ -1273,6 +1342,61 @@ void ActRegisterEnts::Init(DomainPriv* dom) {
     }
 
     stage = READY;
+}
+
+// THE THREE PREPARE FUNCTIONS all come out at retail's exact size with
+// exactly one difference, the same in each: retail holds the shared zero
+// in r31 and the load stream in r30, and we hold them the other way --
+// 7 differing words of 32 and of 34. Four orderings were measured: the
+// two zero stores swapped, the read priority set after the stage and
+// work state rather than before, and the stream grabbed before the zero
+// stores instead of after. The last costs nine more words; the others
+// change nothing.
+void ActLoadParcel::Prepare(DomainPriv* dom) {
+    stage = INACTIVE;
+    memDomData = 0;
+
+    Loader::LoadStream* ls = Loader::lsPoolMod.GrabLoadStream();
+
+    dom->loadStream = ls;
+    ls->worker.connectInfo.sectionKey.SetValues(
+        'P   ', dom->domainName, parcelLangID,
+        HEStructs::PARCEL_TYPE_EXCLUSIVE, 0, 0);
+    ls->worker.connectInfo.readPriority = (Loader::enPriority)0;
+    ls->worker.connectInfo.stage = READY;
+    ls->worker.workState = Loader::WORK_STATE_CONNECT;
+}
+
+void ActLoadTextureParcel::Prepare(DomainPriv* dom) {
+    stage = INACTIVE;
+    memDomData = 0;
+
+    Loader::LoadStream* ls = Loader::lsPoolMod.GrabLoadStream();
+
+    dom->loadStream = ls;
+    ls->worker.connectInfo.sectionKey.SetValues(
+        'PTEX', dom->domainName, parcelLangID,
+        HEStructs::PARCEL_TYPE_EXCLUSIVE, 0, parcelUserKey);
+    ls->worker.connectInfo.readPriority = (Loader::enPriority)0;
+    ls->worker.connectInfo.stage = READY;
+    ls->worker.workState = Loader::WORK_STATE_CONNECT;
+    dom->UidProcessIdx = dom->myUIDsArray.size;
+}
+
+void ActLoadMemFastParcel::Prepare(DomainPriv* dom) {
+    stage = INACTIVE;
+    memDomData = 0;
+
+    Loader::LoadStream* ls = Loader::lsPoolMod.GrabLoadStream();
+
+    dom->loadStream = ls;
+    ls->worker.connectInfo.sectionKey.SetValues(
+        'PFST', dom->domainName, parcelLangID,
+        HEStructs::PARCEL_TYPE_EXCLUSIVE, 0, parcelUserKey);
+    ls->worker.connectInfo.readPriority = (Loader::enPriority)0;
+    ls->worker.connectInfo.stage = READY;
+    ls->worker.workState = Loader::WORK_STATE_CONNECT;
+    dom->UidProcessIdx = dom->myUIDsArray.size;
 }
 
 void ActLoadParcel::Finish(DomainPriv* dom) {

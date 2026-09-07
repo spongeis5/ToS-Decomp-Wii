@@ -7,18 +7,18 @@ numbers here, which move.
 ## State at time of writing
 
 ```
-Game Code:  67 of 777 files complete  174,928 / 2,116,616 bytes  1,726 / 10,697 fn
-            8.2645% of game code
+Game Code:  67 of 777 files complete  176,456 / 2,116,616 bytes  1,744 / 10,697 fn
+            8.3367% of game code
 
-Of those 1,726 functions, 759 are GENERATED -- machine-recognised
+Of those 1,744 functions, 759 are GENERATED -- machine-recognised
 shapes, not one of which is decompiling. They are real matched
 functions and the offsets and constants are recovered fact, but a
 count of them is not a count of decompiled code. HAND-WRITTEN IS
-967, across 203 units and 166,276 bytes, and that is the figure to
+985, across 204 units and 167,804 bytes, and that is the figure to
 compare against earlier ones.
 
 Data:       4 unit(s) carry their own, 412 bytes; 134 more could
-All:        4.37% matched              main.dol reproduces byte for byte
+All:        4.39% matched              main.dol reproduces byte for byte
 ```
 
 Every number above is written by `python tools/notes_state.py`,
@@ -2663,6 +2663,39 @@ store between the two loads landed there. In every case the variable
 declared FIRST takes the higher register, initialising at the point of
 declaration reorders them, and no rewriting of the loop or the
 expression moves it.
+## A CONSTRUCTOR YOU NEVER CALL STILL CHANGES THE CODE
+
+zNPCCombat's two smallest puzzles turned out to be one question asked
+twice: is `xVec3` a POD? Nothing in the unit constructs one, and the
+answer still decides two functions.
+
+`zNPCGetsDamageInfo::operator=` is compiler-generated, and retail's is
+a flat copy of all eleven words -- nine general registers and, when
+those run out, two floating-point ones -- with the xVec3 member copied
+as three raw words. Declare `xVec3& operator=(const xVec3&)` and the
+generated copy calls it instead, member by member: 30 words against
+retail's 23. Leave it out and the copy is retail's exactly.
+
+But `SetFromCombatDamageInfo` in the same unit assigns one xVec3 and
+retail CALLS `__as__5xVec3FRC5xVec3` for it. With no declaration mwcc
+still emits and still calls that function -- the call was never the
+problem. What changed was the scheduling around it: with a plain POD
+the compiler hoisted four loads of the source struct above the stores
+into the destination and used four registers where retail walks
+through r0 one field at a time. Seventeen words of 43.
+
+**Declaring a CONSTRUCTOR fixes it, and only it.** `xVec3();`, never
+defined and never called, makes the class non-POD, which is enough to
+stop mwcc reordering reads of one across writes to another -- and it
+leaves the copy-assignment trivial, so the generated operator= stays
+the flat eleven-word copy. Both functions match. So POD-ness is a
+lever on ALIASING, the copy-assignment is a separate lever, and a
+constructor separates them; reaching for `operator=` moves both at
+once and only one of them the right way.
+
+The corollary is worth stating plainly: a class in one of these files
+should be given the members it really has, not the minimum that
+compiles. Leaving a constructor out is not a neutral omission.
 ## Traps worth knowing
 
 **A survey that cannot see what is finished reports finished work as

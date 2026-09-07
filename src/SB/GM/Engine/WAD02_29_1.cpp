@@ -67,6 +67,8 @@ namespace Math {
 float rsqrt(float x);
 }  // namespace Math
 
+extern "C" double tan(double x);
+
 class zNPCHelper {
 public:
     static float GetTanTheta2(const xVec3* from, const xVec3* forward,
@@ -166,7 +168,10 @@ public:
 
 namespace Sext {
 
-class EventAny;
+class EventAny {
+public:
+    unsigned long long id;
+};
 
 enum eCollisionLayer { eCollisionLayer_ = 0x7FFFFFFF };
 
@@ -230,7 +235,13 @@ public:
     unsigned long long perceptionAssetID;
 };
 
-class NPCAsset;
+// The uid of the NPC's wall net sits at +0x148; the field's own name
+// is not recovered, only its offset and what AllAttached does with it.
+class NPCAsset {
+public:
+    unsigned char _pad0[0x148];
+    unsigned long long wallNetID;
+};
 
 class NPCPerceptionAsset {
 public:
@@ -291,21 +302,14 @@ enum ForceEvent { ForceEvent_ = 0x7FFFFFFF };
 void zEntEvent(xBase* from, unsigned int fromEvent, xBase* to,
                unsigned int toEvent, Sext::EventAny* param, ForceEvent force);
 
-// The asset at +0x60 carries the uid of the NPC's wall net; the field's
-// own name is not recovered, only its offset and what AllAttached does
-// with it.
-class zNPCAssetData {
-public:
-    unsigned char _pad0[0x148];
-    unsigned long long wallNetID;
-};
-
 class zNPCStatus;
 
 class zNPCBase {
 public:
+    void GetPosition(xVec3& out);
+
     unsigned char _pad0[0x60];
-    zNPCAssetData* assetData;
+    const Sext::NPCAsset* asset;
     unsigned char _pad1[0x98 - 0x64];
     zNPCEntity* npcEnt;
 };
@@ -398,10 +402,15 @@ public:
     void SetAssetAuto(const Sext::NPCAsset* asset);
     void SetTarget(unsigned int index, xEnt* ent);
     void RemoveTarget(unsigned int index);
+    void Attached(const zNPCStatus* status);
     void AllAttached();
+    bool SystemEvent(xBase* from, xBase* to, unsigned int event,
+                     Sext::EventAny* param);
     int GetTargetIndexClosestMatching(Sext::eNPCPerceptionType type,
                                       bool perceivedOnly);
     xEnt* GetTargetClosest();
+    bool AreTargetsPerceived(unsigned int mask,
+                             Sext::eNPCPerceptionType type, bool all);
     void Detached(zNPCStatus* status);
     void PostUpdate(float dt);
 
@@ -710,7 +719,7 @@ void zNPCPerception::AllAttached() {
     // The asset pointer into a local of its own: retail's npcWallNet = 0
     // store sits BETWEEN that load and the uid load, which is where it
     // lands only when the two are separate statements.
-    zNPCAssetData* data = owner->assetData;
+    const Sext::NPCAsset* data = owner->asset;
     unsigned long long id;
 
     npcWallNet = 0;
@@ -1239,6 +1248,285 @@ bool zNPCPerceptionTarget::zPerceptionType::
     }
 
     return true;
+}
+bool zNPCPerceptionTarget::zPerceptionType::
+    CheckAngularCylinderPerceptionWithTargetBounds(const Node* node) {
+    xVec3 npcCenter;
+    xVec3 targetCenter;
+    float radiusXZ;
+    float radiusY;
+    float tanHAngle;
+    float radius;
+    float heightUp;
+    float heightDown;
+    float dy;
+    float sumRadius2;
+    float dist2;
+    float tanXZ;
+    float distance;
+    float tanBound;
+    float expanded;
+    zNPCEntity* npc;
+    zWallNet* wallNet;
+
+    // Both bound radii, each used for its own axis -- where the
+    // angular SPHERE takes whichever is larger, the cylinder widens
+    // its height band by the Y radius and its footprint by the XZ one.
+    radiusXZ = ownerTarget->GetTargetEntityRadiusXZ();
+    radiusY = ownerTarget->GetTargetEntityRadiusY();
+    tanHAngle = node->AngularCylinder.tanHAngle;
+    radius = node->AngularCylinder.Radius;
+    heightUp = node->AngularCylinder.HeightUp;
+    heightDown = node->AngularCylinder.HeightDown;
+
+    if (isPerceived) {
+        tanHAngle = tanHAngle * node->HysteresisRatio;
+        radius = radius * node->HysteresisRatio;
+        heightUp = heightUp * node->HysteresisRatio;
+        heightDown = heightDown * node->HysteresisRatio;
+    }
+
+    npc = ownerTarget->GetNPCEntity();
+    npc->GetBoundCenter(npcCenter);
+    ownerTarget->GetTargetEntityCenter(targetCenter);
+    dy = targetCenter.y - npcCenter.y;
+
+    if (dy < -(heightDown + radiusY) || dy > heightUp + radiusY) {
+        return false;
+    }
+
+    sumRadius2 = (radius + radiusXZ) * (radius + radiusXZ);
+    dist2 = npcCenter.Distance2XZ(targetCenter);
+
+    if (dist2 > sumRadius2) {
+        return false;
+    }
+
+    tanXZ = zNPCHelper::GetTanThetaXZ(&npcCenter, &npc->model->forward,
+                                      &targetCenter);
+
+    if (tanXZ < 0.0f) {
+        return false;
+    }
+
+    // The XZ distance, not the 3D one: the cylinder's whole cone is
+    // measured in the plane.
+    distance = dist2 * Math::rsqrt(dist2);
+    tanBound = radiusXZ / distance;
+    expanded = (tanHAngle + tanBound) / (1.0f - tanHAngle * tanBound);
+
+    if (tanXZ > expanded) {
+        return false;
+    }
+
+    wallNet = GetNPCWallNet();
+
+    if (wallNet != 0) {
+        if (node->flags & 2) {
+            if (!wallNet->IsInsideWallNetXZ(targetCenter)) {
+                return false;
+            }
+        }
+
+        if (node->flags & 4) {
+            if (!IsInDirectPath(npc, wallNet)) {
+                return false;
+            }
+        }
+    }
+
+    if (node->flags & 1) {
+        if (!ownerTarget->losCache.CheckLineOfSight(
+                npc, ownerTarget,
+                (Sext::eCollisionLayer)node->LOSCollisionLayer, false)) {
+            return false;
+        }
+    }
+
+    return true;
+}
+void zNPCPerception::Attached(const zNPCStatus* status) {
+    // Declared here and in this order because that is the register
+    // order: first declared takes the highest, r28 down to r23, and
+    // index shares j's register since their lives do not overlap.
+    Sext::NPCPerceptionAsset::PerceptionType* t;
+    Sext::NPCPerceptionAsset::PerceptionNode* n;
+    int count;
+    int i;
+    int nodeCount;
+    int j;
+    unsigned int index;
+
+    if (perceptionAsset == 0) {
+        SetAssetAuto(owner->asset);
+    }
+
+    count = perceptionAsset->typeCount;
+
+    for (i = 0; i < count; i++) {
+        t = &perceptionAsset->types[i];
+        nodeCount = t->nodeCount;
+
+        for (j = 0; j < nodeCount; j++) {
+            n = &t->nodes[j];
+
+            // The asset stores the cone's FULL angle in degrees; what
+            // the checks want is the tangent of half of it, baked in
+            // here once rather than computed per test.
+            switch (n->Shape) {
+            case 3:
+                n->AngularSphere.tanHAngle = tan(
+                    0.01745329238474369f * (0.5f * n->AngularSphere.Angle));
+                break;
+            case 4:
+                n->AngularCylinder.tanHAngle =
+                    tan(0.01745329238474369f *
+                        (0.5f * n->AngularCylinder.Angle));
+                break;
+            }
+        }
+    }
+
+    for (index = 0; index < 4; index++) {
+        if (targets[index].targetEnt != 0) {
+            targets[index].Setup(perceptionAsset, this);
+        }
+    }
+}
+
+bool zNPCPerception::SystemEvent(xBase* from, xBase* to,
+                                 unsigned int event,
+                                 Sext::EventAny* param) {
+    switch (event) {
+    case 0x6A4E593B: {
+        xBase* obj = 0;
+
+        if (param != 0 && param->id != 0) {
+            obj = zSceneFindObject(param->id);
+
+            if (obj == 0) {
+                // Into a local first: retail loads both halves before
+                // it calls GetEntityManager, which is only forced by
+                // something that has to stay live across that call.
+                unsigned long long id = param->id;
+
+                obj = (xBase*)World::GetEntityManager()->FindAsset(id);
+            }
+        }
+
+        if (obj == 0 || obj->baseType != 0x62) {
+            return true;
+        }
+
+        npcWallNet = (zWallNet*)obj;
+        return false;
+    }
+    case 0xF94E58D9:
+        status = 2;
+        return false;
+    case 0xBE13945E:
+        status = 1;
+        return false;
+    case 0xF306E4B9:
+        status = 0;
+        return false;
+    }
+
+    return false;
+}
+int zNPCPerception::GetTargetIndexClosestMatching(
+    Sext::eNPCPerceptionType type, bool perceivedOnly) {
+    // Both halves of this declaration block were measured: all 24
+    // orders of the four locals, each with i initialised at its
+    // declaration and not, and exactly one of the 48 matches. The
+    // order gives the registers -- first declared takes the highest,
+    // r29 down to r26 -- and initialising i where it is declared is
+    // what puts its li above the GetPosition call rather than after.
+    xVec3 npcPos;
+    xVec3 delta;
+    xEnt* ent;
+    int i = 0;
+    int best;
+    bool haveBest;
+    float bestDist2;
+
+    best = -1;
+    haveBest = false;
+
+    owner->GetPosition(npcPos);
+
+    for (; i < 4; i++) {
+        ent = targets[i].targetEnt;
+
+        if (ent == 0) {
+            continue;
+        }
+
+        // END_eNPCPerception_ENUM means any target will do, so the
+        // perception query is skipped entirely rather than asked.
+        if (type != Sext::END_eNPCPerception_ENUM) {
+            if (AreTargetsPerceived(1 << i, type, false) !=
+                perceivedOnly) {
+                continue;
+            }
+        }
+
+        delta.Sub(ent->model->position, npcPos);
+
+        float dist2 = delta.length2();
+
+        if (!haveBest || bestDist2 > dist2) {
+            bestDist2 = dist2;
+            best = i;
+            haveBest = true;
+        }
+    }
+
+    return best;
+}
+
+bool zNPCPerception::AreTargetsPerceived(unsigned int mask,
+                                         Sext::eNPCPerceptionType type,
+                                         bool all) {
+    unsigned int shift = 0;
+
+    while (mask != 0) {
+        unsigned int bit = mask & 1;
+
+        if (bit != 0) {
+            // (1 << shift) - 1, not shift: that is what the image
+            // computes, and the function is byte-identical with it.
+            // It agrees with the index only for the low two bits, so
+            // a mask naming target 2 or 3 reads past the array. Left
+            // as retail has it.
+            unsigned int index = (bit << shift) - 1;
+
+            if (status == 0) {
+                bool perceived = targets[index].IsPerceived(type);
+
+                if (all && !perceived) {
+                    return false;
+                }
+
+                if (!all && perceived) {
+                    return true;
+                }
+            } else {
+                if (!all && status == 2) {
+                    return true;
+                }
+
+                if (all && status != 2) {
+                    return false;
+                }
+            }
+        }
+
+        mask = mask >> 1;
+        shift++;
+    }
+
+    return all;
 }
 // DEFINED here, below every caller: with the bodies above them the
 // auto-inliner takes both into the perception checks, where retail

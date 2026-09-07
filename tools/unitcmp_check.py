@@ -118,7 +118,7 @@ EXPECT = {
     "SB/GM/Engine/Game/zSoundReverb": (2, 2),
     "SB/GM/Engine/WAD01_12": (2, 2),
     "SB/GM/Engine/WAD03_22": (3, 3),
-    "SB/GM/Engine/WAD03_24": (1, 1),
+    "SB/GM/Engine/WAD03_24": (40, 43),
     "SB/NG/Engine/WAD02_12": (1, 1),
     "SB/NG/Engine/WAD02_13": (2, 2),
     "SB/NG/Source/Engine/Graphics/Display": (2, 2),

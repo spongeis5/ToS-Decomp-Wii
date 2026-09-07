@@ -7,18 +7,18 @@ numbers here, which move.
 ## State at time of writing
 
 ```
-Game Code:  67 of 777 files complete  209,180 / 2,116,616 bytes  2,018 / 10,697 fn
-            9.8828% of game code
+Game Code:  67 of 777 files complete  212,844 / 2,116,616 bytes  2,060 / 10,697 fn
+            10.0559% of game code
 
-Of those 2,018 functions, 756 are GENERATED -- machine-recognised
+Of those 2,060 functions, 755 are GENERATED -- machine-recognised
 shapes, not one of which is decompiling. They are real matched
 functions and the offsets and constants are recovered fact, but a
 count of them is not a count of decompiled code. HAND-WRITTEN IS
-1,262, across 209 units and 200,552 bytes, and that is the figure to
+1,305, across 210 units and 204,228 bytes, and that is the figure to
 compare against earlier ones.
 
 Data:       4 unit(s) carry their own, 412 bytes; 134 more could
-All:        4.88% matched              main.dol reproduces byte for byte
+All:        4.94% matched              main.dol reproduces byte for byte
 ```
 
 Every number above is written by `python tools/notes_state.py`,
@@ -2972,6 +2972,43 @@ compile here:
     caller.** `SetBTClient` came out as `lwz`/`stw` in line where
     retail calls it; `#pragma dont_inline` round the definition is
     the guard, and there is nothing inside it to block.
+## 10% OF GAME CODE, and the shape that got there
+
+Game Code is **10.0559%** -- 212,844 of 2,116,616 bytes, 2,060
+functions, 1,305 of them hand-written across 210 units. It moved
+8.5882% to 10.0559% in one session, and 27,000 of those 31,000 bytes
+came from the SAME QUESTION asked three times:
+
+    which template families are left, and how big are they?
+
+Group every function symbol with a `<` in it by what is left when the
+type between the brackets is removed, sum the sizes, and count how
+many report.json already calls matched. Three families came out of
+one run and all three fell:
+
+  * `Create<>__12zNPCBTAction` -- 106 members, 13,304 bytes, in
+    WAD01_1_1 with its Build and Destroy: 121 of 127.
+  * `Create<>__15zNPCBTConditionFPCc` -- 54 members, 6,264 bytes, in
+    zBTConditionBuilder: 63 of 63, the whole unit.
+  * `zScene_SetupEach<>__FUi_v` -- 42 members, 3,664 bytes, in
+    WAD03_24: 40 of 43.
+
+A family is worth more than its byte count suggests, because the
+members differ in only a few measurable ways and the dump prints all
+of them. WAD03_24's 42 are one loop over a scene's per-subtype list;
+everything but the step is identical, and the step is a named member,
+a free function taking the scene too, a virtual through the object's
+own table, or two calls in a row. Written as an overloaded one-line
+helper the template calls, 39 of the 42 matched on the first compile.
+
+The other three name the honest limit of this method. `zSoundMask`'s
+and `zTiki`'s Setup and `zDispatcherData`'s setup helper are EMPTY,
+and the linker folded all three onto `Math::Matrix33`'s constructor.
+Each is one word out -- the branch target -- and `reloc_audit` counts
+them in the category it has for this, taking the folded total from 14
+to 17 with 0 overstated. report.json resolves the branch by ADDRESS
+and counts the bytes; the linked image genuinely cannot say which of
+the three names was written.
 ## What the misses have actually been
 
 Across every unit so far, the source text has almost never been the lever:

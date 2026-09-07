@@ -7,18 +7,18 @@ numbers here, which move.
 ## State at time of writing
 
 ```
-Game Code:  67 of 777 files complete  180,380 / 2,116,616 bytes  1,828 / 10,697 fn
-            8.5221% of game code
+Game Code:  67 of 777 files complete  181,288 / 2,116,616 bytes  1,835 / 10,697 fn
+            8.5650% of game code
 
-Of those 1,828 functions, 759 are GENERATED -- machine-recognised
+Of those 1,835 functions, 759 are GENERATED -- machine-recognised
 shapes, not one of which is decompiling. They are real matched
 functions and the offsets and constants are recovered fact, but a
 count of them is not a count of decompiled code. HAND-WRITTEN IS
-1,069, across 207 units and 171,728 bytes, and that is the figure to
+1,076, across 207 units and 172,636 bytes, and that is the figure to
 compare against earlier ones.
 
 Data:       4 unit(s) carry their own, 412 bytes; 134 more could
-All:        4.45% matched              main.dol reproduces byte for byte
+All:        4.46% matched              main.dol reproduces byte for byte
 ```
 
 Every number above is written by `python tools/notes_state.py`,

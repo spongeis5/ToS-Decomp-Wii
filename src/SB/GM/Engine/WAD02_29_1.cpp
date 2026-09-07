@@ -44,12 +44,31 @@ public:
 
 // DisableTarget sends its event from the NPC's own base entity, which
 // the disassembly reaches at +0xBC of the zNPCEntity.
+namespace World {
+class xOGModel;
+}  // namespace World
+
 class zNPCEntity {
 public:
     void GetBoundCenter(xVec3& out) const;
 
-    unsigned char _pad0[0xBC];
+    unsigned char _pad0[0x34];
+    World::xOGModel* model;
+    unsigned char _pad1[0xBC - 0x38];
     xBase* baseEnt;
+};
+
+// The angular tests measure the tangent of the angle between the NPC's
+// facing and the direction to its target. The sphere form takes the
+// SQUARED tangent in three dimensions and compares against tanHAngle
+// squared; the cylinder form takes the tangent in the XZ plane and
+// compares against tanHAngle itself.
+class zNPCHelper {
+public:
+    static float GetTanTheta2(const xVec3* from, const xVec3* forward,
+                              const xVec3* to);
+    static float GetTanThetaXZ(const xVec3* from, const xVec3* forward,
+                               const xVec3* to);
 };
 
 class xVec3 {
@@ -76,7 +95,9 @@ namespace World {
 
 class xOGModel {
 public:
-    unsigned char _pad0[0x30];
+    unsigned char _pad0[0x20];
+    xVec3 forward;
+    unsigned char _pad1[0x30 - 0x2C];
     xVec3 position;
 };
 
@@ -981,6 +1002,151 @@ bool zNPCPerceptionTarget::zPerceptionType::CheckInNPCWallsPerception(
     }
 
     return wallNet->IsInsideWallNetXZ(targetCenter);
+}
+bool zNPCPerceptionTarget::zPerceptionType::
+    CheckAngularSpherePerceptionWithoutTargetBounds(const Node* node) {
+    xVec3 npcCenter;
+    xVec3 targetCenter;
+    xVec3 delta;
+    float tanHAngle = node->AngularSphere.tanHAngle;
+    float radius = node->AngularSphere.Radius;
+    float tan2;
+
+    // The squared radius into a variable of ITS OWN, not back into
+    // radius: reassigning costs seven words, because tanHAngle and
+    // radius then swap floating-point registers. Twelve combinations
+    // were measured -- three declaration orders, the two hysteresis
+    // multiplies in either order, and this.
+    float radius2;
+    zNPCEntity* npc;
+    zWallNet* wallNet;
+
+    if (isPerceived) {
+        tanHAngle = tanHAngle * node->HysteresisRatio;
+        radius = radius * node->HysteresisRatio;
+    }
+
+    npc = ownerTarget->GetNPCEntity();
+    npc->GetBoundCenter(npcCenter);
+    ownerTarget->GetTargetEntityCenter(targetCenter);
+    radius2 = radius * radius;
+    delta.Sub(targetCenter, npcCenter);
+
+    if (delta.length2() > radius2) {
+        return false;
+    }
+
+    tan2 = zNPCHelper::GetTanTheta2(&npcCenter, &npc->model->forward,
+                                    &targetCenter);
+
+    if (tan2 < 0.0f) {
+        return false;
+    }
+
+    if (tan2 > tanHAngle * tanHAngle) {
+        return false;
+    }
+
+    wallNet = GetNPCWallNet();
+
+    if (wallNet != 0) {
+        if (node->flags & 2) {
+            if (!wallNet->IsInsideWallNetXZ(targetCenter)) {
+                return false;
+            }
+        }
+
+        if (node->flags & 4) {
+            if (!IsInDirectPath(npc, wallNet)) {
+                return false;
+            }
+        }
+    }
+
+    if (node->flags & 1) {
+        if (!ownerTarget->losCache.CheckLineOfSight(
+                npc, ownerTarget,
+                (Sext::eCollisionLayer)node->LOSCollisionLayer, false)) {
+            return false;
+        }
+    }
+
+    return true;
+}
+bool zNPCPerceptionTarget::zPerceptionType::
+    CheckAngularCylinderPerceptionWithoutTargetBounds(const Node* node) {
+    xVec3 npcCenter;
+    xVec3 targetCenter;
+    float tanHAngle = node->AngularCylinder.tanHAngle;
+    float radius = node->AngularCylinder.Radius;
+    float heightUp = node->AngularCylinder.HeightUp;
+    float heightDown = node->AngularCylinder.HeightDown;
+    float dy;
+    float tanXZ;
+    float radius2;
+    zNPCEntity* npc;
+    zWallNet* wallNet;
+
+    if (isPerceived) {
+        tanHAngle = tanHAngle * node->HysteresisRatio;
+        radius = radius * node->HysteresisRatio;
+        heightUp = heightUp * node->HysteresisRatio;
+        heightDown = heightDown * node->HysteresisRatio;
+    }
+
+    npc = ownerTarget->GetNPCEntity();
+    npc->GetBoundCenter(npcCenter);
+    ownerTarget->GetTargetEntityCenter(targetCenter);
+    dy = targetCenter.y - npcCenter.y;
+
+    if (dy < -heightDown || dy > heightUp) {
+        return false;
+    }
+
+    radius2 = radius * radius;
+
+    if (npcCenter.Distance2XZ(targetCenter) > radius2) {
+        return false;
+    }
+
+    tanXZ = zNPCHelper::GetTanThetaXZ(&npcCenter, &npc->model->forward,
+                                     &targetCenter);
+
+    if (tanXZ < 0.0f) {
+        return false;
+    }
+
+    // Not squared: GetTanThetaXZ returns the tangent, where the sphere's
+    // GetTanTheta2 returns its square.
+    if (tanXZ > tanHAngle) {
+        return false;
+    }
+
+    wallNet = GetNPCWallNet();
+
+    if (wallNet != 0) {
+        if (node->flags & 2) {
+            if (!wallNet->IsInsideWallNetXZ(targetCenter)) {
+                return false;
+            }
+        }
+
+        if (node->flags & 4) {
+            if (!IsInDirectPath(npc, wallNet)) {
+                return false;
+            }
+        }
+    }
+
+    if (node->flags & 1) {
+        if (!ownerTarget->losCache.CheckLineOfSight(
+                npc, ownerTarget,
+                (Sext::eCollisionLayer)node->LOSCollisionLayer, false)) {
+            return false;
+        }
+    }
+
+    return true;
 }
 // DEFINED here, below every caller: with the bodies above them the
 // auto-inliner takes both into the perception checks, where retail

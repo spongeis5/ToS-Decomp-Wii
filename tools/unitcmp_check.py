@@ -75,11 +75,11 @@ EXPECT = {
     # the evidence that nothing was lost -- only re-homed. unitcmp_pins
     # refuses to lower a pin, correctly, so these seven are written here.
     "SB/GM/Engine/WAD00": (6, 6),
-    "SB/GM/Engine/WAD00_1": (1, 1),
+    "SB/GM/Engine/WAD00_1": (2, 2),
     "SB/GM/Engine/WAD00_2": (6, 6),
     "SB/GM/Engine/WAD01_21": (4, 4),
     "SB/GM/Engine/WAD02_38": (12, 12),
-    "SB/GM/Engine/WAD03_16": (3, 4),
+    "SB/GM/Engine/WAD03_16": (4, 5),
     "SB/GM/Engine/WAD03_2": (1, 1),
     # Three pins were LOWERED by hand on 2026-08-31 -- these two and
     # TRCMessageBox below -- and this is the only reason one ever is here:
@@ -102,7 +102,7 @@ EXPECT = {
     "SB/GM/Engine/WAD01_19": (3, 3),
     "SB/GM/Engine/WAD02_31": (2, 2),
     "SB/GM/Engine/WAD02_4": (6, 6),
-    "SB/GM/Engine/WAD04_13": (1, 1),
+    "SB/GM/Engine/WAD04_13": (3, 3),
     "SB/NG/Engine/WAD02_37": (13, 13),
     "SB/NG/Source/Engine/IO/VirtualKeyboard/VirtualKeyboard": (2, 2),
     # Lowered by hand for the reason given above WAD03_3.
@@ -124,6 +124,8 @@ EXPECT = {
     "SB/GM/Engine/WAD03_24": (43, 46),
     "SB/NG/Engine/WAD02_12": (2, 2),
     "SB/NG/Engine/WAD02_13": (2, 2),
+    # One function of the 68 in this chunk.
+    "SB/NG/Engine/WAD02_14": (1, 1),
     "SB/NG/Source/Engine/Graphics/Display": (2, 2),
     "SB/NG/Source/Engine/Graphics/Util/ScreenShot": (2, 2),
     "SB/NG/Source/Engine/IO/File/SystemCache": (5, 5),
@@ -144,7 +146,7 @@ EXPECT = {
     "SB/GM/Engine/Game/zUIText": (1, 1),
     "SB/GM/Engine/WAD01_17": (1, 1),
     "SB/GM/Engine/WAD03_27": (1, 1),
-    "SB/NG/Engine/WAD00_4": (1, 1),
+    "SB/NG/Engine/WAD00_4": (2, 2),
     "SB/NG/Source/Engine/Entities/MaterialEntity": (1, 1),
     "SB/NG/Source/Engine/Graphics/Graphics": (8, 8),
     "SB/NG/Source/Engine/TRC/Wii/SaveLoadWii": (2, 2),
@@ -279,7 +281,7 @@ EXPECT = {
     "SB/GM/Engine/WAD03_3_3": (7, 7),
     "SB/GM/Engine/WAD04_14": (2, 2),
     "SB/GM/Engine/WAD04_8_2": (1, 1),
-    "SB/NG/Engine/WAD00_12_2": (4, 4),
+    "SB/NG/Engine/WAD00_12_2": (5, 5),
     "SB/NG/Engine/WAD00_12_3": (7, 7),
     "SB/NG/Engine/WAD00_17_1": (15, 15),
     "SB/NG/Engine/WAD00_5_1": (2, 2),
@@ -290,12 +292,16 @@ EXPECT = {
     "SB/NG/Source/Engine/Entities/ModelInstanceArticle": (3, 3),
     "SB/NG/Source/Engine/Entities/RenderCustomizerEntity": (6, 6),
     "SB/NG/Source/Engine/Entities/RenderModeEntity": (7, 7),
+    # One function of the six in this chunk, and it is not an
+    # entity: Graphics::StaticBuilder's destructor landed here.
+    "SB/NG/Source/Engine/Entities/StaticGeometryEntity": (1, 1),
     "SB/NG/Source/Engine/Entities/SkinGeometryEntity": (2, 2),
     "SB/NG/Source/Engine/Graphics/Builders/SkinBuilder": (3, 3),
     "SB/NG/Source/Engine/Graphics/Light": (1, 1),
     # One function of the nine in this chunk, and it is not a
     # Model: an inline from Renderable3D.h that landed here.
     "SB/NG/Source/Engine/Graphics/Model": (1, 1),
+    "SB/NG/Source/Engine/Graphics/RenderTargetWii": (1, 1),
     "SB/NG/Source/Engine/Graphics/Scene": (1, 1),
     "SB/NG/Source/Engine/Graphics/Viewport": (13, 13),
     "SB/NG/Source/Engine/IO/File/LFDevice": (2, 2),
@@ -447,7 +453,13 @@ EXPECT = {
     "SB/GM/Engine/Game/zBTClient": (9, 9),
     "SB/GM/Engine/Game/zNPCNinjaManager": (4, 7),
     "SB/GM/Engine/Game/zSoundWiimoteSpeaker": (9, 9),
-    "SB/NG/Engine/WAD00_17": (3, 12),
+    # Down from (3, 12), not up: the four intermediate
+    # destructors this unit used to emit as EXTRA are gone, so
+    # the object defines 8 where it defined 12. The two 96-byte
+    # destructors among them are byte-identical to retail and
+    # differ only in the symbol a relocated branch names --
+    # reloc_audit files all three of those as folded.
+    "SB/NG/Engine/WAD00_17": (3, 8),
     "SB/NG/Engine/WAD01_12_1": (7, 7),
     "SB/NG/Engine/WAD02_4_1": (2, 3),
     "SB/NG/Source/Engine/Entities/Wii/RVLFaceLibEntity": (4, 4),

@@ -44,10 +44,9 @@
 // constructor's `li r4,32`; the parameter array is `asset + 1`, since
 // `addi r28,r4,72` is exactly sizeof(GenericShaderAsset).
 //
-// NEAR MISS, 3 of the 12 functions the object defines. This paragraph
-// used to read EXACT, 7 of 7, and it was wrong when it was committed:
-// the session writing this unit was killed mid-edit and the record
-// describes a state of the file that was not preserved. What
+// NEAR MISS, 3 of the 8 functions the object defines -- and the two
+// destructors are BYTE-IDENTICAL to retail, differing only in the
+// symbol a relocated branch names. What
 // `python tools/unitcmp.py SB/NG/Engine/WAD00_17` says now:
 //
 //   MATCH   Destroy, 24 words; Detach, 14; and the weak
@@ -55,63 +54,58 @@
 //           template emits, 6 -- which retail also has and which comes
 //           out identical to it, the same thing RenderModeEntity.cpp
 //           records.
-//   DIFFER  GenericShaderAsset::Create 59 of 155 words; the
-//           GenericShader destructor 21 of 24 (ours 112 bytes against
-//           retail's 96); the GenericShaderEntity destructor 17 of 24
-//           (108 against 96); the entity's constructor 22 of the 19
-//           that compare, ours 76 bytes against retail's 104.
-//   EXTRA   five functions retail does not have anywhere in the image,
-//           checked against the symbol table one at a time:
-//           __dt__Q28Graphics4NodeFv, __dt__Q25World6EntityFv,
-//           __dt__Q25World12ShaderEntityFv,
-//           __dt__Q28Graphics10RenderModeFv and
+//   DIFFER  GenericShaderAsset::Create 59 of 155 words; the entity's
+//           constructor 22 of the 19 that compare, ours 76 bytes
+//           against retail's 104; and the two destructors, at
+//           retail's own 96 bytes with every WORD equal -- 1 of 24
+//           for the entity's and 2 of 24 for the shader's, all three
+//           of them a branch that reaches a different NAME.
+//   EXTRA   one function retail does not have anywhere in the image:
 //           __ct__Q28Graphics13GenericShaderFv.
 //
-// The five EXTRA symbols are the thing to fix first, and the notes
-// below say why each of them should not exist -- the four destructors
-// because an intermediate class with no declared destructor does not
-// get one, and the constructor because its one-line in-class form is
-// taken by -inline auto. Both are still spelled that way in this file,
-// so something else changed around them; the constructor is inline
-// in-class at line 191 and none of the four classes declares a
-// destructor. Start by finding what makes mwcc emit them anyway.
+// THE FOUR EXTRA DESTRUCTORS ARE GONE, AND WHAT REMOVED THEM WAS
+// DECLARING THEM. Node, RenderMode, Entity and ShaderEntity each now
+// declare a destructor and define none, so mwcc emits nothing for
+// them and the branch becomes an external reference. The record here
+// used to say an intermediate class with no declared destructor does
+// not get one; that is the opposite of what this unit measures. Give
+// it none and the compiler supplies one and EMITS it, because
+// hkBaseObject's is virtual and every class under it needs an entry;
+// declare it and the compiler leaves it to whoever defines it.
 //
-// What retail does, read out of __dt__Q28Graphics13GenericShaderFv
-// (0x801C17D0, 96 bytes): it calls __dt__12hkBaseObjectFv TWICE --
-// once on the RenderMode member at +76 with a flag of -1, once on
-// `this` with a flag of 0 -- and then __dl__FPv when the flag is
-// positive. So in retail NOTHING between RenderMode or Node and
-// hkBaseObject has a destructor of its own: either they were folded
-// onto it or they were never emitted. Ours names its own four, and
-// the branches then carry the wrong symbol as well.
+// WHY THE NAME IS ALLOWED TO DIFFER, and this is measured rather
+// than assumed. __dt__12hkBaseObjectFv (0x80007520) is 64 bytes:
+// a null test, `operator delete` when the CALLER's flag is positive,
+// and `return this`. That is exactly what a destructor with nothing
+// to destroy compiles to -- so ~Node, ~RenderMode, ~Entity and
+// ~ShaderEntity each compiled to those same 64 bytes in retail and
+// the linker folded all of them onto the one survivor. The names are
+// nowhere in the image, which is what reloc_audit files as FOLDED
+// rather than overstated: the linked image cannot say which of them
+// was written, and the source is written to the name it had. This is
+// the same answer WAD03_24 already records for the three empty
+// Setups.
 //
-// Swept on hkBaseObject's destructor, and none of the three removes
-// a single EXTRA: virtual and undefined as written, 3 of 12;
+// A sweep on hkBaseObject's own destructor was run before that and
+// removed no EXTRA at all: virtual and undefined as written, 3 of 12;
 // declared NOT virtual, 1 of 12; virtual with an empty inline body,
 // 4 of 13 -- that one matches one more function and emits one more.
-// So it is not hkBaseObject's spelling that forces them.
+// It was never hkBaseObject's spelling.
 //
 // WHAT THE BYTES SETTLED, and each of these was one compile:
 //
-//   * AN INTERMEDIATE CLASS WITH NO DECLARED DESTRUCTOR DOES NOT GET
-//     ONE. NOTES.md records that a class between the Havok object and
-//     the one being written "gets a destructor of its own emitted (80
-//     bytes, a vtable store) and called", and prescribes spelling
-//     hkBaseObject as the DIRECT base. That is true of a class given an
-//     EXPLICIT empty inline destructor; it is not true of one given
-//     none. Node and RenderMode are declared here with no destructor at
-//     all, and both destructors call `__dt__12hkBaseObjectFv` straight
-//     through, exactly as retail does -- so the real hierarchy could be
-//     kept (GenericShader on Node, RenderMode on Node, Entity on
-//     hkBaseObject) instead of flattening it. That matters because the
-//     CONSTRUCTOR needs the hierarchy: it calls `__ct__Q28Graphics4Node
-//     FQ38Graphics4Node12NodeTypeEnum` on the shader at +0x30, which no
-//     flattened spelling reaches.
+//   * THE REAL HIERARCHY CAN BE KEPT. GenericShader on Node,
+//     RenderMode on Node, Entity on hkBaseObject -- no flattening is
+//     needed once the intermediates declare their destructors. That
+//     matters because the CONSTRUCTOR needs the hierarchy: it calls
+//     `__ct__Q28Graphics4NodeFQ38Graphics4Node12NodeTypeEnum` on the
+//     shader at +0x30, which no flattened spelling reaches.
 //   * THE SHADER'S CONSTRUCTOR IS INLINED AT ITS ONE-LINE FORM.
 //     `GenericShader() : Node(T_GenericShader) {}` is taken by -inline
 //     auto, so the entity's constructor emits Node's call, the vtable
 //     store and the RenderMode call in line, which is what retail has.
-//     No pragma was needed.
+//     No pragma was needed. It is still emitted out of line as well,
+//     and that is the one EXTRA left.
 //   * DESTROY'S SECOND CALL IS TO A NAME NO SPELLING PRODUCES. Retail
 //     branches to 0x800075C0, which the image names
 //     `__ct__Q24Math8Matrix33Fv`: the lone `blr` every empty function in
@@ -204,6 +198,7 @@ public:
     enum NodeTypeEnum { T_GenericShader = 32 };
 
     Node(NodeTypeEnum type);
+    ~Node();
 
     void Attach();
     void Detach();
@@ -219,6 +214,7 @@ public:
     enum SpaceLayer { SpaceLayer_ = 0x7FFFFFFF };
 
     RenderMode();
+    ~RenderMode();
 
     SpaceLayer spaceLayer;
     int sortOrder;
@@ -276,6 +272,7 @@ public:
 class Entity : public hkBaseObject {
 public:
     Entity(EntityHandleBase* handle);
+    ~Entity();
 
     unsigned char _pad0[0x8];
     int ogUpdateIdx;
@@ -309,6 +306,7 @@ public:
     };
 
     ShaderEntity(EntityHandleBase* handle);
+    ~ShaderEntity();
 
     void* vertexCode;
     void* pixelCode;

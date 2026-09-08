@@ -58,9 +58,44 @@ public:
 
 }  // namespace World
 
+namespace Graphics {
+
+// Its own destructor is a real symbol and lives in another unit;
+// declared here, not defined.
+class StaticBuilder {
+public:
+    ~StaticBuilder();
+};
+
+}  // namespace Graphics
+
+namespace World {
+
+// The third destructor in this unit and the only one with a BASE: the
+// member at +64 is destroyed with the don't-delete flag, then the base
+// on `this` with the flag CLEAR. r4 = 0 is a base subobject where
+// r4 = -1 is a complete one, and that one bit is the whole of the
+// difference from the two above.
+//
+// The class's vtable lives in the WAD00 blob, so an undefined virtual
+// is declared ahead of the destructor: the first non-inline virtual is
+// where the compiler emits the vtable, and it must not be this unit.
+class StaticGeometryEntity : public hkBaseObject {
+public:
+    virtual void __key();
+    ~StaticGeometryEntity();
+
+    unsigned char _pad0[0x40 - 0x4];
+    Graphics::StaticBuilder builder;
+};
+
+}  // namespace World
+
 void World::TextureResourceEntity::Deactivate() { DeferDestroy(); }
 void World::VertexDeclEntity::Deactivate() { DeferDestroy(); }
 
 World::VertexDeclEntity::~VertexDeclEntity() {}
 
 World::TextureResourceEntity::~TextureResourceEntity() {}
+
+World::StaticGeometryEntity::~StaticGeometryEntity() {}

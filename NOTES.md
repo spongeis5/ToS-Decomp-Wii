@@ -7,18 +7,18 @@ numbers here, which move.
 ## State at time of writing
 
 ```
-Game Code:  67 of 777 files complete  223,208 / 2,116,616 bytes  2,172 / 10,697 fn
-            10.5455% of game code
+Game Code:  67 of 777 files complete  224,264 / 2,116,616 bytes  2,183 / 10,697 fn
+            10.5954% of game code
 
-Of those 2,172 functions, 725 are GENERATED -- machine-recognised
+Of those 2,183 functions, 719 are GENERATED -- machine-recognised
 shapes, not one of which is decompiling. They are real matched
 functions and the offsets and constants are recovered fact, but a
 count of them is not a count of decompiled code. HAND-WRITTEN IS
-1,447, across 244 units and 212,340 bytes, and that is the figure to
+1,464, across 251 units and 213,444 bytes, and that is the figure to
 compare against earlier ones.
 
 Data:       4 unit(s) carry their own, 412 bytes; 134 more could
-All:        5.09% matched              main.dol reproduces byte for byte
+All:        5.11% matched              main.dol reproduces byte for byte
 ```
 
 Every number above is written by `python tools/notes_state.py`,
@@ -3388,10 +3388,12 @@ the linked image can be checked against.
 
 A BASE WITH NO DECLARED DESTRUCTOR GETS NO CALL. FX::zFXSpawn came
 out 84 bytes against retail's 96 -- one call where retail has two --
-because the base was declared with nothing but its constructor. That
-is the same rule WAD00_17.cpp records from the other side, where an
-intermediate class with no declared destructor is what STOPS a
-spurious one being emitted. Here the base needs one, and it needs to
+because the base was declared with nothing but its constructor. The
+sentence that used to stand here said WAD00_17.cpp recorded the same
+rule from the other side -- that an intermediate class with no
+declared destructor is what STOPS a spurious one being emitted -- and
+that is backwards; the next section but one measures it. Here the
+base needs one, and it needs to
 be VIRTUAL as well as declared: zFXSpawn carries a virtual of its
 own, so its vptr is at +0, and a non-polymorphic base would take that
 spot and push every member offset by four.
@@ -3521,6 +3523,62 @@ in zPlatform.cpp, zMainOGModule.cpp, zPhysicsObject.cpp,
 ModelInstanceArticle.cpp, Model.cpp and WAD04.cpp. Six of those units
 were gen_accessors output, so taking them over moved twelve generated
 functions across as well: written 1,413 -> 1,447, generated 737 -> 725.
+
+### Nine more destructors, and the sentence that was backwards
+
+The 96-byte shape is the 68-byte one with a second call: the
+null-this test, a member at +N destroyed with the don't-delete flag,
+then ONE MORE on `this`, then operator delete when the CALLER's flag
+is positive, and `return this`. The second call's flag is the whole
+of what says which -- r4 = 0 is a BASE subobject, r4 = -1 is a
+complete one and therefore a member at +0. Eleven members, five
+solved; nine of the eleven are written here and matched, two at 96
+bytes each.
+
+zNGLoadingScreen and zViewport take r4 = -1 twice and so have no base
+at all -- two members, the far one declared last because members are
+destroyed in reverse declaration order. The other seven take a base.
+Three of the nine had no source file: Graphics::StaticBuilder's
+destructor is in StaticGeometryEntity.cpp (the unit that first needed
+one emitted it), TextureRenderTargetCommon's in RenderTargetWii.cpp
+and Scaleform::HeapAllocatorWii's in WAD02_14.cpp.
+
+AND THE INTERMEDIATE-DESTRUCTOR RULE IS THE OTHER WAY ROUND. This
+file used to say that an intermediate class with NO declared
+destructor is what stops a spurious one being emitted, on the
+strength of a paragraph in WAD00_17.cpp that described a state of
+that file which was never preserved. WAD00_17 held five EXTRA
+symbols, four of them exactly those implicit destructors, with the
+intermediates spelled as the note prescribed. Declaring a destructor
+on each of Graphics::Node, Graphics::RenderMode, World::Entity and
+World::ShaderEntity -- declared, never defined -- removed all four,
+and both of the unit's 96-byte destructors came out at retail's own
+size with EVERY WORD equal.
+
+The mechanism is the virtual destructor above them. hkBaseObject's is
+virtual, so every class under it needs a destructor entry in its
+vtable; give a class none and the compiler supplies one AND EMITS it,
+declare one and the compiler leaves it to whoever defines it.
+
+WHAT THE NAMES THEN SAY IS `FOLDED`, and that is measured rather than
+assumed. The two destructors differ from retail in nothing but the
+symbol three relocated branches name: ours reach ~ShaderEntity,
+~RenderMode and ~Node, retail reaches `__dt__12hkBaseObjectFv`. That
+symbol is 64 bytes of null test, conditional operator delete and
+`return this` -- exactly what a destructor with nothing to destroy
+compiles to -- so all four intermediates compiled to those same 64
+bytes in retail and the linker folded them onto the one survivor.
+Their names are nowhere in the image, which is what reloc_audit files
+as FOLDED rather than overstated, and it is the same answer WAD03_24
+already records for its three empty Setups. reloc_audit went 17 -> 20
+and overstated stayed at 0.
+
+Four of these units were gen_accessors output and taking them over
+moved six generated functions into the written column alongside the
+eleven added: written 1,447 -> 1,464 over 244 -> 251 units, generated
+725 -> 719 over 127 -> 123. WAD03_16.cpp was a fifth kind: it still
+carried the generator's banner while holding a hand-written asset
+Create, so gen_units.py would have deleted that work on its next run.
 
 Two things that are NOT levers, measured rather than assumed: which
 overload of a name gets picked (CodeWarrior mangles static and non-static

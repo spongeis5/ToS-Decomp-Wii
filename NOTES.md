@@ -7,18 +7,18 @@ numbers here, which move.
 ## State at time of writing
 
 ```
-Game Code:  67 of 777 files complete  311,532 / 2,116,616 bytes  2,673 / 10,697 fn
-            14.7184% of game code
+Game Code:  67 of 777 files complete  316,744 / 2,116,616 bytes  2,694 / 10,697 fn
+            14.9646% of game code
 
-Of those 2,673 functions, 774 are GENERATED -- machine-recognised
+Of those 2,694 functions, 774 are GENERATED -- machine-recognised
 shapes, not one of which is decompiling. They are real matched
 functions and the offsets and constants are recovered fact, but a
 count of them is not a count of decompiled code. HAND-WRITTEN IS
-1,899, across 263 units and 286,980 bytes, and that is the figure to
+1,920, across 263 units and 292,192 bytes, and that is the figure to
 compare against earlier ones.
 
 Data:       4 unit(s) carry their own, 412 bytes; 134 more could
-All:        6.42% matched              main.dol reproduces byte for byte
+All:        6.49% matched              main.dol reproduces byte for byte
 ```
 
 Every number above is written by `python tools/notes_state.py`,
@@ -310,7 +310,7 @@ So the route to `complete` is: write the unit, give it its data with
 `main.dol: OK` afterwards, because the link is the only thing that
 can tell you the placement was right.
 
-## FixWmlType: the dispatch MATCHES, 2,979 of 2,986 instructions align
+## FixWmlType: 11,944 bytes to the byte, and TWO words left
 
 `FixWmlType__4SextFliPv` is **11,944 bytes in one function** -- 0.56%
 of Game Code by itself. It is a `switch` on a type hash that mwcc
@@ -360,59 +360,75 @@ truncated dumps: `8004ADB0`'s three conditionals are SEQUENTIAL, not
 nested -- each `beq` lands on the next test, never on the epilogue --
 and `8004ABB8` has a second recursive call that was never visible.
 
-**Where it stands.** 307 of 307 comparisons in order; **2,979 of
-retail's 2,986 instructions align**, 99.06%. The unit's other
-function, `RTTID_Fix<Sext::DTRMovieSettings>`, IS byte-identical (16
-bytes): retail's instantiation is `lwz, add, stw, blr`, so that class
-gets a defined inline `Fix` rather than a stub declaration, or the
-template emits a call.
+**Where it stands.** 307 of 307 comparisons in order; the function
+is **11,944 bytes, retail's size to the byte**, and **2,984 of
+retail's 2,986 instructions align**. The unit's other function,
+`RTTID_Fix<Sext::DTRMovieSettings>`, is byte-identical (16 bytes):
+retail's instantiation is `lwz, add, stw, blr`, so that class gets a
+defined inline `Fix` rather than a stub declaration.
 
-**The seven instructions that differ**, and they are two shapes:
+**Three things got it from 1,799 differing words to 2**, and two of
+them were recorded here as ruled out. They were not: each
+measurement was right and the conclusion drawn from it was wrong,
+which is the thing this project keeps re-proving.
 
-  * **Five re-loads.** Retail loads a field, tests it, branches, and
-    then LOADS IT AGAIN before adding to it; we keep the tested value
-    in a register. It happens in three bodies, and in two of the five
-    there is a free register and nothing at all between the test and
-    the use, so it is not the allocator running out of registers.
-  * **Two orphaned branches.** Retail carries two `b epilogue`
-    instructions that directly follow another `b epilogue` and that
-    nothing branches to, after the bodies for 44FBB98A and 9761A7DD.
-    432 branches reach the epilogue in retail, 430 in ours.
+  * **The re-load is a volatile read in the test.** Retail loads a
+    field, tests it, branches, and LOADS IT AGAIN before adding to
+    it -- and in the body at `8004ADB0` it also HOISTS the test's
+    load above the three stores in front of it. A plain read is one
+    load, CSE'd, which is neither. A volatile read is both: it may
+    move across plain stores and is never folded into one. Five
+    tests spelled `*(long volatile*)` took 1,799 differing words to
+    826. This was measured before and set aside as "not plausible
+    source for a pointer-fixup routine" -- but plausibility is not
+    the test, and the same lever is already load-bearing in
+    zUIModel.cpp, where a member is read through a volatile view so
+    the test's load is not folded into the four uses after it.
 
-Plus one allocation difference that costs no bytes but does change
-them: retail saves r28-r31 and uses r28/r29 for the loop in body
-`8004AE5C`, where we save r29-r31 and reuse r31.
+  * **The two orphaned branches are two empty cases IN THE RIGHT
+    PLACE.** Inserting one anywhere changes nothing, which is what
+    was measured and recorded. mwcc lays a switch's bodies out in
+    SOURCE order, and the generator sorts them by body address, so
+    the three cases that run nothing -- which have no body address --
+    all land at the end and emit one block between them. Retail's
+    two orphans sit at `8004BCA8` and `8004BCFC`, immediately after
+    the bodies of case 1157347722 and case -1755207715; written
+    there, each emits its own `b epilogue`, branch-to-branch folding
+    orphans it, and the function reaches 11,944 bytes exactly.
+    `EMPTY_AT` in gen_wmltypes.py is that map. Which of the three
+    values goes where the bytes cannot say -- the tree is built from
+    the values and is the same either way -- and only the PLACE is
+    being fixed.
 
-**What has been RULED OUT for the re-load**, so the next attempt does
-not repeat it. None of these changed the output by a single
-instruction:
+  * **Two of the three walking loops declare `end` before `e`.**
+    That is what puts the cursor in r28 and the end in r29 in the
+    0x18 loop, and the cursor in r29 in the 0x1C loop, and with it
+    the four-register `stmw r28,16(r1)` retail's prologue has. The
+    two loops are ONE allocation: fixing either alone makes the
+    other worse (9 -> 11 or 9 -> 18), and only both together give 2.
+    The 2x2 was measured, not reasoned about.
 
-  * 12 spellings of `if (X) X += l;` -- `!= 0`, `X = X + l`, a local
-    `long*`, braces, an inverted test;
-  * 7 pointer types for the read and the write independently --
-    `long*`, `char**`, `void**`, `int*`, two distinct class types at
-    the same offset, and the whole file converted to `char**`;
-  * 4 helper forms -- a `long&` parameter, a `long*` parameter, a
-    `char**` parameter, an inline member function;
-  * 13 optimisation settings -- `-O0` through `-O4`, `,s` and `,p`,
-    `-inline off/auto/all`, and `-opt nocse`, `nolifetimes`,
-    `nodeadstore`, `noprop`, `nostrength`, `noloop`, `nodeadcode`,
-    `nopeep`, `noschedule`;
-  * all 28 installed compilers -- every Wii version gives exactly the
-    current result, and the GC 3.0 alphas are worse.
+**The two words that are left** are one register:
 
-The one thing that DOES reproduce it is `volatile` on the read in the
-test, which recovers four of the five and takes the alignment to
-99.43%. That is not plausible source for a pointer-fixup routine, so
-it is recorded as evidence about the shape of the answer -- the value
-genuinely is dead after the compare in retail -- and not used.
+    2044  ours 7f9d0214  add r28,r29,r0     retail 7ffd0214  add r31,r29,r0
+    2059  ours 7c1de040  cmplw r29,r28      retail 7c1df840  cmplw r29,r31
 
-Likewise the two orphaned branches: an empty case leaves NOTHING
-behind (tested -- inserting one changes no instruction), and mwcc
-folds `return; break;`, `break; break;` and `return; return;` down to
-a single branch. Something in those two cases emits a control
-transfer the compiler cannot see is redundant, and it is not any of
-those.
+The 0x1C loop's `end` wants r31 -- p's own register, free by then --
+and takes r28, because the 0x18 loop put r28 in the function's pool
+and mwcc prefers it to reusing r31. r28 appears nowhere else in the
+11,944 bytes, so that one loop is the whole reason for the
+four-register prologue.
+
+**Tried for those two words and no better** (each compiled and the
+whole function counted): the end declared first, both declared up
+front in either order, the end computed from the field rather than
+from `e`, the count in its own local, the slot in its own local, the
+store-back moved after the end, the end typed `long*` or `void*`,
+the end reusing `a` or `aend` from the block's first loop, the end
+assigned to `p` itself, a `char*` view of `p` reassigned to the end,
+the loop as a guarded do-while (1,728 words, much worse), a typed
+cursor (does not compile), and the third loop at `8004ABEC` given
+the same treatment in all eight combinations.
 ## CreateAnimTable MATCHES, and the game's strings are POOLED per unity unit
 
 `CreateAnimTable__Q213zNPCUPGeneric4TypeFP10xAnimTable` -- **4,388
@@ -1767,11 +1783,14 @@ Then one of these, in the order they are worth doing:
    checked and is not the cause, so the question is what retail is
    holding live across that copy that ours has already finished with.
 
-3. **FixWmlType's last seven instructions.** 11,944 bytes in one
+3. **FixWmlType's last TWO instructions.** 11,944 bytes in one
    function, generated by `tools/gen_wmltypes.py`. The dispatch
-   matches and 2,979 of 2,986 instructions align. What is left is
-   five re-loads and two orphaned branches; the section above lists
-   the 64 things already ruled out, so do not start there.
+   matches, the size is retail's to the byte, and 2,984 of 2,986
+   instructions align. The re-loads and the two orphaned branches
+   are done -- a volatile read in the test, and the two empty cases
+   placed where retail's orphans are. What is left is the 0x1C
+   loop's `end`: r28 here, r31 -- p's own register -- in retail.
+   The section above lists what has been tried for it.
 
 4. **The AnimTable family, mostly closed.** `zSBPlayerActions.cpp` is
    at 89 of 95, WAD01_28 at 56 of 57, zCommonPlayerActions at 26 of
@@ -2347,7 +2366,7 @@ or a shape nobody has recognised yet.
 **The big functions hold the mass but are the hardest.** The 50 largest
 unmatched game functions are 207,416 bytes, three and a half times the
 shortfall; the largest 200 are 477,212. But the biggest single one,
-`FixWmlType` at 11,944 bytes, is already 2,979 of 2,986 instructions
+`FixWmlType` at 11,944 bytes, is already 2,984 of 2,986 instructions
 aligned with seven left, and the section above lists what has been ruled
 out for those seven. Size and difficulty rise together.
 
@@ -3123,6 +3142,53 @@ and it cuts both ways:
   `return false` after the computation, so the test has to be written the
   other way round from the obvious one. Same instructions, different
   order, six words apart.
+
+## A TABLE BODY CAN STORE AS WELL AS CALL -- 3,916 bytes of it
+
+`gen_animtables.py`'s `walk()` records CALLS. Nine of the 344 Add*
+functions in the image also STORE, and the emitted bodies were short
+by exactly those words with nothing to say so: the size is the only
+symptom, and the size is not what the merge checks. Two shapes:
+
+  * **Floats set on the action before the states.** Four bodies do
+    `this->+0x10 = 2.0f` and `0.0f` into the three words after it.
+    576 bytes: `AddStates` for zPlayerSlamFallSB, zPlayerFluidBurstSB
+    and their two Board twins.
+
+  * **The state the call RETURNS, kept in a member.** `stw r3,K(this)`
+    straight after the `bl` -- the variant set zPlayerHitSB already
+    had spelled out and matched: fifteen states, a count, a valid
+    count and a no-repeats flag, 0x48 bytes in all. Five bodies,
+    3,340 bytes: zPlayerHitBoard (1,200), zPlayerIdleBoard (964),
+    zPlayerDefeatedBoard (616), zPlayerTriggered (336) and
+    zPlayerSingleCustomAnimSB (224). zPlayerIdleBoard has TWO variant
+    sets, at +0x10 and +0x58, which is what puts its second count at
+    +0x94: 0x58 + 15*4 = 0x94, and that arithmetic is what fixes the
+    array's length.
+
+**And zPlayerAction::NewState returns the state it made.** Two units
+declared it `void`. The mangled name carries no return type, so both
+spellings name the same symbol and a call that discards the result
+compiles the same either way -- which is why it went unnoticed for as
+long as no body kept the result.
+
+**A scan keyed on r3 finds three of the four float stores.** The SB
+pair copies `this` into r10 at the top and stores the last one
+through that, so `stfs fN,K(r3)` misses it -- and the scan reported
+three, twice, without a hint that it was wrong. What settled it was
+reading one function's disassembly end to end. The walk now tests the
+VALUE in the base register, which it already carried symbolically,
+and finds four of four.
+
+`walk()` returns the stores, `emit()` writes a result-keeping call as
+an assignment and declares the member it needs, and any other store
+on `this` is a problem that stops the merge -- named, not dropped.
+
+The lesson is the one the near-miss list keeps giving: **a body that
+is a few words SHORT is not a register-allocation problem.** Words
+that are absent are source that is absent. Both of these looked like
+permuted register allocation in the word diff, because everything
+after the missing store shifts by one.
 
 ## THE FILL SHEET, and two guards that saw what the oracle could not
 

@@ -99,7 +99,10 @@ public:
 
     void Move(xScene* a0, float a1, xEntFrame* a2);
     static void AddActionTransition(xAnimTable*, const char*, const char*, unsigned int (*)(xAnimTransition*, xAnimSingle*, void*), unsigned int (*)(xAnimTransition*, xAnimSingle*, void*), unsigned int (*)(xAnimTransition*, xAnimSingle*, void*), unsigned short, float, unsigned int, unsigned int);
-    void NewState(xAnimTable*, const char*, unsigned int, unsigned int, float, float*, float*, float, unsigned short*, void (*)(xAnimPlay*, xAnimState*, void*), void (*)(xAnimPlay*, xAnimState*, void*), void (*)(xAnimState*, xAnimSingle*, void*), void (*)(xAnimPlay*, xQuat*, xVec3*, xVec3*, int), unsigned int);
+    // Returns the state it made: four AddStates keep it in a
+    // member. The mangled name carries no return type, so this
+    // and `void` name the same symbol.
+    unsigned int NewState(xAnimTable*, const char*, unsigned int, unsigned int, float, float*, float*, float, unsigned short*, void (*)(xAnimPlay*, xAnimState*, void*), void (*)(xAnimPlay*, xAnimState*, void*), void (*)(xAnimState*, xAnimSingle*, void*), void (*)(xAnimPlay*, xQuat*, xVec3*, xVec3*, int), unsigned int);
     void NewStateMany(xAnimTable*, const char*, int, unsigned int, unsigned int, float, float*, float*, float, unsigned short*, void (*)(xAnimPlay*, xAnimState*, void*), void (*)(xAnimPlay*, xAnimState*, void*), void (*)(xAnimState*, xAnimSingle*, void*), void (*)(xAnimPlay*, xQuat*, xVec3*, xVec3*, int), unsigned int);
 };
 
@@ -241,11 +244,15 @@ public:
 
 
 
+// The four states AddStates keeps: `stw r3,K(this)` after each
+// NewState, at +0x10, +0x14, +0x18 and +0x1C, which is where the
+// action base ends.
 class zPlayerTriggered : public zPlayerAction {
 public:
     void Reset();
 
-    unsigned char _pad0[0x14];
+    unsigned int states[4];
+    unsigned char _pad0[0x24 - 0x20];
     int f24;
     void AddActionTransitions(xAnimTable* table);
     static unsigned int anTriggeredAnimCheck(xAnimTransition*, xAnimSingle*, void*);
@@ -772,10 +779,10 @@ void zPlayerLand::AddStates(xAnimTable* table) {
 
 // zPlayerTriggered::AddStates: 4 call(s)
 void zPlayerTriggered::AddStates(xAnimTable* table) {
-    NewState(table, "Triggered01", 32, 32, 1.0f, 0, 0, 0.0f, 0, 0, 0, 0, 0, 0);
-    NewState(table, "Triggered02", 32, 32, 1.0f, 0, 0, 0.0f, 0, 0, 0, 0, 0, 0);
-    NewState(table, "Triggered03", 32, 32, 1.0f, 0, 0, 0.0f, 0, 0, 0, 0, 0, 0);
-    NewState(table, "Triggered04", 32, 32, 1.0f, 0, 0, 0.0f, 0, 0, 0, 0, 0, 0);
+    states[0] = NewState(table, "Triggered01", 32, 32, 1.0f, 0, 0, 0.0f, 0, 0, 0, 0, 0, 0);
+    states[1] = NewState(table, "Triggered02", 32, 32, 1.0f, 0, 0, 0.0f, 0, 0, 0, 0, 0, 0);
+    states[2] = NewState(table, "Triggered03", 32, 32, 1.0f, 0, 0, 0.0f, 0, 0, 0, 0, 0, 0);
+    states[3] = NewState(table, "Triggered04", 32, 32, 1.0f, 0, 0, 0.0f, 0, 0, 0, 0, 0, 0);
 }
 
 // zPlayerDefeated::AddStates: 5 call(s)

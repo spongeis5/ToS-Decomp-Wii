@@ -37,10 +37,42 @@ single candidate and mwcc proved it with a pair of range tests instead.
 They are recovered from the interval, and this refuses to guess when an
 interval holds more than one value.
 
+Three more, each measured the same way -- change one thing, compile,
+count the differing words:
+
+  * A test that reads a field and then relocates it reads it TWICE in
+    retail, and the test's read is hoisted ABOVE the stores before it.
+    A plain read is CSE'd into a single load, which is neither; a
+    volatile read is both, because it may move across plain stores and
+    is never folded into one. Five tests, and they took the function
+    from 1,799 differing words to 826.
+
+  * Two of the three cases that run nothing are not at the END of
+    retail's switch. Each left an orphaned `b epilogue` behind --
+    mwcc emitted the block where the case stood and branch-to-branch
+    folding then redirected everything that reached it -- and sorted
+    in with the other epilogue cases they emit nothing at all. Those
+    two words are 8 of the 11,944 bytes; EMPTY_AT puts them back.
+    Splitting them into three bodies at the end does NOT do it: the
+    place is what mwcc reads, not the grouping.
+
+  * Two of the three walking loops declare `end` before `e`. That is
+    what puts the cursor in r28 and the end in r29 in the 0x18 loop
+    and the cursor in r29 in the 0x1C loop, and with it the
+    four-register `stmw r28,16(r1)` retail's prologue has. The two
+    are one allocation: fixing either alone makes the other worse,
+    and the 2x2 was measured rather than reasoned about.
+
 STATE: the dispatch matches retail exactly, all 307 comparisons in
-order, and 2,979 of retail's 2,986 instructions align. It is NOT
-byte-identical yet -- see NOTES.md for the seven that differ and for
-what has been ruled out.
+order, the function is 11,944 bytes -- retail's size to the byte --
+and 2,984 of retail's 2,986 instructions align. TWO words differ, and
+they are one register: the 0x1C loop's `end` is r28 here and r31 --
+p's own, free by then -- in retail. Every spelling tried for it is in
+NOTES.md; r28 enters the pool because the 0x18 loop needs it, and
+mwcc then prefers it to reusing r31.
+
+    2044  7f9d0214  add r28,r29,r0      retail  7ffd0214  add r31,r29,r0
+    2059  7c1de040  cmplw r29,r28       retail  7c1df840  cmplw r29,r31
 """
 import argparse
 import struct
@@ -58,6 +90,21 @@ NL = chr(10)
 
 ADDR, SIZE = 0x80049320, 11944
 EPI = 0x8004C1B4
+
+# Two of the three cases that run nothing are NOT at the end of
+# retail's switch: each left an orphaned `b epilogue` -- mwcc
+# emitted the block and branch-to-branch folding then redirected
+# everything that reached it -- one at 0x8004BCA8 and one at
+# 0x8004BCFC, immediately after the bodies below. Sorted with the
+# rest of the epilogue cases they emit nothing at all, and those
+# two words are 8 of retail's 11,944 bytes. Which of the three
+# values goes where the bytes cannot say: the search tree is
+# built from the values and is the same whichever way round they
+# are, and only the block's PLACE is being fixed here.
+EMPTY_AT = {
+    0x8004BC98: -1517243578,
+    0x8004BCEC: -616172351,
+}
 P_REGS = (5, 31)            # p is the third argument, or a saved copy
 L_REGS = (3, 30)            # l is the first argument, or a saved copy
 
@@ -289,14 +336,14 @@ HAND = {
                  "}"],
 
     0x8004ACE8: ["((Sext::Whatever2*)((char*)p + 0x1C))->Fix(l);",
-                 "if (*(long*)((char*)p + 0x34)) {",
+                 "if (*(long volatile*)((char*)p + 0x34)) {",
                  "    *(long*)((char*)p + 0x34) += l;",
                  "}"],
 
     0x8004AD50: [rel(0x28),
                  "if (*(int*)((char*)p + 0x24) == 2) {",
                  "    char* e = *(char**)((char*)p + 0x28);",
-                 "    if (*(long*)(e + 4)) {",
+                 "    if (*(long volatile*)(e + 4)) {",
                  "        *(long*)(e + 4) += l;",
                  "        ((Sext::Whatever2*)(*(char**)(e + 4) + 12))"
                  "->Fix(l);",
@@ -306,13 +353,13 @@ HAND = {
     # FOUR independent ifs, not a nest: each `beq` lands on the next
     # test, never on the epilogue.
     0x8004ADB0: [rel(0x4), rel(0xC), rel(0x14),
-                 "if (*(long*)((char*)p + 0x18)) {",
+                 "if (*(long volatile*)((char*)p + 0x18)) {",
                  "    *(long*)((char*)p + 0x18) += l;",
                  "}",
-                 "if (*(long*)((char*)p + 0x1C)) {",
+                 "if (*(long volatile*)((char*)p + 0x1C)) {",
                  "    *(long*)((char*)p + 0x1C) += l;",
                  "}",
-                 "if (*(long*)((char*)p + 0x20)) {",
+                 "if (*(long volatile*)((char*)p + 0x20)) {",
                  "    *(long*)((char*)p + 0x20) += l;",
                  "}",
                  rel(0x24)],
@@ -351,8 +398,10 @@ HAND = {
 
     0x8004AE5C: ["((Sext::xBaseAsset*)p)->CustomFix(l);",
                  "{",
+                 "    char* end;",
                  "    char* e = (*(char**)((char*)p + 0x18) += l);",
-                 "    char* end = e + *(int*)((char*)p + 0x14) * 40;",
+                 "",
+                 "    end = e + *(int*)((char*)p + 0x14) * 40;",
                  "",
                  "    while (e != end) {",
                  "        ((Sext::LinkAssetBaseNew::__srcEvent__*)e)"
@@ -374,8 +423,10 @@ HAND = {
                  "    }",
                  "}",
                  "{",
+                 "    char* end;",
                  "    char* e = (*(char**)((char*)p + 0x1C) += l);",
-                 "    char* end = e + *(int*)((char*)p + 0x18) * 40;",
+                 "",
+                 "    end = e + *(int*)((char*)p + 0x18) * 40;",
                  "",
                  "    while (e != end) {",
                  "        *(long*)(e + 4) += l;",
@@ -568,7 +619,22 @@ class Gen(object):
             "// of range tests. Three more run nothing, and are written",
             "// `return;` rather than left empty, because mwcc DELETES a",
             "// case whose body is empty and deleting it moves the median",
-            "// of the whole search.",
+            "// of the whole search. Two of those three are not at the",
+            "// end: retail emitted a block for each where it stands and",
+            "// then folded every branch that reached it, leaving an",
+            "// orphaned `b` behind, and the two are 8 of the 11,944",
+            "// bytes.",
+            "//",
+            "// A test that reads a field and then relocates it reads it",
+            "// TWICE in retail, and hoists the test read above the stores",
+            "// before it. A plain read is folded into one load, so the",
+            "// test is spelled through a volatile view, which may move",
+            "// across plain stores and is never folded into one.",
+            "//",
+            "// Two of the three walking loops declare `end` before `e`.",
+            "// That is what puts the cursor in r28 and the end in r29 in",
+            "// the first and the cursor in r29 in the second -- retail's",
+            "// allocation, and the four-register stmw its prologue has.",
             "//",
             "// The classes below are STUBS: each carries the method the",
             "// call needs to name, and nothing else about it is known.",
@@ -607,13 +673,19 @@ class Gen(object):
             "void FixWmlType(long l, int type, void* p) {",
             "    switch (type) {",
         ]
+        placed = set(EMPTY_AT.values())
         for t in sorted(self.bytarget):
             for v in sorted(self.bytarget[t], key=sv):
+                if t == EPI and sv(v) in placed:
+                    continue
                 L.append("    case %d:" % sv(v))
             L += ["        " + ln if ln else "" for ln in bodies[t]]
             if bodies[t][-1].strip() != "return;":
                 L.append("        break;")
             L.append("")
+            if t in EMPTY_AT:
+                L.append("    case %d:" % EMPTY_AT[t])
+                L += ["        return;", ""]
         L += ["    }", "}", "", "}  // namespace Sext", ""]
         return L, bodies
 

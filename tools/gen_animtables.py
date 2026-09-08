@@ -180,7 +180,16 @@ def clobber(regs, fprs):
 
 def walk(sym, callee):
     """-> (addr, size, branches,
-           [(call_addr, target, gprs, fprs, stack)]).
+           [(call_addr, target, gprs, fprs, stack)],
+           [(store_addr, offset, value)]).
+
+    THE BODY CAN STORE AS WELL AS CALL. Four AddStates set floats
+    on the action before adding the state, and a walk that records
+    only calls emitted a body six words short with nothing to say
+    so. The store's base is not always r3 either -- the SB pair
+    copies `this` into r10 and stores the last one through that --
+    so what is tested is the VALUE in the base register, which is
+    already carried symbolically here.
 
     target is the callee's name for a `bl`, or ("vslot", n, object) for
     a `bctrl` through vtable slot n of the object expression.  Register
@@ -206,7 +215,7 @@ def walk(sym, callee):
     fprs = {}
     for _n in range(1, 9):
         fprs[_n] = ("farg", _n)
-    stack, calls = {}, []
+    stack, calls, stores = {}, [], []
     frame = 0
     for i, w in enumerate(ws):
         a = addr + 4 * i
@@ -282,12 +291,22 @@ def walk(sym, callee):
                 regs.pop(d, None)
         elif op == 31 and ((w >> 1) & 0x3FF) == 467:         # mtspr
             pass
-        elif op == 36:                                       # stw
+        elif op in (36, 38, 44):                    # stw, stb, sth
             s, base = (w >> 21) & 31, (w >> 16) & 31
             off = w & 0xFFFF
             off = off - 0x10000 if off & 0x8000 else off
-            if base == 1 and off != frame + 4:               # not the LR save
-                stack[off] = regs.get(s, "?")
+            if base == 1 and op == 36 and off != frame + 4:
+                stack[off] = regs.get(s, "?")        # not the LR
+            elif regs.get(base) == THIS:
+                # r3 straight after a bl is that call's RESULT:
+                # the state NewState returned, kept in a member.
+                # Nine bodies do it and the walk used to see none.
+                prev = ws[i - 1] if i else 0
+                if s == 3 and (prev >> 26) == 18 and (prev & 1):
+                    stores.append((a, off, ("result",), "result"))
+                else:
+                    stores.append((a, off, regs.get(s, "?"),
+                                   {36: "w", 38: "b", 44: "h"}[op]))
         elif op == 32:                                       # lwz
             d, base = (w >> 21) & 31, (w >> 16) & 31
             off = w & 0xFFFF
@@ -296,6 +315,12 @@ def walk(sym, callee):
                 regs[d] = ("ld", regs[base], off)
             else:
                 regs.pop(d, None)
+        elif op == 52:                                       # stfs
+            src, base = (w >> 21) & 31, (w >> 16) & 31
+            off = w & 0xFFFF
+            off = off - 0x10000 if off & 0x8000 else off
+            if regs.get(base) == THIS:
+                stores.append((a, off, fprs.get(src, "?"), "f"))
         elif op == 48:                                       # lfs
             d, base = (w >> 21) & 31, (w >> 16) & 31
             off = w & 0xFFFF
@@ -308,7 +333,7 @@ def walk(sym, callee):
             regs.pop((w >> 21) & 31, None)
         elif op in (33, 34, 35, 40, 41, 42, 43, 46):
             regs.pop((w >> 21) & 31, None)
-    return addr, size, branches, calls
+    return addr, size, branches, calls, stores
 
 
 # ---- spelling ---------------------------------------------------------
@@ -644,13 +669,41 @@ class Merge(object):
                                  "does not read as a parameter list"
                                  % (sym, params))
             psrc, self.argnames, self.fargnames = self.param_src(types)
-        addr, size, branches, calls = walk(sym, "xAnimTableNew")
+        addr, size, branches, calls, stores = walk(sym, "xAnimTableNew")
         if branches:
             raise SystemExit("gen_animtables: %s has %d branch(es); not a "
                              "table" % (sym, branches))
         lines = ["void %s::%s(%s) {" % (cls, name, psrc)]
+        # The stores come before the calls in every body that has
+        # them. The member is named for its offset, as the rest of
+        # the tree names an offset whose meaning is not known; the
+        # class has to declare it, and a missing one is a compile
+        # error naming the field rather than a body that is short.
+        kept = {}                    # call address -> member offset
+        for a, off, val, kind in stores:
+            if kind == "result":
+                kept[a - 4] = off
+                self.class_decls[cls].add(
+                    "    unsigned int f%X;" % off)
+                continue
+            if kind != "f":
+                self.problems.append(
+                    "%s @%08X: stores %r on this at +0x%X, which "
+                    "this emitter does not spell"
+                    % (name, a, val, off))
+                continue
+            if val == "?":
+                self.problems.append(
+                    "%s @%08X: stores an unresolved float at +0x%X"
+                    % (name, a, off))
+                continue
+            lines.append("    f%X = %s;" % (off, self.flt(
+                val, "%s @%08X" % (name, a))))
+            self.class_decls[cls].add("    float f%X;" % off)
+        self.callline = {}
         for a, callee, r, f, st in calls:
             where = "%s @%08X" % (name, a)
+            self.callline[a] = len(lines)
             L, F, P = self.lit, self.flt, self.fn_ref
             if isinstance(callee, tuple):
                 _v, slot, obj = callee
@@ -751,6 +804,16 @@ class Merge(object):
                 if call is None:
                     continue
                 lines.append("    " + call)
+        # A call whose result is kept becomes an assignment. The
+        # call lines were appended in call order, so the nth call
+        # is the nth line this loop has not already rewritten.
+        for a, _callee, _r, _f, _st in calls:
+            if a not in kept:
+                continue
+            k = self.callline.get(a)
+            if k is None:
+                continue
+            lines[k] = "    f%X = %s" % (kept[a], lines[k].strip())
         lines.append("}")
         self.class_decls[cls].add("    void %s(%s);" % (name, psrc))
         return cls, name, NL.join(lines), len(calls), psrc
@@ -909,7 +972,7 @@ class Merge(object):
 
 
 def show_calls(sym, callee):
-    addr, size, branches, calls = walk(sym, callee)
+    addr, size, branches, calls, stores = walk(sym, callee)
     print("  %s  %08X  %d bytes  %d branch(es)  %d call(s) to %s*"
           % (sym.split("__")[0], addr, size, branches, len(calls), callee))
     unresolved = 0
@@ -935,8 +998,12 @@ def show_calls(sym, callee):
                 parts.append("st%d=%s" % (k, st[k]))
                 unresolved += st[k] == "?"
         print("    %08X  %s" % (a, "  ".join(parts)))
-    print("  %d unresolved argument(s) over %d call(s)" % (unresolved,
-                                                          len(calls)))
+    for a, off, val, kind in stores:
+        print("    %08X  this->+0x%-4X = %-22s (%s)"
+              % (a, off, val, kind))
+        unresolved += val == "?"
+    print("  %d unresolved argument(s) over %d call(s) and %d "
+          "store(s)" % (unresolved, len(calls), len(stores)))
 
 
 def main():

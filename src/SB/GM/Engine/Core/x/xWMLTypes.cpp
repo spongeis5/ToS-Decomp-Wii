@@ -13,7 +13,22 @@
 // of range tests. Three more run nothing, and are written
 // `return;` rather than left empty, because mwcc DELETES a
 // case whose body is empty and deleting it moves the median
-// of the whole search.
+// of the whole search. Two of those three are not at the
+// end: retail emitted a block for each where it stands and
+// then folded every branch that reached it, leaving an
+// orphaned `b` behind, and the two are 8 of the 11,944
+// bytes.
+//
+// A test that reads a field and then relocates it reads it
+// TWICE in retail, and hoists the test read above the stores
+// before it. A plain read is folded into one load, so the
+// test is spelled through a volatile view, which may move
+// across plain stores and is never folded into one.
+//
+// Two of the three walking loops declare `end` before `e`.
+// That is what puts the cursor in r28 and the end in r29 in
+// the first and the cursor in r29 in the second -- retail's
+// allocation, and the four-register stmw its prologue has.
 //
 // The classes below are STUBS: each carries the method the
 // call needs to name, and nothing else about it is known.
@@ -291,7 +306,7 @@ void FixWmlType(long l, int type, void* p) {
 
     case -113386345:
         ((Sext::Whatever2*)((char*)p + 0x1C))->Fix(l);
-        if (*(long*)((char*)p + 0x34)) {
+        if (*(long volatile*)((char*)p + 0x34)) {
             *(long*)((char*)p + 0x34) += l;
         }
         break;
@@ -308,7 +323,7 @@ void FixWmlType(long l, int type, void* p) {
         *(long*)((char*)p + 0x28) += l;
         if (*(int*)((char*)p + 0x24) == 2) {
             char* e = *(char**)((char*)p + 0x28);
-            if (*(long*)(e + 4)) {
+            if (*(long volatile*)(e + 4)) {
                 *(long*)(e + 4) += l;
                 ((Sext::Whatever2*)(*(char**)(e + 4) + 12))->Fix(l);
             }
@@ -327,13 +342,13 @@ void FixWmlType(long l, int type, void* p) {
         *(long*)((char*)p + 0x4) += l;
         *(long*)((char*)p + 0xC) += l;
         *(long*)((char*)p + 0x14) += l;
-        if (*(long*)((char*)p + 0x18)) {
+        if (*(long volatile*)((char*)p + 0x18)) {
             *(long*)((char*)p + 0x18) += l;
         }
-        if (*(long*)((char*)p + 0x1C)) {
+        if (*(long volatile*)((char*)p + 0x1C)) {
             *(long*)((char*)p + 0x1C) += l;
         }
-        if (*(long*)((char*)p + 0x20)) {
+        if (*(long volatile*)((char*)p + 0x20)) {
             *(long*)((char*)p + 0x20) += l;
         }
         *(long*)((char*)p + 0x24) += l;
@@ -354,8 +369,10 @@ void FixWmlType(long l, int type, void* p) {
     case 1583630768:
         ((Sext::xBaseAsset*)p)->CustomFix(l);
         {
+            char* end;
             char* e = (*(char**)((char*)p + 0x18) += l);
-            char* end = e + *(int*)((char*)p + 0x14) * 40;
+
+            end = e + *(int*)((char*)p + 0x14) * 40;
 
             while (e != end) {
                 ((Sext::LinkAssetBaseNew::__srcEvent__*)e)->Fix(l);
@@ -609,8 +626,10 @@ void FixWmlType(long l, int type, void* p) {
             }
         }
         {
+            char* end;
             char* e = (*(char**)((char*)p + 0x1C) += l);
-            char* end = e + *(int*)((char*)p + 0x18) * 40;
+
+            end = e + *(int*)((char*)p + 0x18) * 40;
 
             while (e != end) {
                 *(long*)(e + 4) += l;
@@ -1203,6 +1222,9 @@ void FixWmlType(long l, int type, void* p) {
         *(long*)p += l;
         break;
 
+    case -1517243578:
+        return;
+
     case -710859367:
         *(long*)p += l;
         break;
@@ -1222,6 +1244,9 @@ void FixWmlType(long l, int type, void* p) {
     case -1755207715:
         *(long*)p += l;
         break;
+
+    case -616172351:
+        return;
 
     case -643972360:
         *(long*)p += l;
@@ -1522,8 +1547,6 @@ void FixWmlType(long l, int type, void* p) {
         ((Sext::xBaseAsset*)p)->CustomFix(l);
         break;
 
-    case -1517243578:
-    case -616172351:
     case -113386344:
         return;
 

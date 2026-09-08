@@ -93,7 +93,10 @@ public:
     virtual bool _v4();
     virtual bool _v5();
     static void AddActionTransition(xAnimTable*, const char*, const char*, unsigned int (*)(xAnimTransition*, xAnimSingle*, void*), unsigned int (*)(xAnimTransition*, xAnimSingle*, void*), unsigned int (*)(xAnimTransition*, xAnimSingle*, void*), unsigned short, float, unsigned int, unsigned int);
-    void NewState(xAnimTable*, const char*, unsigned int, unsigned int, float, float*, float*, float, unsigned short*, void (*)(xAnimPlay*, xAnimState*, void*), void (*)(xAnimPlay*, xAnimState*, void*), void (*)(xAnimState*, xAnimSingle*, void*), void (*)(xAnimPlay*, xQuat*, xVec3*, xVec3*, int), unsigned int);
+    // Returns the state it made: four AddStates keep it in a
+    // member. The mangled name carries no return type, so this
+    // and `void` name the same symbol.
+    unsigned int NewState(xAnimTable*, const char*, unsigned int, unsigned int, float, float*, float*, float, unsigned short*, void (*)(xAnimPlay*, xAnimState*, void*), void (*)(xAnimPlay*, xAnimState*, void*), void (*)(xAnimState*, xAnimSingle*, void*), void (*)(xAnimPlay*, xQuat*, xVec3*, xVec3*, int), unsigned int);
 };
 
 class zPlayerActionManager {
@@ -592,8 +595,22 @@ public:
 
 
 
+// The variant set the states are kept in -- fifteen of them, a
+// count, a valid count and a flag, 0x48 bytes -- as zPlayerHitSB
+// has it. The offsets are the store instructions': the count at
+// +0x94 is 15*4 past the first state, which is what fixes the
+// array's length.
 class zPlayerIdleBoard : public zPlayerAction {
 public:
+    unsigned int variants0[15];
+    int numVariants0;
+    int numValid0;
+    bool noRepeats0;
+    unsigned char _pad0[0x58 - 0x55];
+    unsigned int variants1[15];
+    int numVariants1;
+    int numValid1;
+    bool noRepeats1;
     static unsigned int anExtraIdleCB(xAnimTransition* a0, xAnimSingle* a1, void* a2);
     bool ExtraIdleCB(xAnimTransition* a0, xAnimSingle* a1);
     static unsigned int anExtraIdleCheck(xAnimTransition* a0, xAnimSingle* a1, void* a2);
@@ -709,8 +726,18 @@ public:
 
 
 
+// The variant set the states are kept in -- fifteen of them, a
+// count, a valid count and a flag, 0x48 bytes -- as zPlayerHitSB
+// has it. The offsets are the store instructions': the count at
+// +0x50 is 15*4 past the first state, which is what fixes the
+// array's length.
 class zPlayerHitBoard : public zPlayerAction {
 public:
+    unsigned char _pad0[0x14 - 0x10];
+    unsigned int variants[15];
+    int numVariants;
+    int numValid;
+    bool noRepeats;
     static unsigned int anHammerHitCB(xAnimTransition* a0, xAnimSingle* a1, void* a2);
     bool HammerHitCB(xAnimTransition* a0, xAnimSingle* a1);
 
@@ -1015,8 +1042,17 @@ public:
     bool TransToSpinPowerupCheck(xAnimTransition* a0, xAnimSingle* a1);
 };
 
+// The variant set the states are kept in -- fifteen of them, a
+// count, a valid count and a flag, 0x48 bytes -- as zPlayerHitSB
+// has it. The offsets are the store instructions': the count at
+// +0x4C is 15*4 past the first state, which is what fixes the
+// array's length.
 class zPlayerDefeatedBoard : public zPlayerAction {
 public:
+    unsigned int variants[15];
+    int numVariants;
+    int numValid;
+    bool noRepeats;
     void AddInternalTransitions(xAnimTable* table);
     void AddStates(xAnimTable* table);
     static unsigned int anDeathCheck(xAnimTransition* a0, xAnimSingle* a1, void* a2);
@@ -1387,8 +1423,18 @@ void zBoardPlayerFillWithGoo::AddInternalTransitions(xAnimTable* table) {
     xAnimTableNewTransition(table, "FillWithGooTurn01", "FillWithGooIn01", 0, zBoardPlayerFillWithGoo::anTurnDoneCheck, 0, 0, 0, 0.0f, 0.0f, 1000, 0, 0.15f, 0);
 }
 
+// The four floats this AddStates sets on the action before the
+// state: gen_animtables walks the CALLS, so the stores were
+// missing and the body was six words short. The values are the
+// generator's own reading of the image (f0 = 2.0, f2 = 0.0) and
+// the offsets are the store instructions'; the action base ends
+// at +0x10, so these are the first members of the class.
 class zPlayerSlamFallBoard : public zPlayerAction {
 public:
+    float f10;
+    float f14;
+    float f18;
+    float f1C;
     static unsigned int anSlamLandCheck(xAnimTransition*, xAnimSingle*, void*);
     void AddActionTransitions(xAnimTable* table);
     void AddStates(xAnimTable* table);
@@ -1443,6 +1489,10 @@ void zPlayerFluidSprayBoard::AddActionTransitions(xAnimTable* table) {
 
 class zPlayerFluidBurstBoard : public zPlayerAction {
 public:
+    float f10;
+    float f14;
+    float f18;
+    float f1C;
     void AddInternalTransitions(xAnimTable* table);
     static unsigned int anFluidBurstCheck(xAnimTransition*, xAnimSingle*, void*);
     void AddTransitionsFrom(xAnimTable* table, const char* name, unsigned int (*c)(xAnimTransition*, xAnimSingle*, void*), unsigned int (*d)(xAnimTransition*, xAnimSingle*, void*), unsigned short e, float f, unsigned int g, unsigned int h, zPlayerAction::SpecialActions i);
@@ -2185,11 +2235,19 @@ void zBoardPlayerLosePowerup::AddStates(xAnimTable* table) {
 
 // zPlayerSlamFallBoard::AddStates: 1 call(s)
 void zPlayerSlamFallBoard::AddStates(xAnimTable* table) {
+    f10 = 2.0f;
+    f14 = 0.0f;
+    f18 = 0.0f;
+    f1C = 0.0f;
     NewState(table, "SlamFall01", 16, 4, 1.0f, 0, 0, 0.0f, 0, zBoardAnimPackageBE, 0, 0, 0, 0);
 }
 
 // zPlayerFluidBurstBoard::AddStates: 1 call(s)
 void zPlayerFluidBurstBoard::AddStates(xAnimTable* table) {
+    f10 = 2.0f;
+    f14 = 0.0f;
+    f18 = 0.0f;
+    f1C = 0.0f;
     NewState(table, "Burst01", 32, 4, 1.0f, 0, 0, 0.0f, 0, zBoardAnimPackageBE, 0, 0, 0, 0);
 }
 
@@ -2318,9 +2376,11 @@ void zPlayerSlide::AddStates(xAnimTable* table) {
 
 // zPlayerDefeatedBoard::AddStates: 8 call(s)
 void zPlayerDefeatedBoard::AddStates(xAnimTable* table) {
-    NewState(table, "DefeatedBeginStand01", 0, 16416, 1.0f, 0, 0, 0.0f, 0, 0, 0, 0, 0, 0);
-    NewState(table, "DefeatedBeginStand02", 32, 32, 1.0f, 0, 0, 0.0f, 0, 0, 0, 0, 0, 0);
-    NewState(table, "DefeatedBeginStand03", 0, 16416, 1.0f, 0, 0, 0.0f, 0, 0, 0, 0, 0, 0);
+    numVariants = 3;
+    noRepeats = false;
+    variants[0] = NewState(table, "DefeatedBeginStand01", 0, 16416, 1.0f, 0, 0, 0.0f, 0, 0, 0, 0, 0, 0);
+    variants[1] = NewState(table, "DefeatedBeginStand02", 32, 32, 1.0f, 0, 0, 0.0f, 0, 0, 0, 0, 0, 0);
+    variants[2] = NewState(table, "DefeatedBeginStand03", 0, 16416, 1.0f, 0, 0, 0.0f, 0, 0, 0, 0, 0, 0);
     NewState(table, "DefeatedGravestoneSpecial01", 0, 16416, 1.0f, 0, 0, 0.0f, 0, zBoardGravestoneBE, 0, 0, 0, 0);
     NewState(table, "DefeatedBeginLava01", 0, 16416, 1.0f, 0, 0, 0.0f, 0, 0, 0, 0, 0, 0);
     NewState(table, "DefeatedBeginGoo01", 0, 16416, 1.0f, 0, 0, 0.0f, 0, 0, 0, 0, 0, 0);
@@ -2403,14 +2463,18 @@ void zPlayerHitLaunchBoard::AddStates(xAnimTable* table) {
 
 // zPlayerIdleBoard::AddStates: 13 call(s)
 void zPlayerIdleBoard::AddStates(xAnimTable* table) {
-    NewState(table, "Idle01", 64, 0x2004000, 1.0f, 0, 0, 0.0f, 0, zBoardAnimPackageBE, 0, 0, 0, 0);
-    NewState(table, "IdleExtra01", 64, 0x2000000, 1.0f, 0, 0, 0.0f, 0, 0, 0, 0, 0, 1);
-    NewState(table, "IdleExtra02", 64, 0x2000000, 1.0f, 0, 0, 0.0f, 0, 0, 0, 0, 0, 1);
-    NewState(table, "IdleExtra03", 64, 0x2000000, 1.0f, 0, 0, 0.0f, 0, 0, 0, 0, 0, 1);
-    NewState(table, "IdleExtra04", 64, 0x2000000, 1.0f, 0, 0, 0.0f, 0, 0, 0, 0, 0, 1);
-    NewState(table, "IdleExtra05", 64, 0x2000000, 1.0f, 0, 0, 0.0f, 0, 0, 0, 0, 0, 1);
-    NewState(table, "IdleExtra06", 64, 0x2000000, 1.0f, 0, 0, 0.0f, 0, 0, 0, 0, 0, 1);
-    NewState(table, "IdleExtra07", 64, 0x2000000, 1.0f, 0, 0, 0.0f, 0, 0, 0, 0, 0, 1);
+    noRepeats0 = false;
+    numVariants0 = 1;
+    variants0[0] = NewState(table, "Idle01", 64, 0x2004000, 1.0f, 0, 0, 0.0f, 0, zBoardAnimPackageBE, 0, 0, 0, 0);
+    noRepeats1 = true;
+    numVariants1 = 7;
+    variants1[0] = NewState(table, "IdleExtra01", 64, 0x2000000, 1.0f, 0, 0, 0.0f, 0, 0, 0, 0, 0, 1);
+    variants1[1] = NewState(table, "IdleExtra02", 64, 0x2000000, 1.0f, 0, 0, 0.0f, 0, 0, 0, 0, 0, 1);
+    variants1[2] = NewState(table, "IdleExtra03", 64, 0x2000000, 1.0f, 0, 0, 0.0f, 0, 0, 0, 0, 0, 1);
+    variants1[3] = NewState(table, "IdleExtra04", 64, 0x2000000, 1.0f, 0, 0, 0.0f, 0, 0, 0, 0, 0, 1);
+    variants1[4] = NewState(table, "IdleExtra05", 64, 0x2000000, 1.0f, 0, 0, 0.0f, 0, 0, 0, 0, 0, 1);
+    variants1[5] = NewState(table, "IdleExtra06", 64, 0x2000000, 1.0f, 0, 0, 0.0f, 0, 0, 0, 0, 0, 1);
+    variants1[6] = NewState(table, "IdleExtra07", 64, 0x2000000, 1.0f, 0, 0, 0.0f, 0, 0, 0, 0, 0, 1);
     NewState(table, "IdleMoveStart01", 32, 0x2000000, 1.0f, 0, 0, 0.0f, 0, zBoardAnimPackageBE, 0, 0, 0, 0);
     NewState(table, "IdleSlippery01", 16, 0x2000000, 1.0f, 0, 0, 0.0f, 0, 0, 0, 0, 0, 0);
     NewState(table, "IdleSlipperyMoveStart01", 32, 0x2000000, 1.0f, 0, 0, 0.0f, 0, 0, 0, 0, 0, 0);
@@ -2430,8 +2494,10 @@ void zPlayerHitBoard::AddStates(xAnimTable* table) {
     NewState(table, "HitGooBack01", 32, 32, 1.0f, 0, 0, 0.0f, 0, zBoardAnimPackageBE, 0, 0, 0, 0);
     NewState(table, "HitElectricArc01", 32, 32, 1.0f, 0, 0, 0.0f, 0, zBoardAnimPackageBE, 0, 0, 0, 0);
     NewState(table, "HitPowerup01", 32, 32, 1.0f, 0, 0, 0.0f, 0, zBoardAnimPackageBE, 0, 0, 0, 0);
-    NewState(table, "HammerHitIn01", 32, 16416, 1.0f, 0, 0, 0.0f, 0, zBoardHitByHammerBE, 0, 0, 0, 0);
-    NewState(table, "HammerHitIn02", 32, 16416, 1.0f, 0, 0, 0.0f, 0, zBoardHitByHammerBE, 0, 0, 0, 0);
+    noRepeats = false;
+    numVariants = 2;
+    variants[0] = NewState(table, "HammerHitIn01", 32, 16416, 1.0f, 0, 0, 0.0f, 0, zBoardHitByHammerBE, 0, 0, 0, 0);
+    variants[1] = NewState(table, "HammerHitIn02", 32, 16416, 1.0f, 0, 0, 0.0f, 0, zBoardHitByHammerBE, 0, 0, 0, 0);
     NewState(table, "HammerHitCycle01", 16, 49184, 1.0f, 0, 0, 0.0f, 0, zBoardAnimPackageBE, 0, 0, 0, 0);
     NewState(table, "HammerHitCycle02", 16, 49184, 1.0f, 0, 0, 0.0f, 0, zBoardAnimPackageBE, 0, 0, 0, 0);
     NewState(table, "HammerHitOut01", 32, 16416, 1.0f, 0, 0, 0.0f, 0, zBoardAnimPackageBE, 0, 0, 0, 0);

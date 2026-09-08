@@ -249,7 +249,7 @@ EXPECT = {
     # The animation tables merged by gen_animtables.py. The five
     # that DIFFER are AddActionTransitions bodies with many calls,
     # merged and not yet examined; the pin has to see them.
-    "SB/GM/Engine/Game/zCommonPlayerActions": (81, 87),
+    "SB/GM/Engine/Game/zCommonPlayerActions": (82, 87),
     "SB/GM/Engine/Game/zFXParticleLocator": (1, 1),
     "SB/GM/Engine/Game/zFloatingCollectible": (3, 3),
     "SB/GM/Engine/Game/zHitButton": (4, 4),
@@ -270,7 +270,7 @@ EXPECT = {
     "SB/GM/Engine/Game/zPlayerConstrainer": (3, 3),
     "SB/GM/Engine/Game/zPlayerInventory": (1, 1),
     "SB/GM/Engine/Game/zProjectileHavok": (2, 2),
-    "SB/GM/Engine/Game/zSBPlayerActions": (234, 239),
+    "SB/GM/Engine/Game/zSBPlayerActions": (237, 239),
     "SB/GM/Engine/Game/zSearchMapCreatorNavMesh": (2, 2),
     "SB/GM/Engine/Game/zSearchStrategyAStar": (1, 1),
     "SB/GM/Engine/Game/zSpinner": (3, 3),
@@ -284,7 +284,7 @@ EXPECT = {
     "SB/GM/Engine/WAD00_32": (255, 255),
     "SB/GM/Engine/WAD01_13_1": (2, 2),
     "SB/GM/Engine/WAD01_1_1": (123, 127),
-    "SB/GM/Engine/WAD01_28": (240, 246),
+    "SB/GM/Engine/WAD01_28": (245, 246),
     "SB/GM/Engine/WAD01_29": (2, 2),
     "SB/GM/Engine/WAD02_6_1": (2, 2),
     "SB/GM/Engine/WAD03_32_2": (3, 3),

@@ -474,13 +474,17 @@ public:
 
 
 
+// The two states AddStates keeps, at +0x14 and +0x18. Nothing is
+// known about the word at +0x10, which the body never touches.
 class zPlayerSingleCustomAnimSB : public zPlayerAction {
 public:
     void Reset();
 
     unsigned char f10;
-    unsigned char _pad1[0xB];
+    unsigned char _pad0[0x14 - 0x11];
+    unsigned int states[2];
     unsigned char f1C;
+    unsigned char _pad1[0x20 - 0x1D];
     static unsigned int anEarlyStopCheck(xAnimTransition*, xAnimSingle*, void*);
     static unsigned int anStartAnimationCheck(xAnimTransition*, xAnimSingle*, void*);
     static unsigned int anStartNewCustomAnimCB(xAnimTransition*, xAnimSingle*, void*);
@@ -1461,8 +1465,20 @@ public:
     bool SlamCheck(xAnimTransition* a0, xAnimSingle* a1);
 };
 
+// The four floats this AddStates sets on the action before the
+// state: gen_animtables walks the CALLS, so the stores were
+// missing and the body was six words short. The values are the
+// generator's own reading of the image (f0 = 2.0, f2 = 0.0) and
+// the offsets are the store instructions'. The fourth store goes
+// through r10, a copy of `this`, so a scan keyed on r3 finds
+// three of them. The action base ends
+// at +0x10, so these are the first members of the class.
 class zPlayerSlamFallSB : public zPlayerAction {
 public:
+    float f10;
+    float f14;
+    float f18;
+    float f1C;
     static const char* GetTransitionString() { return "SlamFall*"; }
     static unsigned int anSlamLandCheck(xAnimTransition*, xAnimSingle*, void*);
     void AddActionTransitions(xAnimTable* table);
@@ -1478,6 +1494,10 @@ public:
 
 class zPlayerFluidBurstSB : public zPlayerAction {
 public:
+    float f10;
+    float f14;
+    float f18;
+    float f1C;
     void AddInternalTransitions(xAnimTable* table);
     void AddStates(xAnimTable* table);
     static unsigned int anFluidBurstCheck(xAnimTransition* a0, xAnimSingle* a1, void* a2);
@@ -2346,11 +2366,19 @@ void zSBPlayerLosePowerup::AddStates(xAnimTable* table) {
 
 // zPlayerSlamFallSB::AddStates: 1 call(s)
 void zPlayerSlamFallSB::AddStates(xAnimTable* table) {
+    f10 = 2.0f;
+    f14 = 0.0f;
+    f18 = 0.0f;
+    f1C = 0.0f;
     NewState(table, "SlamFall01", 16, 4, 1.0f, 0, 0, 0.0f, 0, zSBAnimPackageBE, 0, 0, 0, 0);
 }
 
 // zPlayerFluidBurstSB::AddStates: 1 call(s)
 void zPlayerFluidBurstSB::AddStates(xAnimTable* table) {
+    f10 = 2.0f;
+    f14 = 0.0f;
+    f18 = 0.0f;
+    f1C = 0.0f;
     NewState(table, "Burst01", 32, 32, 1.0f, 0, 0, 0.0f, 0, zSBAnimPackageBE, 0, 0, 0, 0);
 }
 
@@ -2374,8 +2402,8 @@ void zSBPlayerFillWithGoo::AddStates(xAnimTable* table) {
 
 // zPlayerSingleCustomAnimSB::AddStates: 2 call(s)
 void zPlayerSingleCustomAnimSB::AddStates(xAnimTable* table) {
-    NewState(table, "SingleCustom01", 32, 32, 1.0f, 0, 0, 0.0f, 0, 0, 0, 0, 0, 0);
-    NewState(table, "SingleCustom02", 32, 32, 1.0f, 0, 0, 0.0f, 0, 0, 0, 0, 0, 0);
+    states[0] = NewState(table, "SingleCustom01", 32, 32, 1.0f, 0, 0, 0.0f, 0, 0, 0, 0, 0, 0);
+    states[1] = NewState(table, "SingleCustom02", 32, 32, 1.0f, 0, 0, 0.0f, 0, 0, 0, 0, 0, 0);
 }
 
 // zSBPlayerSpinPowerupAttack::AddStates: 2 call(s)

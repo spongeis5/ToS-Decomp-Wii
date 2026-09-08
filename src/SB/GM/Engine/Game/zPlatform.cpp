@@ -20,6 +20,34 @@
 
 namespace World { class EntityHandleBase; }
 
+enum eMemMgrTag { eMemMgrTag_ = 0x7FFFFFFF };
+
+namespace Memory {
+enum GlobalHeapEnum { GlobalHeapEnum_ = 0x7FFFFFFF };
+
+void* AllocGlobalHeap(unsigned long size, GlobalHeapEnum heap, eMemMgrTag tag,
+                      bool clear);
+}  // namespace Memory
+
+extern "C" {
+void* memset(void* dst, int c, unsigned long n);
+}
+
+inline void* operator new(unsigned long, void* p) { return p; }
+
+class zPlatform;
+namespace Sext { class xEntAsset; }
+
+namespace Sext {
+
+class xPlatformAsset {
+public:
+    static ::zPlatform* Create(World::EntityHandleBase* handle,
+                               xPlatformAsset* asset);
+};
+
+}  // namespace Sext
+
 
 class xEnt {
 public:
@@ -56,4 +84,33 @@ void Graphics::Renderable::AmendColorMulAlpha(float alpha) {
     void (Renderable::*set)(float) = &Renderable::SetColorMulAlpha;
 
     (this->*set)(alpha);
+}
+
+// The asset's Create: one 0x1D0 block from the global heap (heap 0,
+// tag 16, no clear), memset, the entity placed on it, then the free
+// zPlatform_Init. The base's layout is not known here -- only that
+// its constructor is a call and the vtable pointer it stores is at
+// +0 -- so the padding runs from the four bytes that takes.
+class zPlatform : public zEnt {
+public:
+    zPlatform(World::EntityHandleBase* handle) : zEnt(handle) {}
+
+    virtual void _v0();
+
+    unsigned char _pad0[0x1D0 - 0x4];
+};
+
+void zPlatform_Init(zPlatform* base, Sext::xEntAsset* asset);
+
+zPlatform* Sext::xPlatformAsset::Create(World::EntityHandleBase* handle,
+                                        xPlatformAsset* asset) {
+    ::zPlatform* entity = new (memset(
+        Memory::AllocGlobalHeap(sizeof(::zPlatform),
+                                (Memory::GlobalHeapEnum)0,
+                                (eMemMgrTag)16, false),
+        0, sizeof(::zPlatform))) ::zPlatform(handle);
+
+    zPlatform_Init((::zPlatform*)entity, (Sext::xEntAsset*)asset);
+
+    return entity;
 }

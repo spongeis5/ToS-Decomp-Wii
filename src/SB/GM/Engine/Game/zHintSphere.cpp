@@ -42,10 +42,26 @@ class LinkAsset;
 class TemplateEntity;
 class xBase;
 class zPlayer;
+class zHintSphere;
 
 namespace World {
 class EntityHandleBase;
 }
+
+enum eMemMgrTag { eMemMgrTag_ = 0x7FFFFFFF };
+
+namespace Memory {
+enum GlobalHeapEnum { GlobalHeapEnum_ = 0x7FFFFFFF };
+
+void* AllocGlobalHeap(unsigned long size, GlobalHeapEnum heap, eMemMgrTag tag,
+                      bool clear);
+}  // namespace Memory
+
+extern "C" {
+void* memset(void* dst, int c, unsigned long n);
+}
+
+inline void* operator new(unsigned long, void* p) { return p; }
 
 namespace Sext {
 
@@ -70,6 +86,9 @@ public:
 
 class zHintSphereAsset : public xBaseAsset {
 public:
+    static ::zHintSphere* Create(World::EntityHandleBase* handle,
+                                 zHintSphereAsset* asset);
+
     bool isActive;
     bool canInterrupt;
     bool isProtected;
@@ -117,6 +136,8 @@ public:
 
 class xOGEntity : public xBase {
 public:
+    xOGEntity(EntityHandleBase* handle);
+
     xOGModelHandle ogModel;
 };
 
@@ -184,6 +205,11 @@ public:
 
 class zHintSphere : public World::xOGEntity {
 public:
+    zHintSphere(World::EntityHandleBase* handle)
+        : World::xOGEntity(handle) {}
+
+    virtual void _v0();
+
     void Init(Sext::zHintSphereAsset* asset);
     void Reset();
     void DebugReset();
@@ -260,4 +286,19 @@ void zHintSphere::DebugReset() {
     linkArray = (LinkAsset*)&asset->EventLinksNew;
 
     Reset();
+}
+
+// The asset's Create: one 0x90 block from the global heap (heap 0,
+// tag 16, no clear), memset, the entity placed on it, then Init.
+zHintSphere* Sext::zHintSphereAsset::Create(
+    World::EntityHandleBase* handle, zHintSphereAsset* asset) {
+    ::zHintSphere* entity = new (memset(
+        Memory::AllocGlobalHeap(sizeof(::zHintSphere),
+                                (Memory::GlobalHeapEnum)0,
+                                (eMemMgrTag)16, false),
+        0, sizeof(::zHintSphere))) ::zHintSphere(handle);
+
+    entity->Init(asset);
+
+    return entity;
 }

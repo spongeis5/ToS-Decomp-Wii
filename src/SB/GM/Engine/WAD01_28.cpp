@@ -677,14 +677,17 @@ public:
 
 
 
-class zPlayerLandHighBoard {
+// The member this forwards through is at +4, which is where the
+// action base's `player` is, so the stub carries the base rather
+// than padding to it and the tables below can be generated.
+class zPlayerLandHighBoard : public zPlayerAction {
 public:
     void Move(xScene* a0, float a1, xEntFrame* a2);
-
-    unsigned char _pad0[0x4];
-    int f4;
     void AddInternalTransitions(xAnimTable* table);
     void AddTransitionsFrom(xAnimTable* table, const char* name, unsigned int (*c)(xAnimTransition*, xAnimSingle*, void*), unsigned int (*d)(xAnimTransition*, xAnimSingle*, void*), unsigned short e, float f, unsigned int g, unsigned int h, zPlayerAction::SpecialActions i);
+    static const char* GetTransitionString() { return "HighFallLand*"; }
+    void AddActionTransitions(xAnimTable* table);
+    void AddStates(xAnimTable* table);
 };
 
 
@@ -873,7 +876,7 @@ unsigned int zPlayerIdleBoard::anExtraIdleCB(xAnimTransition* a0, xAnimSingle* a
 unsigned int zPlayerIdleBoard::anExtraIdleCheck(xAnimTransition* a0, xAnimSingle* a1, void* a2) { return ((zPlayerIdleBoard*)((AnimCBHolder*)a1)->slot->owner)->ExtraIdleCheck(a0, a1); }
 void zPlayerTurn180Board::Begin() { f1C = 0; }
 unsigned int zPlayerFallBoard::anFallHighCheck(xAnimTransition* a0, xAnimSingle* a1, void* a2) { return ((zPlayerFallBoard*)((AnimCBHolder*)a1)->slot->owner)->FallHighCheck(a0, a1); }
-void zPlayerLandHighBoard::Move(xScene* a0, float a1, xEntFrame* a2) { ((zPlayerLandHighBoard_m4*)f4)->_v128(a0, a1, a2); }
+void zPlayerLandHighBoard::Move(xScene* a0, float a1, xEntFrame* a2) { ((zPlayerLandHighBoard_m4*)player)->_v128(a0, a1, a2); }
 unsigned int zBoardPlayerHammerAttack::anSpongebuffHammerSplashCB(xAnimTransition* a0, xAnimSingle* a1, void* a2) { return ((zBoardPlayerHammerAttack*)((AnimCBHolder*)a1)->slot->owner)->SpongebuffHammerSplashCB(a0, a1); }
 unsigned int zBoardPlayerPuckAttack::anAimPuckCheck(xAnimTransition* a0, xAnimSingle* a1, void* a2) { return ((zBoardPlayerPuckAttack*)((AnimCBHolder*)a1)->slot->owner)->AimPuckCheck(a0, a1); }
 unsigned int zBoardPlayerPuckAttack::anShootPuckCheck(xAnimTransition* a0, xAnimSingle* a1, void* a2) { return ((zBoardPlayerPuckAttack*)((AnimCBHolder*)a1)->slot->owner)->ShootPuckCheck(a0, a1); }
@@ -3844,4 +3847,24 @@ void zPlayerDefeatedBoard::AddTransitionsFrom(xAnimTable* table, const char* nam
     zPlayerAction::AddActionTransition(table, name, "DefeatedBeginLava01", zPlayerDefeatedBoard::anLavaDeathCheck, c, d, e + 1000, f, g, h);
     zPlayerAction::AddActionTransition(table, name, "DefeatedBeginGoo01", zPlayerDefeatedBoard::anGooDeathCheck, c, d, e + 1000, f, g, h);
     zPlayerAction::AddActionTransition(table, name, "DefeatedBeginFrozenGoo01", zPlayerDefeatedBoard::anFrozenGooDeathCheck, c, d, e + 1000, f, g, h);
+}
+
+// zPlayerLandHighBoard::AddActionTransitions: 9 call(s)
+void zPlayerLandHighBoard::AddActionTransitions(xAnimTable* table) {
+    manager->AddTransitionsTo(0, table, "HighFallLandGetUp01", 0, 0, 1000, 0.15f, 16, 0, (zPlayerAction::SpecialActions)0);
+    manager->AddStandardTransitionsTo(13, table, zPlayerLandHighBoard::GetTransitionString());
+    manager->AddStandardTransitionsTo(25, table, zPlayerLandHighBoard::GetTransitionString());
+    manager->AddStandardTransitionsTo(26, table, zPlayerLandHighBoard::GetTransitionString());
+    manager->AddStandardTransitionsTo(27, table, zPlayerLandHighBoard::GetTransitionString());
+    manager->AddTransitionsTo(29, table, zPlayerLandHighBoard::GetTransitionString(), 0, 0, 1010, 0.15f, 0, 0, (zPlayerAction::SpecialActions)0);
+    manager->AddTransitionsTo(30, table, zPlayerLandHighBoard::GetTransitionString(), 0, 0, 1010, 0.15f, 0, 0, (zPlayerAction::SpecialActions)0);
+    manager->AddTransitionsTo(31, table, zPlayerLandHighBoard::GetTransitionString(), 0, 0, 1010, 0.15f, 0, 0, (zPlayerAction::SpecialActions)0);
+    manager->AddStandardTransitionsTo(42, table, zPlayerLandHighBoard::GetTransitionString());
+}
+
+// zPlayerLandHighBoard::AddStates: 3 call(s)
+void zPlayerLandHighBoard::AddStates(xAnimTable* table) {
+    NewState(table, "HighFallLandIdle01", 32, 0, 1.0f, 0, 0, 0.0f, 0, zBoardAnimPackageBE, 0, 0, 0, 0);
+    NewState(table, "HighFallLandMoving01", 32, 0, 1.0f, 0, 0, 0.0f, 0, zBoardAnimPackageBE, 0, 0, 0, 0);
+    NewState(table, "HighFallLandGetUp01", 32, 0, 1.0f, 0, 0, 0.0f, 0, zBoardAnimPackageBE, 0, 0, 0, 0);
 }

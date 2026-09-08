@@ -530,30 +530,12 @@ SEXT_CREATE_INIT = NL.join([
     "class EntityHandleBase;",
     "}",
     "",
-    "class %(entity)s;",
+    "%(entfwd)s",
     "%(fwddecl)s",
     "",
-    "// 0x38, and polymorphic: the vtable pointer the constructor stores",
-    "// sits at +0, so nothing precedes it.",
-    "class xBase {",
-    "public:",
-    "    virtual void _v0();",
+    "%(basedecl)s",
     "",
-    "    unsigned char _pad0[0x34 - 0x4];",
-    "};",
-    "",
-    "namespace World {",
-    "",
-    "class xOGEntity : public xBase {",
-    "public:",
-    "    xOGEntity(EntityHandleBase* handle);",
-    "",
-    "    unsigned char _pad0[0x40 - 0x34];",
-    "};",
-    "",
-    "}  // namespace World",
-    "",
-    "namespace %(ns)s {",
+    "%(nsopen)s",
     "",
     "class %(assetleaf)s {",
     "public:",
@@ -561,17 +543,19 @@ SEXT_CREATE_INIT = NL.join([
     "%(decindent)s%(assetleaf)s* asset);",
     "};",
     "",
-    "}  // namespace %(ns)s",
+    "%(nsclose)s",
     "",
-    "class %(entity)s : public %(base)s {",
+    "%(entopen)s",
+    "class %(entleaf)s : public %(base)s {",
     "public:",
-    "    %(entity)s(World::EntityHandleBase* handle) : %(base)s(handle) {}",
+    "    %(entleaf)s(World::EntityHandleBase* handle) : %(base)s(handle) {}",
     "",
     "    virtual void _v0();",
     "%(nesteddecl)s",
     "%(initdecl)s",
     "%(pad)s",
     "};",
+    "%(entclose)s",
     "%(freedecl)s",
     "%(entity)s* %(asset)s::Create(World::EntityHandleBase* handle,",
     "%(indent)s%(assetleaf)s* asset) {",
@@ -795,20 +779,65 @@ def render(env, target, donor, holes):
     # zUI instead and one from zEnt, and emitting the xOGEntity layout
     # for one of those would place the vtable and every offset wrong
     # while compiling cleanly. A different base needs its own template.
-    if d["base"] != "World::xOGEntity":
-        return None, ("the entity derives from %s and this template only "
-                      "carries the World::xOGEntity layout" % d["base"])
+    # The base's LAYOUT is only known for World::xOGEntity, which
+    # is what has matched. Any other base is declared with the
+    # vtable pointer the derived constructor stores at +0 and
+    # nothing else, and the derived class carries the whole
+    # allocation as padding -- all these bytes say about it.
+    if d["base"] == "World::xOGEntity":
+        basedecl = NL.join([
+            "// 0x38, and polymorphic: the vtable pointer the constructor stores",
+            "// sits at +0, so nothing precedes it.",
+            "class xBase {",
+            "public:",
+            "    virtual void _v0();",
+            "",
+            "    unsigned char _pad0[0x34 - 0x4];",
+            "};",
+            "",
+            "namespace World {",
+            "",
+            "class xOGEntity : public xBase {",
+            "public:",
+            "    xOGEntity(EntityHandleBase* handle);",
+            "",
+            "    unsigned char _pad0[0x40 - 0x34];",
+            "};",
+            "",
+            "}  // namespace World"])
+        basesize = 0x40
+    else:
+        bns, _b, bleaf = d["base"].rpartition("::")
+        basedecl = NL.join(
+            ["// The base is a CALL, so its layout is never read here. It",
+             "// is declared with the vtable pointer the derived",
+             "// constructor stores at +0 and nothing else, and the",
+             "// derived class carries the whole allocation as padding.",
+             "// That is all these bytes say about it."]
+            + (["namespace %s {" % bns] if bns else [])
+            + ["class %s {" % bleaf,
+               "public:",
+               "    %s(World::EntityHandleBase* handle);" % bleaf,
+               "",
+               "    virtual void _v0();",
+               "};"]
+            + (["}  // namespace %s" % bns] if bns else []))
+        basesize = 4
 
-    # A nested type cannot be DEFINED by its qualified name -- `class
-    # FX::Ribbon::zRibbon : public ...` is not C++ -- and the fix is to
-    # wrap the definition in namespaces, which this template does not do.
-    if "::" in d["entity"]:
-        return None, ("the entity %s is nested, and a nested type cannot be "
-                      "defined by a qualified name" % d["entity"])
+    # A nested type cannot be DEFINED by its qualified name --
+    # `class FX::Ribbon::zRibbon : public ...` is not C++ -- so the
+    # definition is wrapped in namespaces. A single mangled
+    # qualifier is written bare and two or more take Q<n>, so a
+    # namespace and a class give the same symbol either way.
+    ent_ns = d["entity"].split("::")
+    entleaf = ent_ns.pop()
+    entopen = NL.join("namespace %s {" % x for x in ent_ns)
+    entclose = NL.join("}  // namespace %s" % x
+                       for x in reversed(ent_ns))
 
     ns, _, leaf = d["asset"].rpartition("::")
-    if not ns:
-        return None, "%s is not a qualified asset name" % d["asset"]
+    nsopen = "namespace %s {" % ns if ns else ""
+    nsclose = "}  // namespace %s" % ns if ns else ""
 
     hole_text = NL.join(
         "//   +0x%03X  %s" % (i * 4, (t[3].text + t[4]).strip())
@@ -881,12 +910,18 @@ def render(env, target, donor, holes):
                                         arg(p1, "asset"))
     body = tmpl % {
         "entity": d["entity"], "qent": "::" + d["entity"],
+        "entleaf": entleaf, "entopen": entopen,
+        "entfwd": (entopen + NL + "class %s;" % entleaf + NL + entclose
+                   if ent_ns else "class %s;" % entleaf),
+        "entclose": entclose, "basedecl": basedecl,
+        "nsopen": nsopen, "nsclose": nsclose,
         "asset": d["asset"], "assetleaf": leaf,
         "ns": ns, "base": d["base"], "init": d["init"],
         "initdecl": initdecl, "freedecl": freedecl, "initcall": initcall,
         "fwddecl": fwddecl, "nesteddecl": nesteddecl,
-        "pad": ("    unsigned char _pad0[0x%X - 0x40];" % d["size"]
-                if d["size"] > 0x40 else ""),
+        "pad": ("    unsigned char _pad0[0x%X - 0x%X];"
+                % (d["size"], basesize)
+                if d["size"] > basesize else ""),
         "size": d["size"], "sizehex": d["size"], "donor": donor,
         "nholes": len(holes), "holes": hole_text, "file": where,
         "indent": " " * (len(d["entity"]) + len(d["asset"]) + 11),

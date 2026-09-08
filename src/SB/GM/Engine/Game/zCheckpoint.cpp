@@ -28,3 +28,79 @@ public:
 
 int* zDirection::GetLocation() { return &f40; }
 int* zDirection::GetRotation() { return &f4C; }
+
+enum eMemMgrTag { eMemMgrTag_ = 0x7FFFFFFF };
+
+namespace Memory {
+enum GlobalHeapEnum { GlobalHeapEnum_ = 0x7FFFFFFF };
+
+void* AllocGlobalHeap(unsigned long size, GlobalHeapEnum heap, eMemMgrTag tag,
+                      bool clear);
+}  // namespace Memory
+
+extern "C" {
+void* memset(void* dst, int c, unsigned long n);
+}
+
+inline void* operator new(unsigned long, void* p) { return p; }
+
+namespace World {
+class EntityHandleBase;
+}
+
+class zCheckpoint;
+
+
+// 0x38, and polymorphic: the vtable pointer the constructor stores
+// sits at +0, so nothing precedes it.
+class xBase {
+public:
+    virtual void _v0();
+
+    unsigned char _pad0[0x34 - 0x4];
+};
+
+namespace World {
+
+class xOGEntity : public xBase {
+public:
+    xOGEntity(EntityHandleBase* handle);
+
+    unsigned char _pad0[0x40 - 0x34];
+};
+
+}  // namespace World
+
+namespace Sext {
+
+class zCheckpointAsset {
+public:
+    static ::zCheckpoint* Create(World::EntityHandleBase* handle,
+                                 zCheckpointAsset* asset);
+};
+
+}  // namespace Sext
+
+class zCheckpoint : public World::xOGEntity {
+public:
+    zCheckpoint(World::EntityHandleBase* handle) : World::xOGEntity(handle) {}
+
+    virtual void _v0();
+
+
+    void Init(Sext::zCheckpointAsset* asset);
+
+    unsigned char _pad0[0xA8 - 0x40];
+};
+
+zCheckpoint* Sext::zCheckpointAsset::Create(World::EntityHandleBase* handle,
+                                            zCheckpointAsset* asset) {
+    ::zCheckpoint* entity = new (memset(
+        Memory::AllocGlobalHeap(sizeof(::zCheckpoint), (Memory::GlobalHeapEnum)0,
+                                (eMemMgrTag)16, false),
+        0, sizeof(::zCheckpoint))) ::zCheckpoint(handle);
+
+    entity->Init((Sext::zCheckpointAsset*)asset);
+
+    return entity;
+}

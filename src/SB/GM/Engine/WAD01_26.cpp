@@ -32,9 +32,21 @@ public:
 
 
 
-class zCamWorldDrivable {
+// operator delete is what the 80-byte destructors call, and
+// hkBaseObject is the symbol every folded empty destructor survived
+// as. Both are up here because zCamWorldDrivable, an accessor stub,
+// needs the base.
+void operator delete(void* mem);
+
+class hkBaseObject {
+public:
+    ~hkBaseObject();
+};
+
+class zCamWorldDrivable : public hkBaseObject {
 public:
     int* DriveGetCurMat(int a0);
+    ~zCamWorldDrivable();
 
     unsigned char _pad0[0x228];
     int f228;
@@ -138,6 +150,11 @@ public:
     float GetLastLand();
     void LoadCheckPoint();
 
+    // DECLARED, never defined: the two 80-byte destructors below
+    // call it, and without it mwcc gives them the 64-byte shape
+    // that destroys nothing.
+    ~zPlayer();
+
     unsigned char _pad0[0x400];
     float f400;
 };
@@ -147,6 +164,7 @@ public:
 class zCommonPlayer : public zPlayer {
 public:
     void LoadCheckPoint();
+    ~zCommonPlayer();
 
 };
 
@@ -344,19 +362,20 @@ public:
 
 
 
-class zPlayerLandHighBoard {
-public:
-    unsigned int GetID();
-
-};
-
-
-
 class zPlayerLandBoard {
 public:
     unsigned int GetID();
 
     ~zPlayerLandBoard();
+};
+
+
+
+class zPlayerLandHighBoard : public zPlayerLandBoard {
+public:
+    unsigned int GetID();
+
+    ~zPlayerLandHighBoard();
 };
 
 
@@ -637,13 +656,6 @@ unsigned int zBTActionAlwaysComplete::GetTypeID() const { return 0xF7756BA5u; }
 // operator delete and `return this` -- the base is spelled as the
 // symbol that survived, which is what makes the relocation reach
 // retail's own.
-void operator delete(void* mem);
-
-class hkBaseObject {
-public:
-    ~hkBaseObject();
-};
-
 class zCamFollow : public hkBaseObject {
 public:
     ~zCamFollow();
@@ -664,3 +676,35 @@ zCamFollow::~zCamFollow() {}
 zCamTargetSpline::~zCamTargetSpline() {}
 
 zExplosiveObject::~zExplosiveObject() {}
+
+zCommonPlayer::~zCommonPlayer() {}
+
+// zCamWorldDrivable is declared above with its own accessor and a
+// member at +0x228; the base is empty, so the offsets do not move.
+class zCamWorldDrivableBase : public hkBaseObject {
+public:
+    ~zCamWorldDrivableBase();
+};
+
+class zCamPoolBase {
+public:
+    ~zCamPoolBase();
+};
+
+class zCamPlayerPOI;
+
+template <class T>
+class zCamPool : public zCamPoolBase {
+public:
+    ~zCamPool();
+};
+
+template <class T>
+zCamPool<T>::~zCamPool() {}
+
+template class zCamPool<zCamPlayerPOI>;
+
+
+zCamWorldDrivable::~zCamWorldDrivable() {}
+
+zPlayerLandHighBoard::~zPlayerLandHighBoard() {}

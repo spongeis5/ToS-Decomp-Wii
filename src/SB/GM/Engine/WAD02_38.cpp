@@ -276,4 +276,17 @@ zNPCCombatCollisionListener::~zNPCCombatCollisionListener() {}
 
 Graphics::ScreenView::~ScreenView() {}
 
+// The flag is -1, not 0: what it destroys is a MEMBER at +0, a
+// complete subobject, and not a base.
+namespace EngineOG {
+class SceneData {
+public:
+    ~SceneData();
+
+    hkBaseObject m;
+};
+}  // namespace EngineOG
+
 Graphics::MaterialDepotSpace::~MaterialDepotSpace() {}
+
+EngineOG::SceneData::~SceneData() {}

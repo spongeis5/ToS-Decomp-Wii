@@ -104,7 +104,49 @@ class GFxState;
 
 class GRenderer : public GRefCountBase<GFxState, 2> {
 public:
+    class EventHandler;
+
     ~GRenderer();
 };
 
 GRenderer::~GRenderer() {}
+
+// The two GArray destructors, read out of their mangled names:
+// GArray<T, N, Policy> derives from
+// GArrayBase<GArrayData<T, GAllocatorGH<T, N>, Policy> >, whose
+// destructor is declared and never defined -- which is what makes
+// these the 80-byte shape that destroys a base rather than the
+// 64-byte one that destroys nothing.
+class GTexture {
+public:
+    class ChangeHandler;
+};
+
+class GArrayDefaultPolicy;
+
+template <class T, int N>
+class GAllocatorGH;
+
+template <class T, class A, class P>
+class GArrayData;
+
+// Through GNewOverrideBase, so the delete reaches GMemoryHeap::Free
+// and not the global operator: the call is Free__11GMemoryHeapFPv,
+// which -inline auto takes at the call site.
+template <class D>
+class GArrayBase : public GNewOverrideBase {
+public:
+    ~GArrayBase();
+};
+
+template <class T, int N, class P>
+class GArray : public GArrayBase<GArrayData<T, GAllocatorGH<T, N>, P> > {
+public:
+    ~GArray();
+};
+
+template <class T, int N, class P>
+GArray<T, N, P>::~GArray() {}
+
+template class GArray<GTexture::ChangeHandler*, 2, GArrayDefaultPolicy>;
+template class GArray<GRenderer::EventHandler*, 2, GArrayDefaultPolicy>;

@@ -7,18 +7,18 @@ numbers here, which move.
 ## State at time of writing
 
 ```
-Game Code:  67 of 777 files complete  330,944 / 2,116,616 bytes  2,730 / 10,697 fn
-            15.6355% of game code
+Game Code:  67 of 777 files complete  338,780 / 2,116,616 bytes  2,755 / 10,697 fn
+            16.0057% of game code
 
-Of those 2,730 functions, 774 are GENERATED -- machine-recognised
+Of those 2,755 functions, 783 are GENERATED -- machine-recognised
 shapes, not one of which is decompiling. They are real matched
 functions and the offsets and constants are recovered fact, but a
 count of them is not a count of decompiled code. HAND-WRITTEN IS
-1,956, across 263 units and 306,392 bytes, and that is the figure to
+1,972, across 265 units and 312,976 bytes, and that is the figure to
 compare against earlier ones.
 
 Data:       4 unit(s) carry their own, 412 bytes; 134 more could
-All:        6.71% matched              main.dol reproduces byte for byte
+All:        6.83% matched              main.dol reproduces byte for byte
 ```
 
 Every number above is written by `python tools/notes_state.py`,
@@ -3189,6 +3189,75 @@ is a few words SHORT is not a register-allocation problem.** Words
 that are absent are source that is absent. Both of these looked like
 permuted register allocation in the word diff, because everything
 after the missing store shifts by one.
+
+## 16% OF GAME CODE, and the last 8,000 bytes of it
+
+**CreateAnimTable is a SEARCH, not a table** -- which is why
+gen_animtables refuses all seven of them, and rightly: they open
+by walking the module's list of tables looking for one whose id
+matches, and hand that one back if it is there.
+
+    xAnimTable* zSpinner::CreateAnimTable(unsigned long long id) {
+        xAnimTable* table = animSpinnerTables;
+
+        while (table) {
+            if (table->id && *table->id == id) break;
+            table = table->next;
+        }
+
+        if (table == 0) { <eight bytes for the id, then the calls> }
+
+        return table;
+    }
+
+The list node IS an xAnimTable -- `next` at +0, the id pointer at
++0x1C -- which is why the found node is what comes back.
+`gen_createanimtable.py` writes the head from a template checked
+word for word against a matched one, and takes the calls from
+gen_animtables' own walk. A second shape keeps the id in a static
+of its own instead of taking eight bytes for it, so its head is two
+words shorter; both are tried and the reason given is the first's.
+
+**THE POOL HEADER IS NOT OPTIONAL, and it moves the registers.**
+Written without one, zSpinner's came out 684 bytes of 688 with 148
+of 171 words differing -- and the register allocation was among
+them, which reads like a hard problem. It is not: the strings fall
+at the unit's own offsets rather than the unity build's, `addi
+r4,r30,8` where retail has `addi r4,r27,9659`, and the addressing
+is what the allocation follows. With `gen_poolprefix.py --whole` it
+is byte-identical. The generator refuses a unit that has no pool
+header for that reason.
+
+Three of the seven keep their tables in an ANONYMOUS namespace,
+mangled with the unity build's filename, which a split-out unit
+cannot name (see anon_blocked.py). 2,692 bytes, refused rather than
+written as something that names nothing.
+
+**THE DESTRUCTOR FLAG SAYS BASE OR MEMBER.** EngineOG::SceneData's
+80-byte destructor came out one word off: `li r4,0` where retail
+has `li r4,-1`. Zero is a BASE subobject and -1 a complete one, so
+what it destroys is a MEMBER at +0, not a base -- `hkBaseObject m;`
+rather than `: public hkBaseObject`. Everything else about the two
+spellings is identical.
+
+**And a GFx array deletes through its own operator.** The two
+GArray destructors were also one word off, and the word was a
+MASKED one: our `bl` named `__dl__FPv` and retail's reaches
+`Free__11GMemoryHeapFPv`. GArrayBase derives from GNewOverrideBase,
+whose `static void operator delete(void* p) { GMemoryHeap::Free(p); }`
+-inline auto takes at the call site. A masked word can still be
+wrong, and unitcmp checks those by NAME -- there is no `<<` on the
+row, only the count.
+
+**The 124-byte Sext::*::Create template now covers four more**:
+an entity whose base is not World::xOGEntity (the base is a call,
+so it is declared with the vtable pointer the constructor stores at
++0 and nothing else, and the entity carries the whole allocation as
+padding); an asset class at global scope rather than in Sext; and a
+NESTED entity, FX::Ribbon::zRibbon, whose definition and forward
+declaration are wrapped in namespaces because `class A::B::C : ...`
+is not C++ -- a single mangled qualifier is written bare and two or
+more take Q<n>, so a namespace and a class give the same symbol.
 
 ## THE BRANCH THAT IS NOT IN THE SOURCE -- 9,852 bytes of it
 

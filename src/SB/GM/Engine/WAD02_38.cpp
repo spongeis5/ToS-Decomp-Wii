@@ -16,6 +16,23 @@
 // offsets each function touches are known, not the fields between.
 
 
+namespace World { class EntityHandleBase; }
+
+enum eMemMgrTag { eMemMgrTag_ = 0x7FFFFFFF };
+
+// The NPC base every allocated type derives from: its constructor
+// is a call in every one of them, so it is declared and never
+// defined, and it carries a virtual because the derived classes'
+// inline constructors store a vtable over its own.
+class zNPCGroupBase;
+
+class zNPCBase {
+public:
+    zNPCBase(World::EntityHandleBase* handle);
+
+    virtual void _v0();
+};
+
 class zModule {
 public:
     zModule();
@@ -102,58 +119,77 @@ public:
 };
 
 
-namespace zNPCAnimViewer {
-
-class Type {
+class zNPCAnimViewer : public zNPCBase {
 public:
-    Type();
+    zNPCAnimViewer(World::EntityHandleBase* handle) : zNPCBase(handle) {}
 
-    unsigned char _vbase[0x38];
-    virtual void __vtable_anchor();
+    virtual void _v0();
+
+    class Type {
+    public:
+        Type();
+
+        unsigned char _vbase[0x38];
+        virtual void __vtable_anchor();
+    };
+
+    unsigned char _pad0[0xBC];
 };
 
-}  // namespace zNPCAnimViewer
-
-namespace zNPCGeneric {
-
-class Type {
+class zNPCGeneric : public zNPCBase {
 public:
-    Type();
+    zNPCGeneric(World::EntityHandleBase* handle);
 
-    unsigned char _vbase[0x38];
-    virtual void __vtable_anchor();
+    class Type {
+    public:
+        Type();
+
+        unsigned char _vbase[0x38];
+        virtual void __vtable_anchor();
+    };
+
+    unsigned char _pad0[0x1CC];
 };
 
-}  // namespace zNPCGeneric
-
-namespace zNPCUPGeneric {
-
-class Type {
+class zNPCUPGeneric : public zNPCBase {
 public:
-    Type();
+    zNPCUPGeneric(World::EntityHandleBase* handle) : zNPCBase(handle) {}
 
-    unsigned char _vbase[0x38];
-    virtual void __vtable_anchor();
+    virtual void _v0();
+
+    class Type {
+    public:
+        Type();
+
+        unsigned char _vbase[0x38];
+        virtual void __vtable_anchor();
+    };
+
+    unsigned char _pad0[0x15C];
 };
 
-}  // namespace zNPCUPGeneric
-
-namespace zNPCGenericSwarm {
-
-class Type {
+class zNPCGenericSwarm : public zNPCBase {
 public:
-    Type();
+    zNPCGenericSwarm(World::EntityHandleBase* handle);
 
-    unsigned char _vbase[0x38];
-    virtual void __vtable_anchor();
+    class Type {
+    public:
+        Type();
+
+        unsigned char _vbase[0x38];
+        virtual void __vtable_anchor();
+    };
+
+    unsigned char _pad0[0x274];
 };
-
-}  // namespace zNPCGenericSwarm
 
 
 class zNPCGroupType {
 public:
     zNPCGroupType();
+
+    template <class T>
+    static zNPCGroupBase* sAllocateNPCGroup(World::EntityHandleBase* handle);
 
     unsigned char _vbase[0xC];
     virtual void __vtable_anchor();
@@ -290,3 +326,248 @@ public:
 Graphics::MaterialDepotSpace::~MaterialDepotSpace() {}
 
 EngineOG::SceneData::~SceneData() {}
+
+// Memory::Creator<N, T, B>: one template body per instantiation.
+// The factory allocation, a null test, and a placement new whose
+// own null guard is the second `beq`. sizeof(T) is the `li r4`,
+// N is the `li r5`, and the constructor is either a `bl` -- so it
+// is declared and never defined -- or the vtable store an INLINE
+// one makes, in which case the members it zeroes are read off the
+// stores that follow.
+
+extern "C" {
+void* memset(void* dst, int c, unsigned long n);
+}
+
+inline void* operator new(unsigned long, void* p) { return p; }
+
+namespace Memory {
+
+enum eFactoryMemType { eFactoryMemType_ = 0x7FFFFFFF };
+
+class Factory {
+public:
+    void* AllocMem(unsigned int size, eFactoryMemType type);
+};
+
+template <int N, class T, class B>
+class Creator {
+public:
+    static B* Create(Factory* f);
+    virtual B* CreateV(Factory* f);
+};
+
+template <int N, class T, class B>
+B* Creator<N, T, B>::Create(Factory* f) {
+    void* p = f->AllocMem(sizeof(T), (eFactoryMemType)N);
+
+    if (p == 0) {
+        return 0;
+    }
+
+    return new (p) T;
+}
+
+template <int N, class T, class B>
+B* Creator<N, T, B>::CreateV(Factory* f) {
+    void* p = f->AllocMem(sizeof(T), (eFactoryMemType)N);
+
+    if (p == 0) {
+        return 0;
+    }
+
+    return new (p) T;
+}
+
+}  // namespace Memory
+
+// Constructors that are a CALL: declared, never defined, and the
+// class padded to the size the allocation asks for.
+class zNPCFX { public: zNPCFX(); unsigned char _pad0[60]; };
+class zNPCPerception { public: zNPCPerception(); unsigned char _pad0[488]; };
+
+class zNPCSteering { public: unsigned char _pad0[1]; };
+
+class zNPCSwarmSteering : public zNPCSteering {
+public:
+    zNPCSwarmSteering();
+
+    unsigned char _pad0[5703];
+};
+
+class zNPCSingleSteering : public zNPCSteering {
+public:
+    zNPCSingleSteering();
+
+    unsigned char _pad0[167];
+};
+
+// Constructors that are INLINE: the vtable store is the whole of
+// one, and the words after it are the members it zeroes.
+class zNPCFXNode { public: unsigned char _pad0[0xC]; };
+
+class zNPCFXImmediateInstanceLoop : public zNPCFXNode {
+public:
+    virtual void _v0();
+
+    unsigned char _pad1[48 - 16];
+};
+
+class zNPCFXLoopFXScript : public zNPCFXNode {
+public:
+    zNPCFXLoopFXScript() : m10(0), m14(0), m18(0) {}
+
+    virtual void _v0();
+
+    int m10;
+    int m14;
+    int m18;
+};
+
+class zNPCFXOneShotFXScript : public zNPCFXNode {
+public:
+    zNPCFXOneShotFXScript() : m10(0), m14(0) {}
+
+    virtual void _v0();
+
+    int m10;
+    int m14;
+};
+
+class zNPCLogic { public: zNPCLogic() : m0(0) {} int m0; };
+
+class zNPCBTManager : public zNPCLogic {
+public:
+    virtual void _v0();
+
+    unsigned char _pad0[4];
+};
+
+// The member at +0 is stored BEFORE the vtable, so it belongs to a
+// BASE whose inline constructor runs first. The DWARF names that
+// base zNPCComponent and puts it at +0 of a 0xC0-byte class.
+class zNPCComponent { public: zNPCComponent() : m0(0) {} int m0; };
+
+class zNPCQuickTimeCombat : public zNPCComponent {
+public:
+    virtual void _v0();
+
+    unsigned char _pad0[192 - 8];
+};
+
+// always_inline because a constructor with an initialiser list is
+// past what -inline auto takes on its own: without it mwcc emits
+// __ct__18zNPCFXLoopFXScriptFv out of line and calls it, which
+// unitcmp reports as a function NOT IN RETAIL.
+#pragma always_inline on
+
+// ONE MEMBER EACH, not the whole class: retail carries Create for
+// three of these and CreateV for the rest, never both, so
+// instantiating the class emits a function the image does not have.
+template zNPCFX* Memory::Creator<3, zNPCFX, zNPCFX>::CreateV(Memory::Factory*);
+template zNPCPerception* Memory::Creator<5, zNPCPerception, zNPCPerception>::CreateV(Memory::Factory*);
+template zNPCSteering* Memory::Creator<7, zNPCSwarmSteering, zNPCSteering>::CreateV(Memory::Factory*);
+template zNPCSteering* Memory::Creator<7, zNPCSingleSteering, zNPCSteering>::CreateV(Memory::Factory*);
+template zNPCFXNode* Memory::Creator<4, zNPCFXImmediateInstanceLoop, zNPCFXNode>::Create(Memory::Factory*);
+template zNPCFXNode* Memory::Creator<4, zNPCFXLoopFXScript, zNPCFXNode>::Create(Memory::Factory*);
+template zNPCFXNode* Memory::Creator<4, zNPCFXOneShotFXScript, zNPCFXNode>::Create(Memory::Factory*);
+template zNPCLogic* Memory::Creator<1, zNPCBTManager, zNPCLogic>::CreateV(Memory::Factory*);
+template zNPCQuickTimeCombat* Memory::Creator<16, zNPCQuickTimeCombat, zNPCQuickTimeCombat>::CreateV(Memory::Factory*);
+
+#pragma always_inline off
+
+// zNPCType::sAllocateNPC<T> and zNPCGroupType::sAllocateNPCGroup<T>:
+// one allocation, one memset, one placement new. sizeof(T) is the
+// `li r3` and the memset's `li r5`, which agree; the constructor is
+// either a `bl` of its own or the base's `bl` followed by the vtable
+// store an INLINE one makes.
+
+namespace Memory {
+enum GlobalHeapEnum { GlobalHeapEnum_ = 0x7FFFFFFF };
+
+void* AllocGlobalHeap(unsigned long size, GlobalHeapEnum heap,
+                      eMemMgrTag tag, bool clear);
+}  // namespace Memory
+
+class zNPCGroupBase {
+public:
+    zNPCGroupBase(World::EntityHandleBase* handle);
+
+    virtual void _v0();
+};
+
+class zNPCGroupCircle : public zNPCGroupBase {
+public:
+    zNPCGroupCircle(World::EntityHandleBase* handle)
+        : zNPCGroupBase(handle) {}
+
+    virtual void _v0();
+
+    unsigned char _pad0[72 - 4];
+};
+
+class zNPCGroupSpaceInvaders : public zNPCGroupBase {
+public:
+    zNPCGroupSpaceInvaders(World::EntityHandleBase* handle)
+        : zNPCGroupBase(handle) {}
+
+    virtual void _v0();
+
+    unsigned char _pad0[72 - 4];
+};
+
+// Nothing of its own: zNPCGeneric is already the whole 464 bytes,
+// and the virtual is here only so the class has a vtable to store.
+class zNPCSBGeneric : public zNPCGeneric {
+public:
+    zNPCSBGeneric(World::EntityHandleBase* handle)
+        : zNPCGeneric(handle) {}
+
+    virtual void _v0();
+};
+
+class zNPCType {
+public:
+    template <class T>
+    static zNPCBase* sAllocateNPC(World::EntityHandleBase* handle);
+};
+
+template <class T>
+zNPCBase* zNPCType::sAllocateNPC(World::EntityHandleBase* handle) {
+    return new (memset(
+        Memory::AllocGlobalHeap(sizeof(T), (Memory::GlobalHeapEnum)0,
+                                (eMemMgrTag)16, false),
+        0, sizeof(T))) T(handle);
+}
+
+template <class T>
+zNPCGroupBase* zNPCGroupType::sAllocateNPCGroup(
+    World::EntityHandleBase* handle) {
+    return new (memset(
+        Memory::AllocGlobalHeap(sizeof(T), (Memory::GlobalHeapEnum)0,
+                                (eMemMgrTag)16, false),
+        0, sizeof(T))) T(handle);
+}
+
+#pragma always_inline on
+
+template zNPCBase* zNPCType::sAllocateNPC<zNPCAnimViewer>(
+    World::EntityHandleBase*);
+template zNPCBase* zNPCType::sAllocateNPC<zNPCGeneric>(
+    World::EntityHandleBase*);
+// zNPCGenericSpawner is left out: this file already derives it
+// from xLightEffectFlicker for its destructor, and sAllocateNPC
+// wants it deriving from zNPCBase. One of those two is wrong and
+// the bytes here do not say which, so neither is guessed at.
+template zNPCBase* zNPCType::sAllocateNPC<zNPCUPGeneric>(
+    World::EntityHandleBase*);
+template zNPCBase* zNPCType::sAllocateNPC<zNPCSBGeneric>(
+    World::EntityHandleBase*);
+template zNPCBase* zNPCType::sAllocateNPC<zNPCGenericSwarm>(
+    World::EntityHandleBase*);
+template zNPCGroupBase* zNPCGroupType::sAllocateNPCGroup<
+    zNPCGroupCircle>(World::EntityHandleBase*);
+template zNPCGroupBase* zNPCGroupType::sAllocateNPCGroup<
+    zNPCGroupSpaceInvaders>(World::EntityHandleBase*);
+
+#pragma always_inline off

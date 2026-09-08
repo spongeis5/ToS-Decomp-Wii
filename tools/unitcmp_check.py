@@ -79,7 +79,7 @@ EXPECT = {
     "SB/GM/Engine/WAD00_1": (4, 4),
     "SB/GM/Engine/WAD00_2": (7, 7),
     "SB/GM/Engine/WAD01_21": (4, 4),
-    "SB/GM/Engine/WAD02_38": (19, 19),
+    "SB/GM/Engine/WAD02_38": (35, 35),
     "SB/GM/Engine/WAD03_16": (4, 5),
     "SB/GM/Engine/WAD03_2": (1, 1),
     # Three pins were LOWERED by hand on 2026-08-31 -- these two and

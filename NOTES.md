@@ -7,18 +7,18 @@ numbers here, which move.
 ## State at time of writing
 
 ```
-Game Code:  67 of 777 files complete  346,960 / 2,116,616 bytes  2,827 / 10,697 fn
-            16.3922% of game code
+Game Code:  67 of 777 files complete  348,360 / 2,116,616 bytes  2,843 / 10,697 fn
+            16.4583% of game code
 
-Of those 2,827 functions, 855 are GENERATED -- machine-recognised
+Of those 2,843 functions, 855 are GENERATED -- machine-recognised
 shapes, not one of which is decompiling. They are real matched
 functions and the offsets and constants are recovered fact, but a
 count of them is not a count of decompiled code. HAND-WRITTEN IS
-1,972, across 265 units and 312,976 bytes, and that is the figure to
+1,988, across 265 units and 314,376 bytes, and that is the figure to
 compare against earlier ones.
 
 Data:       4 unit(s) carry their own, 412 bytes; 134 more could
-All:        6.95% matched              main.dol reproduces byte for byte
+All:        6.97% matched              main.dol reproduces byte for byte
 ```
 
 Every number above is written by `python tools/notes_state.py`,
@@ -3189,6 +3189,53 @@ is a few words SHORT is not a register-allocation problem.** Words
 that are absent are source that is absent. Both of these looked like
 permuted register allocation in the word diff, because everything
 after the missing store shifts by one.
+
+## INSTANTIATE THE MEMBER, NOT THE CLASS
+
+`Memory::Creator<N, T, B>` is one template body:
+
+    void* p = f->AllocMem(sizeof(T), (eFactoryMemType)N);
+    if (p == 0) { return 0; }
+    return new (p) T;
+
+-- and `zNPCType::sAllocateNPC<T>` is another. Sixteen functions,
+1,400 bytes, and the holes are a size, a tag and a constructor, all
+three in the bytes: `li r4,SIZE`, `li r5,N`, and either a `bl` to
+T's constructor or the vtable store its INLINE one makes.
+
+**THE SECOND NULL TEST IS THE PLACEMENT NEW's.** `if (p == 0)
+return 0;` gives the `bne` and the `li r3,0`; `new (p) T` guards the
+pointer AGAIN on its own account, which is the `beq` that follows
+and looks redundant.
+
+**`template class X<...>;` EMITS A FUNCTION THE IMAGE DOES NOT
+HAVE.** Retail carries `Create` for three of these instantiations
+and `CreateV` for the rest, never both -- so instantiating the CLASS
+gave nine EXTRA functions and unitcmp said so by name. Instantiating
+the MEMBER that retail has emits exactly that one. And `CreateV`
+carries the whole body rather than `return Create(f);`: written as a
+call it stayed a call, eight bytes of `b Create`.
+
+**A NAMESPACE AND A CLASS MANGLE THE SAME, and that is what lets a
+name be both.** Four of the T's were already NAMESPACES in this
+file, holding a nested `Type` whose constructor was matched --
+`__ct__Q214zNPCAnimViewer4TypeFv`. Turning the namespace into a
+class keeps that symbol exactly and makes the name available as the
+type being allocated.
+
+**AND A MEMBER STORED BEFORE THE VTABLE IS IN A BASE.**
+zNPCQuickTimeCombat came out five words off: retail zeroes the word
+at +0 and THEN stores the vtable at +4, where ours did the vtable
+first. A class's own constructor cannot run before its base's, so
+the member belongs to the base -- the DWARF names it zNPCComponent
+and puts it at +0 of a 0xC0-byte class, which is the size the
+allocation asks for.
+
+`#pragma always_inline on` around the instantiations again: a
+constructor with an initialiser list is past what `-inline auto`
+takes on its own, and without it mwcc emits
+`__ct__18zNPCFXLoopFXScriptFv` out of line -- a function NOT IN
+RETAIL, which is what unitcmp calls it.
 
 ## A SILHOUETTE READ SIX OF EIGHTY-FOUR; READING THE PROGRAM READ ALL OF THEM
 

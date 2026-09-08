@@ -43,6 +43,16 @@ unsigned int xAnimTableNewTransition(xAnimTable* table, const char* from, const 
 // makes such a call derives from this stub, and reaches the manager's
 // action array through `manager`, its first word.
 class zPlayer;
+
+// Only the field the 108-byte animation callbacks read, at the
+// offset they read it from and the type their compare says --
+// cmpwi is signed, cmplwi is not. Nothing else about zPlayer is
+// known here.
+class zPlayer {
+public:
+    unsigned char _pad0[0x898];
+    int f898;
+};
 class zPlayerActionManager;
 // The two dereferences every animation callback makes. Nothing in
 // the image NAMES either type, so both are spelled as the offsets
@@ -340,6 +350,84 @@ unsigned int zPlayerIdlePlankton::anZapMissCheck(xAnimTransition* a0, xAnimSingl
 
     if (((zPlayerIdlePlankton*)((AnimCBHolder*)a0)->slot->owner)->_v5()) {
         if (((zPlayerIdlePlankton*)((AnimCBHolder*)a0)->slot->owner)->ZapMissCheck(a0, a1)) {
+            result = 1;
+        }
+    }
+
+    return result;
+}
+
+unsigned int zPlayerIdlePlankton::anEnterCheck(xAnimTransition* a0, xAnimSingle* a1,
+                                               void* a2) {
+    unsigned int result = 0;
+
+    if (((zPlayerIdlePlankton*)((AnimCBHolder*)a0)->slot->owner)->_v5()) {
+        if (((zPlayerIdlePlankton*)((AnimCBHolder*)a0)->slot->owner)->player->f898 == 2) {
+            result = 1;
+        }
+    }
+
+    return result;
+}
+
+unsigned int zPlayerIdlePlankton::anExitCheck(xAnimTransition* a0, xAnimSingle* a1,
+                                              void* a2) {
+    unsigned int result = 0;
+
+    if (((zPlayerIdlePlankton*)((AnimCBHolder*)a0)->slot->owner)->_v5()) {
+        if (((zPlayerIdlePlankton*)((AnimCBHolder*)a0)->slot->owner)->player->f898 == 3) {
+            result = 1;
+        }
+    }
+
+    return result;
+}
+
+unsigned int zPlayerIdlePlankton::anIdleCheck(xAnimTransition* a0, xAnimSingle* a1,
+                                              void* a2) {
+    unsigned int result = 0;
+
+    if (((zPlayerIdlePlankton*)((AnimCBHolder*)a0)->slot->owner)->_v5()) {
+        if (((zPlayerIdlePlankton*)((AnimCBHolder*)a0)->slot->owner)->player->f898 == 1) {
+            result = 1;
+        }
+    }
+
+    return result;
+}
+
+unsigned int zPlayerIdlePlankton::anShakeCheck(xAnimTransition* a0, xAnimSingle* a1,
+                                               void* a2) {
+    unsigned int result = 0;
+
+    if (((zPlayerIdlePlankton*)((AnimCBHolder*)a0)->slot->owner)->_v5()) {
+        if (((zPlayerIdlePlankton*)((AnimCBHolder*)a0)->slot->owner)->player->f898 == 4) {
+            result = 1;
+        }
+    }
+
+    return result;
+}
+
+unsigned int zPlayerIdlePlankton::anZapHurtCheck(xAnimTransition* a0, xAnimSingle* a1,
+                                                 void* a2) {
+    unsigned int result = 0;
+
+    if (((zPlayerIdlePlankton*)((AnimCBHolder*)a0)->slot->owner)->_v5()) {
+        if (((zPlayerIdlePlankton*)((AnimCBHolder*)a0)->slot->owner)->player->f898 == 7) {
+            result = 1;
+        }
+    }
+
+    return result;
+}
+
+unsigned int zPlayerIdlePlankton::anZapStunCheck(xAnimTransition* a0, xAnimSingle* a1,
+                                                 void* a2) {
+    unsigned int result = 0;
+
+    if (((zPlayerIdlePlankton*)((AnimCBHolder*)a0)->slot->owner)->_v5()) {
+        if (((zPlayerIdlePlankton*)((AnimCBHolder*)a0)->slot->owner)->player->f898 == 6) {
             result = 1;
         }
     }

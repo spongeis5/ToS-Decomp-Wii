@@ -53,8 +53,30 @@ import disasm as D
 
 NL = chr(10)
 DONOR = "anJumpCheck__11zPlayerJumpFP15xAnimTransitionP11xAnimSinglePv"
+# A THIRD SHAPE, 108 bytes: the same slot-5 virtual, and then a field of
+# the owner's PLAYER compared with a constant instead of a forward to a
+# Check of its own. The offset and the constant are two more holes, read
+# out of the two words that carry them.
+STATE = "anLedgeGrabCheck__12zPlayerLedgeFP15xAnimTransitionP11xAnimSinglePv"
+STATE_FIELD = 17                          # lwz r0,N(r3)
+STATE_CONST = 18                          # cmpwi r0,K
 CBSIG = "P15xAnimTransitionP11xAnimSinglePv"
 NEEDS = ["struct AnimCBHolder", "struct AnimCBSlot", "virtual bool _v5();"]
+
+STATE_BODY = NL.join([
+    "unsigned int %(cls)s::%(an)s(xAnimTransition* a0, xAnimSingle* a1,",
+    "%(pad)svoid* a2) {",
+    "    unsigned int result = 0;",
+    "",
+    "    if (((%(cls)s*)((AnimCBHolder*)%(h)s)->slot->owner)->_v5()) {",
+    "        if (((%(cls)s*)((AnimCBHolder*)%(h)s)->slot->owner)"
+    "->player->%(field)s == %(const)d) {",
+    "            result = 1;",
+    "        }",
+    "    }",
+    "",
+    "    return result;",
+    "}"])
 
 BODY = NL.join([
     "unsigned int %(cls)s::%(an)s(xAnimTransition* a0, xAnimSingle* a1,",
@@ -162,7 +184,72 @@ def candidates():
         else:
             refused["the two holder reads disagree"] += 1
             continue
-        out[u].append((a, nm, cls, m.group(1), target, holder))
+        out[u].append((a, nm, cls, m.group(1), target, holder,
+                       None, None))
+
+    # ---- the 108-byte shape ------------------------------------------
+    if STATE in byname:
+        sa, ssz = byname[STATE]
+        stmpl = words(raw, secs, sa, ssz)
+        sbranch = set(i for i, w in enumerate(stmpl) if (w >> 26) == 18)
+        SCHAIN = (6, 14)
+        SA0 = (0x80830004, 0x807E0004)
+        SA1 = (0x80840004, 0x807F0004)
+        skip = sbranch | set(SCHAIN) | {STATE_FIELD, STATE_CONST}
+        for a in sorted(funcs):
+            nm, sz = funcs[a]
+            if sz != ssz or nm in matched:
+                continue
+            ws = words(raw, secs, a, sz)
+            if ws is None or len(ws) != len(stmpl):
+                continue
+            if any(ws[i] != stmpl[i] for i in range(len(stmpl))
+                   if i not in skip):
+                continue
+            # Only the DISPLACEMENT of the field read may vary, not the
+            # form: a `lbz` with an `extsb` after it is a signed char
+            # field and a different shape, and skipping the whole word
+            # let one through with the extsb read as the constant.
+            if (ws[STATE_FIELD] >> 16) != (stmpl[STATE_FIELD] >> 16):
+                refused["the field is not read as a word"] += 1
+                continue
+            # cmpwi or cmplwi -- signed or not is READ, and the field
+            # has to be declared to match or the compare comes out as
+            # the other one.
+            if (ws[STATE_CONST] >> 16) == (stmpl[STATE_CONST] >> 16):
+                signed = True
+            elif (ws[STATE_CONST] >> 26) == 10 and \
+                    ((ws[STATE_CONST] >> 16) & 0x3FF) == \
+                    ((stmpl[STATE_CONST] >> 16) & 0x3FF):
+                signed = False
+            else:
+                refused["the compare is not a cmpwi or a cmplwi"] += 1
+                continue
+            m = re.match(r"^(an[A-Za-z_]\w*)__(\d+)(\w+)$", nm)
+            if not m:
+                refused["the name is not an<X>__<class>F..."] += 1
+                continue
+            n = int(m.group(2))
+            cls, params = m.group(3)[:n], m.group(3)[n:]
+            if params != "F" + CBSIG:
+                refused["not a transition callback signature"] += 1
+                continue
+            u = unit_of(a)
+            if u is None:
+                refused["outside every split"] += 1
+                continue
+            chain = tuple(ws[i] for i in SCHAIN)
+            if chain == SA0:
+                holder = "a0"
+            elif chain == SA1:
+                holder = "a1"
+            else:
+                refused["the two holder reads disagree"] += 1
+                continue
+            field = ws[STATE_FIELD] & 0xFFFF
+            konst = ws[STATE_CONST] & 0xFFFF
+            out[u].append((a, nm, cls, m.group(1), None, holder,
+                           (field, signed), konst))
     return out, refused, dsz
 
 
@@ -201,7 +288,8 @@ def merge(unit, rows):
                          % (unit, ", ".join(missing)))
 
     bodies, problems, done = [], [], 0
-    for _a, _nm, cls, an, target, holder in sorted(rows, key=lambda r: r[1]):
+    for (_a, _nm, cls, an, target, holder, field,
+         konst) in sorted(rows, key=lambda r: r[1]):
         hm = re.search(r"(?m)^class %s\b([^{;]*)\{" % re.escape(cls), text)
         if hm is None:
             problems.append("%s has no class in this unit" % cls)
@@ -209,10 +297,11 @@ def merge(unit, rows):
         if not reaches(text, cls):
             problems.append("%s does not reach zPlayerAction" % cls)
             continue
-        decls = [
-            "    static unsigned int %s(xAnimTransition* a0, "
-            "xAnimSingle* a1, void* a2);" % an,
-            "    bool %s(xAnimTransition* a0, xAnimSingle* a1);" % target]
+        decls = ["    static unsigned int %s(xAnimTransition* a0, "
+                 "xAnimSingle* a1, void* a2);" % an]
+        if target is not None:
+            decls.append("    bool %s(xAnimTransition* a0, "
+                         "xAnimSingle* a1);" % target)
         j = text.index(NL + "};", hm.start())
         block = text[hm.start():j]
         # By NAME: gen_accessors wrote some of these already and
@@ -232,8 +321,24 @@ def merge(unit, rows):
         if add:
             text = text[:j] + NL + NL.join(add) + text[j:]
         pad = " " * (len("unsigned int %s::%s(" % (cls, an)))
-        bodies.append(BODY % {"cls": cls, "an": an, "target": target,
-                              "pad": pad, "h": holder})
+        fill = {"cls": cls, "an": an, "target": target, "pad": pad,
+                "h": holder}
+        if target is None:
+            # The 108-byte shape: the field the owner's player is read
+            # at, and the constant it is compared with, both read off
+            # the bytes. The member is named for its offset because
+            # nothing in the image names it.
+            fill["const"] = konst
+            off, signed = field
+            ty = "int" if signed else "unsigned int"
+            fill["field"] = "f%X" % off
+            if ("    %s f%X;" % (ty, off)) not in text:
+                problems.append("zPlayer has no `%s f%X;` for %s"
+                                % (ty, off, an))
+                continue
+            bodies.append(STATE_BODY % fill)
+        else:
+            bodies.append(BODY % fill)
         done += 1
 
     if problems:

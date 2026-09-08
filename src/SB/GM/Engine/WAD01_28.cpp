@@ -586,6 +586,8 @@ public:
 
     unsigned char _pad0[0x160];
     int f160;
+    unsigned char _padx[0x858];
+    unsigned int f9BC;
 };
 
 
@@ -1021,6 +1023,8 @@ public:
     bool DeathCheck(xAnimTransition* a0, xAnimSingle* a1);
     static unsigned int anFrozenGooDeathCheck(xAnimTransition* a0, xAnimSingle* a1, void* a2);
     bool FrozenGooDeathCheck(xAnimTransition* a0, xAnimSingle* a1);
+    static unsigned int anGooDeathCheck(xAnimTransition* a0, xAnimSingle* a1, void* a2);
+    static unsigned int anLavaDeathCheck(xAnimTransition* a0, xAnimSingle* a1, void* a2);
 };
 
 class zPlayerJumpBoard : public zPlayerAction {
@@ -3623,4 +3627,30 @@ zSBCastCollector::~zSBCastCollector() {}
 // zPlayerHitLaunchBoard::AddStandardTransitionsFrom: 1 call(s)
 void zPlayerHitLaunchBoard::AddStandardTransitionsFrom(xAnimTable* table, const char* name) {
     AddTransitions(table, name, 0, 0, 1100, 0.15f, 0, 0, (zPlayerAction::SpecialActions)0);
+}
+
+unsigned int zPlayerDefeatedBoard::anGooDeathCheck(xAnimTransition* a0, xAnimSingle* a1,
+                                                   void* a2) {
+    unsigned int result = 0;
+
+    if (((zPlayerDefeatedBoard*)((AnimCBHolder*)a0)->slot->owner)->_v5()) {
+        if (((zPlayerDefeatedBoard*)((AnimCBHolder*)a0)->slot->owner)->player->f9BC == 9) {
+            result = 1;
+        }
+    }
+
+    return result;
+}
+
+unsigned int zPlayerDefeatedBoard::anLavaDeathCheck(xAnimTransition* a0, xAnimSingle* a1,
+                                                    void* a2) {
+    unsigned int result = 0;
+
+    if (((zPlayerDefeatedBoard*)((AnimCBHolder*)a0)->slot->owner)->_v5()) {
+        if (((zPlayerDefeatedBoard*)((AnimCBHolder*)a0)->slot->owner)->player->f9BC == 10) {
+            result = 1;
+        }
+    }
+
+    return result;
 }

@@ -23,7 +23,21 @@ unsigned int xAnimTableNewTransition(xAnimTable* table, const char* from, const 
 // makes such a call derives from this stub, and reaches the manager's
 // action array through `manager`, its first word.
 class zPlayer;
+
+// Only the field the 108-byte animation callbacks read, at the
+// offset they read it from and the type their compare says.
+class zPlayer {
+public:
+    unsigned char _pad0[0x898];
+    int f898;
+};
 class zPlayerActionManager;
+// The two dereferences every animation callback makes. Nothing in
+// the image NAMES either type, so both are spelled as the offsets
+// that were measured. Neither struct emits a symbol.
+struct AnimCBSlot { unsigned char _pad[0x90]; void* owner; };
+struct AnimCBHolder { unsigned char _pad[0x4]; AnimCBSlot* slot; };
+
 class zPlayerAction {
 public:
     zPlayerActionManager* manager;
@@ -40,6 +54,13 @@ public:
                                 unsigned int (*b)(xAnimTransition*, xAnimSingle*, void*),
                                 unsigned short e, float f, unsigned int g,
                                 unsigned int h, SpecialActions i);
+
+    // Slot 5 is what every one of the image's 116-byte animation
+    // callbacks tests before it forwards: `lwz r12,28(r12)` on a
+    // vptr that sits at +12, and (28 - 8) / 4 is 5. Appended, so the
+    // three slots the tables call keep the indices they have.
+    virtual bool _v4();
+    virtual bool _v5();
 
     unsigned int NewState(xAnimTable* table, const char* name,
                           unsigned int a, unsigned int b, float c,
@@ -202,4 +223,43 @@ void zPlayerIdleShooting::AddTransitionsFrom(xAnimTable* table, const char* name
                             unsigned short e, float f, unsigned int g,
                             unsigned int h, zPlayerAction::SpecialActions i) {
     zPlayerAction::AddActionTransition(table, name, "Idle01", zPlayerIdlePlankton::anIdleCheck, a, b, e, f, g, h);
+}
+
+unsigned int zPlayerIdleShooting::anShakeCheck(xAnimTransition* a0, xAnimSingle* a1,
+                                               void* a2) {
+    unsigned int result = 0;
+
+    if (((zPlayerIdleShooting*)((AnimCBHolder*)a0)->slot->owner)->_v5()) {
+        if (((zPlayerIdleShooting*)((AnimCBHolder*)a0)->slot->owner)->player->f898 == 5) {
+            result = 1;
+        }
+    }
+
+    return result;
+}
+
+unsigned int zPlayerIdleShooting::anZapHurtCheck(xAnimTransition* a0, xAnimSingle* a1,
+                                                 void* a2) {
+    unsigned int result = 0;
+
+    if (((zPlayerIdleShooting*)((AnimCBHolder*)a0)->slot->owner)->_v5()) {
+        if (((zPlayerIdleShooting*)((AnimCBHolder*)a0)->slot->owner)->player->f898 == 8) {
+            result = 1;
+        }
+    }
+
+    return result;
+}
+
+unsigned int zPlayerIdleShooting::anZapMissCheck(xAnimTransition* a0, xAnimSingle* a1,
+                                                 void* a2) {
+    unsigned int result = 0;
+
+    if (((zPlayerIdleShooting*)((AnimCBHolder*)a0)->slot->owner)->_v5()) {
+        if (((zPlayerIdleShooting*)((AnimCBHolder*)a0)->slot->owner)->player->f898 == 9) {
+            result = 1;
+        }
+    }
+
+    return result;
 }

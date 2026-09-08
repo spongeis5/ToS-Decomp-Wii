@@ -48,6 +48,16 @@ class xScene;
 // A base only in the sense that r3 reaches it unchanged:
 // the branch is four bytes and names nothing else.
 class zPlayer;
+
+// Only the field the 108-byte animation callbacks read, at the
+// offset they read it from and the type their compare says --
+// cmpwi is signed, cmplwi is not. Nothing else about zPlayer is
+// known here.
+class zPlayer {
+public:
+    unsigned char _pad0[0x4A0];
+    int f4A0;
+};
 class zPlayerActionManager;
 
 // The stub zSBPlayerActions.cpp carries, with ONE difference, and
@@ -981,4 +991,17 @@ void zPlayerWalkStart::AddActionTransitions(xAnimTable* table) {
     manager->AddStandardTransitionsTo(12, table, zPlayerWalkStart::GetTransitionString());
     manager->AddStandardTransitionsTo(15, table, zPlayerWalkStart::GetTransitionString());
     AddStandardTransitions(table, zPlayerWalkStart::GetTransitionString());
+}
+
+unsigned int zPlayerLedge::anLedgeGrabCheck(xAnimTransition* a0, xAnimSingle* a1,
+                                            void* a2) {
+    unsigned int result = 0;
+
+    if (((zPlayerLedge*)((AnimCBHolder*)a0)->slot->owner)->_v5()) {
+        if (((zPlayerLedge*)((AnimCBHolder*)a0)->slot->owner)->player->f4A0 == 2) {
+            result = 1;
+        }
+    }
+
+    return result;
 }

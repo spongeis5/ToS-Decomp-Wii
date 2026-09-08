@@ -46,6 +46,44 @@ spell stops the merge. A class that makes such a call is derived from
 the unit's zPlayerAction stub (three members, then the virtuals, so
 the vptr lands at +12) and its leading padding shrinks by the base.
 
+AND THE SAME HELPER IS INLINED IN ONE UNIT AND NOT IN ANOTHER, which
+is the fact the four rules below exist to handle. zSBPlayerActions.cpp
+and the tables already merged into WAD01_28.cpp reach NewState,
+AddActionTransition and the manager's AddTransitionsTo family through
+the inline spelling, because retail's unity build inlined them there.
+zCommonPlayerActions.cpp's tables `bl` straight to the same four
+symbols, and so do 62 more in WAD01_28. The bytes say which, unit by
+unit; nothing else does.
+
+  * A CALL TO A MEMBER FUNCTION is spelled, static or not, and WHICH
+    is read rather than guessed: `this` in r3 is a non-static member
+    of a base the caller must derive from, `this->manager` and
+    `this->player` are non-static members of the two classes the stub
+    declares those pointers as, and anything else in r3 is the
+    callee's FIRST ARGUMENT, which makes it static. Reading it wrong
+    changes the argument COUNT, so it cannot pass silently -- the
+    call does not compile. Any other receiver still refuses.
+  * A SIGNATURE THE PARAMS TABLE DOES NOT NAME is built from the
+    mangled parameter list instead of refused, so `AddTransitionsFrom`
+    and its nine parameters are a table like any other. A token the
+    list cannot read still refuses.
+  * Q<n> QUALIFIED TYPE NAMES read, so
+    `Q213zPlayerAction14SpecialActions` is
+    zPlayerAction::SpecialActions -- and an argument whose parameter
+    type is a named class or enum carries the cast, which with
+    -enum int changes the source and not the bytes.
+  * EVERY INCOMING ARGUMENT REGISTER IS SEEDED, not just the two the
+    one-parameter tables use, because a table that FORWARDS its own
+    parameters leaves them in the registers they arrived in. An
+    ("arg", n) with no name in the caller's signature is still
+    reported unresolved, so the refusal is kept.
+
+A unit whose tables call the helpers out of line needs the
+zPlayerAction stub with its three members, the SpecialActions enum and
+the four virtuals -- and needs the helpers DECLARED and left
+undefined, where zSBPlayerActions.cpp defines them `inline`. Getting
+that backwards inlines a call retail made out of line, or the reverse.
+
 Three helpers zPlayerAction.cpp defines were inlined by retail's unity
 build and change the order hoisted values come out in, so the merger
 spells the calls through them and the unit defines them `inline`:
@@ -155,8 +193,20 @@ def walk(sym, callee):
     ws = struct.unpack(">" + "I" * (size // 4), D.read(raw, secs, addr, size))
     branches = sum(1 for w in ws if (w >> 26) == 16
                    or ((w >> 26) == 18 and not (w & 1)))
-    regs = {3: THIS, 4: ("arg", 4), 5: ("arg", 5)}
-    fprs, stack, calls = {}, {}, []
+    # Every incoming argument register, not just the two the
+    # one-parameter tables use: a table that FORWARDS a parameter to
+    # the call leaves it untouched in the register it arrived in, and
+    # without the seed the walk reports it unresolved. A register the
+    # body writes overwrites its seed, so this can only add names.
+    # An ("arg", n) with no name in the caller's signature is still a
+    # problem -- lit() reports it -- so the refusal is kept.
+    regs = {3: THIS}
+    for _n in range(4, 11):
+        regs[_n] = ("arg", _n)
+    fprs = {}
+    for _n in range(1, 9):
+        fprs[_n] = ("farg", _n)
+    stack, calls = {}, []
     frame = 0
     for i, w in enumerate(ws):
         a = addr + 4 * i
@@ -273,6 +323,8 @@ class Merge(object):
         self.mgr_needed = False
         self.newstate_needed = False
         self.problems = []
+        self.argnames = {("arg", 4): "table", ("arg", 5): "name"}
+        self.fargnames = {}
 
     @staticmethod
     def split_sym(sym):
@@ -303,10 +355,8 @@ class Merge(object):
         return "%s::%s" % (cls, name)
 
     def lit(self, v, where):
-        if v == ("arg", 4):
-            return "table"
-        if v == ("arg", 5):
-            return "name"
+        if v in self.argnames:
+            return self.argnames[v]
         if v == ("ld", THIS, 0):
             return "manager"
         if v == ("ld", THIS, 4):
@@ -333,6 +383,12 @@ class Merge(object):
         return "%d" % v if v < 65536 else "0x%X" % v
 
     def flt(self, v, where):
+        if isinstance(v, tuple) and v and v[0] == "farg":
+            if v[1] in self.fargnames:
+                return self.fargnames[v[1]]
+            self.problems.append("%s: float argument f%d has no name in "
+                                 "the signature" % (where, v[1]))
+            return "?"
         if v == "?":
             self.problems.append("%s: unresolved float" % where)
             return "?"
@@ -373,6 +429,20 @@ class Merge(object):
                 hit = ("const char*", "g", 3)
             if hit is None and rest.startswith("Pv"):
                 hit = ("void*", "g", 2)
+            if hit is None and rest.startswith("Q") and len(rest) > 1 \
+                    and rest[1].isdigit():
+                # Q<count><len><name>... -- a qualified type, which a
+                # nested enum like zPlayerAction::SpecialActions is.
+                want, j, parts = int(rest[1]), 2, []
+                for _ in range(want):
+                    m = re.match(r"(\d+)", rest[j:])
+                    if m is None:
+                        return None
+                    ln = int(m.group(1))
+                    j += m.end() + ln
+                    parts.append(rest[j - ln:j])
+                if len(parts) == want:
+                    hit = ("::".join(parts), "g", j)
             if hit is None:
                 m = re.match(r"P(\d+)", rest)
                 if m:
@@ -391,6 +461,121 @@ class Merge(object):
             out.append(hit[:2])
             i += hit[2]
         return out
+
+    @classmethod
+    def cast(cls, ty, text):
+        """An argument whose parameter type is a named class or enum
+        needs the cast: an int literal does not convert to
+        zPlayerAction::SpecialActions on its own. Casting an integer
+        to an enum is codegen-neutral -- with -enum int both are one
+        word -- so this changes the source and not the bytes."""
+        if "*" in ty or ty in cls.SCALAR.values() or text == "?":
+            return text
+        return "(%s)%s" % (ty, text)
+
+    ARGN = "abcdefghijklmnopqrstuvwxyz"
+
+    def param_src(self, types):
+        """A signature the PARAMS table does not name, as source,
+        plus which register each parameter ARRIVES in so a forwarded
+        one can be spelled by name. The ABI is the one free_call
+        already reads, with r3 taken by `this`."""
+        gpr, fpr, slot = 4, 1, 8
+        src, names, fnames = [], {}, {}
+        for i, (ty, kind) in enumerate(types):
+            nm = self.ARGN[i]
+            if i == 0 and ty == "xAnimTable*":
+                nm = "table"
+            elif i == 1 and ty == "const char*":
+                nm = "name"
+            if kind == "f":
+                fnames[fpr] = nm
+                fpr += 1
+            elif gpr <= 10:
+                names[("arg", gpr)] = nm
+                gpr += 1
+            else:
+                names[("stackarg", slot)] = nm
+                slot += 4
+            src.append(ty.replace("(*)", "(*%s)" % nm)
+                       if "(*)" in ty else "%s %s" % (ty, nm))
+        return ", ".join(src), names, fnames
+
+    def member_call(self, sp, r, f, st, where, caller):
+        """A member function with a mangled signature. Whether it is
+        STATIC is read, not assumed: a non-static member has `this`
+        in r3 and its arguments start at r4, a static one has its
+        first argument there. Getting that wrong changes the argument
+        COUNT, so it cannot pass silently.
+
+        Retail inlined three of these helpers in the units
+        zSBPlayerActions.cpp and WAD01_28.cpp were written from and
+        did NOT inline them elsewhere, which is why the same table
+        shape reaches the same helper through a `bl` in one unit and
+        through the inline spelling in another."""
+        name, cls, params = sp
+        types = self.parse_params(params)
+        if types is None:
+            self.problems.append("%s: cannot read the signature of "
+                                 "%s__%d%sF%s"
+                                 % (where, name, len(cls), cls, params))
+            return None
+        # WHOSE member it is comes out of the walk, not out of a
+        # guess. `this` in r3 is a member of a base the caller must
+        # derive from; the two member pointers the zPlayerAction stub
+        # declares are members of the classes it declares them as;
+        # anything else in r3 is the callee's FIRST ARGUMENT, which
+        # makes it static. Reading it wrong changes the argument
+        # count, so it cannot pass silently.
+        RECEIVERS = {THIS: ("", None),
+                     ("ld", THIS, 0): ("manager->", "zPlayerActionManager"),
+                     ("ld", THIS, 4): ("player->", "zPlayer")}
+        who = r.get(3)
+        static = who not in RECEIVERS
+        obj = ""
+        if not static:
+            obj, want = RECEIVERS[who]
+            if want is None:
+                if cls != "zPlayerAction":
+                    # The caller would have to derive from it, and the
+                    # zPlayerAction stub is the only base this tool
+                    # knows how to give a class.
+                    self.problems.append(
+                        "%s: calls %s on this, and %s is not a base "
+                        "this tool can give %s"
+                        % (where, name, cls, caller))
+                    return None
+            elif cls != want:
+                self.problems.append(
+                    "%s: calls %s on %s, which the stub declares as %s"
+                    % (where, name, obj[:-2], want))
+                return None
+        gpr, fpr, slot, args = (3 if static else 4), 1, 8, []
+        for ty, kind in types:
+            if kind == "f":
+                args.append(self.flt(f.get(fpr, "?"), where))
+                fpr += 1
+                continue
+            if gpr <= 10:
+                v = r.get(gpr, "?")
+                gpr += 1
+            else:
+                v = st.get(slot, "?")
+                slot += 4
+            args.append(self.cast(ty, self.fn_ref(v, where)
+                                  if kind == "cb" and isinstance(v, int)
+                                  else self.lit(v, where)))
+        sig = ", ".join(t for t, _k in types)
+        if static:
+            self.class_decls[cls].add("    static void %s(%s);"
+                                      % (name, sig))
+            return "%s::%s(%s);" % (cls, name, ", ".join(args))
+        self.class_decls[cls].add("    void %s(%s);" % (name, sig))
+        if obj:
+            self.base_needed.add(caller)
+            return "%s%s(%s);" % (obj, name, ", ".join(args))
+        self.base_needed.add(caller)
+        return "%s(%s);" % (name, ", ".join(args))
 
     def free_call(self, sp, r, f, st, where):
         """A free function with a mangled signature: its arguments sit
@@ -415,8 +600,10 @@ class Merge(object):
             else:
                 v = st.get(slot, "?")
                 slot += 4
-            args.append(self.fn_ref(v, where) if kind == "cb" and v != "?"
-                        else self.lit(v, where))
+            # A callback the caller FORWARDS is a parameter, not an
+            # address: only an integer can be looked up as a symbol.
+            args.append(self.fn_ref(v, where) if kind == "cb"
+                        and isinstance(v, int) else self.lit(v, where))
         self.free_decls.add("void %s(%s);" % (name, ", ".join(
             t for t, _k in types)))
         return "%s(%s);" % (name, ", ".join(args))
@@ -434,10 +621,17 @@ class Merge(object):
 
     def emit(self, sym):
         name, cls, params = self.split_sym(sym)
-        if params not in self.PARAMS:
-            raise SystemExit("gen_animtables: %s takes (%s); not a table "
-                             "signature" % (sym, params))
-        psrc = self.PARAMS[params]
+        psrc = self.PARAMS.get(params)
+        if psrc is not None:
+            self.argnames = {("arg", 4): "table", ("arg", 5): "name"}
+            self.fargnames = {}
+        else:
+            types = self.parse_params(params)
+            if types is None:
+                raise SystemExit("gen_animtables: %s takes (%s), which "
+                                 "does not read as a parameter list"
+                                 % (sym, params))
+            psrc, self.argnames, self.fargnames = self.param_src(types)
         addr, size, branches, calls = walk(sym, "xAnimTableNew")
         if branches:
             raise SystemExit("gen_animtables: %s has %d branch(es); not a "
@@ -534,10 +728,17 @@ class Merge(object):
                              % ", ".join(args))
             else:
                 sp = self.split_sym(callee)
-                if sp is None or sp[1] is not None:
+                if sp is None:
                     self.problems.append("%s: calls %s" % (where, callee))
                     continue
-                lines.append("    " + self.free_call(sp, r, f, st, where))
+                if sp[1] is None:
+                    lines.append("    " + self.free_call(sp, r, f, st,
+                                                        where))
+                    continue
+                call = self.member_call(sp, r, f, st, where, cls)
+                if call is None:
+                    continue
+                lines.append("    " + call)
         lines.append("}")
         self.class_decls[cls].add("    void %s(%s);" % (name, psrc))
         return cls, name, NL.join(lines), len(calls), psrc

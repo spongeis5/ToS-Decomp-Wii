@@ -7,18 +7,18 @@ numbers here, which move.
 ## State at time of writing
 
 ```
-Game Code:  67 of 777 files complete  225,176 / 2,116,616 bytes  2,195 / 10,697 fn
-            10.6385% of game code
+Game Code:  67 of 777 files complete  257,524 / 2,116,616 bytes  2,308 / 10,697 fn
+            12.1668% of game code
 
-Of those 2,195 functions, 686 are GENERATED -- machine-recognised
+Of those 2,308 functions, 686 are GENERATED -- machine-recognised
 shapes, not one of which is decompiling. They are real matched
 functions and the offsets and constants are recovered fact, but a
 count of them is not a count of decompiled code. HAND-WRITTEN IS
-1,509, across 262 units and 214,816 bytes, and that is the figure to
+1,622, across 262 units and 247,164 bytes, and that is the figure to
 compare against earlier ones.
 
 Data:       4 unit(s) carry their own, 412 bytes; 134 more could
-All:        5.12% matched              main.dol reproduces byte for byte
+All:        5.61% matched              main.dol reproduces byte for byte
 ```
 
 Every number above is written by `python tools/notes_state.py`,
@@ -3636,6 +3636,69 @@ Four of these units were gen_accessors output and taking them over
 moved 33 generated functions into the written column alongside the
 twelve added: written 1,464 -> 1,509 over 251 -> 262 units, generated
 719 -> 686 over 123 -> 119.
+
+### 12%, and four refusals that were holding 93,368 bytes
+
+The clusters had 15,672 unsolved bytes left in them and the target was
+7,652, so the clusters were not the answer. Asking a different
+question was: 395 functions in the image carry `AnimTable` in the
+name, 125 of them were matched and 270 were not, and those 270 carry
+93,368 bytes. There has been a generator for that shape
+(tools/gen_animtables.py) since the first tables were written.
+
+IT REFUSED ALL 158 BRANCHLESS ONES, and the refusals were four and not
+158. Counting them first is what made that visible -- one script over
+every unmatched table, printing which callee blocked how many callers
+and how many bytes -- rather than reading the first refusal and
+concluding the shape was hard. `NewStateMany`, the first refusal seen,
+blocks 2 callers and 228 bytes; the four that mattered are:
+
+  * A CALL TO A MEMBER FUNCTION could not be spelled at all. The
+    tool knew `xAnimTableNewState`, `xAnimTableNewTransition` and the
+    inlined forms of three helpers, and anything else that was a
+    member went to `problems`.
+  * A SIGNATURE OUTSIDE A TWO-ENTRY TABLE was refused as `not a table
+    signature`, which is every `AddTransitionsFrom` in the game --
+    nine parameters instead of one.
+  * Q<n> QUALIFIED TYPES did not parse, so
+    `Q213zPlayerAction14SpecialActions` stopped the signature that
+    carried it.
+  * ONLY r4 AND r5 WERE SEEDED as incoming arguments, so a table that
+    FORWARDS its own parameters to the call reported five unresolved
+    registers. `AddTransitionsFrom` forwards six.
+
+None of the four is a check being weakened. Each still ends in a
+refusal when the tool cannot read what it needs, and one of them is a
+check of its own: whether a member call is STATIC is read from r3 --
+`this` means non-static and arguments from r4, anything else means the
+callee's first argument is already there -- and reading it wrong
+changes the argument COUNT, so it cannot pass silently.
+
+THE SAME HELPER IS INLINED IN ONE UNIT AND NOT IN ANOTHER, and that is
+the fact underneath all of it. zSBPlayerActions.cpp reaches NewState,
+AddActionTransition and the manager's AddTransitionsTo family through
+the inline spelling, because retail's unity build inlined them there,
+and the file defines them `inline` so our fragment does the same.
+zCommonPlayerActions.cpp's tables `bl` straight to those same four
+symbols, and so do 62 more in WAD01_28. A unit of the second kind
+needs the identical zPlayerAction stub with the helpers DECLARED and
+left undefined. The bytes say which, unit by unit; nothing else does.
+
+122 tables merged over three units, 113 of them byte-identical:
+61 of 62 in WAD01_28.cpp, 31 of 34 in zSBPlayerActions.cpp and 21 of
+26 in zCommonPlayerActions.cpp. Game Code 10.6385% -> 12.1668%,
+225,176 -> 257,524 bytes, 2,195 -> 2,308 functions -- 32,348 bytes for
+four rules and two stubs.
+
+THE NINE THAT DIFFER ARE NOT EXAMINED and the pins say so: they are
+`AddActionTransitions` and `AddStates` bodies with many calls, merged
+by the tool and left at what it produced, and the two zSBPlayerActions
+ones that were already differing before any of this. A pin of
+(47, 52) rather than (47, 47) is what keeps them visible.
+
+What is left of the seam, measured after: 72 of the 270 have a branch
+in them, which the tool refuses as a different shape, and the rest are
+in units that need the same stub added.
 
 Two things that are NOT levers, measured rather than assumed: which
 overload of a name gets picked (CodeWarrior mangles static and non-static

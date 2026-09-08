@@ -19,6 +19,9 @@ class xAnimSingle;
 class xAnimTransition;
 unsigned int xAnimTableNewState(xAnimTable* table, const char* name, unsigned int a, unsigned int b, float c, float* d, float* e, float f, unsigned short* g, void* h, void (*i)(xAnimPlay*, xAnimState*, void*), void (*j)(xAnimPlay*, xAnimState*, void*), void (*k)(xAnimState*, xAnimSingle*, void*), void (*l)(xAnimPlay*, xQuat*, xVec3*, xVec3*, int), unsigned long long m, unsigned int n);
 unsigned int xAnimTableNewTransition(xAnimTable* table, const char* from, const char* to, unsigned int (*a)(xAnimTransition*, xAnimSingle*, void*), unsigned int (*b)(xAnimTransition*, xAnimSingle*, void*), unsigned int (*c)(xAnimTransition*, xAnimSingle*, void*), unsigned int d, unsigned int e, float f, float g, unsigned short h, unsigned short i, float j, unsigned short* k);
+void zGainPowerupSidekickBE(xAnimPlay*, xAnimState*, void*);
+void zGainPowerupPropBE(xAnimPlay*, xAnimState*, void*);
+void xAnimDefaultBeforeEnter(xAnimPlay*, xAnimState*, void*);
 class zPlayerActionManager;
 void zCommonPlayerActionsNormalTransitions(zPlayerActionManager*, xAnimTable*, const char*, unsigned int (*)(xAnimTransition*, xAnimSingle*, void*), unsigned int (*)(xAnimTransition*, xAnimSingle*, void*), unsigned short, float, unsigned int, unsigned int);
 void zRestoreFromHitByHammerBE(xAnimPlay*, xAnimState*, void*);
@@ -244,6 +247,7 @@ public:
     void AddInternalTransitions(xAnimTable* table);
     static const char* GetTransitionString() { return "Fall*"; }
     void AddActionTransitions(xAnimTable* table);
+    void AddStates(xAnimTable* table);
 };
 
 
@@ -258,6 +262,7 @@ public:
     void AddInternalTransitions(xAnimTable* table);
     static const char* GetTransitionString() { return "HighFallLand*"; }
     void AddActionTransitions(xAnimTable* table);
+    void AddStates(xAnimTable* table);
 };
 
 
@@ -273,6 +278,7 @@ public:
     void AddInternalTransitions(xAnimTable* table);
     static const char* GetTransitionString() { return "HammerAttackRecover01 HammerAttackAirOut01 HammerSpongebuffRecover01 HammerSpongebuffAirOut01 HammerAttackRecoil*"; }
     void AddActionTransitions(xAnimTable* table);
+    void AddStates(xAnimTable* table);
 };
 
 
@@ -296,6 +302,7 @@ public:
                             unsigned short e, float f, unsigned int g,
                             unsigned int h,
                             zPlayerAction::SpecialActions i);
+    void AddStates(xAnimTable* table);
 };
 
 
@@ -334,6 +341,7 @@ public:
     void AddInternalTransitions(xAnimTable* table);
     static const char* GetTransitionString() { return "HammerPowerupAttack*"; }
     void AddActionTransitions(xAnimTable* table);
+    void AddStates(xAnimTable* table);
 };
 
 
@@ -346,6 +354,7 @@ public:
     void AddInternalTransitions(xAnimTable* table);
     static const char* GetTransitionString() { return "PuckPowerupAttack*"; }
     void AddActionTransitions(xAnimTable* table);
+    void AddStates(xAnimTable* table);
 };
 
 
@@ -365,6 +374,8 @@ public:
                             unsigned short e, float f, unsigned int g,
                             unsigned int h,
                             zPlayerAction::SpecialActions i);
+    static void BeforeEnter(xAnimPlay*, xAnimState*, void*);
+    void AddStates(xAnimTable* table);
 };
 
 
@@ -400,11 +411,10 @@ public:
 
 
 
-class zPlayerSingleCustomAnimSB {
+class zPlayerSingleCustomAnimSB : public zPlayerAction {
 public:
     void Reset();
 
-    unsigned char _pad0[0x10];
     unsigned char f10;
     unsigned char _pad1[0xB];
     unsigned char f1C;
@@ -419,6 +429,7 @@ public:
                             unsigned short e, float f, unsigned int g,
                             unsigned int h,
                             zPlayerAction::SpecialActions i);
+    void AddStates(xAnimTable* table);
 };
 
 
@@ -507,6 +518,7 @@ public:
                             unsigned short e, float f, unsigned int g,
                             unsigned int h,
                             zPlayerAction::SpecialActions i);
+    void AddStates(xAnimTable* table);
 };
 
 class zBoardPlayerBungeeBall {
@@ -908,6 +920,7 @@ public:
     void AddInternalTransitions(xAnimTable* table);
     static const char* GetTransitionString() { return "DoubleJump*"; }
     void AddActionTransitions(xAnimTable* table);
+    void AddStates(xAnimTable* table);
 };
 
 class zSBPlayerSpinAttack : public zPlayerAction {
@@ -926,6 +939,7 @@ public:
                             unsigned short e, float f, unsigned int g,
                             unsigned int h,
                             zPlayerAction::SpecialActions i);
+    void AddStates(xAnimTable* table);
 };
 
 class zBoardPlayerHammerAttack {
@@ -940,6 +954,7 @@ public:
     void AddInternalTransitions(xAnimTable* table);
     static const char* GetTransitionString() { return "Jump*"; }
     void AddActionTransitions(xAnimTable* table);
+    void AddStates(xAnimTable* table);
 };
 
 class zSBPlayerCandy : public zPlayerAction {
@@ -947,6 +962,7 @@ public:
     void AddInternalTransitions(xAnimTable* table);
     static const char* GetTransitionString() { return "CandyGetOff CandyBuffGetOff"; }
     void AddActionTransitions(xAnimTable* table);
+    void AddStates(xAnimTable* table);
 };
 
 class zPlayerSpringboardSB : public zPlayerAction {
@@ -954,6 +970,7 @@ public:
     void AddActionTransitions(xAnimTable* table);
     static const char* GetTransitionString() { return "SprBo*"; }
     static unsigned int anSBSpringboardDoubleJumpCheck(xAnimTransition*, xAnimSingle*, void*);
+    void AddStates(xAnimTable* table);
 };
 
 class zPlayerCheat {
@@ -965,6 +982,7 @@ public:
 class zPlayerCheatSB : public zPlayerAction {
 public:
     void AddActionTransitions(xAnimTable* table);
+    void AddStates(xAnimTable* table);
 };
 
 class zPlayerHitLaunchSB : public zPlayerAction {
@@ -973,6 +991,7 @@ public:
     static const char* GetTransitionString() { return "LaunchLand*"; }
     void AddActionTransitions(xAnimTable* table);
     void AddStandardTransitionsFrom(xAnimTable* table, const char* name);
+    void AddStates(xAnimTable* table);
 };
 
 class zPlayerWalkSB : public zPlayerAction {
@@ -984,6 +1003,7 @@ public:
     static unsigned int anWalkToRun1Check(xAnimTransition*, xAnimSingle*, void*);
     static unsigned int anWalkToRun2Check(xAnimTransition*, xAnimSingle*, void*);
     void AddActionTransitions(xAnimTable* table);
+    void AddStates(xAnimTable* table);
 };
 
 class zSBPlayerGainPowerup : public zPlayerAction {
@@ -994,6 +1014,7 @@ public:
     void AddInternalTransitions(xAnimTable* table);
     static const char* GetTransitionString() { return "GainPowerup*"; }
     void AddActionTransitions(xAnimTable* table);
+    void AddStates(xAnimTable* table);
 };
 
 class zSBPlayerBombRoll : public zPlayerAction {
@@ -1011,6 +1032,7 @@ public:
                             unsigned short e, float f, unsigned int g,
                             unsigned int h,
                             zPlayerAction::SpecialActions i);
+    void AddStates(xAnimTable* table);
 };
 
 class zPlayerFluidSpraySB : public zPlayerAction {
@@ -1022,6 +1044,7 @@ public:
     static const char* GetTransitionString() { return "Spray*"; }
     static unsigned int anSprayEndCheck(xAnimTransition*, xAnimSingle*, void*);
     void AddActionTransitions(xAnimTable* table);
+    void AddStates(xAnimTable* table);
 };
 
 class zSBPlayerSpinPowerupAttack : public zPlayerAction {
@@ -1036,6 +1059,7 @@ public:
                             unsigned short e, float f, unsigned int g,
                             unsigned int h,
                             zPlayerAction::SpecialActions i);
+    void AddStates(xAnimTable* table);
 };
 
 class zSBPlayerQuicksandStuck : public zPlayerAction {
@@ -1043,6 +1067,7 @@ public:
     void AddInternalTransitions(xAnimTable* table);
     static const char* GetTransitionString() { return "QuicksandStuck*"; }
     void AddActionTransitions(xAnimTable* table);
+    void AddStates(xAnimTable* table);
 };
 
 class zBoardPlayerFillWithGoo {
@@ -1055,6 +1080,7 @@ public:
     void AddInternalTransitions(xAnimTable* table);
     static const char* GetTransitionString() { return "FillWithGooIn*"; }
     void AddActionTransitions(xAnimTable* table);
+    void AddStates(xAnimTable* table);
 };
 
 
@@ -1286,6 +1312,7 @@ public:
                             unsigned short e, float f, unsigned int g,
                             unsigned int h,
                             zPlayerAction::SpecialActions i);
+    void AddStates(xAnimTable* table);
 };
 
 class zPlayerSlamStartSB : public zPlayerAction {
@@ -1293,6 +1320,7 @@ public:
     static const char* GetTransitionString() { return "SlamStart*"; }
     static unsigned int anSlamApexCheck(xAnimTransition*, xAnimSingle*, void*);
     void AddActionTransitions(xAnimTable* table);
+    void AddStates(xAnimTable* table);
 };
 
 class zPlayerSlamFallSB : public zPlayerAction {
@@ -1300,17 +1328,20 @@ public:
     static const char* GetTransitionString() { return "SlamFall*"; }
     static unsigned int anSlamLandCheck(xAnimTransition*, xAnimSingle*, void*);
     void AddActionTransitions(xAnimTable* table);
+    void AddStates(xAnimTable* table);
 };
 
 class zPlayerSlamLandSB : public zPlayerAction {
 public:
     static const char* GetTransitionString() { return "SlamLand*"; }
     void AddActionTransitions(xAnimTable* table);
+    void AddStates(xAnimTable* table);
 };
 
 class zPlayerFluidBurstSB : public zPlayerAction {
 public:
     void AddInternalTransitions(xAnimTable* table);
+    void AddStates(xAnimTable* table);
 };
 
 class zPlayerLandSB : public zPlayerAction {
@@ -1325,6 +1356,7 @@ public:
                             unsigned short e, float f, unsigned int g,
                             unsigned int h,
                             zPlayerAction::SpecialActions i);
+    void AddStates(xAnimTable* table);
 };
 
 class zPlayerLedgeSB : public zPlayerAction {
@@ -1338,6 +1370,7 @@ public:
                             unsigned short e, float f, unsigned int g,
                             unsigned int h,
                             zPlayerAction::SpecialActions i);
+    void AddStates(xAnimTable* table);
 };
 
 class zSBPlayerDrainGoo : public zPlayerAction {
@@ -1351,6 +1384,7 @@ public:
                             unsigned short e, float f, unsigned int g,
                             unsigned int h,
                             zPlayerAction::SpecialActions i);
+    void AddStates(xAnimTable* table);
 };
 
 class zSBPlayerLosePowerup : public zPlayerAction {
@@ -1364,6 +1398,7 @@ public:
                             unsigned short e, float f, unsigned int g,
                             unsigned int h,
                             zPlayerAction::SpecialActions i);
+    void AddStates(xAnimTable* table);
 };
 
 class zSBPlayerQuicksandJump : public zPlayerAction {
@@ -1371,6 +1406,7 @@ public:
     static const char* GetTransitionString() { return "QuicksandJump*"; }
     static unsigned int anSBQuicksandApexCheck(xAnimTransition*, xAnimSingle*, void*);
     void AddActionTransitions(xAnimTable* table);
+    void AddStates(xAnimTable* table);
 };
 
 class zPlayerCelebrationSB : public zPlayerAction {
@@ -1384,6 +1420,7 @@ public:
                             unsigned short e, float f, unsigned int g,
                             unsigned int h,
                             zPlayerAction::SpecialActions i);
+    void AddStates(xAnimTable* table);
 };
 
 // zPlayerIdleSB::AddActionTransitions: 27 call(s)
@@ -2114,4 +2151,281 @@ void zSBPlayerSpinPowerupAttack::AddTransitionsFrom(xAnimTable* table, const cha
     zPlayerAction::AddActionTransition(table, name, "SpinPowerupAttack",
                                        zSBPlayerSpinPowerupAttack::anSpinPowerupCheck,
                                        a, b, e, f, g, h);
+}
+
+// zPlayerCelebrationSB::AddStates: 1 call(s)
+void zPlayerCelebrationSB::AddStates(xAnimTable* table) {
+    NewState(table, "Celebration01", 32, 32, 1.0f, 0, 0, 0.0f, 0, 0, 0, 0, 0, 0);
+}
+
+// zSBPlayerQuicksandJump::AddStates: 1 call(s)
+void zSBPlayerQuicksandJump::AddStates(xAnimTable* table) {
+    NewState(table, "QuicksandJump", 16, 4, 1.0f, 0, 0, 0.0f, 0, 0, 0, 0, 0, 0);
+}
+
+// zPlayerCheatSB::AddStates: 1 call(s)
+void zPlayerCheatSB::AddStates(xAnimTable* table) {
+    NewState(table, "Cheat01", 16, 2, 1.0f, 0, 0, 0.0f, 0, zSBAnimPackageBE, 0, 0, 0, 0);
+}
+
+// zPlayerLedgeSB::AddStates: 1 call(s)
+void zPlayerLedgeSB::AddStates(xAnimTable* table) {
+    NewState(table, "LedgeUp01", 32, 16544, 1.0f, 0, 0, 0.0f, 0, xAnimDefaultBeforeEnter, 0, 0, 0, 0);
+}
+
+// zPlayerTurn180SB::AddStates: 1 call(s)
+void zPlayerTurn180SB::AddStates(xAnimTable* table) {
+    NewState(table, "Turn180", 16, 0x2000000, 1.0f, 0, 0, 0.0f, 0, zSBAnimPackageBE, 0, 0, 0, 0);
+}
+
+// zPlayerSlamLandSB::AddStates: 1 call(s)
+void zPlayerSlamLandSB::AddStates(xAnimTable* table) {
+    NewState(table, "SlamLand01", 32, 4, 1.0f, 0, 0, 0.0f, 0, zSBAnimPackageBE, 0, 0, 0, 0);
+}
+
+// zSBPlayerDrainGoo::AddStates: 1 call(s)
+void zSBPlayerDrainGoo::AddStates(xAnimTable* table) {
+    NewState(table, "DrainGooIn01", 32, 32, 1.0f, 0, 0, 0.0f, 0, zSBAnimPackageBE, 0, 0, 0, 0);
+}
+
+// zPlayerSlamStartSB::AddStates: 1 call(s)
+void zPlayerSlamStartSB::AddStates(xAnimTable* table) {
+    NewState(table, "SlamStart01", 16, 4, 1.0f, 0, 0, 0.0f, 0, zSBAnimPackageBE, 0, 0, 0, 0);
+}
+
+// zSBPlayerLosePowerup::AddStates: 1 call(s)
+void zSBPlayerLosePowerup::AddStates(xAnimTable* table) {
+    NewState(table, "LosePowerup", 16, 0, 1.0f, 0, 0, 0.0f, 0, zSBAnimPackageBE, 0, 0, 0, 0);
+}
+
+// zPlayerSlamFallSB::AddStates: 1 call(s)
+void zPlayerSlamFallSB::AddStates(xAnimTable* table) {
+    NewState(table, "SlamFall01", 16, 4, 1.0f, 0, 0, 0.0f, 0, zSBAnimPackageBE, 0, 0, 0, 0);
+}
+
+// zPlayerFluidBurstSB::AddStates: 1 call(s)
+void zPlayerFluidBurstSB::AddStates(xAnimTable* table) {
+    NewState(table, "Burst01", 32, 32, 1.0f, 0, 0, 0.0f, 0, zSBAnimPackageBE, 0, 0, 0, 0);
+}
+
+// zSBPlayerQuicksandStuck::AddStates: 2 call(s)
+void zSBPlayerQuicksandStuck::AddStates(xAnimTable* table) {
+    NewState(table, "QuicksandStuckIdle", 16, 0x2000000, 1.0f, 0, 0, 0.0f, 0, 0, 0, 0, 0, 0);
+    NewState(table, "QuicksandStuckWalk", 16, 19, 1.0f, 0, 0, 0.0f, 0, 0, 0, 0, 0, 0);
+}
+
+// zPlayerSpringboardSB::AddStates: 2 call(s)
+void zPlayerSpringboardSB::AddStates(xAnimTable* table) {
+    NewState(table, "SprBoStartIdle01", 32, 4, 1.0f, 0, 0, 0.0f, 0, zSBAnimPackageBE, 0, 0, 0, 0);
+    NewState(table, "SprBoStartMoving01", 32, 4, 1.0f, 0, 0, 0.0f, 0, zSBAnimPackageBE, 0, 0, 0, 0);
+}
+
+// zSBPlayerFillWithGoo::AddStates: 2 call(s)
+void zSBPlayerFillWithGoo::AddStates(xAnimTable* table) {
+    NewState(table, "FillWithGooTurn01", 16, 0, 1.0f, 0, 0, 0.0f, 0, zSBAnimPackageBE, 0, 0, 0, 0);
+    NewState(table, "FillWithGooIn01", 32, 0, 1.0f, 0, 0, 0.0f, 0, zSBAnimPackageBE, 0, 0, 0, 0);
+}
+
+// zPlayerSingleCustomAnimSB::AddStates: 2 call(s)
+void zPlayerSingleCustomAnimSB::AddStates(xAnimTable* table) {
+    NewState(table, "SingleCustom01", 32, 32, 1.0f, 0, 0, 0.0f, 0, 0, 0, 0, 0, 0);
+    NewState(table, "SingleCustom02", 32, 32, 1.0f, 0, 0, 0.0f, 0, 0, 0, 0, 0, 0);
+}
+
+// zSBPlayerSpinPowerupAttack::AddStates: 2 call(s)
+void zSBPlayerSpinPowerupAttack::AddStates(xAnimTable* table) {
+    NewState(table, "SpinPowerupAttack", 16, 0x4000003, 1.0f, 0, 0, 0.0f, 0, zSBAnimPackageBE, 0, 0, 0, 0);
+    NewState(table, "SpinPowerupAttack_Moving", 16, 0x4000003, 1.0f, 0, 0, 0.0f, 0, zSBAnimPackageBE, 0, 0, 0, 0);
+}
+
+// zPlayerLandHighSB::AddStates: 3 call(s)
+void zPlayerLandHighSB::AddStates(xAnimTable* table) {
+    NewState(table, "HighFallLandIdle01", 32, 0, 1.0f, 0, 0, 0.0f, 0, zSBAnimPackageBE, 0, 0, 0, 0);
+    NewState(table, "HighFallLandMoving01", 32, 0, 1.0f, 0, 0, 0.0f, 0, zSBAnimPackageBE, 0, 0, 0, 0);
+    NewState(table, "HighFallLandGetUp01", 32, 0, 1.0f, 0, 0, 0.0f, 0, zSBAnimPackageBE, 0, 0, 0, 0);
+}
+
+// zSBPlayerBombRoll::AddStates: 3 call(s)
+void zSBPlayerBombRoll::AddStates(xAnimTable* table) {
+    NewState(table, "BombRollEnter", 32, 0, 1.0f, 0, 0, 0.0f, 0, zSBAnimPackageBE, 0, 0, 0, 0);
+    NewState(table, "BombRollIdle", 16, 0, 1.0f, 0, 0, 0.0f, 0, zSBAnimPackageBE, 0, 0, 0, 0);
+    NewState(table, "BombRollMoving", 16, 16, 1.0f, 0, 0, 0.0f, 0, zSBAnimPackageBE, 0, 0, 0, 0);
+}
+
+// zSBPlayerKelpTrap::AddStates: 3 call(s)
+void zSBPlayerKelpTrap::AddStates(xAnimTable* table) {
+    NewState(table, "KelpTrapStart", 32, 0, 1.0f, 0, 0, 0.0f, 0, zSBPlayerKelpTrap::BeforeEnter, 0, 0, 0, 0);
+    NewState(table, "KelpTrappedIdle", 16, 0, 1.0f, 0, 0, 0.0f, 0, zSBPlayerKelpTrap::BeforeEnter, 0, 0, 0, 0);
+    NewState(table, "KelpRelease", 64, 0, 1.0f, 0, 0, 0.0f, 0, zSBPlayerKelpTrap::BeforeEnter, 0, 0, 0, 0);
+}
+
+// zPlayerFluidSpraySB::AddStates: 4 call(s)
+void zPlayerFluidSpraySB::AddStates(xAnimTable* table) {
+    NewState(table, "Spray100", 16, 0x2000010, 1.0f, 0, 0, 0.0f, 0, 0, 0, 0, 0, 0);
+    NewState(table, "Spray75", 16, 0x2000010, 1.0f, 0, 0, 0.0f, 0, 0, 0, 0, 0, 0);
+    NewState(table, "Spray50", 16, 0x2000010, 1.0f, 0, 0, 0.0f, 0, 0, 0, 0, 0, 0);
+    NewState(table, "Spray25", 16, 0x2000010, 1.0f, 0, 0, 0.0f, 0, 0, 0, 0, 0, 0);
+}
+
+// zPlayerJumpSB::AddStates: 4 call(s)
+void zPlayerJumpSB::AddStates(xAnimTable* table) {
+    NewState(table, "JumpStartIdle01", 32, 4, 1.0f, 0, 0, 0.0f, 0, zSBAnimPackageBE, 0, 0, 0, 0);
+    NewState(table, "JumpCycleIdle01", 16, 4, 1.0f, 0, 0, 0.0f, 0, zSBAnimPackageBE, 0, 0, 0, 0);
+    NewState(table, "JumpStartMoving01", 32, 4, 1.0f, 0, 0, 0.0f, 0, zSBAnimPackageBE, 0, 0, 0, 0);
+    NewState(table, "JumpCycleMoving01", 16, 4, 1.0f, 0, 0, 0.0f, 0, zSBAnimPackageBE, 0, 0, 0, 0);
+}
+
+// zPlayerWalkSB::AddStates: 4 call(s)
+void zPlayerWalkSB::AddStates(xAnimTable* table) {
+    NewState(table, "Walk01", 16, 18, 1.0f, 0, 0, 0.0f, 0, zSBAnimPackageBE, 0, 0, 0, 0);
+    NewState(table, "WalkStop01", 32, 0x2000000, 1.0f, 0, 0, 0.0f, 0, zSBAnimPackageBE, 0, 0, 0, 0);
+    NewState(table, "WalkSlippery01", 16, 18, 1.0f, 0, 0, 0.0f, 0, zSBAnimPackageBE, 0, 0, 0, 0);
+    NewState(table, "WalkSlipperyStop01", 32, 0x2000000, 1.0f, 0, 0, 0.0f, 0, zSBAnimPackageBE, 0, 0, 0, 0);
+}
+
+// zPlayerDoubleJumpSB::AddStates: 4 call(s)
+void zPlayerDoubleJumpSB::AddStates(xAnimTable* table) {
+    NewState(table, "DoubleJumpInIdle01", 32, 4, 1.0f, 0, 0, 0.0f, 0, zSBAnimPackageBE, 0, 0, 0, 0);
+    NewState(table, "DoubleJumpInMoving01", 32, 4, 1.0f, 0, 0, 0.0f, 0, zSBAnimPackageBE, 0, 0, 0, 0);
+    NewState(table, "DoubleJumpCycleIdle01", 16, 4, 1.0f, 0, 0, 0.0f, 0, zSBAnimPackageBE, 0, 0, 0, 0);
+    NewState(table, "DoubleJumpCycleMoving01", 16, 4, 1.0f, 0, 0, 0.0f, 0, zSBAnimPackageBE, 0, 0, 0, 0);
+}
+
+// zSBPlayerPuckAttack::AddStates: 4 call(s)
+void zSBPlayerPuckAttack::AddStates(xAnimTable* table) {
+    NewState(table, "PuckAttackIn01", 32, 0, 1.0f, 0, 0, 0.0f, 0, zSBAnimPackageBE, 0, 0, 0, 0);
+    NewState(table, "PuckAttackCharging01", 16, 16400, 1.0f, 0, 0, 0.0f, 0, zSBAnimPackageBE, 0, 0, 0, 0);
+    NewState(table, "PuckAttackShoot01", 32, 0, 1.0f, 0, 0, 0.0f, 0, zSBAnimPackageBE, 0, 0, 0, 0);
+    NewState(table, "PuckAttackRecover01", 32, 0, 1.0f, 0, 0, 0.0f, 0, zSBAnimPackageBE, 0, 0, 0, 0);
+}
+
+// zPlayerLandSB::AddStates: 6 call(s)
+void zPlayerLandSB::AddStates(xAnimTable* table) {
+    NewState(table, "LandIdle01", 32, 0x2000000, 1.0f, 0, 0, 0.0f, 0, zSBAnimPackageBE, 0, 0, 0, 0);
+    NewState(table, "LandMoving01", 32, 3, 1.0f, 0, 0, 0.0f, 0, zSBAnimPackageBE, 0, 0, 0, 0);
+    NewState(table, "LandDoubleJumpIdle01", 32, 0x2000000, 1.0f, 0, 0, 0.0f, 0, zSBAnimPackageBE, 0, 0, 0, 0);
+    NewState(table, "LandDoubleJumpMoving01", 32, 3, 1.0f, 0, 0, 0.0f, 0, zSBAnimPackageBE, 0, 0, 0, 0);
+    NewState(table, "LandSprBoIdle01", 32, 3, 1.0f, 0, 0, 0.0f, 0, zSBAnimPackageBE, 0, 0, 0, 0);
+    NewState(table, "LandSprBoMoving01", 32, 3, 1.0f, 0, 0, 0.0f, 0, zSBAnimPackageBE, 0, 0, 0, 0);
+}
+
+// zSBPlayerSpinAttack::AddStates: 7 call(s)
+void zSBPlayerSpinAttack::AddStates(xAnimTable* table) {
+    NewState(table, "SpinAttackIn01", 32, 0, 1.0f, 0, 0, 0.0f, 0, zSBAnimPackageBE, 0, 0, 0, 0);
+    NewState(table, "SpinAttackCycle01", 64, 0x8000000, 1.0f, 0, 0, 0.0f, 0, zSBAnimPackageBE, 0, 0, 0, 0);
+    NewState(table, "SpinAttackCycleMoving01", 64, 0x8000010, 1.0f, 0, 0, 0.0f, 0, zSBAnimPackageBE, 0, 0, 0, 0);
+    NewState(table, "SpinAttackOut01", 32, 0, 1.0f, 0, 0, 0.0f, 0, zSBAnimPackageBE, 0, 0, 0, 0);
+    NewState(table, "SpinSpongebuffCycle01", 64, 0x8000000, 1.0f, 0, 0, 0.0f, 0, zSBAnimPackageBE, 0, 0, 0, 0);
+    NewState(table, "SpinSpongebuffCycleMoving01", 64, 0x8000010, 1.0f, 0, 0, 0.0f, 0, zSBAnimPackageBE, 0, 0, 0, 0);
+    NewState(table, "SpinAttackNULL01", 32, 0, 1.0f, 0, 0, 0.0f, 0, zSBAnimPackageBE, 0, 0, 0, 0);
+}
+
+// zSBPlayerCandy::AddStates: 8 call(s)
+void zSBPlayerCandy::AddStates(xAnimTable* table) {
+    NewState(table, "CandyGetOn", 32, 3, 1.0f, 0, 0, 0.0f, 0, 0, 0, 0, 0, 0);
+    NewState(table, "CandyIdle", 16, 0x2000000, 1.0f, 0, 0, 0.0f, 0, 0, 0, 0, 0, 0);
+    NewState(table, "CandyWalk", 16, 19, 1.0f, 0, 0, 0.0f, 0, 0, 0, 0, 0, 0);
+    NewState(table, "CandyGetOff", 32, 3, 1.0f, 0, 0, 0.0f, 0, 0, 0, 0, 0, 0);
+    NewState(table, "CandyBuffGetOn", 32, 3, 1.0f, 0, 0, 0.0f, 0, 0, 0, 0, 0, 0);
+    NewState(table, "CandyBuffIdle", 16, 0xA000000, 1.0f, 0, 0, 0.0f, 0, 0, 0, 0, 0, 0);
+    NewState(table, "CandyBuffWalk", 16, 0x8000013, 1.0f, 0, 0, 0.0f, 0, 0, 0, 0, 0, 0);
+    NewState(table, "CandyBuffGetOff", 32, 3, 1.0f, 0, 0, 0.0f, 0, 0, 0, 0, 0, 0);
+}
+
+// zPlayerFallSB::AddStates: 8 call(s)
+void zPlayerFallSB::AddStates(xAnimTable* table) {
+    NewState(table, "FallIdle01", 16, 4, 1.0f, 0, 0, 0.0f, 0, zSBAnimPackageBE, 0, 0, 0, 0);
+    NewState(table, "FallMoving01", 16, 4, 1.0f, 0, 0, 0.0f, 0, zSBAnimPackageBE, 0, 0, 0, 0);
+    NewState(table, "FallHighIdle01", 16, 4, 1.0f, 0, 0, 0.0f, 0, zSBAnimPackageBE, 0, 0, 0, 0);
+    NewState(table, "FallHighMoving01", 16, 4, 1.0f, 0, 0, 0.0f, 0, zSBAnimPackageBE, 0, 0, 0, 0);
+    NewState(table, "FallDoubleJumpIdle01", 16, 4, 1.0f, 0, 0, 0.0f, 0, zSBAnimPackageBE, 0, 0, 0, 0);
+    NewState(table, "FallDoubleJumpMoving01", 16, 4, 1.0f, 0, 0, 0.0f, 0, zSBAnimPackageBE, 0, 0, 0, 0);
+    NewState(table, "FallSprBoIdle01", 16, 4, 1.0f, 0, 0, 0.0f, 0, zSBAnimPackageBE, 0, 0, 0, 0);
+    NewState(table, "FallSprBoMoving01", 16, 4, 1.0f, 0, 0, 0.0f, 0, zSBAnimPackageBE, 0, 0, 0, 0);
+}
+
+// zSBPlayerPuckPowerupAttack::AddStates: 8 call(s)
+void zSBPlayerPuckPowerupAttack::AddStates(xAnimTable* table) {
+    NewState(table, "PuckPowerupAttack_Idle_Charge", 32, 0x2000000, 1.0f, 0, 0, 0.0f, 0, zSBAnimPackageBE, 0, 0, 0, 0);
+    NewState(table, "PuckPowerupAttack_Idle_Shoot", 32, 0x2000000, 1.0f, 0, 0, 0.0f, 0, zSBAnimPackageBE, 0, 0, 0, 0);
+    NewState(table, "PuckPowerupAttack_Walk_Charge_L", 32, 18, 1.0f, 0, 0, 0.0f, 0, zSBAnimPackageBE, 0, 0, 0, 0);
+    NewState(table, "PuckPowerupAttack_Walk_Charge_R", 32, 18, 1.0f, 0, 0, 0.0f, 0, zSBAnimPackageBE, 0, 0, 0, 0);
+    NewState(table, "PuckPowerupAttack_Walk_Shoot_L", 32, 18, 1.0f, 0, 0, 0.0f, 0, zSBAnimPackageBE, 0, 0, 0, 0);
+    NewState(table, "PuckPowerupAttack_Walk_Shoot_R", 32, 18, 1.0f, 0, 0, 0.0f, 0, zSBAnimPackageBE, 0, 0, 0, 0);
+    NewState(table, "PuckPowerupAttack_Run_Charge", 32, 19, 1.0f, 0, 0, 0.0f, 0, zSBAnimPackageBE, 0, 0, 0, 0);
+    NewState(table, "PuckPowerupAttack_Run_Shoot", 32, 19, 1.0f, 0, 0, 0.0f, 0, zSBAnimPackageBE, 0, 0, 0, 0);
+}
+
+// zSBPlayerHammerPowerupAttack::AddStates: 8 call(s)
+void zSBPlayerHammerPowerupAttack::AddStates(xAnimTable* table) {
+    NewState(table, "HammerPowerupAttack_Idle_Lift", 32, 0x2000000, 1.0f, 0, 0, 0.0f, 0, zSBAnimPackageBE, 0, 0, 0, 0);
+    NewState(table, "HammerPowerupAttack_Idle_Hit", 32, 0x6000000, 1.0f, 0, 0, 0.0f, 0, zSBAnimPackageBE, 0, 0, 0, 0);
+    NewState(table, "HammerPowerupAttack_Walk_Lift_L", 32, 18, 1.0f, 0, 0, 0.0f, 0, zSBAnimPackageBE, 0, 0, 0, 0);
+    NewState(table, "HammerPowerupAttack_Walk_Lift_R", 32, 18, 1.0f, 0, 0, 0.0f, 0, zSBAnimPackageBE, 0, 0, 0, 0);
+    NewState(table, "HammerPowerupAttack_Walk_Hit_L", 32, 0x4000012, 1.0f, 0, 0, 0.0f, 0, zSBAnimPackageBE, 0, 0, 0, 0);
+    NewState(table, "HammerPowerupAttack_Walk_Hit_R", 32, 0x4000012, 1.0f, 0, 0, 0.0f, 0, zSBAnimPackageBE, 0, 0, 0, 0);
+    NewState(table, "HammerPowerupAttack_Run_Lift", 32, 19, 1.0f, 0, 0, 0.0f, 0, zSBAnimPackageBE, 0, 0, 0, 0);
+    NewState(table, "HammerPowerupAttack_Run_Hit", 32, 0x4000013, 1.0f, 0, 0, 0.0f, 0, zSBAnimPackageBE, 0, 0, 0, 0);
+}
+
+// zSBPlayerBungeeBall::AddStates: 9 call(s)
+void zSBPlayerBungeeBall::AddStates(xAnimTable* table) {
+    NewState(table, "BungeeEnter", 32, 16384, 1.0f, 0, 0, 0.0f, 0, zSBAnimPackageBE, 0, 0, 0, 0);
+    NewState(table, "BungeeTransfer", 32, 16384, 1.0f, 0, 0, 0.0f, 0, zSBAnimPackageBE, 0, 0, 0, 0);
+    NewState(table, "BungeeReturned", 32, 16384, 1.0f, 0, 0, 0.0f, 0, zSBAnimPackageBE, 0, 0, 0, 0);
+    NewState(table, "BungeeBallIdle", 16, 16400, 1.0f, 0, 0, 0.0f, 0, zSBAnimPackageBE, 0, 0, 0, 0);
+    NewState(table, "BungeeBallFling", 16, 0x4000000, 1.0f, 0, 0, 0.0f, 0, zSBAnimPackageBE, 0, 0, 0, 0);
+    NewState(table, "BungeeBallBuffFling", 16, 0x4000000, 1.0f, 0, 0, 0.0f, 0, zSBAnimPackageBE, 0, 0, 0, 0);
+    NewState(table, "BungeeBallReturn", 16, 0, 1.0f, 0, 0, 0.0f, 0, zSBAnimPackageBE, 0, 0, 0, 0);
+    NewState(table, "BungeeSpecialHit", 32, 32768, 1.0f, 0, 0, 0.0f, 0, zSBAnimPackageBE, 0, 0, 0, 0);
+    NewState(table, "BungeeSpecialDefeated", 32, 32768, 1.0f, 0, 0, 0.0f, 0, zSBAnimPackageBE, 0, 0, 0, 0);
+}
+
+// zSBPlayerGainPowerup::AddStates: 9 call(s)
+void zSBPlayerGainPowerup::AddStates(xAnimTable* table) {
+    NewState(table, "GainPowerup_Spongebuff", 32, 16384, 1.0f, 0, 0, 0.0f, 0, 0, 0, 0, 0, 0);
+    NewState(table, "GainPowerup_Invincibility", 32, 0, 1.0f, 0, 0, 0.0f, 0, 0, 0, 0, 0, 0);
+    NewState(table, "GainPowerup_In", 32, 0, 1.0f, 0, 0, 0.0f, 0, 0, 0, 0, 0, 0);
+    NewState(table, "GainPowerup_Prop_Spin", 32, 0, 1.0f, 0, 0, 0.0f, 0, zGainPowerupPropBE, 0, 0, 0, 0);
+    NewState(table, "GainPowerup_Prop_Hammer", 32, 0, 1.0f, 0, 0, 0.0f, 0, zGainPowerupPropBE, 0, 0, 0, 0);
+    NewState(table, "GainPowerup_Prop_Puck", 32, 0, 1.0f, 0, 0, 0.0f, 0, zGainPowerupPropBE, 0, 0, 0, 0);
+    NewState(table, "GainPowerup_Sidekick_Spin", 32, 0, 1.0f, 0, 0, 0.0f, 0, zGainPowerupSidekickBE, 0, 0, 0, 0);
+    NewState(table, "GainPowerup_Sidekick_Hammer", 32, 0, 1.0f, 0, 0, 0.0f, 0, zGainPowerupSidekickBE, 0, 0, 0, 0);
+    NewState(table, "GainPowerup_Sidekick_Puck", 32, 0, 1.0f, 0, 0, 0.0f, 0, zGainPowerupSidekickBE, 0, 0, 0, 0);
+}
+
+// zSBPlayerHammerAttack::AddStates: 12 call(s)
+void zSBPlayerHammerAttack::AddStates(xAnimTable* table) {
+    NewState(table, "HammerAttack01", 32, 0x4004010, 1.0f, 0, 0, 0.0f, 0, zSBAnimPackageBE, 0, 0, 0, 0);
+    NewState(table, "HammerAttackRecover01", 32, 0x8000010, 1.0f, 0, 0, 0.0f, 0, zSBAnimPackageBE, 0, 0, 0, 0);
+    NewState(table, "HammerAttackRecoilHigh", 32, 0, 1.0f, 0, 0, 0.0f, 0, zSBAnimPackageBE, 0, 0, 0, 0);
+    NewState(table, "HammerAttackRecoilMed", 32, 0, 1.0f, 0, 0, 0.0f, 0, zSBAnimPackageBE, 0, 0, 0, 0);
+    NewState(table, "HammerAttackAirIn01", 32, 0, 1.0f, 0, 0, 0.0f, 0, zSBAnimPackageBE, 0, 0, 0, 0);
+    NewState(table, "HammerAttackAirCycle01", 16, 0x4000000, 1.0f, 0, 0, 0.0f, 0, zSBAnimPackageBE, 0, 0, 0, 0);
+    NewState(table, "HammerAttackAirOut01", 32, 0x8000000, 1.0f, 0, 0, 0.0f, 0, zSBAnimPackageBE, 0, 0, 0, 0);
+    NewState(table, "HammerSpongebuff01", 32, 0x4004010, 1.0f, 0, 0, 0.0f, 0, zSBAnimPackageBE, 0, 0, 0, 0);
+    NewState(table, "HammerSpongebuffRecover01", 32, 0x8000010, 1.0f, 0, 0, 0.0f, 0, zSBAnimPackageBE, 0, 0, 0, 0);
+    NewState(table, "HammerSpongebuffAirIn01", 32, 0, 1.0f, 0, 0, 0.0f, 0, zSBAnimPackageBE, 0, 0, 0, 0);
+    NewState(table, "HammerSpongebuffAirCycle01", 16, 0x4000000, 1.0f, 0, 0, 0.0f, 0, zSBAnimPackageBE, 0, 0, 0, 0);
+    NewState(table, "HammerSpongebuffAirOut01", 32, 0x8000000, 1.0f, 0, 0, 0.0f, 0, zSBAnimPackageBE, 0, 0, 0, 0);
+}
+
+// zPlayerHitLaunchSB::AddStates: 16 call(s)
+void zPlayerHitLaunchSB::AddStates(xAnimTable* table) {
+    NewState(table, "LaunchFront01", 16, 96, 1.0f, 0, 0, 0.0f, 0, zSBAnimPackageBE, 0, 0, 0, 0);
+    NewState(table, "LaunchLandFront01", 32, 96, 1.0f, 0, 0, 0.0f, 0, zSBAnimPackageBE, 0, 0, 0, 0);
+    NewState(table, "LaunchBack01", 16, 96, 1.0f, 0, 0, 0.0f, 0, zSBAnimPackageBE, 0, 0, 0, 0);
+    NewState(table, "LaunchLandBack01", 32, 96, 1.0f, 0, 0, 0.0f, 0, zSBAnimPackageBE, 0, 0, 0, 0);
+    NewState(table, "LaunchKnockbackFront01", 16, 96, 1.0f, 0, 0, 0.0f, 0, zSBAnimPackageBE, 0, 0, 0, 0);
+    NewState(table, "LaunchLandKnockbackFront01", 32, 96, 1.0f, 0, 0, 0.0f, 0, zSBAnimPackageBE, 0, 0, 0, 0);
+    NewState(table, "LaunchKnockbackBack01", 16, 96, 1.0f, 0, 0, 0.0f, 0, zSBAnimPackageBE, 0, 0, 0, 0);
+    NewState(table, "LaunchLandKnockbackBack01", 32, 96, 1.0f, 0, 0, 0.0f, 0, zSBAnimPackageBE, 0, 0, 0, 0);
+    NewState(table, "LaunchGooFront01", 16, 96, 1.0f, 0, 0, 0.0f, 0, zSBAnimPackageBE, 0, 0, 0, 0);
+    NewState(table, "LaunchLandGooFront01", 32, 96, 1.0f, 0, 0, 0.0f, 0, zSBAnimPackageBE, 0, 0, 0, 0);
+    NewState(table, "LaunchGooBack01", 16, 96, 1.0f, 0, 0, 0.0f, 0, zSBAnimPackageBE, 0, 0, 0, 0);
+    NewState(table, "LaunchLandGooBack01", 32, 96, 1.0f, 0, 0, 0.0f, 0, zSBAnimPackageBE, 0, 0, 0, 0);
+    NewState(table, "LaunchRubberBandFront01", 16, 96, 1.0f, 0, 0, 0.0f, 0, zSBAnimPackageBE, 0, 0, 0, 0);
+    NewState(table, "LaunchLandRubberBandFront01", 32, 96, 1.0f, 0, 0, 0.0f, 0, zSBAnimPackageBE, 0, 0, 0, 0);
+    NewState(table, "LaunchRubberBandBack01", 16, 96, 1.0f, 0, 0, 0.0f, 0, zSBAnimPackageBE, 0, 0, 0, 0);
+    NewState(table, "LaunchLandRubberBandBack01", 32, 96, 1.0f, 0, 0, 0.0f, 0, zSBAnimPackageBE, 0, 0, 0, 0);
 }

@@ -40,7 +40,9 @@ void zSBAgingIdleBE(xAnimPlay*, xAnimState*, void*);
 // (`lwz r12,12(r3); lwz r12,8|12|20(r12); bctrl`). A table class that
 // makes such a call derives from this stub, and reaches the manager's
 // action array through `manager`, its first word.
-class zPlayer;
+namespace Sext { enum eHitSource { eHitSource_ = 0x7FFFFFFF }; }
+
+class zPlayer { public: static void KillAllPlayers(Sext::eHitSource); };
 class zPlayerActionManager;
 class zPlayerAction {
 public:
@@ -65,6 +67,14 @@ public:
     // three slots the tables call keep the indices they have.
     virtual bool _v4();
     virtual bool _v5();
+    virtual void _v6();
+    virtual void _v7();
+    virtual void _v8();
+    virtual void _v9();
+    virtual void _v10();
+    virtual void _v11();
+    virtual void _v12();
+    virtual void _v13();
 
     unsigned int NewState(xAnimTable* table, const char* name,
                           unsigned int a, unsigned int b, float c,
@@ -173,9 +183,240 @@ class xAnimTransition;
 
 // A base only in the sense that r3 reaches it unchanged:
 // the branch is four bytes and names nothing else.
+class xScene;
+class xBase;
+class xEntFrame;
+
+class zProjectileSBBombNPC {
+public:
+    unsigned char _pad0[0x1BC];
+    int f1BC;
+};
+
+namespace Sext { class EventAny; }
+
+enum ForceEvent { ForceEvent_ = 0x7FFFFFFF };
+
+void zEntEvent(xBase* from, unsigned int fromEvent, xBase* to,
+               unsigned int toEvent, Sext::EventAny* param,
+               ForceEvent force);
+class xOGModel;
+class xEnt;
+
+int xEntGetAnimFlags(const xEnt* ent);
+
+// The base zPlayerLedgeSB's Begin calls on `this` with r3 unchanged.
+// Declared as its own class and reached through a cast, because
+// making it the base would move every member offset here.
+class zCommonPlayerInterAction {
+public:
+    void Begin();
+    void End();
+};
+
+class xVec3 { public: float x; float y; float z; };
+
+// +0x34 in the DWARF is an xOGModelHandle, eight bytes, and the
+// first word of it is the model: `lwz r4,52(r3)` then `lfs f0,52(r4)`
+// is the model's own +0x34.
+class xOGModelHandle { public: xOGModel* model; int f4; };
+
+class xOGModel { public: unsigned char _pad0[0x30]; xVec3 pos; };
+
+class xEntFrame {
+public:
+    void zeroVel();
+
+    unsigned char _pad0[0x88];
+    float f88;
+    float f8C;
+    float f90;
+};
+
+enum SBGooFilledState { SBGooFilledState_ = 0x7FFFFFFF };
+enum SBPowerupState { SBPowerupState_ = 0x7FFFFFFF };
+enum eRPSAttackTypes { eRPSAttackTypes_ = 0x7FFFFFFF };
+
+// The player, at the offsets its callers read and with the names
+// the DWARF gives them. The vtable pointer is at +0 and slot 74 is
+// the one zSBPlayerSpinAttack::Begin calls -- (304 - 8) / 4.
 class zSBPlayer {
 public:
+    virtual void _v0();
+    virtual void _v1();
+    virtual void _v2();
+    virtual void _v3();
+    virtual void _v4();
+    virtual void _v5();
+    virtual void _v6();
+    virtual void _v7();
+    virtual void _v8();
+    virtual void _v9();
+    virtual void _v10();
+    virtual void _v11();
+    virtual void _v12();
+    virtual void _v13();
+    virtual void _v14();
+    virtual void _v15();
+    virtual void _v16();
+    virtual void _v17();
+    virtual void _v18();
+    virtual void _v19();
+    virtual void _v20();
+    virtual void _v21();
+    virtual void _v22();
+    virtual void _v23();
+    virtual void _v24();
+    virtual void _v25();
+    virtual void _v26();
+    virtual void _v27();
+    virtual void _v28();
+    virtual void _v29();
+    virtual void _v30();
+    virtual void _v31();
+    virtual void _v32();
+    virtual void _v33();
+    virtual void _v34();
+    virtual void _v35();
+    virtual void _v36();
+    virtual void _v37();
+    virtual void _v38();
+    virtual void _v39();
+    virtual void _v40();
+    virtual void _v41();
+    virtual void _v42();
+    virtual void _v43();
+    virtual void _v44();
+    virtual void _v45();
+    virtual void _v46();
+    virtual void _v47();
+    virtual void _v48();
+    virtual void _v49();
+    virtual void _v50();
+    virtual void _v51();
+    virtual void _v52();
+    virtual void _v53(float dt);
+    virtual void _v54();
+    virtual void _v55();
+    virtual void _v56();
+    virtual void _v57();
+    virtual void _v58();
+    virtual void _v59();
+    virtual void _v60();
+    virtual void _v61();
+    virtual void _v62();
+    virtual void _v63();
+    virtual void _v64();
+    virtual void _v65();
+    virtual void _v66();
+    virtual void _v67();
+    virtual void _v68();
+    virtual void _v69();
+    virtual void _v70();
+    virtual void _v71();
+    virtual void _v72();
+    virtual void _v73();
+    virtual int _v74();
+    virtual void _v75();
+    virtual void _v76();
+    virtual void _v77();
+    virtual void _v78();
+    virtual void _v79();
+    virtual void _v80();
+    virtual void _v81();
+    virtual void _v82();
+    virtual void _v83();
+    virtual void _v84();
+    virtual void _v85();
+    virtual void _v86();
+    virtual void _v87();
+    virtual void _v88();
+    virtual void _v89();
+    virtual void _v90();
+    virtual void _v91();
+    virtual void _v92();
+    virtual void _v93();
+    virtual void _v94();
+    virtual void _v95();
+    virtual void _v96();
+    virtual void _v97();
+    virtual void _v98();
+    virtual void _v99();
+    virtual void _v100();
+    virtual void _v101();
+    virtual void _v102();
+    virtual void _v103();
+    virtual void _v104();
+    virtual void _v105();
+    virtual void _v106();
+    virtual void _v107();
+    virtual void _v108();
+    virtual void _v109();
+    virtual void _v110();
+    virtual void _v111();
+    virtual void _v112();
+    virtual void _v113();
+    virtual void _v114();
+    virtual void _v115();
+    virtual void _v116();
+    virtual void _v117();
+    virtual void _v118();
+    virtual void _v119();
+    virtual void _v120();
+    virtual void _v121();
+    virtual void _v122();
+    virtual void _v123();
+    virtual void _v124();
+    virtual void _v125();
+    virtual void _v126();
+    virtual void _v127();
+    virtual void _v128(xScene* scene, float dt, xEntFrame* frame);
+
     void StopSBB3SmokeTrailFX();
+    void SetGooState(SBGooFilledState state);
+    void SetPowerupState(SBPowerupState state);
+    void PlayLosePowerupFX();
+
+    unsigned char _pad0[0x30];
+    xOGModelHandle ogModel;
+    unsigned char _pad1[0x1C];
+    xEntFrame* frame;
+    unsigned char _pad2[0x168];
+    int zPlayerFlags;
+    unsigned char _pad3[0x12C];
+    float fallingTime;
+    unsigned char _pad4[0x25C];
+    int currentHitType;
+    unsigned char _pad5[0x340];
+    SBGooFilledState gooState;
+    unsigned char _pad6[0x14];
+    SBPowerupState powerupState;
+    SBPowerupState powerupModelState;
+    unsigned char _pad7[0x1];
+    bool powerupPerformDeferredModelSwap;
+    unsigned char _pad8[0xE];
+    eRPSAttackTypes attackState;
+    unsigned char _pad9[0x8];
+    float spinCooldownTimer;
+    unsigned char _pad10[0x84];
+    unsigned char isSquirting;
+    unsigned char shouldStopSquirting;
+    unsigned char _pad11[0x6];
+    float f964;
+    unsigned char _pad12[0x70];
+    int attackID;
+    unsigned char _pad13[0x8];
+    void* trampolineLink;
+    unsigned char _pad14[0x9];
+    bool canDoubleJump;
+    bool canSpinGlide;
+    unsigned char _pad15[0x1];
+    zProjectileSBBombNPC* bombLink;
+    unsigned char _pad16[0x24];
+    float quicksandSinkDistance;
+    unsigned char _pad17[0x18];
+    void* kelpTrapLink;
+    bool performCelebration;
 };
 
 
@@ -309,6 +550,15 @@ public:
     bool StartHammerSpongebuffCheck(xAnimTransition* a0, xAnimSingle* a1);
     static unsigned int anAirHammerSpongebuffCheck(xAnimTransition*, xAnimSingle*, void*);
     void AddTransitionsFrom(xAnimTable* table, const char* name, unsigned int (*c)(xAnimTransition*, xAnimSingle*, void*), unsigned int (*d)(xAnimTransition*, xAnimSingle*, void*), unsigned short e, float f, unsigned int g, unsigned int h, zPlayerAction::SpecialActions i);
+
+    void Move(xScene* scene, float dt, xEntFrame* frame);
+
+    int f10;
+    unsigned char f14;
+
+    bool HasAlreadyRecoiled();
+
+    void End();
 };
 
 
@@ -334,6 +584,19 @@ public:
                             zPlayerAction::SpecialActions i);
     void AddStates(xAnimTable* table);
     bool StartPuckAttackCheck(xAnimTransition* a0, xAnimSingle* a1);
+
+    void Begin();
+
+    unsigned char _pad0[0x18 - 0x10];
+    float f18;
+    unsigned char f1C;
+    unsigned char _pad1[0x20 - 0x1D];
+    int f20;
+    float f24;
+    float f28;
+    float f2C;
+
+    void End();
 };
 
 
@@ -382,6 +645,8 @@ public:
     static unsigned int anHitSpinBackCheck(xAnimTransition*, xAnimSingle*, void*);
     static unsigned int anHitSpinFrontCheck(xAnimTransition*, xAnimSingle*, void*);
     void AddTransitionsFrom(xAnimTable* table, const char* name, unsigned int (*c)(xAnimTransition*, xAnimSingle*, void*), unsigned int (*d)(xAnimTransition*, xAnimSingle*, void*), unsigned short e, float f, unsigned int g, unsigned int h, zPlayerAction::SpecialActions i);
+
+    void Begin();
 };
 
 
@@ -401,6 +666,8 @@ public:
     bool HammerPowerupMovingCheck(xAnimTransition* a0, xAnimSingle* a1);
     static unsigned int anHammerPowerupIdleCheck(xAnimTransition*, xAnimSingle*, void*);
     void AddTransitionsFrom(xAnimTable* table, const char* name, unsigned int (*c)(xAnimTransition*, xAnimSingle*, void*), unsigned int (*d)(xAnimTransition*, xAnimSingle*, void*), unsigned short e, float f, unsigned int g, unsigned int h, zPlayerAction::SpecialActions i);
+
+    void Begin();
 };
 
 
@@ -418,6 +685,8 @@ public:
     bool PuckPowerupMovingCheck(xAnimTransition* a0, xAnimSingle* a1);
     static unsigned int anPuckPowerupIdleCheck(xAnimTransition*, xAnimSingle*, void*);
     void AddTransitionsFrom(xAnimTable* table, const char* name, unsigned int (*c)(xAnimTransition*, xAnimSingle*, void*), unsigned int (*d)(xAnimTransition*, xAnimSingle*, void*), unsigned short e, float f, unsigned int g, unsigned int h, zPlayerAction::SpecialActions i);
+
+    void Begin();
 };
 
 
@@ -440,6 +709,8 @@ public:
     static void BeforeEnter(xAnimPlay*, xAnimState*, void*);
     void AddStates(xAnimTable* table);
     bool KelpTrapCheck(xAnimTransition* a0, xAnimSingle* a1);
+
+    void End();
 };
 
 
@@ -499,7 +770,8 @@ public:
     void Reset();
 
     unsigned char f10;
-    unsigned char _pad0[0x14 - 0x11];
+    unsigned char f11;
+    unsigned char _pad0[0x14 - 0x12];
     unsigned int states[2];
     unsigned char f1C;
     unsigned char _pad1[0x20 - 0x1D];
@@ -515,6 +787,10 @@ public:
                             unsigned int h,
                             zPlayerAction::SpecialActions i);
     void AddStates(xAnimTable* table);
+
+    void Begin();
+
+    void End();
 };
 
 
@@ -567,6 +843,8 @@ public:
     bool SBRunCheck(xAnimTransition* a0, xAnimSingle* a1);
     bool SBStopCheck(xAnimTransition* a0, xAnimSingle* a1);
     bool SBWalkCheck(xAnimTransition* a0, xAnimSingle* a1);
+
+    bool SBFallCheck(xAnimTransition* a0, xAnimSingle* a1);
 };
 
 class zCommonPlayerAction {
@@ -1035,6 +1313,11 @@ public:
     bool DoubleJumpStartMovingCheck(xAnimTransition* a0, xAnimSingle* a1);
     bool TransToFallCheck(xAnimTransition* a0, xAnimSingle* a1);
     void AddTransitionsFrom(xAnimTable* table, const char* name, unsigned int (*c)(xAnimTransition*, xAnimSingle*, void*), unsigned int (*d)(xAnimTransition*, xAnimSingle*, void*), unsigned short e, float f, unsigned int g, unsigned int h, zPlayerAction::SpecialActions i);
+
+    void Begin();
+
+    float f10;
+    float f14;
 };
 
 class zSBPlayerSpinAttack : public zPlayerAction {
@@ -1058,6 +1341,8 @@ public:
     bool SpongebuffMovingSpinCheck(xAnimTransition* a0, xAnimSingle* a1);
     bool StartSpinAttackCheck(xAnimTransition* a0, xAnimSingle* a1);
     bool FinishedQueueCheck(xAnimTransition* a0, xAnimSingle* a1);
+
+    void End();
 };
 
 class zBoardPlayerHammerAttack {
@@ -1078,6 +1363,12 @@ public:
     static unsigned int anSBJumpMovingCheck(xAnimTransition* a0, xAnimSingle* a1, void* a2);
     bool SBJumpMovingCheck(xAnimTransition* a0, xAnimSingle* a1);
     void AddTransitionsFrom(xAnimTable* table, const char* name, unsigned int (*c)(xAnimTransition*, xAnimSingle*, void*), unsigned int (*d)(xAnimTransition*, xAnimSingle*, void*), unsigned short e, float f, unsigned int g, unsigned int h, zPlayerAction::SpecialActions i);
+
+    void UpdateFall(float dt);
+
+    float f10;
+    unsigned char _pad0[0x20 - 0x14];
+    float f20;
 };
 
 class zSBPlayerCandy : public zPlayerAction {
@@ -1099,6 +1390,10 @@ public:
     bool SBSpringboardCheck(xAnimTransition* a0, xAnimSingle* a1);
     bool SBSpringboardDoubleJumpCheck(xAnimTransition* a0, xAnimSingle* a1);
     void AddTransitionsFrom(xAnimTable* table, const char* name, unsigned int (*c)(xAnimTransition*, xAnimSingle*, void*), unsigned int (*d)(xAnimTransition*, xAnimSingle*, void*), unsigned short e, float f, unsigned int g, unsigned int h, zPlayerAction::SpecialActions i);
+
+    void Begin();
+
+    void End();
 };
 
 class zPlayerCheat {
@@ -1147,6 +1442,8 @@ public:
     bool WalkToRun1Check(xAnimTransition* a0, xAnimSingle* a1);
     bool WalkToRun2Check(xAnimTransition* a0, xAnimSingle* a1);
     void AddTransitionsFrom(xAnimTable* table, const char* name, unsigned int (*c)(xAnimTransition*, xAnimSingle*, void*), unsigned int (*d)(xAnimTransition*, xAnimSingle*, void*), unsigned short e, float f, unsigned int g, unsigned int h, zPlayerAction::SpecialActions i);
+
+    void Begin();
 };
 
 class zSBPlayerGainPowerup : public zPlayerAction {
@@ -1168,6 +1465,8 @@ public:
     static unsigned int anGainSpongebuffPowerupCheck(xAnimTransition* a0, xAnimSingle* a1, void* a2);
     bool GainSpongebuffPowerupCheck(xAnimTransition* a0, xAnimSingle* a1);
     void AddTransitionsFrom(xAnimTable* table, const char* name, unsigned int (*c)(xAnimTransition*, xAnimSingle*, void*), unsigned int (*d)(xAnimTransition*, xAnimSingle*, void*), unsigned short e, float f, unsigned int g, unsigned int h, zPlayerAction::SpecialActions i);
+
+    void Begin();
 };
 
 class zSBPlayerBombRoll : public zPlayerAction {
@@ -1207,6 +1506,8 @@ public:
     bool Spray50Check(xAnimTransition* a0, xAnimSingle* a1);
     bool Spray75Check(xAnimTransition* a0, xAnimSingle* a1);
     void AddTransitionsFrom(xAnimTable* table, const char* name, unsigned int (*c)(xAnimTransition*, xAnimSingle*, void*), unsigned int (*d)(xAnimTransition*, xAnimSingle*, void*), unsigned short e, float f, unsigned int g, unsigned int h, zPlayerAction::SpecialActions i);
+
+    void End();
 };
 
 class zSBPlayerSpinPowerupAttack : public zPlayerAction {
@@ -1223,6 +1524,8 @@ public:
                             zPlayerAction::SpecialActions i);
     void AddStates(xAnimTable* table);
     bool SpinPowerupCheck(xAnimTransition* a0, xAnimSingle* a1);
+
+    void Begin();
 };
 
 class zSBPlayerQuicksandStuck : public zPlayerAction {
@@ -1498,6 +1801,13 @@ public:
     static unsigned int anSlamCheck(xAnimTransition* a0, xAnimSingle* a1, void* a2);
     bool SlamCheck(xAnimTransition* a0, xAnimSingle* a1);
     void AddTransitionsFrom(xAnimTable* table, const char* name, unsigned int (*c)(xAnimTransition*, xAnimSingle*, void*), unsigned int (*d)(xAnimTransition*, xAnimSingle*, void*), unsigned short e, float f, unsigned int g, unsigned int h, zPlayerAction::SpecialActions i);
+
+    void Begin();
+
+    float f10;
+    float f14;
+    float f18;
+    float f1C;
 };
 
 // The four floats this AddStates sets on the action before the
@@ -1519,6 +1829,10 @@ public:
     void AddActionTransitions(xAnimTable* table);
     void AddStates(xAnimTable* table);
     void AddTransitionsFrom(xAnimTable* table, const char* name, unsigned int (*c)(xAnimTransition*, xAnimSingle*, void*), unsigned int (*d)(xAnimTransition*, xAnimSingle*, void*), unsigned short e, float f, unsigned int g, unsigned int h, zPlayerAction::SpecialActions i);
+
+    void Begin();
+
+    void Move(xScene* scene, float dt, xEntFrame* frame);
 };
 
 class zPlayerSlamLandSB : public zPlayerAction {
@@ -1527,6 +1841,10 @@ public:
     void AddActionTransitions(xAnimTable* table);
     void AddStates(xAnimTable* table);
     void AddTransitionsFrom(xAnimTable* table, const char* name, unsigned int (*c)(xAnimTransition*, xAnimSingle*, void*), unsigned int (*d)(xAnimTransition*, xAnimSingle*, void*), unsigned short e, float f, unsigned int g, unsigned int h, zPlayerAction::SpecialActions i);
+
+    void Begin();
+
+    void End();
 };
 
 class zPlayerFluidBurstSB : public zPlayerAction {
@@ -1555,6 +1873,8 @@ public:
                             unsigned int h,
                             zPlayerAction::SpecialActions i);
     void AddStates(xAnimTable* table);
+
+    void Begin();
 };
 
 class zPlayerLedgeSB : public zPlayerAction {
@@ -1570,6 +1890,12 @@ public:
                             zPlayerAction::SpecialActions i);
     void AddStates(xAnimTable* table);
     bool StartLedgeCheck(xAnimTransition* a0, xAnimSingle* a1);
+
+    void Begin();
+
+    void UpdateFall(float dt);
+
+    void End();
 };
 
 class zSBPlayerDrainGoo : public zPlayerAction {
@@ -1600,6 +1926,8 @@ public:
                             zPlayerAction::SpecialActions i);
     void AddStates(xAnimTable* table);
     bool LosePowerupCheck(xAnimTransition* a0, xAnimSingle* a1);
+
+    void End();
 };
 
 class zSBPlayerQuicksandJump : public zPlayerAction {
@@ -1611,6 +1939,11 @@ public:
     static unsigned int anSBQuicksandJumpCheck(xAnimTransition* a0, xAnimSingle* a1, void* a2);
     bool SBQuicksandJumpCheck(xAnimTransition* a0, xAnimSingle* a1);
     void AddTransitionsFrom(xAnimTable* table, const char* name, unsigned int (*c)(xAnimTransition*, xAnimSingle*, void*), unsigned int (*d)(xAnimTransition*, xAnimSingle*, void*), unsigned short e, float f, unsigned int g, unsigned int h, zPlayerAction::SpecialActions i);
+
+    void Begin();
+
+    float f10;
+    float f14;
 };
 
 class zPlayerCelebrationSB : public zPlayerAction {
@@ -1626,6 +1959,8 @@ public:
                             zPlayerAction::SpecialActions i);
     void AddStates(xAnimTable* table);
     bool CelebrationCheck(xAnimTransition* a0, xAnimSingle* a1);
+
+    void Begin();
 };
 
 // zPlayerIdleSB::AddActionTransitions: 27 call(s)
@@ -4077,4 +4412,396 @@ void zPlayerSlamFallSB::AddTransitionsFrom(xAnimTable* table, const char* name, 
 // zPlayerLandHighSB::AddTransitionsFrom: 1 call(s)
 void zPlayerLandHighSB::AddTransitionsFrom(xAnimTable* table, const char* name, unsigned int (*c)(xAnimTransition*, xAnimSingle*, void*), unsigned int (*d)(xAnimTransition*, xAnimSingle*, void*), unsigned short e, float f, unsigned int g, unsigned int h, zPlayerAction::SpecialActions i) {
     zPlayerAction::AddActionTransition(table, name, "HighFallLandIdle01", 0, c, d, e, f, g, h);
+}
+
+// Ten Begin() bodies. Every offset and constant is read from the
+// image; the names are the DWARF's.
+
+void zPlayerCelebrationSB::Begin() {
+    ((zSBPlayer*)player)->performCelebration = false;
+}
+
+void zSBPlayerHammerPowerupAttack::Begin() {
+    ((zSBPlayer*)player)->attackState = (eRPSAttackTypes)1;
+}
+
+void zSBPlayerSpinPowerupAttack::Begin() {
+    ((zSBPlayer*)player)->attackState = (eRPSAttackTypes)2;
+}
+
+void zSBPlayerPuckPowerupAttack::Begin() {
+    ((zSBPlayer*)player)->attackState = (eRPSAttackTypes)3;
+}
+
+void zPlayerSpringboardSB::Begin() {
+    ((zSBPlayer*)player)->canDoubleJump = true;
+    ((zSBPlayer*)player)->canSpinGlide = true;
+}
+
+void zPlayerLandSB::Begin() {
+    ((zSBPlayer*)player)->canDoubleJump = false;
+    ((zSBPlayer*)player)->canSpinGlide = true;
+}
+
+void zSBPlayerQuicksandJump::Begin() {
+    f10 = 0.0f;
+    f14 = ((zSBPlayer*)player)->quicksandSinkDistance;
+}
+
+void zPlayerSlamFallSB::Begin() {
+    ((zSBPlayer*)player)->zPlayerFlags |= 0x10;
+    ((zSBPlayer*)player)->frame->f8C = -13.0f;
+}
+
+void zPlayerDoubleJumpSB::Begin() {
+    f10 = 0.0f;
+    f14 = ((zSBPlayer*)player)->ogModel.model->pos.y;
+    ((zSBPlayer*)player)->canDoubleJump = false;
+}
+
+void zPlayerSlamStartSB::Begin() {
+    f10 = 0.0f;
+    f18 = 25.0f;
+    f14 = 0.35f;
+    f1C = 0.0f;
+}
+
+// Not declared anywhere in this file yet.
+class zPlayerFallToDeathSB : public zPlayerAction {
+public:
+    void Begin();
+
+    float f10;
+};
+
+void zPlayerSingleCustomAnimSB::Begin() {
+    f10 = 0;
+    f11 = 0;
+    ((zSBPlayer*)player)->zPlayerFlags &= ~0x8;
+    ((zSBPlayer*)player)->zPlayerFlags &= ~0x10;
+    ((zSBPlayer*)player)->frame->zeroVel();
+}
+
+void zPlayerFallToDeathSB::Begin() {
+    zPlayer::KillAllPlayers((Sext::eHitSource)1);
+
+    f10 = 0.0f;
+}
+
+void zPlayerSlamLandSB::Begin() {
+    zSBPlayer* p = (zSBPlayer*)player;
+
+    p->SetGooState((SBGooFilledState)0);
+    p->f964 = 0.0f;
+}
+
+void zPlayerLedgeSB::Begin() {
+    ((zCommonPlayerInterAction*)this)->Begin();
+
+    ((zSBPlayer*)player)->zPlayerFlags |= 0x10;
+    ((zSBPlayer*)player)->frame->zeroVel();
+}
+
+void zSBPlayerPuckAttack::Begin() {
+    f1C = 1;
+    f18 = 0.0f;
+    ((zSBPlayer*)player)->attackState = (eRPSAttackTypes)3;
+    ((zSBPlayer*)player)->zPlayerFlags &= ~0x10;
+    f24 = 0.0f;
+    f28 = 0.0f;
+    f2C = 0.0f;
+    f20 = 0;
+}
+
+void zSBPlayerGainPowerup::Begin() {
+    zSBPlayer* p = (zSBPlayer*)player;
+
+    p->frame->zeroVel();
+    p->zPlayerFlags &= ~0x10;
+    p->SetGooState((SBGooFilledState)0);
+}
+
+void zPlayerHitSB::Begin() {
+    if (xEntGetAnimFlags((const xEnt*)player) & 0x4000) {
+        hitHammerTimer = 0.0f;
+    }
+
+    ((zSBPlayer*)player)->canDoubleJump = false;
+}
+
+void zPlayerWalkSB::Begin() {
+    if (((zSBPlayer*)player)->_v74()) {
+        ((zSBPlayer*)player)->canDoubleJump = false;
+        ((zSBPlayer*)player)->canSpinGlide = true;
+    }
+}
+
+void zPlayerSlamFallSB::Move(xScene* scene, float dt, xEntFrame* frame) {
+    xEntFrame* f = ((zSBPlayer*)player)->frame;
+
+    if (f->f8C > -50.0f) {
+        f->f8C = f->f8C - 30.0f * dt;
+    } else {
+        f->f8C = -50.0f;
+    }
+
+    ((zSBPlayer*)player)->_v128(scene, dt, frame);
+}
+
+void zSBPlayerHammerAttack::Move(xScene* scene, float dt,
+                                 xEntFrame* frame) {
+    if (f14) {
+        ((zSBPlayer*)player)->zPlayerFlags |= 0x10;
+
+        xEntFrame* f = ((zSBPlayer*)player)->frame;
+
+        if (f->f8C > -30.0f) {
+            float v = f->f8C - 30.0f * dt;
+
+            // A ternary, not an `if (v < -30) v = -30;`: retail
+            // branches BOTH ways to one store, which is what a
+            // conditional expression gives and a guarded
+            // assignment does not.
+            f->f8C = (v > -30.0f) ? v : -30.0f;
+        }
+    }
+
+    ((zSBPlayer*)player)->_v128(scene, dt, frame);
+}
+
+void zPlayerFluidSpraySB::End() {
+    ((zSBPlayer*)player)->shouldStopSquirting = 1;
+}
+
+void zSBPlayerPuckAttack::End() {
+    ((zSBPlayer*)player)->attackState = (eRPSAttackTypes)0;
+}
+
+void zPlayerSpringboardSB::End() {
+    ((zSBPlayer*)player)->trampolineLink = 0;
+}
+
+bool zSBPlayerPuckAttack::ShootPuckCheck(xAnimTransition* a0,
+                                        xAnimSingle* a1) {
+    return f1C == 0;
+}
+
+bool zSBPlayerKelpTrap::KelpTrapCheck(xAnimTransition* a0,
+                                      xAnimSingle* a1) {
+    return ((zSBPlayer*)player)->kelpTrapLink != 0;
+}
+
+bool zSBPlayerBombRoll::SBNoBombCheck(xAnimTransition* a0,
+                                      xAnimSingle* a1) {
+    return ((zSBPlayer*)player)->bombLink == 0;
+}
+
+void zPlayerLedgeSB::UpdateFall(float dt) {
+    ((zSBPlayer*)player)->fallingTime = 0.0f;
+}
+
+void zSBPlayerLosePowerup::End() {
+    zSBPlayer* p = (zSBPlayer*)player;
+
+    p->powerupPerformDeferredModelSwap = true;
+    p->attackState = (eRPSAttackTypes)0;
+}
+
+unsigned int zPlayerIdleSB::anTurnToFaceCameraCB(xAnimTransition* a0,
+                                                 xAnimSingle* a1,
+                                                 void* a2) {
+    // Written at the offset rather than through a member: this
+    // file puts zPlayerIdleSB's extra-idle table at +0x10, and a
+    // word of 4 into its first entry is not what that says it is.
+    // The store is the recovered fact; the member is not.
+    *(int*)((char*)((AnimCBHolder*)a1)->slot->owner + 0x10) = 4;
+
+    return 0;
+}
+
+unsigned int zPlayerSingleCustomAnimSB::anStartNewCustomAnimCB(
+    xAnimTransition* a0, xAnimSingle* a1, void* a2) {
+    ((zPlayerSingleCustomAnimSB*)((AnimCBHolder*)a1)->slot->owner)->f10 = 0;
+
+    return 0;
+}
+
+unsigned int zSBPlayerHammerAttack::anHammerSetAttackStateCB(
+    xAnimTransition* a0, xAnimSingle* a1, void* a2) {
+    ((zSBPlayer*)((zSBPlayerHammerAttack*)((AnimCBHolder*)a1)->slot
+                      ->owner)->player)
+        ->attackState = (eRPSAttackTypes)1;
+
+    return 1;
+}
+
+void zPlayerSlamLandSB::End() {
+    zEntEvent(0, 0, (xBase*)player, 0x321FA55F, 0, (ForceEvent)1);
+}
+
+// Two conditional RETURNS, not two branches: retail answers with
+// `beqlr` twice off one `li r3,0`, which is what && gives and an
+// if with its own return does not.
+bool zSBPlayerHammerAttack::HasAlreadyRecoiled() {
+    return f10 != 0 && f10 != 3;
+}
+
+bool zPlayerDoubleJumpSB::TransToFallCheck(xAnimTransition* a0,
+                                           xAnimSingle* a1) {
+    return f10 >= 0.4f;
+}
+
+bool zSBPlayerGainPowerup::GainHammerPowerupCheck(xAnimTransition* a0,
+                                                  xAnimSingle* a1) {
+    zSBPlayer* p = (zSBPlayer*)player;
+
+    if (p->powerupState == 10) {
+        p->attackState = (eRPSAttackTypes)1;
+
+        return true;
+    }
+
+    return false;
+}
+
+bool zPlayerSpringboardSB::SBSpringboardDoubleJumpCheck(
+    xAnimTransition* a0, xAnimSingle* a1) {
+    return ((zSBPlayer*)player)->frame->f8C <= 3.0f;
+}
+
+bool zPlayerFluidSpraySB::Spray100Check(xAnimTransition* a0,
+                                        xAnimSingle* a1) {
+    zSBPlayer* p = (zSBPlayer*)player;
+
+    return p->isSquirting && p->gooState == 2;
+}
+
+unsigned int zPlayerHitSB::anHammerTimerDone(xAnimTransition* a0,
+                                             xAnimSingle* a1,
+                                             void* a2) {
+    return ((zPlayerHitSB*)((AnimCBHolder*)a1)->slot->owner)
+               ->hitHammerTimer <= 0.0f;
+}
+
+void zSBPlayerSpinAttack::End() {
+    zSBPlayer* p = (zSBPlayer*)player;
+
+    p->zPlayerFlags &= ~0x10;
+    p->attackState = (eRPSAttackTypes)0;
+    p->spinCooldownTimer = 0.2f;
+}
+
+bool zSBPlayerBombRoll::SBBombStopCheck(xAnimTransition* a0,
+                                        xAnimSingle* a1) {
+    zProjectileSBBombNPC* bomb = ((zSBPlayer*)player)->bombLink;
+
+    if (bomb != 0 && bomb->f1BC == 1) {
+        return true;
+    }
+
+    return ((zSBPlayerAction*)this)->SBStopCheck(a0, a1);
+}
+
+bool zSBPlayerGainPowerup::GainInvincibilityPowerupCheck(
+    xAnimTransition* a0, xAnimSingle* a1) {
+    zSBPlayer* p = (zSBPlayer*)player;
+
+    if (p->powerupState == 5 && p->powerupModelState == 0) {
+        // The stored value is the one just LOADED, not the literal:
+        // retail reuses r3 rather than materialising 5 again.
+        p->powerupModelState = p->powerupState;
+
+        return true;
+    }
+
+    return false;
+}
+
+class xAnimPlay;
+
+void zSBAnimPackageBE(xAnimPlay* a0, xAnimState* a1, void* a2);
+
+bool zSBPlayerGainPowerup::GainSpongebuffPowerupCheck(xAnimTransition* a0,
+                                                      xAnimSingle* a1) {
+    zSBPlayer* p = (zSBPlayer*)player;
+
+    if (p->powerupState == 1 && p->powerupModelState == 0) {
+        p->powerupModelState = p->powerupState;
+
+        return true;
+    }
+
+    return false;
+}
+
+bool zSBPlayerAction::SBFallCheck(xAnimTransition* a0, xAnimSingle* a1) {
+    zSBPlayer* p = (zSBPlayer*)player;
+
+    return !(p->zPlayerFlags & 0x4) && p->fallingTime > 0.13f;
+}
+
+void zSBPlayerKelpTrap::End() {
+    zSBPlayer* p = (zSBPlayer*)player;
+
+    if (p->kelpTrapLink != 0) {
+        p->kelpTrapLink = 0;
+    }
+
+    ((zSBPlayer*)player)->zPlayerFlags &= ~0x10;
+    ((zSBPlayer*)player)->currentHitType = -1;
+}
+
+void zPlayerLedgeSB::End() {
+    ((zCommonPlayerInterAction*)this)->End();
+
+    ((zSBPlayer*)player)->zPlayerFlags &= ~0x10;
+}
+
+void zPlayerJumpSB::UpdateFall(float dt) {
+    if (f10 < f20) {
+        ((zSBPlayer*)player)->fallingTime = 0.0f;
+
+        return;
+    }
+
+    ((zSBPlayer*)player)->_v53(dt);
+}
+
+void zHitByHammerBE(xAnimPlay* a0, xAnimState* a1, void* a2) {
+    ((zSBPlayer*)a2)->powerupModelState = (SBPowerupState)8;
+
+    zSBAnimPackageBE(a0, a1, a2);
+
+    ((zSBPlayer*)a2)->powerupPerformDeferredModelSwap = true;
+}
+
+void zGravestoneBE(xAnimPlay* a0, xAnimState* a1, void* a2) {
+    ((zSBPlayer*)a2)->powerupModelState = (SBPowerupState)7;
+
+    zSBAnimPackageBE(a0, a1, a2);
+
+    ((zSBPlayer*)a2)->powerupPerformDeferredModelSwap = true;
+}
+
+void zSBPlayerHammerAttack::End() {
+    zSBPlayer* p = (zSBPlayer*)player;
+
+    if (p != 0) {
+        // The INCREMENT is the fall-through: retail branches on
+        // `beq` to the reset, so the test is != and not ==.
+        if (p->attackID != 16000) {
+            p->attackID = p->attackID + 1;
+        } else {
+            p->attackID = 0;
+        }
+    }
+
+    ((zSBPlayer*)player)->zPlayerFlags &= ~0x10;
+    p->attackState = (eRPSAttackTypes)0;
+}
+
+void zPlayerSingleCustomAnimSB::End() {
+    _v13();
+
+    ((zSBPlayer*)player)->zPlayerFlags |= 0x8;
 }

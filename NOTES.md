@@ -7,18 +7,18 @@ numbers here, which move.
 ## State at time of writing
 
 ```
-Game Code:  67 of 777 files complete  348,676 / 2,116,616 bytes  2,844 / 10,697 fn
-            16.4733% of game code
+Game Code:  67 of 777 files complete  350,840 / 2,116,616 bytes  2,894 / 10,697 fn
+            16.5755% of game code
 
-Of those 2,844 functions, 856 are GENERATED -- machine-recognised
+Of those 2,894 functions, 856 are GENERATED -- machine-recognised
 shapes, not one of which is decompiling. They are real matched
 functions and the offsets and constants are recovered fact, but a
 count of them is not a count of decompiled code. HAND-WRITTEN IS
-1,988, across 265 units and 314,376 bytes, and that is the figure to
+2,038, across 265 units and 316,540 bytes, and that is the figure to
 compare against earlier ones.
 
 Data:       4 unit(s) carry their own, 412 bytes; 134 more could
-All:        6.97% matched              main.dol reproduces byte for byte
+All:        7.01% matched              main.dol reproduces byte for byte
 ```
 
 Every number above is written by `python tools/notes_state.py`,
@@ -3189,6 +3189,54 @@ is a few words SHORT is not a register-allocation problem.** Words
 that are absent are source that is absent. Both of these looked like
 permuted register allocation in the word diff, because everything
 after the missing store shifts by one.
+
+## THE PLAYER'S LAYOUT IS IN THE DWARF, AND FIFTY BODIES FOLLOW FROM IT
+
+zSBPlayerActions is 54,788 unmatched bytes of small methods, and what
+made them writable is not a generator: it is `dwarf_types.py`. The
+retail link kept debug info for WAD03.cpp, so zSBPlayer is 0x1DD0
+bytes with `attackState` at +0x8C8, `canDoubleJump` at +0x9F1,
+`quicksandSinkDistance` at +0xA1C and `performCelebration` at +0xA3C --
+named, not guessed. Fifty bodies were written against that in six
+batches and every one of them matched.
+
+**The player is reached through a CAST, not a base.** `player` is a
+`zPlayer*` and the offsets are zSBPlayer's, so every body says
+`((zSBPlayer*)player)->`. That is already the file's convention --
+`zPlayerLandHighSB::End` was written that way -- and it keeps
+zPlayerAction's own layout untouched.
+
+**Six idioms cover most of the small ones**, and each is a whole
+body:
+
+    cntlzw r0,r0 / srwi r3,r0,5         return x == 0;
+    addic r0,r3,-1 / subfe r3,r0,r3     return x != 0;
+    fcmpo / cror 2,1,2 / mfcr / rlwinm  return f >= K;
+    fcmpo / cror 2,0,2 / mfcr / rlwinm  return f <= K;
+    rlwinm rA,rS,0,28,26                x &= ~0x10;
+    rlwinm. r0,r3,0,17,17               x & 0x4000
+
+the AND-masks being the wrapping form, whose mask is everything
+OUTSIDE the range: 0,28,26 clears bit 27, which is 0x10.
+
+**WHICH BRANCH FALLS THROUGH IS THE SOURCE'S SHAPE.**
+`zSBPlayerHammerAttack::End` came out three words off because retail
+`beq`s to the reset and increments on the fall-through, so the test
+is `!= 16000` and not `== 16000`. Same fact, opposite spelling, and
+the bytes say which.
+
+**A CLAMP IS A TERNARY.** `if (v < -30) v = -30;` gives one branch
+and one store; retail branches BOTH ways into a single store, which
+is what `v = (v > -30) ? v : -30;` gives.
+
+**AND && AND || ARE NOT INTERCHANGEABLE HERE.** `beqlr`/`bnelr` --
+conditional RETURNS off one `li r3,0` -- is what `&&` gives;
+separate ifs each with their own return is not. But a range on ONE
+variable is the exception: `state < 2 || state > 4` folds into an
+unsigned subtract and a single compare, which retail does not do,
+and neither the `&&` form, two ifs, nor an enum-typed comparison
+avoids the fold. Two bodies (40 and 52 bytes) are left unwritten for
+that reason rather than written wrong.
 
 ## THE OTHER LOOP IS AN INDEX, AND ITS COUNTER IS UNSIGNED
 

@@ -343,7 +343,16 @@ public:
     int linkCount;
     EventLinkNew* links;
 };
-class HudUp { public: void Fix(long); };
+class HudUp : public xBaseAsset {
+public:
+    void Fix(long base);
+
+    unsigned char _pad0[0x20];
+    int m20;
+    unsigned char _pad1[0x1C4];
+    int linkCount;
+    EventLinkNew* links;
+};
 class InputMappingAsset {
 public:
     void Fix(long base);
@@ -4570,3 +4579,41 @@ template void Util::RTTID_Fix<World::CameraFlyAsset>(void*, long);
 template void Util::RTTID_Fix<World::CollisionMeshBlobAsset>(void*, long);
 template void Util::RTTID_Fix<World::ImmediateGeometryAsset>(void*, long);
 #pragma always_inline off
+
+
+#pragma dont_inline on
+void Sext::HudUp::Fix(long base) {
+    EventLinkNew* end;
+    EventLinkNew* p;
+    unsigned int i;
+
+    CustomFix(base);
+
+
+    for (i = 0; i < m20; i++) {
+        char* e = (char*)this + i * 112;
+
+        *(long*)(e + 44) += base;
+        *(long*)(e + 52) += base;
+        *(long*)(e + 60) += base;
+        *(long*)(e + 68) += base;
+        *(long*)(e + 76) += base;
+        *(long*)(e + 84) += base;
+        *(long*)(e + 92) += base;
+        *(long*)(e + 100) += base;
+        *(long*)(e + 108) += base;
+        *(long*)(e + 116) += base;
+    }
+    p = (EventLinkNew*)((long)links + base);
+    links = p;
+    end = p + linkCount;
+
+    while (p != end) {
+        Util::RTTID_Fix<Sext::DTRMovieSettings>(&p->src, base);
+        Sext::FixWmlType(base, p->srcType, p->src.Get());
+        Util::RTTID_Fix<Sext::DTRMovieSettings>(&p->dst, base);
+        Sext::FixWmlType(base, p->dstType, p->dst.Get());
+        p++;
+    }
+}
+#pragma dont_inline off

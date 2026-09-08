@@ -7,10 +7,10 @@ numbers here, which move.
 ## State at time of writing
 
 ```
-Game Code:  67 of 777 files complete  348,360 / 2,116,616 bytes  2,843 / 10,697 fn
-            16.4583% of game code
+Game Code:  67 of 777 files complete  348,676 / 2,116,616 bytes  2,844 / 10,697 fn
+            16.4733% of game code
 
-Of those 2,843 functions, 855 are GENERATED -- machine-recognised
+Of those 2,844 functions, 856 are GENERATED -- machine-recognised
 shapes, not one of which is decompiling. They are real matched
 functions and the offsets and constants are recovered fact, but a
 count of them is not a count of decompiled code. HAND-WRITTEN IS
@@ -3189,6 +3189,26 @@ is a few words SHORT is not a register-allocation problem.** Words
 that are absent are source that is absent. Both of these looked like
 permuted register allocation in the word diff, because everything
 after the missing store shifts by one.
+
+## THE OTHER LOOP IS AN INDEX, AND ITS COUNTER IS UNSIGNED
+
+Six Fix bodies do not walk a cursor to a computed end: they count
+`i` from zero to a member RELOADED each iteration and address the
+element as `this + i * stride`. The compare is a `blt` against that
+member, not a `!=` against an end, which is why the reader refused
+all six on the bound.
+
+    for (i = 0; i < m20; i++) {
+        char* e = (char*)this + i * 112;
+        *(long*)(e + 44) += base;
+        ...
+    }
+
+**AND `i` IS UNSIGNED.** With `int i` the whole of HudUp's 316 bytes
+came out right except one word -- `cmpw` where retail has `cmplw`.
+The member's own type does not decide that: the conversion goes the
+other way, so a signed index makes the comparison signed whatever
+the count is declared as.
 
 ## INSTANTIATE THE MEMBER, NOT THE CLASS
 

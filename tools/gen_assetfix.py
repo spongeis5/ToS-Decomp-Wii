@@ -233,7 +233,7 @@ class Reader(object):
             k = {32: "w", 34: "b", 40: "h"}[op]
             if src == THIS:
                 self.v[d] = ("mem", imm, k)
-            elif src is not None and src[0] == "cursor":
+            elif src is not None and src[0] in ("cursor", "elem"):
                 self.v[d] = ("cmem", src[1], imm, k)
             else:
                 self.v[d] = None
@@ -247,6 +247,10 @@ class Reader(object):
             elif y is not None and y[0] == "scaled" and x is not None \
                     and x[0] in ("fixed", "fixedat", "cursor"):
                 self.v[d] = ("end", y[1], y[2], y[3])
+            elif y is not None and y[0] == "idx" and x == THIS:
+                self.v[d] = ("elem", 0)
+            elif x is not None and x[0] == "idx" and y == THIS:
+                self.v[d] = ("elem", 0)
             else:
                 self.v[d] = None
             return
@@ -260,6 +264,10 @@ class Reader(object):
                 ops.append(("advance", simm))
             elif src is not None and src[0] == "cursor":
                 self.v[d] = ("caddr", src[1], simm)
+            elif src is not None and src[0] == "idx" and d == a:
+                ops.append(("advance", simm))
+            elif src is not None and src[0] == "ctr" and d == a:
+                ops.append(("bump", simm))
             else:
                 self.v[d] = None
             return
@@ -283,7 +291,7 @@ class Reader(object):
                 ops.append(("reloc", imm))
                 self.v[d] = ("fixedat", imm)
                 return
-            if dst is not None and dst[0] == "cursor" \
+            if dst is not None and dst[0] in ("cursor", "elem") \
                     and src[0] == "fixed" and src[1] == dst[1] \
                     and src[2] == imm:
                 ops.append(("ereloc", imm))
@@ -431,10 +439,12 @@ class Reader(object):
         w = f.w[latch]
         cond = CONDNAME.get(((w >> 21) & 31, ((w >> 16) & 31) & 3))
         self.v = save
-        if cond != "ne":
-            raise Refuse("a loop that does not close on !=")
         if c is None or c[0] != "r":
             raise Refuse("a loop whose bound this reader cannot name")
+        if cond == "lt":
+            return self.idxloop(bidx, cmp_at, c)
+        if cond != "ne":
+            raise Refuse("a loop that does not close on %s" % cond)
         x, y, ra, rb = c[1], c[2], c[3], c[4]
         if x is not None and x[0] in ("fixed", "fixedat"):
             cur, other = ra, y
@@ -453,6 +463,39 @@ class Reader(object):
         self.v[cur] = None
         return ("loop", arr, other[1], other[2], adv[0][1],
                 [o for o in body if o[0] != "advance"], other[3])
+
+
+
+    def idxloop(self, bidx, cmp_at, c):
+        """A counted loop: `i` from zero to a member, reloaded each
+        iteration, with the element addressed as `this + i * stride`.
+        The counter is the register the compare names; the byte
+        offset is the OTHER register still holding a literal zero,
+        and there has to be exactly one of those."""
+        x, y, ra, rb = c[1], c[2], c[3], c[4]
+        if x is not None and x[0] == 'const' and x[1] == 0 \
+                and y is not None and y[0] == 'mem':
+            ctr, cnt = ra, y
+        elif y is not None and y[0] == 'const' and y[1] == 0 \
+                and x is not None and x[0] == 'mem':
+            ctr, cnt = rb, x
+        else:
+            raise Refuse('an index loop whose bounds do not read')
+        offs = [r for r, v in self.v.items()
+                if v == ('const', 0) and r != ctr]
+        if len(offs) != 1:
+            raise Refuse('an index loop with %d offset register(s)'
+                         % len(offs))
+        self.v[ctr] = ('ctr',)
+        self.v[offs[0]] = ('idx',)
+        body = self.block(bidx + 1, cmp_at)
+        adv = [o for o in body if o[0] == 'advance']
+        bump = [o for o in body if o[0] == 'bump']
+        if len(adv) != 1 or len(bump) != 1 or bump[0][1] != 1:
+            raise Refuse('an index loop that does not advance once')
+        self.v[ctr] = self.v[offs[0]] = None
+        return ('idxloop', cnt[1], cnt[2], adv[0][1],
+                [o for o in body if o[0] not in ('advance', 'bump')])
 
 
 def read_one(raw, secs, funcs, objs, a, nm, sz):
@@ -501,6 +544,8 @@ def fold(ops):
             continue
         if o[0] == "loop":
             o = o[:5] + (fold(o[5]),) + tuple(o[6:])
+        elif o[0] == "idxloop":
+            o = o[:4] + (fold(o[4]),)
         elif o[0] == "guard":
             o = o[:4] + (fold(o[4]),) + tuple(o[5:])
         out.append(o)
@@ -620,6 +665,9 @@ def collect(ops, fl, names, sizes):
                 ct = "unsigned int"
             fl.put(o[1], ct, names(o[1]), sz)
             collect(o[4], fl, names, sizes)
+        elif k == "idxloop":
+            ct, sz = INT[o[2]]
+            fl.put(o[1], ct, names(o[1]), sz)
         elif k == "loop":
             arr, cnt, _mul, stride, body = o[1], o[2], o[3], o[4], o[5]
             t = elem_type(body, stride)
@@ -677,6 +725,14 @@ def emit(ops, indent, names, elem=None, cursors=None, cur="p"):
             out.append(pad + "if (%s %s %d) {"
                        % (names(o[1]), NEGATE[o[3]], o[5]))
             out += emit(o[4], indent + 4, names, elem, cursors, cur)
+            out.append(pad + "}")
+        elif k == "idxloop":
+            cnt, stride, body = o[1], o[3], o[4]
+            out += ["",
+                    pad + "for (i = 0; i < %s; i++) {" % names(cnt),
+                    pad + "    char* e = (char*)this + i * %d;" % stride,
+                    ""]
+            out += emit(body, indent + 4, names, "char", cursors, "e")
             out.append(pad + "}")
         elif k == "loop":
             arr, cnt, mul, stride, body = o[1], o[2], o[3], o[4], o[5]
@@ -765,6 +821,8 @@ def each(ops, kind, out):
             out.append(o)
         if o[0] == "loop":
             each(o[5], kind, out)
+        elif o[0] == "idxloop":
+            each(o[4], kind, out)
         elif o[0] == "guard":
             each(o[4], kind, out)
     return out
@@ -787,6 +845,7 @@ def render(cls, ops, pinned, inline=False, sizes={}):
         base = b.split("::")[-1]
 
     kinds = [elem_type(o[5], o[4]) for o in each(ops, "loop", [])]
+    counted = each(ops, "idxloop", [])
 
     if cls in pinned:
         raise Refuse("this class is a sub-object of another, so its size "
@@ -803,8 +862,14 @@ def render(cls, ops, pinned, inline=False, sizes={}):
 
     cursors = Cursors(kinds)
     head = ["void %s::Fix(long base) {" % cls]
-    if kinds:
-        head += cursors.declare() + [""]
+    if kinds or counted:
+        head += cursors.declare()
+        if counted:
+            # UNSIGNED: retail compares the counter with `cmplw`, and a
+            # signed `i` makes it `cmpw` whatever the member's own type
+            # is, because the conversion goes the other way.
+            head.append("    unsigned int i;")
+        head.append("")
     body = emit(ops, 4, names, None, cursors)
     while body and body[-1] == "":
         body.pop()

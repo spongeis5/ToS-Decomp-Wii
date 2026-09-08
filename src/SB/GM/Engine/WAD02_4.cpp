@@ -29,12 +29,45 @@ void* memset(void* dst, int c, unsigned long n);
 inline void* operator new(unsigned long, void* p) { return p; }
 namespace World { class EntityHandleBase; }
 
+void operator delete(void* mem);
+
+class hkBaseObject {
+public:
+    virtual ~hkBaseObject();
+};
+
+namespace World {
+
+// The base carries nothing but its constructor: the vptr zFXSpawn's
+// own virtual creates sits at +0 either way, so how sizeof splits
+// between the two changes no code.
+class xOGEntity {
+public:
+    xOGEntity(EntityHandleBase* handle);
+    virtual ~xOGEntity();
+};
+
+class xOGModelRefPtr {
+public:
+    ~xOGModelRefPtr();
+};
+
+}  // namespace World
+
 namespace FX {
 
-class zFXSpawn {
+// The destructor destroys the model reference at +360 with the
+// don't-delete flag and then the base at +0 with the flag clear;
+// that second flag is the whole of what says base rather than
+// member.
+class zFXSpawn : public World::xOGEntity {
 public:
     zFXSpawn(World::EntityHandleBase* a0);
     virtual void __vtable_anchor();
+    ~zFXSpawn();
+
+    unsigned char _pad0[0x168 - 0x4];
+    World::xOGModelRefPtr model;
 };
 
 }  // namespace FX
@@ -140,3 +173,20 @@ FX::zFXSpawnObject* Sext::FXSpawn::Create(World::EntityHandleBase* handle,
                        0, sizeof(FX::zFXSpawnObject)))
         FX::zFXSpawnObject(handle, asset);
 }
+
+// The manager's slot holds a trivial object at +0 and a spawn at
+// +72, destroyed in reverse declaration order as C++ specifies.
+class zFXScriptSpawnPtMgr {
+public:
+    class SpawnSlot {
+    public:
+        ~SpawnSlot();
+
+        hkBaseObject head;
+        unsigned char _pad0[0x48 - 0x4];
+        FX::zFXSpawn spawn;
+    };
+};
+
+FX::zFXSpawn::~zFXSpawn() {}
+zFXScriptSpawnPtMgr::SpawnSlot::~SpawnSlot() {}

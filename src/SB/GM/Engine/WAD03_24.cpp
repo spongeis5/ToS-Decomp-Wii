@@ -26,6 +26,31 @@
 // cannot say which of them was written.
 
 class xVec3;
+class xBase;
+
+void operator delete(void* mem);
+
+namespace Util {
+
+// Declared and never defined: the destructor the list's own calls
+// is an external, and the template argument is what the mangled
+// name carries -- <P5xBase> is xBase* and <Ui> is unsigned int.
+template <class T>
+class BlockAllocatorArray {
+public:
+    ~BlockAllocatorArray();
+};
+
+}  // namespace Util
+
+class OGUpdateList {
+public:
+    ~OGUpdateList();
+
+    Util::BlockAllocatorArray<xBase*> bases;
+    unsigned char _pad0[0x20 - 0x1];
+    Util::BlockAllocatorArray<unsigned int> ids;
+};
 
 // The intrusive list a scene keeps per subtype: the anchor IS the first
 // word of the element, and the node sits four bytes into its object.
@@ -742,3 +767,5 @@ template void zScene_SetupEach<zUIGroup>(unsigned int);
 template void zScene_SetupEach<zWallNet>(unsigned int);
 template void zScene_SetupEach<zWallNetGroup>(unsigned int);
 template void zScene_SetupEach<zWaterWheel>(unsigned int);
+
+OGUpdateList::~OGUpdateList() {}

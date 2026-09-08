@@ -7,18 +7,18 @@ numbers here, which move.
 ## State at time of writing
 
 ```
-Game Code:  67 of 777 files complete  220,528 / 2,116,616 bytes  2,135 / 10,697 fn
-            10.4189% of game code
+Game Code:  67 of 777 files complete  221,236 / 2,116,616 bytes  2,143 / 10,697 fn
+            10.4523% of game code
 
-Of those 2,135 functions, 751 are GENERATED -- machine-recognised
+Of those 2,143 functions, 742 are GENERATED -- machine-recognised
 shapes, not one of which is decompiling. They are real matched
 functions and the offsets and constants are recovered fact, but a
 count of them is not a count of decompiled code. HAND-WRITTEN IS
-1,384, across 227 units and 209,236 bytes, and that is the figure to
+1,401, across 231 units and 210,056 bytes, and that is the figure to
 compare against earlier ones.
 
 Data:       4 unit(s) carry their own, 412 bytes; 134 more could
-All:        5.05% matched              main.dol reproduces byte for byte
+All:        5.06% matched              main.dol reproduces byte for byte
 ```
 
 Every number above is written by `python tools/notes_state.py`,
@@ -3358,6 +3358,48 @@ Extending four transplant-emitted files by hand took their banners
 off, so the four Creates in them moved from the generated column to
 the written one along with the four Inits: written 1,376 -> 1,384,
 generated 755 -> 751.
+
+### The destructor clusters, and the flag that says base or member
+
+A CodeWarrior destructor takes a hidden second argument, and it is
+the whole of what distinguishes the two shapes. `addi r3,r3,N` with
+r4 = -1 destroys a MEMBER at +N as a complete subobject; `mr r3,this`
+with r4 = 0 destroys the BASE at +0 as a base subobject. Then
+`__dl__FPv` runs when the CALLER's flag is positive. So the source is
+read straight off the instruction stream: which offsets, which
+destructors, and for each whether it is inherited or held.
+
+84 bytes is one member and 96 is two, and 19 of 19 and 16 of 16
+members of the two clusters gave up every offset, flag and symbol.
+Eight were written and matched: World::VertexDeclEntity at +24,
+World::TextureResourceEntity at +32, World::EffectEntity at +28,
+xCamBlend at +340 and System::CoreJobProcessor::Slot at +12 in the
+one-member shape; zFXScriptSpawnPtMgr::SpawnSlot, FX::zFXSpawn and
+OGUpdateList in the two-member one.
+
+EVERY MEMBER DESTRUCTOR IS THE SAME SYMBOL, and that is a fold.
+`__dt__12hkBaseObjectFv` is 64 bytes of null test, conditional
+operator delete and `return this` -- exactly what a trivial
+destructor compiles to -- so every trivial destructor in the image
+collapsed onto it and the real type is gone. Spelling the member as
+`hkBaseObject` is not a claim about what it was; it is what makes the
+relocation name the symbol that survived, which is the only thing
+the linked image can be checked against.
+
+A BASE WITH NO DECLARED DESTRUCTOR GETS NO CALL. FX::zFXSpawn came
+out 84 bytes against retail's 96 -- one call where retail has two --
+because the base was declared with nothing but its constructor. That
+is the same rule WAD00_17.cpp records from the other side, where an
+intermediate class with no declared destructor is what STOPS a
+spurious one being emitted. Here the base needs one, and it needs to
+be VIRTUAL as well as declared: zFXSpawn carries a virtual of its
+own, so its vptr is at +0, and a non-polymorphic base would take that
+spot and push every member offset by four.
+
+Four of these units were gen_accessors output and taking them over
+moved nine generated functions into the written column alongside the
+eight added: written 1,384 -> 1,401, generated 751 -> 742. The
+alternative was gen_units.py deleting the work on its next run.
 
 Two things that are NOT levers, measured rather than assumed: which
 overload of a name gets picked (CodeWarrior mangles static and non-static

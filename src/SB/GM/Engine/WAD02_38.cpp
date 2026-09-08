@@ -212,3 +212,68 @@ public:
 }  // namespace FX
 
 FX::Particles::MotionSystems::Collision::Rain::intersect_env_CB::~intersect_env_CB() {}
+
+// The 80-byte base-only destructor, the compiler's own: the
+// null-this test, the BASE's destructor on `this` with the flag
+// CLEAR -- r4 = 0 is a base subobject where r4 = -1 is a complete
+// one -- then operator delete when the CALLER's flag is positive,
+// and `return this`. No member is destroyed, so the class needs
+// nothing but its base.
+//
+// Non-virtual throughout: the call is a direct `bl` either way, and
+// a virtual destructor would make this unit the home of a vtable
+// retail keeps elsewhere. Where the base's destructor folded onto
+// __dt__12hkBaseObjectFv -- 64 bytes of null test, conditional
+// operator delete and `return this` -- the base is spelled as the
+// symbol that survived, which is what makes the relocation reach
+// retail's own.
+void operator delete(void* mem);
+
+class xLightEffectFlicker {
+public:
+    ~xLightEffectFlicker();
+};
+
+class zNPCGenericSpawner : public xLightEffectFlicker {
+public:
+    ~zNPCGenericSpawner();
+};
+
+class zInteractionUPWithIcons : public xLightEffectFlicker {
+public:
+    ~zInteractionUPWithIcons();
+};
+
+class hkBaseObject {
+public:
+    ~hkBaseObject();
+};
+
+class zNPCCombatCollisionListener : public hkBaseObject {
+public:
+    ~zNPCCombatCollisionListener();
+};
+
+namespace Graphics {
+class ScreenView : public hkBaseObject {
+public:
+    ~ScreenView();
+};
+}  // namespace Graphics
+
+namespace Graphics {
+class MaterialDepotSpace : public hkBaseObject {
+public:
+    ~MaterialDepotSpace();
+};
+}  // namespace Graphics
+
+zNPCGenericSpawner::~zNPCGenericSpawner() {}
+
+zInteractionUPWithIcons::~zInteractionUPWithIcons() {}
+
+zNPCCombatCollisionListener::~zNPCCombatCollisionListener() {}
+
+Graphics::ScreenView::~ScreenView() {}
+
+Graphics::MaterialDepotSpace::~MaterialDepotSpace() {}

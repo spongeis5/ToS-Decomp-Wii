@@ -44,6 +44,12 @@ unsigned int xAnimTableNewTransition(xAnimTable* table, const char* from, const 
 // action array through `manager`, its first word.
 class zPlayer;
 class zPlayerActionManager;
+// The two dereferences every animation callback makes. Nothing in
+// the image NAMES either type, so both are spelled as the offsets
+// that were measured. Neither struct emits a symbol.
+struct AnimCBSlot { unsigned char _pad[0x90]; void* owner; };
+struct AnimCBHolder { unsigned char _pad[0x4]; AnimCBSlot* slot; };
+
 class zPlayerAction {
 public:
     zPlayerActionManager* manager;
@@ -60,6 +66,13 @@ public:
                                 unsigned int (*b)(xAnimTransition*, xAnimSingle*, void*),
                                 unsigned short e, float f, unsigned int g,
                                 unsigned int h, SpecialActions i);
+
+    // Slot 5 is what every one of the image's 116-byte animation
+    // callbacks tests before it forwards: `lwz r12,28(r12)` on a
+    // vptr that sits at +12, and (28 - 8) / 4 is 5. Appended, so the
+    // three slots the tables call keep the indices they have.
+    virtual bool _v4();
+    virtual bool _v5();
 
     unsigned int NewState(xAnimTable* table, const char* name,
                           unsigned int a, unsigned int b, float c,
@@ -233,6 +246,9 @@ public:
     static unsigned int anZapStunCheck(xAnimTransition*, xAnimSingle*, void*);
     void AddInternalTransitions(xAnimTable* table);
     void AddStates(xAnimTable* table);
+    bool ShakeMissCheck(xAnimTransition* a0, xAnimSingle* a1);
+    bool TalkCheck(xAnimTransition* a0, xAnimSingle* a1);
+    bool ZapMissCheck(xAnimTransition* a0, xAnimSingle* a1);
 };
 
 // -- the animation tables, read from the image ------------------
@@ -290,4 +306,43 @@ void zPlayerIdlePlankton::AddTransitionsFrom(xAnimTable* table, const char* name
                             unsigned short e, float f, unsigned int g,
                             unsigned int h, zPlayerAction::SpecialActions i) {
     zPlayerAction::AddActionTransition(table, name, "Idle01", zPlayerIdlePlankton::anIdleCheck, a, b, e, f, g, h);
+}
+
+unsigned int zPlayerIdlePlankton::anShakeMissCheck(xAnimTransition* a0, xAnimSingle* a1,
+                                                   void* a2) {
+    unsigned int result = 0;
+
+    if (((zPlayerIdlePlankton*)((AnimCBHolder*)a0)->slot->owner)->_v5()) {
+        if (((zPlayerIdlePlankton*)((AnimCBHolder*)a0)->slot->owner)->ShakeMissCheck(a0, a1)) {
+            result = 1;
+        }
+    }
+
+    return result;
+}
+
+unsigned int zPlayerIdlePlankton::anTalkCheck(xAnimTransition* a0, xAnimSingle* a1,
+                                              void* a2) {
+    unsigned int result = 0;
+
+    if (((zPlayerIdlePlankton*)((AnimCBHolder*)a0)->slot->owner)->_v5()) {
+        if (((zPlayerIdlePlankton*)((AnimCBHolder*)a0)->slot->owner)->TalkCheck(a0, a1)) {
+            result = 1;
+        }
+    }
+
+    return result;
+}
+
+unsigned int zPlayerIdlePlankton::anZapMissCheck(xAnimTransition* a0, xAnimSingle* a1,
+                                                 void* a2) {
+    unsigned int result = 0;
+
+    if (((zPlayerIdlePlankton*)((AnimCBHolder*)a0)->slot->owner)->_v5()) {
+        if (((zPlayerIdlePlankton*)((AnimCBHolder*)a0)->slot->owner)->ZapMissCheck(a0, a1)) {
+            result = 1;
+        }
+    }
+
+    return result;
 }

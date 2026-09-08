@@ -199,3 +199,33 @@ Loader::MemCB_MetaRecord::MemCB_MetaRecord() {}
 Loader::MemCB_SectTable::MemCB_SectTable() {}
 Domains::MemOwnerUnclaimed::MemOwnerUnclaimed() {}
 Domains::MemCB_BorrowedMemory::MemCB_BorrowedMemory() {}
+
+// The 80-byte base-only destructor, the compiler's own: the
+// null-this test, the BASE's destructor on `this` with the flag
+// CLEAR -- r4 = 0 is a base subobject where r4 = -1 is a complete
+// one -- then operator delete when the CALLER's flag is positive,
+// and `return this`. No member is destroyed, so the class needs
+// nothing but its base.
+//
+// Non-virtual throughout: the call is a direct `bl` either way, and
+// a virtual destructor would make this unit the home of a vtable
+// retail keeps elsewhere. Where the base's destructor folded onto
+// __dt__12hkBaseObjectFv -- 64 bytes of null test, conditional
+// operator delete and `return this` -- the base is spelled as the
+// symbol that survived, which is what makes the relocation reach
+// retail's own.
+void operator delete(void* mem);
+
+class hkBaseObject {
+public:
+    ~hkBaseObject();
+};
+
+namespace World {
+class UVMovementSettingsEntity : public hkBaseObject {
+public:
+    ~UVMovementSettingsEntity();
+};
+}  // namespace World
+
+World::UVMovementSettingsEntity::~UVMovementSettingsEntity() {}

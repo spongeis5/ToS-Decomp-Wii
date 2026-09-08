@@ -449,6 +449,18 @@ class Merge(object):
                     n = int(m.group(1))
                     j = m.end() + n
                     hit = (rest[m.end():j] + "*", "g", j)
+            if hit is None and rest.startswith("P"):
+                # A pointer to a SCALAR: Pf, PUs, Pi. The rule above
+                # wants a digit after the P because it reads a class
+                # name by its length, so PUs fell through it and took
+                # the whole of NewState signature with it -- 53
+                # callers and 18,252 bytes, all refused for one
+                # two-character token.
+                for k in ("Us", "Ui", "Ul", "Uc", "i", "s", "c", "b",
+                          "l", "f", "d"):
+                    if rest[1:].startswith(k):
+                        hit = (cls.SCALAR[k] + "*", "g", 1 + len(k))
+                        break
             if hit is None:
                 for k in ("Us", "Ui", "Ul", "Uc", "i", "s", "c", "b", "l",
                           "f", "d"):

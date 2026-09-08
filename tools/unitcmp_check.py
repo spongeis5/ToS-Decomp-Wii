@@ -54,8 +54,8 @@ EXPECT = {
     # Generated, not read: constant returns, plus a few accessors, of the
     # 178 and 135 functions those two chunks hold. The rest is real code
     # and is not written.
-    "SB/GM/Engine/WAD02_36": (172, 172),
-    "SB/GM/Engine/WAD01_26": (70, 70),
+    "SB/GM/Engine/WAD02_36": (173, 173),
+    "SB/GM/Engine/WAD01_26": (72, 73),
     # Five of the unit's eight functions are written; the other three
     # reach further into the graphics types than has been recovered.
     "SB/NG/Source/Engine/Graphics/Builders/StaticBuilder": (5, 5),
@@ -76,10 +76,10 @@ EXPECT = {
     # the evidence that nothing was lost -- only re-homed. unitcmp_pins
     # refuses to lower a pin, correctly, so these seven are written here.
     "SB/GM/Engine/WAD00": (6, 6),
-    "SB/GM/Engine/WAD00_1": (2, 2),
+    "SB/GM/Engine/WAD00_1": (4, 4),
     "SB/GM/Engine/WAD00_2": (7, 7),
     "SB/GM/Engine/WAD01_21": (4, 4),
-    "SB/GM/Engine/WAD02_38": (13, 13),
+    "SB/GM/Engine/WAD02_38": (18, 18),
     "SB/GM/Engine/WAD03_16": (4, 5),
     "SB/GM/Engine/WAD03_2": (1, 1),
     # Three pins were LOWERED by hand on 2026-08-31 -- these two and
@@ -90,7 +90,7 @@ EXPECT = {
     # report.json never agreed, and report.json was right.
     # tools/unitcmp_pins.py refuses to make this edit on its own, which is
     # why it is written out here instead.
-    "SB/GM/Engine/WAD03_43": (23, 23),
+    "SB/GM/Engine/WAD03_43": (26, 26),
     "SB/GM/Engine/WAD04_6": (4, 4),
     "SB/GM/Engine/WAD04_8": (1, 1),
     "SB/NG/Engine/WADSpeed": (18, 18),
@@ -99,7 +99,7 @@ EXPECT = {
     "SB/GM/Engine/Game/zBTDepot": (4, 5),
     "SB/GM/Engine/Game/zEventSpy": (6, 6),
     "SB/GM/Engine/Game/zWaterWheel": (2, 2),
-    "SB/GM/Engine/WAD00_31": (5, 5),
+    "SB/GM/Engine/WAD00_31": (6, 6),
     "SB/GM/Engine/WAD01_19": (3, 3),
     "SB/GM/Engine/WAD02_31": (2, 2),
     "SB/GM/Engine/WAD02_4": (6, 6),
@@ -124,6 +124,11 @@ EXPECT = {
     "SB/GM/Engine/WAD04": (1, 1),
     "SB/GM/Engine/WAD03_24": (43, 46),
     "SB/NG/Engine/WAD02_12": (2, 2),
+    # The GFx/Scaleform base-only destructors were written into these
+    # four and TAKEN BACK OUT: report.json credited them, every word
+    # equal, and reloc_audit called them overstated -- retail's
+    # operator delete on a GFx class is GMemoryHeap::Free, not the
+    # global one. They need the class's own operator delete first.
     "SB/NG/Engine/WAD02_13": (3, 3),
     # One function of the 68 in this chunk.
     "SB/NG/Engine/WAD02_14": (1, 1),
@@ -243,7 +248,7 @@ EXPECT = {
     # The animation tables merged by gen_animtables.py. The five
     # that DIFFER are AddActionTransitions bodies with many calls,
     # merged and not yet examined; the pin has to see them.
-    "SB/GM/Engine/Game/zCommonPlayerActions": (47, 52),
+    "SB/GM/Engine/Game/zCommonPlayerActions": (77, 83),
     "SB/GM/Engine/Game/zFXParticleLocator": (1, 1),
     "SB/GM/Engine/Game/zFloatingCollectible": (3, 3),
     "SB/GM/Engine/Game/zHitButton": (4, 4),
@@ -258,13 +263,13 @@ EXPECT = {
     "SB/GM/Engine/Game/zNPCManager": (1, 1),
     "SB/GM/Engine/Game/zPOWGroup": (1, 1),
     "SB/GM/Engine/Game/zPhysicsObject": (3, 3),
-    "SB/GM/Engine/Game/zPlanktonPlayer": (7, 7),
+    "SB/GM/Engine/Game/zPlanktonPlayer": (10, 10),
     "SB/GM/Engine/Game/zPlantTrap": (16, 16),
     "SB/GM/Engine/Game/zPlatform": (2, 2),
     "SB/GM/Engine/Game/zPlayerConstrainer": (3, 3),
     "SB/GM/Engine/Game/zPlayerInventory": (1, 1),
-    "SB/GM/Engine/Game/zProjectileHavok": (1, 1),
-    "SB/GM/Engine/Game/zSBPlayerActions": (137, 142),
+    "SB/GM/Engine/Game/zProjectileHavok": (2, 2),
+    "SB/GM/Engine/Game/zSBPlayerActions": (234, 239),
     "SB/GM/Engine/Game/zSearchMapCreatorNavMesh": (2, 2),
     "SB/GM/Engine/Game/zSearchStrategyAStar": (1, 1),
     "SB/GM/Engine/Game/zSpinner": (3, 3),
@@ -278,7 +283,7 @@ EXPECT = {
     "SB/GM/Engine/WAD00_32": (177, 177),
     "SB/GM/Engine/WAD01_13_1": (2, 2),
     "SB/GM/Engine/WAD01_1_1": (123, 127),
-    "SB/GM/Engine/WAD01_28": (118, 119),
+    "SB/GM/Engine/WAD01_28": (237, 243),
     "SB/GM/Engine/WAD01_29": (2, 2),
     "SB/GM/Engine/WAD02_6_1": (2, 2),
     "SB/GM/Engine/WAD03_32_2": (3, 3),
@@ -287,12 +292,15 @@ EXPECT = {
     "SB/GM/Engine/WAD04_8_2": (1, 1),
     "SB/NG/Engine/WAD00_12_2": (5, 5),
     "SB/NG/Engine/WAD00_12_3": (7, 7),
-    "SB/NG/Engine/WAD00_17_1": (15, 15),
+    "SB/NG/Engine/WAD00_17_1": (16, 16),
     "SB/NG/Engine/WAD00_5_1": (2, 2),
     "SB/NG/Engine/WAD02_15_1": (3, 3),
     "SB/NG/Source/Engine/AssetManager/Loader/TableManager": (1, 1),
     "SB/NG/Source/Engine/AssetManager/Overseer/Coordinator": (2, 2),
-    "SB/NG/Source/Engine/Entities/Blobs/CameraFlyBlobEntity": (2, 2),
+    "SB/NG/Source/Engine/Entities/Blobs/CameraFlyBlobEntity": (3, 3),
+    # World::ImmediateGeometry's destructor, which is also the one
+    # StaticGeometryEntity.cpp's StaticBuilder calls on its member.
+    "SB/NG/Source/Engine/Entities/ImmediateGeometryEntity": (1, 1),
     "SB/NG/Source/Engine/Entities/ModelInstanceArticle": (3, 3),
     "SB/NG/Source/Engine/Entities/RenderCustomizerEntity": (6, 6),
     # The last six of the 68-byte module-constructor cluster,
@@ -302,14 +310,14 @@ EXPECT = {
     # One function of the six in this chunk, and it is not an
     # entity: Graphics::StaticBuilder's destructor landed here.
     "SB/NG/Source/Engine/Entities/StaticGeometryEntity": (1, 1),
-    "SB/NG/Source/Engine/Entities/SkinGeometryEntity": (2, 2),
+    "SB/NG/Source/Engine/Entities/SkinGeometryEntity": (3, 3),
     "SB/NG/Source/Engine/Graphics/Builders/SkinBuilder": (3, 3),
     "SB/NG/Source/Engine/Graphics/Light": (1, 1),
     # One function of the nine in this chunk, and it is not a
     # Model: an inline from Renderable3D.h that landed here.
     "SB/NG/Source/Engine/Graphics/Model": (1, 1),
     "SB/NG/Source/Engine/Graphics/RenderState": (1, 1),
-    "SB/NG/Source/Engine/Graphics/RenderTargetWii": (1, 1),
+    "SB/NG/Source/Engine/Graphics/RenderTargetWii": (2, 2),
     "SB/NG/Source/Engine/Graphics/Scene": (1, 1),
     "SB/NG/Source/Engine/Graphics/SceneGraph": (1, 1),
     "SB/NG/Source/Engine/Graphics/Viewport": (13, 13),
@@ -377,7 +385,7 @@ EXPECT = {
     "SB/GM/Engine/Game/zPOWObject": (3, 3),
     "SB/GM/Engine/WAD00_7_1": (1, 1),
     "SB/GM/Engine/WAD01_11": (1, 1),
-    "SB/NG/Engine/WAD01_17_1": (2, 2),
+    "SB/NG/Engine/WAD01_17_1": (3, 3),
     "SB/NG/Engine/WAD01_22": (1, 1),
     "SB/NG/Source/Engine/Entities/Blobs/Anims/ComboAnimBlobEntity": (2, 2),
     "SB/NG/Source/Engine/Math/MathUtil": (1, 2),

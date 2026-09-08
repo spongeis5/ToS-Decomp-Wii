@@ -7,18 +7,18 @@ numbers here, which move.
 ## State at time of writing
 
 ```
-Game Code:  67 of 777 files complete  257,524 / 2,116,616 bytes  2,308 / 10,697 fn
-            12.1668% of game code
+Game Code:  67 of 777 files complete  296,504 / 2,116,616 bytes  2,578 / 10,697 fn
+            14.0084% of game code
 
-Of those 2,308 functions, 686 are GENERATED -- machine-recognised
+Of those 2,578 functions, 696 are GENERATED -- machine-recognised
 shapes, not one of which is decompiling. They are real matched
 functions and the offsets and constants are recovered fact, but a
 count of them is not a count of decompiled code. HAND-WRITTEN IS
-1,622, across 262 units and 247,164 bytes, and that is the figure to
+1,882, across 263 units and 285,344 bytes, and that is the figure to
 compare against earlier ones.
 
 Data:       4 unit(s) carry their own, 412 bytes; 134 more could
-All:        5.61% matched              main.dol reproduces byte for byte
+All:        6.19% matched              main.dol reproduces byte for byte
 ```
 
 Every number above is written by `python tools/notes_state.py`,
@@ -130,6 +130,7 @@ written so far.
 | `gen_survey.py` | where else the constant-return shape lives |
 | `gen_accessors.py` | generate every mechanical shape for a unit -- members, globals, constants, constructors; `--survey` for what is left |
 | `gen_units.py` | run that over EVERY unit that has candidates, and withdraw the files that no longer do |
+| `gen_animcb.py` | generate the 116-byte animation callbacks: every candidate verified WORD FOR WORD against one written by hand, both holder spellings read off the bytes; `--survey` for what is left |
 | `shape_census.py` | what the unmatched short functions LOOK like, as a population, by opcode signature |
 | `unitcmp_pins.py` | re-measure `unitcmp_check`'s pins; refuses to lower one |
 | `written_vs_generated.py` | the split, from the banner in each source file |
@@ -3699,6 +3700,64 @@ ones that were already differing before any of this. A pin of
 What is left of the seam, measured after: 72 of the 270 have a branch
 in them, which the tool refuses as a different shape, and the rest are
 in units that need the same stub added.
+
+### 14%, a second generator, and the check that took 640 bytes back
+
+Three seams, and the largest of them was one two-character token.
+
+`PUs` STOPPED 18,252 BYTES. gen_animtables.py reads a mangled
+parameter list, and its pointer rule wants a digit after the P
+because it reads a class name by its length. `Pf` and `PUs` fell
+through it, and `PUs` is in zPlayerAction::NewState's signature, so
+every one of the 53 tables that calls NewState was refused --
+counted, correctly, as `cannot read the signature`. One rule of ten
+lines. That is the second time this session that counting the
+refusals rather than reading the first one was worth five figures.
+
+THE 116-BYTE ANIMATION CALLBACK, and a generator of its own
+(tools/gen_animcb.py). An `an<X>Check` that a table passes as a
+transition callback is 29 instructions and says one thing:
+
+    unsigned int r = 0;
+    if (owner->_v5())
+        if (owner->X(t, s))
+            r = 1;
+    return r;
+
+`owner` is `((AnimCBHolder*)a)->slot->owner`, +4 then +0x90, RE-READ
+for the second call rather than kept. Slot 5 is (28 - 8) / 4 of the
+`lwz r12,28(r12)`. The first was written by hand and matched on the
+first compile; the generator then verifies every candidate WORD FOR
+WORD against it, so the slot, the offsets and the branch structure
+are checked and not assumed.
+
+TWO SPELLINGS, AND THE BYTES SAY WHICH. 35 of the 207 take the chain
+off a1 rather than a0 -- `lwz r5,4(r4)` where the others have r3 --
+which is the chain the image's short forwarders already use. Reading
+those two words is what tells them apart; a function whose two reads
+disagree is refused. 203 written, 23,548 bytes, over four units.
+
+THE 80-BYTE BASE-ONLY DESTRUCTOR: null test, the BASE's destructor
+with the flag CLEAR, operator delete when the caller's flag is
+positive, `return this`, and no member call at all. Spelled
+non-virtual throughout -- the call is a direct `bl` either way, and a
+virtual destructor would make the unit the home of a vtable retail
+keeps elsewhere. 20 written of the 43 the image has.
+
+AND EIGHT OF THEM WERE TAKEN BACK OUT, which is the part worth
+keeping. The GFx and Scaleform ones came out with EVERY WORD equal
+and report.json credited all eight -- and reloc_audit called them
+OVERSTATED: retail's `operator delete` on a GFx class is
+`Free__11GMemoryHeapFPv`, the class's own, where ours reaches the
+global `__dl__FPv`. The bits agreed and the call did not. That is
+precisely the case the relocation check exists for, and it is the
+difference between 14.03% and 14.01%: 640 bytes given back because
+the only tool that could see the difference said so. They are
+reachable, and what they need first is the class's own operator
+delete -- the GNewOverrideBase idiom -- not a different destructor.
+
+Game Code 12.1668% -> 14.0084%, 257,524 -> 296,504 bytes, 2,308 ->
+2,578 functions.
 
 Two things that are NOT levers, measured rather than assumed: which
 overload of a name gets picked (CodeWarrior mangles static and non-static

@@ -3192,11 +3192,20 @@ after the missing store shifts by one.
 
 ## THE OTHER LOOP IS AN INDEX, AND ITS COUNTER IS UNSIGNED
 
-Six Fix bodies do not walk a cursor to a computed end: they count
-`i` from zero to a member RELOADED each iteration and address the
+One Fix body does not walk a cursor to a computed end: it counts
+`i` from zero to a member RELOADED each iteration and addresses the
 element as `this + i * stride`. The compare is a `blt` against that
-member, not a `!=` against an end, which is why the reader refused
-all six on the bound.
+member, not a `!=` against an end.
+
+**A REFUSAL BUCKET IS NOT A CENSUS OF WHAT THE BODIES ARE.** Six
+were refused with `a cursor loop whose bounds do not read`, and I
+wrote the section saying six were index loops. `findop.py` says
+1 of 158: the other five got PAST the bound once the index loop was
+in the vocabulary, and are refused further on -- two on an
+instruction, one on a Fix call the reader cannot name, one on a
+store, one on a prologue. A bucket counts where a reader STOPPED,
+which is the first thing it could not do and not the thing the body
+is.
 
     for (i = 0; i < m20; i++) {
         char* e = (char*)this + i * 112;

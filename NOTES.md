@@ -7,10 +7,10 @@ numbers here, which move.
 ## State at time of writing
 
 ```
-Game Code:  67 of 777 files complete  298,140 / 2,116,616 bytes  2,595 / 10,697 fn
-            14.0857% of game code
+Game Code:  67 of 777 files complete  311,532 / 2,116,616 bytes  2,673 / 10,697 fn
+            14.7184% of game code
 
-Of those 2,595 functions, 696 are GENERATED -- machine-recognised
+Of those 2,673 functions, 774 are GENERATED -- machine-recognised
 shapes, not one of which is decompiling. They are real matched
 functions and the offsets and constants are recovered fact, but a
 count of them is not a count of decompiled code. HAND-WRITTEN IS
@@ -18,7 +18,7 @@ count of them is not a count of decompiled code. HAND-WRITTEN IS
 compare against earlier ones.
 
 Data:       4 unit(s) carry their own, 412 bytes; 134 more could
-All:        6.22% matched              main.dol reproduces byte for byte
+All:        6.42% matched              main.dol reproduces byte for byte
 ```
 
 Every number above is written by `python tools/notes_state.py`,
@@ -131,6 +131,7 @@ written so far.
 | `gen_accessors.py` | generate every mechanical shape for a unit -- members, globals, constants, constructors; `--survey` for what is left |
 | `gen_units.py` | run that over EVERY unit that has candidates, and withdraw the files that no longer do |
 | `gen_animcb.py` | generate the 116-byte animation callbacks: every candidate verified WORD FOR WORD against one written by hand, both holder spellings read off the bytes; `--survey` for what is left |
+| `gen_assetfix.py` | generate the Sext assets' Fix(long): the head is WALKED and the tail checked word for word against one of two written by hand; `--survey` for what is left |
 | `shape_census.py` | what the unmatched short functions LOOK like, as a population, by opcode signature |
 | `unitcmp_pins.py` | re-measure `unitcmp_check`'s pins; refuses to lower one |
 | `written_vs_generated.py` | the split, from the banner in each source file |
@@ -3809,6 +3810,64 @@ out to what their generators can verify. Past here the bytes come one
 function at a time, out of the two player-action units that hold
 260,000 bytes between them, and that is decompilation rather than
 transplanting.
+
+### The asset Fix, a walker instead of a template, and a HELD file
+
+`shape_census.py`'s biggest remaining row was 28 functions of 160
+bytes, all called `Fix__Q24Sext<something>AssetFl`, all in
+WAD00_32.cpp. An asset's Fix relocates what the asset owns and then
+walks its event links:
+
+    CustomFix(base);
+    <0..n>  member.Fix(base);
+    <0..1>  other = (void*)((long)other + base);
+    p = (EventLinkNew*)((long)links + base);
+    links = p;
+    end = p + linkCount;
+    while (p != end) { RTTID_Fix<T>(&p->src, base); ... p++; }
+
+`end` IS DECLARED BEFORE THE CURSOR. With the cursor first, fourteen
+of the forty words come out with r30 and r31 swapped -- the cursor
+takes r30 and `end` takes over the register `this` was in. Three
+spellings were compiled to settle it, and the fourth question that
+kind of difference asks is always the same one: which variable gets
+the lower callee-saved register, and the source is what decides.
+
+A TAIL MATCH BEATS A TEMPLATE MATCH. The first version measured a
+candidate against a whole 160-byte template and took 28; the family
+is 103 functions over a dozen sizes, and what they share is the TAIL
+-- everything from the link count onward, in one of two shapes. The
+head is a run of `mr r4,r29 / addi r3,r31,N / bl Fix__<T>Fl` triples,
+one per sub-object the asset owns, and however many there are is read
+rather than assumed. That took 77 of the 103, and every one of them
+is still checked word for word against its tail.
+
+AN EMPTY CLASS IS ONE BYTE, NOT FOUR, and that is what put every
+member after the first three bytes early: `addi r3,r31,0xED` where
+retail has 0xF0. The sub-object stubs carry nothing but a Fix, so
+each occupies one byte, and the padding between them is measured
+against that.
+
+AND THE BODIES GO INSIDE `#pragma dont_inline`. Without it mwcc takes
+Util::RTTID_Fix<T> -- one line -- and the branch reaches T::Fix
+directly where retail reaches the wrapper. Every word is still equal
+and report.json credits it; reloc_audit is what caught it, again. The
+wrapper for a T new to the unit has to be instantiated OUTSIDE that
+block, or the inlining it DOES want does not happen either --
+DTRMovieSettings' wrapper is sixteen bytes because its own Fix is
+taken into it.
+
+A THIRD STATE FOR A GENERATED FILE: HELD. gen_units.py and
+written_vs_generated.py both key on the gen_accessors banner and want
+opposite things from it here. The accounting is right to call
+WAD00_32.cpp generated -- every one of its 255 functions came from a
+generator -- but gen_units would regenerate it and delete 78 of them.
+`// HELD: another generator has added to this file` says so: gen_units
+leaves it alone, the accounting is unchanged, and nothing had to be
+weakened to get there.
+
+255 of 255 in that unit, up from 177. Game Code 14.0857% ->
+14.7184%.
 
 Two things that are NOT levers, measured rather than assumed: which
 overload of a name gets picked (CodeWarrior mangles static and non-static

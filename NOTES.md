@@ -7,18 +7,18 @@ numbers here, which move.
 ## State at time of writing
 
 ```
-Game Code:  67 of 777 files complete  221,236 / 2,116,616 bytes  2,143 / 10,697 fn
-            10.4523% of game code
+Game Code:  67 of 777 files complete  221,712 / 2,116,616 bytes  2,150 / 10,697 fn
+            10.4748% of game code
 
-Of those 2,143 functions, 742 are GENERATED -- machine-recognised
+Of those 2,150 functions, 737 are GENERATED -- machine-recognised
 shapes, not one of which is decompiling. They are real matched
 functions and the offsets and constants are recovered fact, but a
 count of them is not a count of decompiled code. HAND-WRITTEN IS
-1,401, across 231 units and 210,056 bytes, and that is the figure to
+1,413, across 236 units and 210,640 bytes, and that is the figure to
 compare against earlier ones.
 
 Data:       4 unit(s) carry their own, 412 bytes; 134 more could
-All:        5.06% matched              main.dol reproduces byte for byte
+All:        5.07% matched              main.dol reproduces byte for byte
 ```
 
 Every number above is written by `python tools/notes_state.py`,
@@ -3400,6 +3400,49 @@ Four of these units were gen_accessors output and taking them over
 moved nine generated functions into the written column alongside the
 eight added: written 1,384 -> 1,401, generated 751 -> 742. The
 alternative was gen_units.py deleting the work on its next run.
+
+### The 68-byte constructor, and where the vtable store lands
+
+Run the base constructor, store the vtable, put ONE constant in ONE
+member. 21 members, 8 solved, and all 21 gave up the base, the
+vtable, the constant and both offsets.
+
+THE VTABLE'S OFFSET SAYS WHICH SHAPE IT IS. System::Module declares
+two members ahead of its first virtual, so anything derived from it
+puts its vptr at +0x14 and the constant goes into `events.stage[i]`;
+World::Entity is polymorphic from +0, so an entity's vptr is at +0
+and the constant is the type id at +0x10. One number in the
+instruction tells the two apart before anything else is read.
+zSBKelpTrapBehavior is a third: +0x14 like a module, but its base is
+nested in zPlantTrap and is not polymorphic at all.
+
+Seven written and matched: HavokModule (stage[1] = 3),
+IO::ConsolePadDeviceModule (15), Overseer::CoordinatorModule (99),
+UI::Font (type id 14), UI::FontAssetBlobEntity (15),
+zNPCGenericSwarm and zSBKelpTrapBehavior.
+
+A DECLARED VIRTUAL DESTRUCTOR IN THE BASE COSTS THREE EXTRA
+FUNCTIONS. World::Entity was transcribed from LightKitSceneEntity.cpp
+with its `virtual ~Entity()`, and mwcc then emitted an implicit
+destructor for Font, for FontAssetBlobEntity and for BlobEntity --
+none of which retail has. Spelling slot 0 as a plain virtual instead
+removed all three: nothing here calls it, and the vtable is
+referenced rather than emitted either way. LightKitSceneEntity.cpp
+needs the destructor because it declares one of its own; a file that
+does not should not carry it.
+
+AND EVERY BYTE CAN MATCH WHILE THE RELOCATION NAMES THE WRONG THING.
+zSBKelpTrapBehavior's constructor came out word-for-word identical
+and unitcmp still called it 1 of 17, because the base was written as
+an invented `zPlantTrapBehaviorBase` where retail's mangled name says
+`zPlantTrap::CustomBehavior` -- nested, not free. report.json cannot
+see that: a relocated field's bits are zero on both sides. This is
+the third time in this session that a by-name check has caught what
+the oracle could not.
+
+Five of these units were gen_accessors output; taking them over moved
+five generated functions across alongside the seven added: written
+1,401 -> 1,413, generated 742 -> 737.
 
 Two things that are NOT levers, measured rather than assumed: which
 overload of a name gets picked (CodeWarrior mangles static and non-static

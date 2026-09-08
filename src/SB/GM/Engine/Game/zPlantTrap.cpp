@@ -31,6 +31,14 @@ namespace World { class EntityHandleBase; }
 namespace Sext { class zPlantTrapAsset; }
 
 class xAnimSingle;
+
+class zPlantTrap;
+
+// The behaviour's base is nested in zPlantTrap, is 0x14 bytes and is
+// NOT polymorphic: the vptr the constructor stores therefore lands
+// after it at +0x14, and not at +0 the way an entity's does. That
+// offset is the whole of what says which.
+class zSBKelpTrapBehavior;
 class xAnimTransition;
 
 
@@ -38,6 +46,16 @@ class zPlantTrap {
 public:
     zPlantTrap(World::EntityHandleBase* handle,
                Sext::zPlantTrapAsset* asset);
+
+    // Nested, 0x14 bytes and NOT polymorphic, which is why the vptr
+    // the derived constructor stores lands after it at +0x14 rather
+    // than at +0 the way an entity's does.
+    class CustomBehavior {
+    public:
+        CustomBehavior(zPlantTrap* trap);
+
+        unsigned char _pad0[0x14];
+    };
 
     int* GetAttachDPos();
     bool HitCheck(xAnimTransition* a0, xAnimSingle* a1);
@@ -104,4 +122,19 @@ zPlantTrap* Sext::zPlantTrapAsset::Create(World::EntityHandleBase* handle,
                            (eMemMgrTag)16, false),
                        0, sizeof(zPlantTrap)))
         zPlantTrap(handle, asset);
+}
+
+class zSBKelpTrapBehavior : public zPlantTrap::CustomBehavior {
+public:
+    zSBKelpTrapBehavior(zPlantTrap* trap);
+
+    virtual void _v0();
+
+    unsigned char _pad0[0x1C - 0x18];
+    int f1C;
+};
+
+zSBKelpTrapBehavior::zSBKelpTrapBehavior(zPlantTrap* trap)
+    : zPlantTrap::CustomBehavior(trap) {
+    f1C = 0;
 }

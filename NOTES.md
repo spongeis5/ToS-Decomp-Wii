@@ -7,10 +7,10 @@ numbers here, which move.
 ## State at time of writing
 
 ```
-Game Code:  67 of 777 files complete  338,780 / 2,116,616 bytes  2,755 / 10,697 fn
-            16.0057% of game code
+Game Code:  67 of 777 files complete  346,464 / 2,116,616 bytes  2,813 / 10,697 fn
+            16.3688% of game code
 
-Of those 2,755 functions, 783 are GENERATED -- machine-recognised
+Of those 2,813 functions, 841 are GENERATED -- machine-recognised
 shapes, not one of which is decompiling. They are real matched
 functions and the offsets and constants are recovered fact, but a
 count of them is not a count of decompiled code. HAND-WRITTEN IS
@@ -18,7 +18,7 @@ count of them is not a count of decompiled code. HAND-WRITTEN IS
 compare against earlier ones.
 
 Data:       4 unit(s) carry their own, 412 bytes; 134 more could
-All:        6.83% matched              main.dol reproduces byte for byte
+All:        6.94% matched              main.dol reproduces byte for byte
 ```
 
 Every number above is written by `python tools/notes_state.py`,
@@ -131,7 +131,7 @@ written so far.
 | `gen_accessors.py` | generate every mechanical shape for a unit -- members, globals, constants, constructors; `--survey` for what is left |
 | `gen_units.py` | run that over EVERY unit that has candidates, and withdraw the files that no longer do |
 | `gen_animcb.py` | generate the 116-byte animation callbacks: every candidate verified WORD FOR WORD against one written by hand, both holder spellings read off the bytes; `--survey` for what is left |
-| `gen_assetfix.py` | generate the Sext assets' Fix(long): the head is WALKED and the tail checked word for word against one of two written by hand; `--survey` for what is left |
+| `gen_assetfix.py` | generate the assets' Fix(long): the bytes are READ into the five-op program they carry, not matched against a silhouette; `--validate` renders the ones that already match and looks for them in the file; `--survey` for what is left |
 | `shape_census.py` | what the unmatched short functions LOOK like, as a population, by opcode signature |
 | `unitcmp_pins.py` | re-measure `unitcmp_check`'s pins; refuses to lower one |
 | `written_vs_generated.py` | the split, from the banner in each source file |
@@ -3189,6 +3189,82 @@ is a few words SHORT is not a register-allocation problem.** Words
 that are absent are source that is absent. Both of these looked like
 permuted register allocation in the word diff, because everything
 after the missing store shifts by one.
+
+## A SILHOUETTE READ SIX OF EIGHTY-FOUR; READING THE PROGRAM READ ALL OF THEM
+
+`gen_assetfix.py` matched a candidate's TAIL word for word against
+one of two bodies written by hand, and reported six. It was not
+reporting six of eighty-four -- it `continue`d past everything whose
+prologue differed, with no count, so seventy-eight functions and
+10,656 bytes read as nothing at all. **A tool that could not read a
+thing must not report it as nothing**, and the first fix was to
+bucket every one of them by what actually stopped it. Twenty-five
+had a different prologue, seventeen another, ten another: not one
+family of exceptions, just a template that was too narrow.
+
+**THE FAMILY IS A VOCABULARY, NOT A TEMPLATE.** All eighty-four do
+the same five things in different orders:
+
+    CustomFix(base);                    the base class's own fixup
+    m1C = (void*)((long)m1C + base);    a pointer member relocated
+    Sext::FixWmlType(base, m08, m0C);   a (type, pointer) pair fixed
+    m50.Fix(base);                      a sub-object at a known offset
+    if (m50 == 3) { ... }               a member tested against a constant
+
+plus one loop -- a cursor over an array whose FILE OFFSET is a
+member and whose length is another -- whose body is the same five
+things applied to the cursor. So the tool now READS the program out
+of the bytes: a register file carrying five symbolic values (`this`,
+`base`, a word loaded from a member, that word plus base, a count
+times a stride) and an instruction vocabulary that refuses anything
+else BY NAME. 139 of 156 read; 58 of 58 readable ones in WAD00_32
+are byte-identical.
+
+**THE VALIDATION IS THE ONES THAT ALREADY MATCH.** Seventy-eight of
+them were already written and already matched, and every one is a
+known-good answer: `--validate` renders each and looks for the
+rendering IN THE FILE. It found four separate emitter bugs before a
+single new body was compiled -- a duplicated array relocation, the
+wrong member names, a sub-object type written without its namespace,
+a stray blank line. None of those would have been visible in a diff
+against bytes nobody had compiled yet.
+
+**EACH LOOP HAS ITS OWN CURSOR PAIR.** BehaviorTree has four loops
+and VehicleConfiguration two, and in BOTH the FIRST loop is the odd
+one out: retail gives it cursor r28 / end r29 where every later loop
+takes r29 / r28. Two variables cannot hold two allocations, so the
+source has a pair per loop and mwcc coalesces the disjoint live
+ranges. Declaring one pair and reusing it left those two bodies six
+and eight words wrong; a pair each made them exact, and made the six
+bodies refused for `two loops over different element types`
+writable as well. `end` is still declared before its cursor.
+
+**A LOOP IS WRITTEN IN BYTES, NOT IN ELEMENTS.** `p + n` needs
+`sizeof(T)` to BE the stride -- but the sub-object stubs are
+deliberately EMPTY, one byte, because every member offset after them
+is measured against that size. Sizing `LinkAssetBaseNew` at its
+40-byte stride moved `Sext::BSP`'s members and broke a body that was
+already matched. `(char*)p + n * S` needs nothing from the type and
+emits the same multiply and add, so the two facts stop fighting.
+The EventLinkNew loop keeps the element form: that type is fully
+declared, and its 77 bodies already match in that spelling.
+
+**AND THREE SINGLE WORDS.** `lbz` where we wrote `lwz`: the loop
+count is a BYTE, and the width it is loaded at is the width the
+member is declared at. `cmplwi` where we wrote `cmpwi`: the member
+is UNSIGNED -- and only a NONZERO test can say so, because equality
+with zero is `cmpwi` either way, so CurveCamera reads as signed on
+its `== 0` and unsigned on its `== 1`, `== 2` and `== 3`. And
+`addi r3,r30,16` where we wrote `mr r3,r30`: the loop's Fix is
+called on a sub-object SIXTEEN BYTES INTO the element, and the
+reader had decoded the offset and the writer had dropped it.
+
+**THE MERGE IS KEYED ON THE FILE, NOT ON THE REPORT.** Skipping
+rows that report.json says already match makes the result depend on
+when the report was last generated: after a build, re-running the
+merge from a clean file wrote three bodies and dropped forty-five.
+It now skips a row whose rendered body is already in the file, which
+is the same question asked of the thing that actually answers it.
 
 ## 16% OF GAME CODE, and the last 8,000 bytes of it
 

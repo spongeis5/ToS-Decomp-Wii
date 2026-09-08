@@ -100,7 +100,13 @@ class ImmediateInstanceAsset { public: void Fix(long); };
 // needs one to name, and nothing else about it is known.
 
 namespace Sext {
-class AnimList { public: void Fix(long); };
+class AnimList {
+public:
+    void Fix(long base);
+
+    int m0;
+    char* m4;
+};
 class AnimPackage { public: void Fix(long); };
 class AnimationSet { public: void Fix(long); };
 class BSP : public xBaseAsset {
@@ -115,8 +121,37 @@ public:
     int linkCount;
     EventLinkNew* links;
 };
-class BehaviorSet { public: void Fix(long); };
-class BehaviorTree { public: void Fix(long); };
+class BehaviorSet {
+public:
+    void Fix(long base);
+
+    unsigned char _pad0[0x4];
+    void* other;
+    unsigned char _pad1[0x8];
+    int m10;
+    char* m14;
+};
+class BehaviorTree {
+public:
+    void Fix(long base);
+
+    unsigned char _pad0[0xC];
+    void* mC;
+    int m10;
+    char* m14;
+    unsigned char _pad1[0x4];
+    void* m1C;
+    int m20;
+    char* m24;
+    int m28;
+    char* m2C;
+    int m30;
+    char* m34;
+    unsigned char _pad2[0x4];
+    void* m3C;
+    unsigned char _pad3[0x4];
+    void* m44;
+};
 class Button_Masher_Widget : public xBaseAsset {
 public:
     void Fix(long base);
@@ -144,9 +179,41 @@ public:
     EventLinkNew* links;
 };
 class CharacterAssets { public: void Fix(long); };
-class Clip { public: void Fix(long); };
-class Curve { public: void Fix(long); };
-class CurveCamera { public: void Fix(long); };
+class Clip {
+public:
+    void Fix(long base);
+
+    int m0;
+    char* m4;
+};
+class Curve {
+public:
+    void Fix(long base);
+
+    unsigned char _pad0[0x20];
+    void* m20;
+    unsigned char _pad1[0x4];
+    void* m28;
+    unsigned char _pad2[0x4];
+    void* m30;
+};
+class CurveCamera : public xBaseAsset {
+public:
+    void Fix(long base);
+
+    unsigned char _pad0[0x10];
+    int linkCount;
+    EventLinkNew* links;
+    unsigned char _pad1[0x1C];
+    void* m34;
+    unsigned char _pad2[0x4];
+    void* m3C;
+    unsigned char _pad3[0x4];
+    void* m44;
+    unsigned char _pad4[0x4];
+    void* m4C;
+    unsigned int m50;
+};
 // Not a stub like the rest: its RTTID_Fix is SIXTEEN bytes and does
 // the whole job itself -- lwz, add, stw -- so DTRMovieSettings::Fix
 // relocates one pointer and is taken into the wrapper.
@@ -156,9 +223,35 @@ public:
 
     long offset;
 };
-class Decal { public: void Fix(long); };
-class DestructibleAsset { public: void Fix(long); };
-class ElectricArcAsset { public: void Fix(long); };
+class Decal : public xBaseAsset {
+public:
+    void Fix(long base);
+
+    unsigned char _pad0[0x54];
+    void* other;
+};
+class DestructibleAsset : public xBaseAsset {
+public:
+    void Fix(long base);
+
+    unsigned char _pad0[0x30];
+    int m30;
+    char* m34;
+    unsigned char _pad1[0x8];
+    Sext::SoundBankSource m40;
+};
+class ElectricArcAsset : public xBaseAsset {
+public:
+    void Fix(long base);
+
+    unsigned char _pad0[0x14];
+    void* m14;
+    unsigned char _pad1[0x4];
+    void* m1C;
+    unsigned char _pad2[0x38];
+    int linkCount;
+    EventLinkNew* links;
+};
 class ElectricPointAsset : public xBaseAsset {
 public:
     void Fix(long base);
@@ -169,10 +262,60 @@ public:
     int linkCount;
     EventLinkNew* links;
 };
-class ExplosiveProperties { public: void Fix(long); };
-class FXObjectSystem { public: void Fix(long); };
-class FXParticleSystem { public: void Fix(long); };
-class FXSpawn { public: void Fix(long); };
+class ExplosiveProperties {
+public:
+    void Fix(long base);
+
+    unsigned char _pad0[0x38];
+    int linkCount;
+    EventLinkNew* links;
+};
+class FXObjectSystem : public xBaseAsset {
+public:
+    void Fix(long base);
+
+    unsigned char _pad0[0x30];
+    World::ModelInstanceAsset m30;
+    unsigned char _pad1[0x18F];
+    int m1C0;
+    unsigned char _pad2[0x1C];
+    World::ModelInstanceAsset m1E0;
+};
+class FXParticleSystem : public xBaseAsset {
+public:
+    void Fix(long base);
+
+    unsigned char _pad0[0x8C];
+    int m8C;
+    unsigned char _pad1[0x4];
+    void* m94;
+    unsigned char _pad2[0x3C];
+    void* mD4;
+    unsigned char _pad3[0x4];
+    void* mDC;
+    unsigned char _pad4[0x4];
+    void* mE4;
+    unsigned char _pad5[0x4];
+    void* mEC;
+    unsigned char _pad6[0x4];
+    void* mF4;
+    unsigned char _pad7[0x4];
+    void* mFC;
+    unsigned char _pad8[0x4];
+    void* m104;
+    unsigned char _pad9[0x78];
+    int m180;
+    unsigned char _pad10[0x1C];
+    World::ModelInstanceAsset m1A0;
+};
+class FXSpawn : public xBaseAsset {
+public:
+    void Fix(long base);
+
+    unsigned char _pad0[0x78];
+    int m78;
+    char* m7C;
+};
 class Flythrough : public xBaseAsset {
 public:
     void Fix(long base);
@@ -201,10 +344,38 @@ public:
     EventLinkNew* links;
 };
 class HudUp { public: void Fix(long); };
-class InputMappingAsset { public: void Fix(long); };
-class LaserAsset { public: void Fix(long); };
-class Ledge { public: void Fix(long); };
-class LensFlareSpawnPt { public: void Fix(long); };
+class InputMappingAsset {
+public:
+    void Fix(long base);
+
+    int m0;
+    char* m4;
+};
+class LaserAsset {
+public:
+    void Fix(long base);
+
+    unsigned char _pad0[0x4];
+    void* m4;
+    unsigned char _pad1[0x4];
+    void* mC;
+};
+class Ledge : public xBaseAsset {
+public:
+    void Fix(long base);
+
+    unsigned char _pad0[0x10];
+    unsigned char m10;
+    unsigned char _pad1[0xB];
+    void* other;
+};
+class LensFlareSpawnPt : public xBaseAsset {
+public:
+    void Fix(long base);
+
+    unsigned char _pad0[0x4C];
+    void* other;
+};
 class LightAsset : public xBaseAsset {
 public:
     void Fix(long base);
@@ -215,7 +386,21 @@ public:
     int linkCount;
     EventLinkNew* links;
 };
-class LoadingScreen { public: void Fix(long); };
+class LoadingScreen : public xBaseAsset {
+public:
+    void Fix(long base);
+
+    unsigned char _pad0[0x14];
+    void* m14;
+    void* m18;
+    int m1C;
+    char* m20;
+    int m24;
+    char* m28;
+    unsigned char _pad1[0x1C];
+    int linkCount;
+    EventLinkNew* links;
+};
 class NPCAsset { public: void Fix(long); };
 class NPCGroupAsset : public xBaseAsset {
 public:
@@ -226,12 +411,48 @@ public:
     int linkCount;
     EventLinkNew* links;
 };
-class NPCPerceptionAsset { public: void Fix(long); };
-class NPC_Combat { public: void Fix(long); };
-class ParticleSink { public: void Fix(long); };
+class NPCPerceptionAsset {
+public:
+    void Fix(long base);
+
+    int m0;
+    char* m4;
+};
+class NPC_Combat {
+public:
+    void Fix(long base);
+
+    unsigned char _pad0[0x8];
+    void* m8;
+    int mC;
+    char* m10;
+    unsigned char _pad1[0x4];
+    void* m18;
+};
+class ParticleSink {
+public:
+    void Fix(long base);
+
+    unsigned char _pad0[0x30];
+    int linkCount;
+    EventLinkNew* links;
+};
 class PlayerAICommand { public: void Fix(long); };
-class PlayerAICommandGroup { public: void Fix(long); };
-class PlayerAnimSeq { public: void Fix(long); };
+class PlayerAICommandGroup : public xBaseAsset {
+public:
+    void Fix(long base);
+
+    unsigned char _pad0[0x1C];
+    void* other;
+};
+class PlayerAnimSeq {
+public:
+    void Fix(long base);
+
+    unsigned char _pad0[0x4];
+    int m4;
+    char* m8;
+};
 class Player_Location_Ent_Connector : public xBaseAsset {
 public:
     void Fix(long base);
@@ -242,11 +463,57 @@ public:
     int linkCount;
     EventLinkNew* links;
 };
-class Pointer { public: void Fix(long); };
-class ProjectileAsset { public: void Fix(long); };
-class Ribbon { public: void Fix(long); };
-class RuntimeEntityAsset { public: void Fix(long); };
-class Scene { public: void Fix(long); };
+class Pointer {
+public:
+    void Fix(long base);
+
+    unsigned char _pad0[0x18];
+    int linkCount;
+    EventLinkNew* links;
+};
+class ProjectileAsset : public xBaseAsset {
+public:
+    void Fix(long base);
+
+    unsigned char _pad0[0x10];
+    World::ModelInstanceAsset m10;
+    unsigned char _pad1[0x5B];
+    Sext::SoundBankSource m6C;
+    unsigned char _pad2[0xB];
+    Sext::SoundBankSource m78;
+    unsigned char _pad3[0xB];
+    Sext::SoundBankSource m84;
+};
+class Ribbon : public xBaseAsset {
+public:
+    void Fix(long base);
+
+    unsigned char _pad0[0x5C];
+    void* other;
+};
+class RuntimeEntityAsset {
+public:
+    void Fix(long base);
+
+    unsigned char _pad0[0x70];
+    Sext::SoundBankSource m70;
+    unsigned char _pad1[0xB];
+    Sext::SoundBankSource m7C;
+    unsigned char _pad2[0xB];
+    Sext::SoundBankSource m88;
+};
+class Scene {
+public:
+    void Fix(long base);
+
+    unsigned char _pad0[0x4];
+    void* m4;
+    unsigned char _pad1[0x8];
+    void* m10;
+    unsigned char _pad2[0xB4];
+    int linkCount;
+    EventLinkNew* links;
+};
 class ScreenFade : public xBaseAsset {
 public:
     void Fix(long base);
@@ -255,8 +522,25 @@ public:
     int linkCount;
     EventLinkNew* links;
 };
-class Script { public: void Fix(long); };
-class ShrapnelAssetDef { public: void Fix(long); };
+class Script : public xBaseAsset {
+public:
+    void Fix(long base);
+
+    unsigned char _pad0[0x10];
+    int m10;
+    char* m14;
+    unsigned char _pad1[0xC];
+    int linkCount;
+    EventLinkNew* links;
+};
+class ShrapnelAssetDef : public xBaseAsset {
+public:
+    void Fix(long base);
+
+    unsigned char _pad0[0x14];
+    int m14;
+    char* m18;
+};
 class Springboard : public xBaseAsset {
 public:
     void Fix(long base);
@@ -273,10 +557,44 @@ public:
     int linkCount;
     EventLinkNew* links;
 };
-class TargetList { public: void Fix(long); };
-class TikiScreen { public: void Fix(long); };
-class TriggerEntityAsset { public: void Fix(long); };
-class TriggerPhantomAsset { public: void Fix(long); };
+class TargetList {
+public:
+    void Fix(long base);
+
+    int m0;
+    char* m4;
+};
+class TikiScreen : public xBaseAsset {
+public:
+    void Fix(long base);
+
+    unsigned char _pad0[0x14];
+    void* other;
+    int m18;
+    char* m1C;
+    unsigned char _pad1[0x4];
+    int linkCount;
+    EventLinkNew* links;
+};
+class TriggerEntityAsset {
+public:
+    void Fix(long base);
+
+    unsigned char _pad0[0x64];
+    void* other;
+};
+class TriggerPhantomAsset : public xBaseAsset {
+public:
+    void Fix(long base);
+
+    unsigned char _pad0[0x10];
+    int linkCount;
+    EventLinkNew* links;
+    unsigned char _pad1[0x50];
+    void* m68;
+    unsigned char _pad2[0x4];
+    void* m70;
+};
 class UI_Box : public xBaseAsset {
 public:
     void Fix(long base);
@@ -311,7 +629,20 @@ public:
     int linkCount;
     EventLinkNew* links;
 };
-class UI_Group { public: void Fix(long); };
+class UI_Group : public xBaseAsset {
+public:
+    void Fix(long base);
+
+    unsigned char _pad0[0x14];
+    void* m14;
+    unsigned char _pad1[0x4];
+    void* m1C;
+    unsigned char _pad2[0x4];
+    void* m24;
+    unsigned char _pad3[0x4];
+    int linkCount;
+    EventLinkNew* links;
+};
 class UI_Image : public xBaseAsset {
 public:
     void Fix(long base);
@@ -348,7 +679,18 @@ public:
     int linkCount;
     EventLinkNew* links;
 };
-class VehicleConfiguration { public: void Fix(long); };
+class VehicleConfiguration {
+public:
+    void Fix(long base);
+
+    unsigned char _pad0[0x4];
+    int m4;
+    void* other;
+    int mC;
+    char* m10;
+    int m14;
+    char* m18;
+};
 class binary_poi : public xBaseAsset {
 public:
     void Fix(long base);
@@ -424,7 +766,17 @@ public:
     int linkCount;
     EventLinkNew* links;
 };
-class xPortalAsset { public: void Fix(long); };
+class xPortalAsset : public xBaseAsset {
+public:
+    void Fix(long base);
+
+    unsigned char _pad0[0x18];
+    void* m18;
+    unsigned char _pad1[0x18];
+    void* m34;
+    int linkCount;
+    EventLinkNew* links;
+};
 class xSimpleObjAsset : public xBaseAsset {
 public:
     void Fix(long base);
@@ -437,7 +789,14 @@ public:
     int linkCount;
     EventLinkNew* links;
 };
-class xSubtitlesAsset { public: void Fix(long); };
+class xSubtitlesAsset : public xBaseAsset {
+public:
+    void Fix(long base);
+
+    unsigned char _pad0[0x10];
+    int m10;
+    char* m14;
+};
 class xTimerAsset : public xBaseAsset {
 public:
     void Fix(long base);
@@ -462,7 +821,22 @@ public:
     int linkCount;
     EventLinkNew* links;
 };
-class zBreakawayPlatformAsset { public: void Fix(long); };
+class zBreakawayPlatformAsset : public xBaseAsset {
+public:
+    void Fix(long base);
+
+    unsigned char _pad0[0x10];
+    int linkCount;
+    EventLinkNew* links;
+    unsigned char _pad1[0x28];
+    World::ModelInstanceAsset m40;
+    unsigned char _pad2[0xAF];
+    Sext::SoundBankSource mF0;
+    unsigned char _pad3[0xB];
+    Sext::SoundBankSource mFC;
+    unsigned char _pad4[0xB];
+    Sext::SoundBankSource m108;
+};
 class zBugSpawnerAsset : public xBaseAsset {
 public:
     void Fix(long base);
@@ -596,9 +970,39 @@ public:
     int linkCount;
     EventLinkNew* links;
 };
-class zEventSpyAsset { public: void Fix(long); };
-class zFloatingCollectibleAsset { public: void Fix(long); };
-class zFloatingCollectibleSpawnerAsset { public: void Fix(long); };
+class zEventSpyAsset : public xBaseAsset {
+public:
+    void Fix(long base);
+
+    unsigned char _pad0[0x1C];
+    void* m1C;
+    unsigned char _pad1[0x4];
+    void* m24;
+    int m28;
+    char* m2C;
+};
+class zFloatingCollectibleAsset : public xBaseAsset {
+public:
+    void Fix(long base);
+
+    unsigned char _pad0[0x10];
+    int linkCount;
+    EventLinkNew* links;
+    unsigned char _pad1[0x8];
+    World::ModelInstanceAsset m20;
+};
+class zFloatingCollectibleSpawnerAsset : public xBaseAsset {
+public:
+    void Fix(long base);
+
+    unsigned char _pad0[0x10];
+    int linkCount;
+    EventLinkNew* links;
+    unsigned char _pad1[0x8];
+    World::ModelInstanceAsset m20;
+    unsigned char _pad2[0xA7];
+    void* other;
+};
 class zFountainAsset : public xBaseAsset {
 public:
     void Fix(long base);
@@ -674,7 +1078,20 @@ public:
     int linkCount;
     EventLinkNew* links;
 };
-class zInflatablePlatformAsset { public: void Fix(long); };
+class zInflatablePlatformAsset : public xBaseAsset {
+public:
+    void Fix(long base);
+
+    unsigned char _pad0[0x10];
+    World::ModelInstanceAsset m10;
+    unsigned char _pad1[0x57];
+    int m68;
+    unsigned char _pad2[0x4];
+    void* other;
+    unsigned char _pad3[0xC];
+    int linkCount;
+    EventLinkNew* links;
+};
 class zInteractRopeTieAsset : public xBaseAsset {
 public:
     void Fix(long base);
@@ -742,8 +1159,30 @@ public:
     int linkCount;
     EventLinkNew* links;
 };
-class zManEatingPlantAsset { public: void Fix(long); };
-class zPOWGroupAsset { public: void Fix(long); };
+class zManEatingPlantAsset : public xBaseAsset {
+public:
+    void Fix(long base);
+
+    unsigned char _pad0[0x18];
+    void* m18;
+    unsigned char _pad1[0x4];
+    void* m20;
+    unsigned char _pad2[0x1C];
+    World::ModelInstanceAsset m40;
+    unsigned char _pad3[0x77];
+    int linkCount;
+    EventLinkNew* links;
+};
+class zPOWGroupAsset : public xBaseAsset {
+public:
+    void Fix(long base);
+
+    unsigned char _pad0[0x10];
+    int linkCount;
+    EventLinkNew* links;
+    unsigned char _pad1[0x38];
+    void* other;
+};
 class zPOWObjectAsset : public xBaseAsset {
 public:
     void Fix(long base);
@@ -754,7 +1193,13 @@ public:
     int linkCount;
     EventLinkNew* links;
 };
-class zPolygonalVolumeAsset { public: void Fix(long); };
+class zPolygonalVolumeAsset : public xBaseAsset {
+public:
+    void Fix(long base);
+
+    unsigned char _pad0[0x14];
+    void* other;
+};
 class zPryAsset : public xBaseAsset {
 public:
     void Fix(long base);
@@ -781,7 +1226,16 @@ public:
     int linkCount;
     EventLinkNew* links;
 };
-class zRandomModelListAsset { public: void Fix(long); };
+class zRandomModelListAsset : public xBaseAsset {
+public:
+    void Fix(long base);
+
+    unsigned char _pad0[0x10];
+    int m10;
+    char* m14;
+    int linkCount;
+    EventLinkNew* links;
+};
 class zRopeCutAsset : public xBaseAsset {
 public:
     void Fix(long base);
@@ -853,9 +1307,32 @@ public:
     int linkCount;
     EventLinkNew* links;
 };
-class zSoundMaskAsset { public: void Fix(long); };
-class zSoundWiimoteSpeakerListAsset { public: void Fix(long); };
-class zSoundsNamedAsset { public: void Fix(long); };
+class zSoundMaskAsset : public xBaseAsset {
+public:
+    void Fix(long base);
+
+    unsigned char _pad0[0x10];
+    int m10;
+    char* m14;
+};
+class zSoundWiimoteSpeakerListAsset : public xBaseAsset {
+public:
+    void Fix(long base);
+
+    unsigned char _pad0[0x10];
+    int m10;
+    char* m14;
+};
+class zSoundsNamedAsset : public xBaseAsset {
+public:
+    void Fix(long base);
+
+    unsigned char _pad0[0x10];
+    int m10;
+    char* m14;
+    int linkCount;
+    EventLinkNew* links;
+};
 class zSpinnerAsset : public xBaseAsset {
 public:
     void Fix(long base);
@@ -866,8 +1343,35 @@ public:
     int linkCount;
     EventLinkNew* links;
 };
-class zSwingVineAsset { public: void Fix(long); };
-class zTacticalCommanderAsset { public: void Fix(long); };
+class zSwingVineAsset : public xBaseAsset {
+public:
+    void Fix(long base);
+
+    unsigned char _pad0[0x60];
+    Sext::SoundBankSource m60;
+    unsigned char _pad1[0xB];
+    Sext::SoundBankSource m6C;
+    unsigned char _pad2[0xB];
+    Sext::SoundBankSource m78;
+    unsigned char _pad3[0xB];
+    Sext::SoundBankSource m84;
+    unsigned char _pad4[0xF];
+    void* m94;
+    unsigned char _pad5[0x4];
+    void* m9C;
+};
+class zTacticalCommanderAsset : public xBaseAsset {
+public:
+    void Fix(long base);
+
+    unsigned char _pad0[0x14];
+    void* other;
+    int m18;
+    char* m1C;
+    unsigned char _pad1[0x8];
+    int linkCount;
+    EventLinkNew* links;
+};
 class zTikiAsset : public xBaseAsset {
 public:
     void Fix(long base);
@@ -890,7 +1394,22 @@ public:
     int linkCount;
     EventLinkNew* links;
 };
-class zTrapAsset { public: void Fix(long); };
+class zTrapAsset : public xBaseAsset {
+public:
+    void Fix(long base);
+
+    unsigned char _pad0[0x18];
+    void* m18;
+    unsigned char _pad1[0x4];
+    void* m20;
+    unsigned char _pad2[0x1C];
+    World::ModelInstanceAsset m40;
+    unsigned char _pad3[0x6F];
+    World::ModelInstanceAsset mB0;
+    unsigned char _pad4[0x5F];
+    int linkCount;
+    EventLinkNew* links;
+};
 class zUIFlashOnScreenTextAsset : public xBaseAsset {
 public:
     void Fix(long base);
@@ -2748,6 +3267,1068 @@ void Sext::zWaterAsset::Fix(long base) {
         Util::RTTID_Fix<Sext::DTRMovieSettings>(&p->dst, base);
         Sext::FixWmlType(base, p->dstType, p->dst.Get());
         p++;
+    }
+}
+#pragma dont_inline off
+
+namespace Sext {
+class ActionNode;
+class ConditionNode;
+class DecoratorNode;
+class LinkAsset;
+class LinkAssetBaseNew;
+class SelectorNode;
+
+class ActionNode {
+public:
+    void Fix(long base);
+
+    unsigned char _pad0[0x8];
+    int m8;
+    void* other;
+};
+
+class ConditionNode {
+public:
+    void Fix(long base);
+
+    unsigned char _pad0[0xC];
+    int mC;
+    void* other;
+};
+
+class DecoratorNode { public: void Fix(long); };
+
+class LinkAsset {
+public:
+    void Fix(long base);
+
+    int m0;
+    char* m4;
+};
+
+class LinkAssetBaseNew {
+public:
+    class __srcEvent__ { public: void Fix(long); };
+    void Fix(long base);
+
+    int m0;
+    void* m4;
+    int m8;
+    void* mC;
+};
+
+class SelectorNode { public: void Fix(long); };
+
+}  // namespace Sext
+
+namespace World {
+class MaterialParamFormatTableAsset;
+
+class MaterialParamFormatTableAsset {
+public:
+    void Fix(long base);
+
+    char* m0;
+    unsigned char m4;
+};
+
+}  // namespace World
+
+
+#pragma dont_inline on
+void Sext::ActionNode::Fix(long base) {
+    other = (void*)((long)other + base);
+    Sext::FixWmlType(base, m8, other);
+}
+
+void Sext::AnimList::Fix(long base) {
+    char* end;
+    char* p;
+
+    p = (char*)((long)m4 + base);
+    m4 = p;
+    end = p + m0 * 32;
+
+    while (p != end) {
+        ((Sext::SoundBankSource*)(p + 16))->Fix(base);
+        p += 32;
+    }
+}
+
+void Sext::BehaviorSet::Fix(long base) {
+    char* end;
+    char* p;
+
+    other = (void*)((long)other + base);
+    p = (char*)((long)m14 + base);
+    m14 = p;
+    end = p + m10 * 24;
+
+    while (p != end) {
+        *(long*)(p + 20) += base;
+        p += 24;
+    }
+}
+
+void Sext::BehaviorTree::Fix(long base) {
+    char* end;
+    char* p;
+    char* end2;
+    char* p2;
+    char* end3;
+    char* p3;
+    char* end4;
+    char* p4;
+
+    mC = (void*)((long)mC + base);
+    p = (char*)((long)m14 + base);
+    m14 = p;
+    end = p + m10 * 20;
+
+    while (p != end) {
+        ((Sext::SelectorNode*)p)->Fix(base);
+        p += 20;
+    }
+    m1C = (void*)((long)m1C + base);
+    p2 = (char*)((long)m24 + base);
+    m24 = p2;
+    end2 = p2 + m20 * 28;
+
+    while (p2 != end2) {
+        ((Sext::DecoratorNode*)p2)->Fix(base);
+        p2 += 28;
+    }
+    p3 = (char*)((long)m2C + base);
+    m2C = p3;
+    end3 = p3 + m28 * 16;
+
+    while (p3 != end3) {
+        ((Sext::ActionNode*)p3)->Fix(base);
+        p3 += 16;
+    }
+    p4 = (char*)((long)m34 + base);
+    m34 = p4;
+    end4 = p4 + m30 * 24;
+
+    while (p4 != end4) {
+        ((Sext::ConditionNode*)p4)->Fix(base);
+        p4 += 24;
+    }
+    m3C = (void*)((long)m3C + base);
+    m44 = (void*)((long)m44 + base);
+}
+
+void Sext::Clip::Fix(long base) {
+    char* end;
+    char* p;
+
+    p = (char*)((long)m4 + base);
+    m4 = p;
+    end = p + m0 * 80;
+
+    while (p != end) {
+        ((World::ModelInstanceAsset*)(p + 16))->Fix(base);
+        p += 80;
+    }
+}
+
+void Sext::ConditionNode::Fix(long base) {
+    other = (void*)((long)other + base);
+    Sext::FixWmlType(base, mC, other);
+}
+
+void Sext::Curve::Fix(long base) {
+    m20 = (void*)((long)m20 + base);
+    m28 = (void*)((long)m28 + base);
+    m30 = (void*)((long)m30 + base);
+}
+
+void Sext::CurveCamera::Fix(long base) {
+    EventLinkNew* end;
+    EventLinkNew* p;
+
+    CustomFix(base);
+
+    p = (EventLinkNew*)((long)links + base);
+    links = p;
+    end = p + linkCount;
+
+    while (p != end) {
+        Util::RTTID_Fix<Sext::DTRMovieSettings>(&p->src, base);
+        Sext::FixWmlType(base, p->srcType, p->src.Get());
+        Util::RTTID_Fix<Sext::DTRMovieSettings>(&p->dst, base);
+        Sext::FixWmlType(base, p->dstType, p->dst.Get());
+        p++;
+    }
+    if (m50 == 0) {
+        m34 = (void*)((long)m34 + base);
+    }
+    if (m50 == 1) {
+        m3C = (void*)((long)m3C + base);
+    }
+    if (m50 == 2) {
+        m44 = (void*)((long)m44 + base);
+    }
+    if (m50 == 3) {
+        m4C = (void*)((long)m4C + base);
+    }
+}
+
+void Sext::Decal::Fix(long base) {
+    CustomFix(base);
+
+    other = (void*)((long)other + base);
+}
+
+void Sext::DestructibleAsset::Fix(long base) {
+    char* end;
+    char* p;
+
+    CustomFix(base);
+
+    p = (char*)((long)m34 + base);
+    m34 = p;
+    end = p + m30 * 80;
+
+    while (p != end) {
+        ((Sext::SoundBankSource*)(p + 40))->Fix(base);
+        ((Sext::SoundBankSource*)(p + 52))->Fix(base);
+        ((Sext::SoundBankSource*)(p + 64))->Fix(base);
+        p += 80;
+    }
+    m40.Fix(base);
+}
+
+void Sext::ElectricArcAsset::Fix(long base) {
+    EventLinkNew* end;
+    EventLinkNew* p;
+
+    CustomFix(base);
+
+    m14 = (void*)((long)m14 + base);
+    m1C = (void*)((long)m1C + base);
+    p = (EventLinkNew*)((long)links + base);
+    links = p;
+    end = p + linkCount;
+
+    while (p != end) {
+        Util::RTTID_Fix<Sext::DTRMovieSettings>(&p->src, base);
+        Sext::FixWmlType(base, p->srcType, p->src.Get());
+        Util::RTTID_Fix<Sext::DTRMovieSettings>(&p->dst, base);
+        Sext::FixWmlType(base, p->dstType, p->dst.Get());
+        p++;
+    }
+}
+
+void Sext::ExplosiveProperties::Fix(long base) {
+    EventLinkNew* end;
+    EventLinkNew* p;
+
+    p = (EventLinkNew*)((long)links + base);
+    links = p;
+    end = p + linkCount;
+
+    while (p != end) {
+        Util::RTTID_Fix<Sext::DTRMovieSettings>(&p->src, base);
+        Sext::FixWmlType(base, p->srcType, p->src.Get());
+        Util::RTTID_Fix<Sext::DTRMovieSettings>(&p->dst, base);
+        Sext::FixWmlType(base, p->dstType, p->dst.Get());
+        p++;
+    }
+}
+
+void Sext::FXObjectSystem::Fix(long base) {
+    CustomFix(base);
+
+    m30.Fix(base);
+    if (m1C0 == 4) {
+        m1E0.Fix(base);
+    }
+}
+
+void Sext::FXParticleSystem::Fix(long base) {
+    CustomFix(base);
+
+    if (m8C == 3) {
+        m94 = (void*)((long)m94 + base);
+    }
+    mD4 = (void*)((long)mD4 + base);
+    mDC = (void*)((long)mDC + base);
+    mE4 = (void*)((long)mE4 + base);
+    mEC = (void*)((long)mEC + base);
+    mF4 = (void*)((long)mF4 + base);
+    mFC = (void*)((long)mFC + base);
+    m104 = (void*)((long)m104 + base);
+    if (m180 == 4) {
+        m1A0.Fix(base);
+    }
+}
+
+void Sext::FXSpawn::Fix(long base) {
+    char* end;
+    char* p;
+
+    CustomFix(base);
+
+    p = (char*)((long)m7C + base);
+    m7C = p;
+    end = p + m78 * 72;
+
+    while (p != end) {
+        ((Sext::SoundBankSource*)(p + 56))->Fix(base);
+        p += 72;
+    }
+}
+
+void Sext::InputMappingAsset::Fix(long base) {
+    char* end;
+    char* p;
+
+    p = (char*)((long)m4 + base);
+    m4 = p;
+    end = p + m0 * 12;
+
+    while (p != end) {
+        *(long*)(p + 8) += base;
+        p += 12;
+    }
+}
+
+void Sext::LaserAsset::Fix(long base) {
+    m4 = (void*)((long)m4 + base);
+    mC = (void*)((long)mC + base);
+}
+
+void Sext::Ledge::Fix(long base) {
+    CustomFix(base);
+
+    if (m10 == 0) {
+        other = (void*)((long)other + base);
+    }
+}
+
+void Sext::LensFlareSpawnPt::Fix(long base) {
+    CustomFix(base);
+
+    other = (void*)((long)other + base);
+}
+
+void Sext::LinkAsset::Fix(long base) {
+    char* end;
+    char* p;
+
+    p = (char*)((long)m4 + base);
+    m4 = p;
+    end = p + m0 * 40;
+
+    while (p != end) {
+        ((Sext::LinkAssetBaseNew*)p)->Fix(base);
+        p += 40;
+    }
+}
+
+void Sext::LinkAssetBaseNew::Fix(long base) {
+    m4 = (void*)((long)m4 + base);
+    Sext::FixWmlType(base, m0, m4);
+    mC = (void*)((long)mC + base);
+    Sext::FixWmlType(base, m8, mC);
+}
+
+void Sext::LoadingScreen::Fix(long base) {
+    char* end;
+    char* p;
+    char* end2;
+    char* p2;
+    EventLinkNew* end3;
+    EventLinkNew* p3;
+
+    CustomFix(base);
+
+    m14 = (void*)((long)m14 + base);
+    m18 = (void*)((long)m18 + base);
+    p = (char*)((long)m20 + base);
+    m20 = p;
+    end = p + m1C * 4;
+
+    while (p != end) {
+        *(long*)p += base;
+        p += 4;
+    }
+    p2 = (char*)((long)m28 + base);
+    m28 = p2;
+    end2 = p2 + m24 * 32;
+
+    while (p2 != end2) {
+        ((World::ImmediateInstanceAsset*)p2)->Fix(base);
+        p2 += 32;
+    }
+    p3 = (EventLinkNew*)((long)links + base);
+    links = p3;
+    end3 = p3 + linkCount;
+
+    while (p3 != end3) {
+        Util::RTTID_Fix<Sext::DTRMovieSettings>(&p3->src, base);
+        Sext::FixWmlType(base, p3->srcType, p3->src.Get());
+        Util::RTTID_Fix<Sext::DTRMovieSettings>(&p3->dst, base);
+        Sext::FixWmlType(base, p3->dstType, p3->dst.Get());
+        p3++;
+    }
+}
+
+void Sext::NPCPerceptionAsset::Fix(long base) {
+    char* end;
+    char* p;
+
+    p = (char*)((long)m4 + base);
+    m4 = p;
+    end = p + m0 * 16;
+
+    while (p != end) {
+        *(long*)(p + 12) += base;
+        p += 16;
+    }
+}
+
+void Sext::NPC_Combat::Fix(long base) {
+    char* end;
+    char* p;
+
+    m8 = (void*)((long)m8 + base);
+    p = (char*)((long)m10 + base);
+    m10 = p;
+    end = p + mC * 80;
+
+    while (p != end) {
+        *(long*)(p + 20) += base;
+        p += 80;
+    }
+    m18 = (void*)((long)m18 + base);
+}
+
+void Sext::ParticleSink::Fix(long base) {
+    EventLinkNew* end;
+    EventLinkNew* p;
+
+    p = (EventLinkNew*)((long)links + base);
+    links = p;
+    end = p + linkCount;
+
+    while (p != end) {
+        Util::RTTID_Fix<Sext::DTRMovieSettings>(&p->src, base);
+        Sext::FixWmlType(base, p->srcType, p->src.Get());
+        Util::RTTID_Fix<Sext::DTRMovieSettings>(&p->dst, base);
+        Sext::FixWmlType(base, p->dstType, p->dst.Get());
+        p++;
+    }
+}
+
+void Sext::PlayerAICommandGroup::Fix(long base) {
+    CustomFix(base);
+
+    other = (void*)((long)other + base);
+}
+
+void Sext::PlayerAnimSeq::Fix(long base) {
+    char* end;
+    char* p;
+
+    p = (char*)((long)m8 + base);
+    m8 = p;
+    end = p + m4 * 48;
+
+    while (p != end) {
+        ((Sext::SoundBankSource*)(p + 28))->Fix(base);
+        p += 48;
+    }
+}
+
+void Sext::Pointer::Fix(long base) {
+    EventLinkNew* end;
+    EventLinkNew* p;
+
+    p = (EventLinkNew*)((long)links + base);
+    links = p;
+    end = p + linkCount;
+
+    while (p != end) {
+        Util::RTTID_Fix<Sext::DTRMovieSettings>(&p->src, base);
+        Sext::FixWmlType(base, p->srcType, p->src.Get());
+        Util::RTTID_Fix<Sext::DTRMovieSettings>(&p->dst, base);
+        Sext::FixWmlType(base, p->dstType, p->dst.Get());
+        p++;
+    }
+}
+
+void Sext::ProjectileAsset::Fix(long base) {
+    CustomFix(base);
+
+    m10.Fix(base);
+    m6C.Fix(base);
+    m78.Fix(base);
+    m84.Fix(base);
+}
+
+void Sext::Ribbon::Fix(long base) {
+    CustomFix(base);
+
+    other = (void*)((long)other + base);
+}
+
+void Sext::RuntimeEntityAsset::Fix(long base) {
+    ((World::ModelInstanceAsset*)this)->Fix(base);
+    m70.Fix(base);
+    m7C.Fix(base);
+    m88.Fix(base);
+}
+
+void Sext::Scene::Fix(long base) {
+    EventLinkNew* end;
+    EventLinkNew* p;
+
+    m4 = (void*)((long)m4 + base);
+    m10 = (void*)((long)m10 + base);
+    p = (EventLinkNew*)((long)links + base);
+    links = p;
+    end = p + linkCount;
+
+    while (p != end) {
+        Util::RTTID_Fix<Sext::DTRMovieSettings>(&p->src, base);
+        Sext::FixWmlType(base, p->srcType, p->src.Get());
+        Util::RTTID_Fix<Sext::DTRMovieSettings>(&p->dst, base);
+        Sext::FixWmlType(base, p->dstType, p->dst.Get());
+        p++;
+    }
+}
+
+void Sext::Script::Fix(long base) {
+    char* end;
+    char* p;
+    EventLinkNew* end2;
+    EventLinkNew* p2;
+
+    CustomFix(base);
+
+    p = (char*)((long)m14 + base);
+    m14 = p;
+    end = p + m10 * 32;
+
+    while (p != end) {
+        *(long*)(p + 20) += base;
+        Sext::FixWmlType(base, *(int*)(p + 16), *(void**)(p + 20));
+        p += 32;
+    }
+    p2 = (EventLinkNew*)((long)links + base);
+    links = p2;
+    end2 = p2 + linkCount;
+
+    while (p2 != end2) {
+        Util::RTTID_Fix<Sext::DTRMovieSettings>(&p2->src, base);
+        Sext::FixWmlType(base, p2->srcType, p2->src.Get());
+        Util::RTTID_Fix<Sext::DTRMovieSettings>(&p2->dst, base);
+        Sext::FixWmlType(base, p2->dstType, p2->dst.Get());
+        p2++;
+    }
+}
+
+void Sext::ShrapnelAssetDef::Fix(long base) {
+    char* end;
+    char* p;
+
+    CustomFix(base);
+
+    p = (char*)((long)m18 + base);
+    m18 = p;
+    end = p + m14 * 296;
+
+    while (p != end) {
+        ((Sext::PhysicsDataStruct*)(p + 16))->Fix(base);
+        ((Sext::SoundBankSource*)(p + 280))->Fix(base);
+        p += 296;
+    }
+}
+
+void Sext::TargetList::Fix(long base) {
+    char* end;
+    char* p;
+
+    p = (char*)((long)m4 + base);
+    m4 = p;
+    end = p + m0 * 24;
+
+    while (p != end) {
+        *(long*)(p + 8) += base;
+        *(long*)(p + 16) += base;
+        Sext::FixWmlType(base, *(int*)(p + 12), *(void**)(p + 16));
+        p += 24;
+    }
+}
+
+void Sext::TikiScreen::Fix(long base) {
+    char* end;
+    char* p;
+    EventLinkNew* end2;
+    EventLinkNew* p2;
+
+    CustomFix(base);
+
+    other = (void*)((long)other + base);
+    p = (char*)((long)m1C + base);
+    m1C = p;
+    end = p + m18 * 4;
+
+    while (p != end) {
+        *(long*)p += base;
+        p += 4;
+    }
+    p2 = (EventLinkNew*)((long)links + base);
+    links = p2;
+    end2 = p2 + linkCount;
+
+    while (p2 != end2) {
+        Util::RTTID_Fix<Sext::DTRMovieSettings>(&p2->src, base);
+        Sext::FixWmlType(base, p2->srcType, p2->src.Get());
+        Util::RTTID_Fix<Sext::DTRMovieSettings>(&p2->dst, base);
+        Sext::FixWmlType(base, p2->dstType, p2->dst.Get());
+        p2++;
+    }
+}
+
+void Sext::TriggerEntityAsset::Fix(long base) {
+    ((Sext::xCounterAsset*)this)->Fix(base);
+    other = (void*)((long)other + base);
+}
+
+void Sext::TriggerPhantomAsset::Fix(long base) {
+    EventLinkNew* end;
+    EventLinkNew* p;
+
+    CustomFix(base);
+
+    p = (EventLinkNew*)((long)links + base);
+    links = p;
+    end = p + linkCount;
+
+    while (p != end) {
+        Util::RTTID_Fix<Sext::DTRMovieSettings>(&p->src, base);
+        Sext::FixWmlType(base, p->srcType, p->src.Get());
+        Util::RTTID_Fix<Sext::DTRMovieSettings>(&p->dst, base);
+        Sext::FixWmlType(base, p->dstType, p->dst.Get());
+        p++;
+    }
+    m68 = (void*)((long)m68 + base);
+    m70 = (void*)((long)m70 + base);
+}
+
+void Sext::UI_Group::Fix(long base) {
+    EventLinkNew* end;
+    EventLinkNew* p;
+
+    CustomFix(base);
+
+    m14 = (void*)((long)m14 + base);
+    m1C = (void*)((long)m1C + base);
+    m24 = (void*)((long)m24 + base);
+    p = (EventLinkNew*)((long)links + base);
+    links = p;
+    end = p + linkCount;
+
+    while (p != end) {
+        Util::RTTID_Fix<Sext::DTRMovieSettings>(&p->src, base);
+        Sext::FixWmlType(base, p->srcType, p->src.Get());
+        Util::RTTID_Fix<Sext::DTRMovieSettings>(&p->dst, base);
+        Sext::FixWmlType(base, p->dstType, p->dst.Get());
+        p++;
+    }
+}
+
+void Sext::VehicleConfiguration::Fix(long base) {
+    char* end;
+    char* p;
+    char* end2;
+    char* p2;
+
+    other = (void*)((long)other + base);
+    Sext::FixWmlType(base, m4, other);
+    p = (char*)((long)m10 + base);
+    m10 = p;
+    end = p + mC * 8;
+
+    while (p != end) {
+        *(long*)(p + 4) += base;
+        Sext::FixWmlType(base, *(int*)p, *(void**)(p + 4));
+        p += 8;
+    }
+    p2 = (char*)((long)m18 + base);
+    m18 = p2;
+    end2 = p2 + m14 * 8;
+
+    while (p2 != end2) {
+        *(long*)(p2 + 4) += base;
+        Sext::FixWmlType(base, *(int*)p2, *(void**)(p2 + 4));
+        p2 += 8;
+    }
+}
+
+void Sext::xPortalAsset::Fix(long base) {
+    EventLinkNew* end;
+    EventLinkNew* p;
+
+    CustomFix(base);
+
+    m18 = (void*)((long)m18 + base);
+    m34 = (void*)((long)m34 + base);
+    p = (EventLinkNew*)((long)links + base);
+    links = p;
+    end = p + linkCount;
+
+    while (p != end) {
+        Util::RTTID_Fix<Sext::DTRMovieSettings>(&p->src, base);
+        Sext::FixWmlType(base, p->srcType, p->src.Get());
+        Util::RTTID_Fix<Sext::DTRMovieSettings>(&p->dst, base);
+        Sext::FixWmlType(base, p->dstType, p->dst.Get());
+        p++;
+    }
+}
+
+void Sext::xSubtitlesAsset::Fix(long base) {
+    char* end;
+    char* p;
+
+    CustomFix(base);
+
+    p = (char*)((long)m14 + base);
+    m14 = p;
+    end = p + m10 * 12;
+
+    while (p != end) {
+        *(long*)(p + 8) += base;
+        p += 12;
+    }
+}
+
+void Sext::zBreakawayPlatformAsset::Fix(long base) {
+    EventLinkNew* end;
+    EventLinkNew* p;
+
+    CustomFix(base);
+
+    p = (EventLinkNew*)((long)links + base);
+    links = p;
+    end = p + linkCount;
+
+    while (p != end) {
+        Util::RTTID_Fix<Sext::DTRMovieSettings>(&p->src, base);
+        Sext::FixWmlType(base, p->srcType, p->src.Get());
+        Util::RTTID_Fix<Sext::DTRMovieSettings>(&p->dst, base);
+        Sext::FixWmlType(base, p->dstType, p->dst.Get());
+        p++;
+    }
+    m40.Fix(base);
+    mF0.Fix(base);
+    mFC.Fix(base);
+    m108.Fix(base);
+}
+
+void Sext::zEventSpyAsset::Fix(long base) {
+    char* end;
+    char* p;
+
+    CustomFix(base);
+
+    m1C = (void*)((long)m1C + base);
+    m24 = (void*)((long)m24 + base);
+    p = (char*)((long)m2C + base);
+    m2C = p;
+    end = p + m28 * 8;
+
+    while (p != end) {
+        ((Sext::LinkAssetBaseNew::__srcEvent__*)p)->Fix(base);
+        p += 8;
+    }
+}
+
+void Sext::zFloatingCollectibleAsset::Fix(long base) {
+    EventLinkNew* end;
+    EventLinkNew* p;
+
+    CustomFix(base);
+
+    p = (EventLinkNew*)((long)links + base);
+    links = p;
+    end = p + linkCount;
+
+    while (p != end) {
+        Util::RTTID_Fix<Sext::DTRMovieSettings>(&p->src, base);
+        Sext::FixWmlType(base, p->srcType, p->src.Get());
+        Util::RTTID_Fix<Sext::DTRMovieSettings>(&p->dst, base);
+        Sext::FixWmlType(base, p->dstType, p->dst.Get());
+        p++;
+    }
+    m20.Fix(base);
+}
+
+void Sext::zFloatingCollectibleSpawnerAsset::Fix(long base) {
+    EventLinkNew* end;
+    EventLinkNew* p;
+
+    CustomFix(base);
+
+    p = (EventLinkNew*)((long)links + base);
+    links = p;
+    end = p + linkCount;
+
+    while (p != end) {
+        Util::RTTID_Fix<Sext::DTRMovieSettings>(&p->src, base);
+        Sext::FixWmlType(base, p->srcType, p->src.Get());
+        Util::RTTID_Fix<Sext::DTRMovieSettings>(&p->dst, base);
+        Sext::FixWmlType(base, p->dstType, p->dst.Get());
+        p++;
+    }
+    m20.Fix(base);
+    other = (void*)((long)other + base);
+}
+
+void Sext::zInflatablePlatformAsset::Fix(long base) {
+    EventLinkNew* end;
+    EventLinkNew* p;
+
+    CustomFix(base);
+
+    m10.Fix(base);
+    if (m68 == 1) {
+        other = (void*)((long)other + base);
+    }
+    p = (EventLinkNew*)((long)links + base);
+    links = p;
+    end = p + linkCount;
+
+    while (p != end) {
+        Util::RTTID_Fix<Sext::DTRMovieSettings>(&p->src, base);
+        Sext::FixWmlType(base, p->srcType, p->src.Get());
+        Util::RTTID_Fix<Sext::DTRMovieSettings>(&p->dst, base);
+        Sext::FixWmlType(base, p->dstType, p->dst.Get());
+        p++;
+    }
+}
+
+void Sext::zManEatingPlantAsset::Fix(long base) {
+    EventLinkNew* end;
+    EventLinkNew* p;
+
+    CustomFix(base);
+
+    m18 = (void*)((long)m18 + base);
+    m20 = (void*)((long)m20 + base);
+    m40.Fix(base);
+    p = (EventLinkNew*)((long)links + base);
+    links = p;
+    end = p + linkCount;
+
+    while (p != end) {
+        Util::RTTID_Fix<Sext::DTRMovieSettings>(&p->src, base);
+        Sext::FixWmlType(base, p->srcType, p->src.Get());
+        Util::RTTID_Fix<Sext::DTRMovieSettings>(&p->dst, base);
+        Sext::FixWmlType(base, p->dstType, p->dst.Get());
+        p++;
+    }
+}
+
+void Sext::zPOWGroupAsset::Fix(long base) {
+    EventLinkNew* end;
+    EventLinkNew* p;
+
+    CustomFix(base);
+
+    p = (EventLinkNew*)((long)links + base);
+    links = p;
+    end = p + linkCount;
+
+    while (p != end) {
+        Util::RTTID_Fix<Sext::DTRMovieSettings>(&p->src, base);
+        Sext::FixWmlType(base, p->srcType, p->src.Get());
+        Util::RTTID_Fix<Sext::DTRMovieSettings>(&p->dst, base);
+        Sext::FixWmlType(base, p->dstType, p->dst.Get());
+        p++;
+    }
+    other = (void*)((long)other + base);
+}
+
+void Sext::zPolygonalVolumeAsset::Fix(long base) {
+    CustomFix(base);
+
+    other = (void*)((long)other + base);
+}
+
+void Sext::zRandomModelListAsset::Fix(long base) {
+    char* end;
+    char* p;
+    EventLinkNew* end2;
+    EventLinkNew* p2;
+
+    CustomFix(base);
+
+    p = (char*)((long)m14 + base);
+    m14 = p;
+    end = p + m10 * 80;
+
+    while (p != end) {
+        ((World::ModelInstanceAsset*)p)->Fix(base);
+        p += 80;
+    }
+    p2 = (EventLinkNew*)((long)links + base);
+    links = p2;
+    end2 = p2 + linkCount;
+
+    while (p2 != end2) {
+        Util::RTTID_Fix<Sext::DTRMovieSettings>(&p2->src, base);
+        Sext::FixWmlType(base, p2->srcType, p2->src.Get());
+        Util::RTTID_Fix<Sext::DTRMovieSettings>(&p2->dst, base);
+        Sext::FixWmlType(base, p2->dstType, p2->dst.Get());
+        p2++;
+    }
+}
+
+void Sext::zSoundMaskAsset::Fix(long base) {
+    char* end;
+    char* p;
+
+    CustomFix(base);
+
+    p = (char*)((long)m14 + base);
+    m14 = p;
+    end = p + m10 * 16;
+
+    while (p != end) {
+        *(long*)(p + 4) += base;
+        p += 16;
+    }
+}
+
+void Sext::zSoundWiimoteSpeakerListAsset::Fix(long base) {
+    char* end;
+    char* p;
+
+    CustomFix(base);
+
+    p = (char*)((long)m14 + base);
+    m14 = p;
+    end = p + m10 * 12;
+
+    while (p != end) {
+        ((Sext::SoundBankSource*)p)->Fix(base);
+        p += 12;
+    }
+}
+
+void Sext::zSoundsNamedAsset::Fix(long base) {
+    char* end;
+    char* p;
+    EventLinkNew* end2;
+    EventLinkNew* p2;
+
+    CustomFix(base);
+
+    p = (char*)((long)m14 + base);
+    m14 = p;
+    end = p + m10 * 16;
+
+    while (p != end) {
+        *(long*)p += base;
+        ((Sext::SoundBankSource*)(p + 4))->Fix(base);
+        p += 16;
+    }
+    p2 = (EventLinkNew*)((long)links + base);
+    links = p2;
+    end2 = p2 + linkCount;
+
+    while (p2 != end2) {
+        Util::RTTID_Fix<Sext::DTRMovieSettings>(&p2->src, base);
+        Sext::FixWmlType(base, p2->srcType, p2->src.Get());
+        Util::RTTID_Fix<Sext::DTRMovieSettings>(&p2->dst, base);
+        Sext::FixWmlType(base, p2->dstType, p2->dst.Get());
+        p2++;
+    }
+}
+
+void Sext::zSwingVineAsset::Fix(long base) {
+    CustomFix(base);
+
+    m60.Fix(base);
+    m6C.Fix(base);
+    m78.Fix(base);
+    m84.Fix(base);
+    m94 = (void*)((long)m94 + base);
+    m9C = (void*)((long)m9C + base);
+}
+
+void Sext::zTacticalCommanderAsset::Fix(long base) {
+    char* end;
+    char* p;
+    EventLinkNew* end2;
+    EventLinkNew* p2;
+
+    CustomFix(base);
+
+    other = (void*)((long)other + base);
+    p = (char*)((long)m1C + base);
+    m1C = p;
+    end = p + m18 * 16;
+
+    while (p != end) {
+        *(long*)(p + 4) += base;
+        Sext::FixWmlType(base, *(int*)p, *(void**)(p + 4));
+        *(long*)(p + 12) += base;
+        Sext::FixWmlType(base, *(int*)(p + 8), *(void**)(p + 12));
+        p += 16;
+    }
+    p2 = (EventLinkNew*)((long)links + base);
+    links = p2;
+    end2 = p2 + linkCount;
+
+    while (p2 != end2) {
+        Util::RTTID_Fix<Sext::DTRMovieSettings>(&p2->src, base);
+        Sext::FixWmlType(base, p2->srcType, p2->src.Get());
+        Util::RTTID_Fix<Sext::DTRMovieSettings>(&p2->dst, base);
+        Sext::FixWmlType(base, p2->dstType, p2->dst.Get());
+        p2++;
+    }
+}
+
+void Sext::zTrapAsset::Fix(long base) {
+    EventLinkNew* end;
+    EventLinkNew* p;
+
+    CustomFix(base);
+
+    m18 = (void*)((long)m18 + base);
+    m20 = (void*)((long)m20 + base);
+    m40.Fix(base);
+    mB0.Fix(base);
+    p = (EventLinkNew*)((long)links + base);
+    links = p;
+    end = p + linkCount;
+
+    while (p != end) {
+        Util::RTTID_Fix<Sext::DTRMovieSettings>(&p->src, base);
+        Sext::FixWmlType(base, p->srcType, p->src.Get());
+        Util::RTTID_Fix<Sext::DTRMovieSettings>(&p->dst, base);
+        Sext::FixWmlType(base, p->dstType, p->dst.Get());
+        p++;
+    }
+}
+
+void World::MaterialParamFormatTableAsset::Fix(long base) {
+    char* end;
+    char* p;
+
+    p = (char*)((long)m0 + base);
+    m0 = p;
+    end = p + m4 * 12;
+
+    while (p != end) {
+        *(long*)p += base;
+        p += 12;
     }
 }
 #pragma dont_inline off

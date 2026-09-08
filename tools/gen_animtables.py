@@ -216,6 +216,7 @@ def walk(sym, callee):
     for _n in range(1, 9):
         fprs[_n] = ("farg", _n)
     stack, calls, stores = {}, [], []
+    mgrloads = 0
     frame = 0
     for i, w in enumerate(ws):
         a = addr + 4 * i
@@ -265,6 +266,12 @@ def walk(sym, callee):
                 regs[d] = imm & 0xFFFFFFFF
             elif isinstance(regs.get(s), int):
                 regs[d] = (regs[s] + imm) & 0xFFFFFFFF
+            elif isinstance(regs.get(s), tuple):
+                # An ARGUMENT plus a constant: three of
+                # zBoardPlayerHammerAttack's four calls pass its
+                # priority parameter plus ten. Dropping the register
+                # here read them as unresolved.
+                regs[d] = ("addi", regs[s], imm)
             else:
                 regs.pop(d, None)
         elif op == 21:                                       # rlwinm
@@ -280,6 +287,13 @@ def walk(sym, callee):
                         break
                     k = (k + 1) & 31
                 regs[d] = v & mask
+            elif (sh, mb, me) == (0, 16, 31) and isinstance(
+                    regs.get(s), tuple):
+                # The zero-extension to 16 bits an `unsigned short`
+                # parameter makes of its argument. The value being
+                # passed is what rS held; the mask is the call's own
+                # conversion and re-appears when this is compiled.
+                regs[d] = regs[s]
             else:
                 regs.pop(d, None)
         elif op == 31 and ((w >> 1) & 0x3FF) == 444 \
@@ -296,7 +310,13 @@ def walk(sym, callee):
             off = w & 0xFFFF
             off = off - 0x10000 if off & 0x8000 else off
             if base == 1 and op == 36 and off != frame + 4:
-                stack[off] = regs.get(s, "?")        # not the LR
+                # Not the LR save, and not a callee-saved register
+                # being saved: r14 and up with no value the walk has
+                # seen is the register's INCOMING value, which is a
+                # prologue save. `stw r29,8(r1)` where r29 holds a
+                # zero this body put there is still an argument.
+                if not (s >= 14 and s not in regs):
+                    stack[off] = regs.get(s, "?")
             elif regs.get(base) == THIS:
                 # r3 straight after a bl is that call's RESULT:
                 # the state NewState returned, kept in a member.
@@ -311,7 +331,17 @@ def walk(sym, callee):
             d, base = (w >> 21) & 31, (w >> 16) & 31
             off = w & 0xFFFF
             off = off - 0x10000 if off & 0x8000 else off
-            if isinstance(regs.get(base), tuple):
+            if regs.get(base) == THIS and off == 0:
+                mgrloads += 1
+            if base == 1 and off >= frame + 8:
+                # An INCOMING argument that arrived on the stack.
+                # The ABI puts the ninth GPR argument 8 bytes into
+                # the caller's frame, which is frame+8 off r1 here,
+                # and param_src already names those slots -- nothing
+                # had ever produced one, so a table that forwards
+                # its ninth argument read it as unresolved.
+                regs[d] = ("stackarg", off - frame)
+            elif isinstance(regs.get(base), tuple):
                 regs[d] = ("ld", regs[base], off)
             else:
                 regs.pop(d, None)
@@ -333,7 +363,7 @@ def walk(sym, callee):
             regs.pop((w >> 21) & 31, None)
         elif op in (33, 34, 35, 40, 41, 42, 43, 46):
             regs.pop((w >> 21) & 31, None)
-    return addr, size, branches, calls, stores
+    return addr, size, branches, calls, stores, mgrloads
 
 
 # ---- spelling ---------------------------------------------------------
@@ -382,6 +412,8 @@ class Merge(object):
     def lit(self, v, where):
         if v in self.argnames:
             return self.argnames[v]
+        if isinstance(v, tuple) and v[0] == "addi" and v[1] in self.argnames:
+            return "%s + %d" % (self.argnames[v[1]], v[2])
         if v == ("ld", THIS, 0):
             return "manager"
         if v == ("ld", THIS, 4):
@@ -567,6 +599,12 @@ class Merge(object):
         RECEIVERS = {THIS: ("", None),
                      ("ld", THIS, 0): ("manager->", "zPlayerActionManager"),
                      ("ld", THIS, 4): ("player->", "zPlayer")}
+        # The manager in a local, when the image says the source had
+        # one: emit() decides that from the number of loads and this
+        # spells the receiver to match.
+        if getattr(self, "mgrlocal", False):
+            RECEIVERS[("ld", THIS, 0)] = (
+                "mgr->", "zPlayerActionManager")
         who = r.get(3)
         static = who not in RECEIVERS
         obj = ""
@@ -669,11 +707,22 @@ class Merge(object):
                                  "does not read as a parameter list"
                                  % (sym, params))
             psrc, self.argnames, self.fargnames = self.param_src(types)
-        addr, size, branches, calls, stores = walk(sym, "xAnimTableNew")
+        addr, size, branches, calls, stores, mgrloads = walk(sym, "xAnimTableNew")
         if branches:
             raise SystemExit("gen_animtables: %s has %d branch(es); not a "
                              "table" % (sym, branches))
         lines = ["void %s::%s(%s) {" % (cls, name, psrc)]
+        # THE MANAGER IN A LOCAL. Retail reads this->manager once
+        # for a run of calls where the source put it in a local,
+        # and reloads it per call where it did not -- a call can
+        # change the member. The argument lists cannot tell them
+        # apart; the number of loads in the image can.
+        oncalls = sum(1 for _a, _t, r, _f, _s in calls
+                      if r.get(3) == ("ld", THIS, 0))
+        self.mgrlocal = oncalls >= 2 and mgrloads == 1
+        if self.mgrlocal:
+            lines.append("    zPlayerActionManager* mgr = manager;")
+            lines.append("")
         # The stores come before the calls in every body that has
         # them. The member is named for its offset, as the rest of
         # the tree names an offset whose meaning is not known; the
@@ -731,8 +780,10 @@ class Merge(object):
                     # 299 words, PuckAttack 9 of 164, both 0 once inlined.
                     k = o[len("manager->actions["):-len("]->")]
                     self.mgr_needed = True
-                    lines.append("    manager->%sTo(%s, %s);"
-                                 % (self.SLOTS[slot], k, ", ".join(args)))
+                    lines.append("    %s%sTo(%s, %s);"
+                                 % ("mgr->" if self.mgrlocal else "manager->",
+                                    self.SLOTS[slot], k,
+                                    ", ".join(args)))
                 else:
                     lines.append("    %s%s(%s);" % (o, self.SLOTS[slot],
                                                     ", ".join(args)))
@@ -925,9 +976,27 @@ class Merge(object):
             if hm is None:
                 raise SystemExit("gen_animtables: no stub for %s" % cls)
             if ":" in hm.group(1):
-                if "zPlayerAction" not in hm.group(1):
-                    raise SystemExit("gen_animtables: %s derives from %s, "
-                                     "not zPlayerAction" % (cls, hm.group(1)))
+                # TRANSITIVELY, not one level: what the check is for
+                # is `manager` at +0 and the vptr at +12, and a base
+                # three deep gives those as surely as a direct one.
+                # zPlayerLandBoard reaches zPlayerAction through
+                # zBoardPlayerAction and zCommonPlayerAction, and
+                # "zPlayerAction" is not a substring of either.
+                chain, at = [], cls
+                while at and at != "zPlayerAction" and at not in chain:
+                    chain.append(at)
+                    bm2 = re.search(r"(?m)^class %s\b([^{;]*)\{"
+                                    % re.escape(at), text)
+                    if not bm2 or ":" not in bm2.group(1):
+                        at = None
+                        break
+                    at = bm2.group(1).split(":")[1].replace(
+                        "public", "").strip().split()[0]
+                if at != "zPlayerAction":
+                    raise SystemExit(
+                        "gen_animtables: %s does not reach zPlayer"
+                        "Action -- the chain is %s"
+                        % (cls, " -> ".join(chain) or cls))
                 continue
             head = "class %s : public zPlayerAction {" % cls
             text = text[:hm.start()] + head + text[hm.end():]
@@ -972,7 +1041,7 @@ class Merge(object):
 
 
 def show_calls(sym, callee):
-    addr, size, branches, calls, stores = walk(sym, callee)
+    addr, size, branches, calls, stores, mgrloads = walk(sym, callee)
     print("  %s  %08X  %d bytes  %d branch(es)  %d call(s) to %s*"
           % (sym.split("__")[0], addr, size, branches, len(calls), callee))
     unresolved = 0

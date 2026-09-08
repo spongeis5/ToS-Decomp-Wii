@@ -7,18 +7,18 @@ numbers here, which move.
 ## State at time of writing
 
 ```
-Game Code:  67 of 777 files complete  316,744 / 2,116,616 bytes  2,694 / 10,697 fn
-            14.9646% of game code
+Game Code:  67 of 777 files complete  321,092 / 2,116,616 bytes  2,707 / 10,697 fn
+            15.1701% of game code
 
-Of those 2,694 functions, 774 are GENERATED -- machine-recognised
+Of those 2,707 functions, 774 are GENERATED -- machine-recognised
 shapes, not one of which is decompiling. They are real matched
 functions and the offsets and constants are recovered fact, but a
 count of them is not a count of decompiled code. HAND-WRITTEN IS
-1,920, across 263 units and 292,192 bytes, and that is the figure to
+1,933, across 263 units and 296,540 bytes, and that is the figure to
 compare against earlier ones.
 
 Data:       4 unit(s) carry their own, 412 bytes; 134 more could
-All:        6.49% matched              main.dol reproduces byte for byte
+All:        6.56% matched              main.dol reproduces byte for byte
 ```
 
 Every number above is written by `python tools/notes_state.py`,
@@ -3189,6 +3189,69 @@ is a few words SHORT is not a register-allocation problem.** Words
 that are absent are source that is absent. Both of these looked like
 permuted register allocation in the word diff, because everything
 after the missing store shifts by one.
+
+## WAD01_28 IS WHOLE -- 256 of 256, and what the walk could not see
+
+The unit went 240 of 246 to **256 of 256** in one sitting, and ten of
+those functions had never been written at all: report.json shows a
+function our object does not define as 0.0%, which reads like a bad
+near miss and is not one. `unwritten_tables` is the query -- an Add*
+in a unit that HAS source, at 0.0% -- and it found 57 of them, 24,840
+bytes.
+
+**Four things gen_animtables' walk could not see**, each of which
+refused a table that is otherwise complete:
+
+  * **An incoming argument that arrives on the STACK.** param_src has
+    always named those -- it hands back ("stackarg", slot) for every
+    parameter past r10 -- but nothing ever produced one, so a table
+    that forwards its ninth argument read it as unresolved. The slot
+    is the ABI's: 8 bytes into the CALLER's frame, frame+8 off r1.
+
+  * **A prologue's register save read as an outgoing argument.**
+    `stw r31,28(r1)` is not st28. A save is r14 and up with no value
+    the walk has seen -- the register's incoming value. `stw r29,8(r1)`
+    where r29 holds a zero the body put there IS an argument, and the
+    test keeps it.
+
+  * **`addi rD,rS,N` where rS holds an argument.**
+    zBoardPlayerHammerAttack passes its priority parameter and then
+    that parameter plus ten. Folding addi only for ints dropped the
+    register and read three calls as unresolved.
+
+  * **`rlwinm rD,rS,0,16,31` is the PARAMETER'S TYPE, not an
+    expression.** `h + 10` passed where the parameter is
+    `unsigned short` compiles to addi and then that mask; the value
+    to carry is still `h + 10`, and the mask re-appears when it is
+    compiled. Any other mask on a symbolic value is still dropped --
+    that would be an expression, and this refuses to guess one.
+
+**And the manager in a local.** `manager->f(); manager->g();` reloads
+the member before each call, because a call can change it; retail
+reads it ONCE into a callee-saved register wherever the source had a
+local. Which it was is not in the argument lists -- both give
+r3 = ('ld', this, 0) for every call -- but it is in the instruction
+stream: count the `lwz rD,0(rA)` with rA holding `this` against the
+calls made on the result. The generator emits the local when there is
+ONE load and two or more calls. Three bodies load it twice for four
+calls or four times for six -- a local for a RUN of them -- and those
+are still near misses: zPlayerLand 114 of 117, zPlayerLedge 50 of 69,
+zCommonPlayerDash 51 of 59, each one or two words SHORT as well, so
+there is something missing in them besides the hoist.
+
+zPlayerHit needed the STRING in a local too -- retail forms
+`addi r28,r4,7499` once and passes `mr r6,r28` to all three calls --
+and zPlayerHitLaunch, three calls of the same shape in the same file,
+does NOT: there retail re-forms the address per call from a base it
+keeps. So it is a difference in the source, not a rule, and the
+generator does not guess at it.
+
+**The regression that made all this safe**: regenerate every table
+already in the unit, one at a time, and require the source to come
+back identical. 126 of 130 do; one is the hand-applied hoist and
+three are the variant-set bodies the new store guard refuses. Run as
+a batch instead, ONE refusal stops the merge and nothing is checked,
+which reads as a pass and is not one.
 
 ## THE FILL SHEET, and two guards that saw what the oracle could not
 

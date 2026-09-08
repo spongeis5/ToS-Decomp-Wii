@@ -586,16 +586,21 @@ void zPlayerCustomAnim::AddTransitionsFrom(xAnimTable* table, const char* name, 
 
 // zPlayerHitLaunch::AddActionTransitions: 3 call(s)
 void zPlayerHitLaunch::AddActionTransitions(xAnimTable* table) {
-    manager->AddTransitionsTo(0, table, zPlayerHitLaunch::GetTransitionString(), 0, 0, 1000, 0.0f, 16, 0, (zPlayerAction::SpecialActions)0);
-    manager->AddTransitionsTo(2, table, zPlayerHitLaunch::GetTransitionString(), 0, 0, 1000, 0.0f, 16, 0, (zPlayerAction::SpecialActions)0);
-    manager->AddTransitionsTo(3, table, zPlayerHitLaunch::GetTransitionString(), 0, 0, 1000, 0.0f, 16, 0, (zPlayerAction::SpecialActions)0);
+    zPlayerActionManager* mgr = manager;
+
+    mgr->AddTransitionsTo(0, table, zPlayerHitLaunch::GetTransitionString(), 0, 0, 1000, 0.0f, 16, 0, (zPlayerAction::SpecialActions)0);
+    mgr->AddTransitionsTo(2, table, zPlayerHitLaunch::GetTransitionString(), 0, 0, 1000, 0.0f, 16, 0, (zPlayerAction::SpecialActions)0);
+    mgr->AddTransitionsTo(3, table, zPlayerHitLaunch::GetTransitionString(), 0, 0, 1000, 0.0f, 16, 0, (zPlayerAction::SpecialActions)0);
 }
 
 // zPlayerHit::AddActionTransitions: 3 call(s)
 void zPlayerHit::AddActionTransitions(xAnimTable* table) {
-    manager->AddTransitionsTo(0, table, "Hit*", 0, 0, 1000, 0.0f, 16, 0, (zPlayerAction::SpecialActions)0);
-    manager->AddTransitionsTo(2, table, "Hit*", 0, 0, 1000, 0.0f, 16, 0, (zPlayerAction::SpecialActions)0);
-    manager->AddTransitionsTo(3, table, "Hit*", 0, 0, 1000, 0.0f, 16, 0, (zPlayerAction::SpecialActions)0);
+    zPlayerActionManager* mgr = manager;
+    const char* s = "Hit*";
+
+    mgr->AddTransitionsTo(0, table, s, 0, 0, 1000, 0.0f, 16, 0, (zPlayerAction::SpecialActions)0);
+    mgr->AddTransitionsTo(2, table, s, 0, 0, 1000, 0.0f, 16, 0, (zPlayerAction::SpecialActions)0);
+    mgr->AddTransitionsTo(3, table, s, 0, 0, 1000, 0.0f, 16, 0, (zPlayerAction::SpecialActions)0);
 }
 
 // zPlayerFall::AddActionTransitions: 5 call(s)

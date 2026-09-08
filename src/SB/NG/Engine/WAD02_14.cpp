@@ -38,3 +38,40 @@ public:
 }  // namespace Scaleform
 
 Scaleform::HeapAllocatorWii::~HeapAllocatorWii() {}
+
+// The 80-byte base-only destructor, the compiler's own: the
+// null-this test, the BASE's destructor on `this` with the flag
+// CLEAR, then the delete when the CALLER's flag is positive, and
+// `return this`.
+//
+// A GFx class DELETES THROUGH ITS OWN OPERATOR. Retail's branch here
+// is Free__11GMemoryHeapFPv and not the global __dl__FPv, which is
+// what reloc_audit caught when these were first written the ordinary
+// way: every word was equal, report.json credited them, and the call
+// went somewhere else. A one-line `operator delete` is taken by
+// -inline auto at the call site, so the heap's Free lands in the
+// destructor itself, which is what the bytes have.
+
+class GMemoryHeap {
+public:
+    static void Free(void* p);
+};
+
+class GNewOverrideBase {
+public:
+    static void operator delete(void* p) { GMemoryHeap::Free(p); }
+};
+
+class GFxFSCommandHandler : public GNewOverrideBase {
+public:
+    ~GFxFSCommandHandler();
+};
+
+namespace Scaleform {
+class MovieLog : public GFxFSCommandHandler {
+public:
+    ~MovieLog();
+};
+}  // namespace Scaleform
+
+Scaleform::MovieLog::~MovieLog() {}

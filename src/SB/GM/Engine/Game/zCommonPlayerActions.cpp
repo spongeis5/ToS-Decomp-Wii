@@ -226,6 +226,7 @@ public:
     static const char* GetTransitionString() { return "Fall*"; }
     void AddActionTransitions(xAnimTable* table);
     void AddStates(xAnimTable* table);
+    void AddStandardTransitionsFrom(xAnimTable* table, const char* name);
 };
 
 
@@ -241,6 +242,7 @@ public:
     void AddTransitionsFrom(xAnimTable* table, const char* name, unsigned int (*c)(xAnimTransition*, xAnimSingle*, void*), unsigned int (*d)(xAnimTransition*, xAnimSingle*, void*), unsigned short e, float f, unsigned int g, unsigned int h, zPlayerAction::SpecialActions i);
     void AddStates(xAnimTable* table);
     bool TriggeredAnimCheck(xAnimTransition* a0, xAnimSingle* a1);
+    void AddStandardTransitionsFrom(xAnimTable* table, const char* name);
 };
 
 
@@ -510,6 +512,8 @@ public:
     void AddTransitionsFrom(xAnimTable* table, const char* name, unsigned int (*c)(xAnimTransition*, xAnimSingle*, void*), unsigned int (*d)(xAnimTransition*, xAnimSingle*, void*), unsigned short e, float f, unsigned int g, unsigned int h, zPlayerAction::SpecialActions i);
     void AddStates(xAnimTable* table);
     bool StartWalkCheck(xAnimTransition* a0, xAnimSingle* a1);
+    static const char* GetTransitionString() { return "StartWalk#"; }
+    void AddActionTransitions(xAnimTable* table);
 };
 
 // zPlayerWalkStart::AddTransitionsFrom: 1 call(s)
@@ -953,4 +957,28 @@ unsigned int zPlayerTriggered::anTriggeredAnimCheck(xAnimTransition* a0, xAnimSi
     }
 
     return result;
+}
+
+// zPlayerFall::AddStandardTransitionsFrom: 1 call(s)
+void zPlayerFall::AddStandardTransitionsFrom(xAnimTable* table, const char* name) {
+    AddTransitions(table, name, 0, 0, 1000, 0.1f, 0, 0, (zPlayerAction::SpecialActions)0);
+}
+
+// zPlayerTriggered::AddStandardTransitionsFrom: 1 call(s)
+void zPlayerTriggered::AddStandardTransitionsFrom(xAnimTable* table, const char* name) {
+    AddTransitions(table, name, 0, 0, 200, 0.15f, 0, 0, (zPlayerAction::SpecialActions)0);
+}
+
+// zPlayerWalkStart::AddActionTransitions: 10 call(s)
+void zPlayerWalkStart::AddActionTransitions(xAnimTable* table) {
+    manager->AddStandardTransitionsTo(1, table, zPlayerWalkStart::GetTransitionString());
+    manager->AddTransitionsTo(0, table, zPlayerWalkStart::GetTransitionString(), 0, 0, 1000, 0.15f, 16, 0, (zPlayerAction::SpecialActions)0);
+    manager->AddTransitionsTo(2, table, zPlayerWalkStart::GetTransitionString(), 0, 0, 1000, 0.15f, 16, 0, (zPlayerAction::SpecialActions)0);
+    manager->AddTransitionsTo(3, table, zPlayerWalkStart::GetTransitionString(), 0, 0, 1000, 0.15f, 16, 0, (zPlayerAction::SpecialActions)0);
+    manager->AddStandardTransitionsTo(4, table, zPlayerWalkStart::GetTransitionString());
+    manager->AddStandardTransitionsTo(6, table, zPlayerWalkStart::GetTransitionString());
+    manager->AddStandardTransitionsTo(8, table, zPlayerWalkStart::GetTransitionString());
+    manager->AddStandardTransitionsTo(12, table, zPlayerWalkStart::GetTransitionString());
+    manager->AddStandardTransitionsTo(15, table, zPlayerWalkStart::GetTransitionString());
+    AddStandardTransitions(table, zPlayerWalkStart::GetTransitionString());
 }

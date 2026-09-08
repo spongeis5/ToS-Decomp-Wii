@@ -102,9 +102,9 @@ EXPECT = {
     "SB/GM/Engine/WAD00_31": (6, 6),
     "SB/GM/Engine/WAD01_19": (3, 3),
     "SB/GM/Engine/WAD02_31": (2, 2),
-    "SB/GM/Engine/WAD02_4": (6, 6),
+    "SB/GM/Engine/WAD02_4": (7, 7),
     "SB/GM/Engine/WAD04_13": (3, 3),
-    "SB/NG/Engine/WAD02_37": (14, 14),
+    "SB/NG/Engine/WAD02_37": (19, 19),
     "SB/NG/Source/Engine/IO/VirtualKeyboard/VirtualKeyboard": (2, 2),
     # Lowered by hand for the reason given above WAD03_3.
     "SB/NG/Source/Engine/TRC/TRCMessageBox": (1, 1),
@@ -124,14 +124,15 @@ EXPECT = {
     "SB/GM/Engine/WAD04": (1, 1),
     "SB/GM/Engine/WAD03_24": (43, 46),
     "SB/NG/Engine/WAD02_12": (2, 2),
-    # The GFx/Scaleform base-only destructors were written into these
-    # four and TAKEN BACK OUT: report.json credited them, every word
-    # equal, and reloc_audit called them overstated -- retail's
-    # operator delete on a GFx class is GMemoryHeap::Free, not the
-    # global one. They need the class's own operator delete first.
-    "SB/NG/Engine/WAD02_13": (3, 3),
+    # The GFx/Scaleform base-only destructors, taken out once when
+    # reloc_audit called them overstated and written again with the
+    # class's own `operator delete`: a GFx object is freed through
+    # GMemoryHeap::Free, and a one-line operator delete is taken by
+    # -inline auto at the call site, which is what puts that call in
+    # the destructor. All eight match and reloc_audit is clean.
+    "SB/NG/Engine/WAD02_13": (7, 7),
     # One function of the 68 in this chunk.
-    "SB/NG/Engine/WAD02_14": (1, 1),
+    "SB/NG/Engine/WAD02_14": (2, 2),
     "SB/NG/Source/Engine/Graphics/Display": (2, 2),
     "SB/NG/Source/Engine/Graphics/Util/ScreenShot": (2, 2),
     "SB/NG/Source/Engine/IO/File/SystemCache": (5, 5),
@@ -248,7 +249,7 @@ EXPECT = {
     # The animation tables merged by gen_animtables.py. The five
     # that DIFFER are AddActionTransitions bodies with many calls,
     # merged and not yet examined; the pin has to see them.
-    "SB/GM/Engine/Game/zCommonPlayerActions": (77, 83),
+    "SB/GM/Engine/Game/zCommonPlayerActions": (80, 86),
     "SB/GM/Engine/Game/zFXParticleLocator": (1, 1),
     "SB/GM/Engine/Game/zFloatingCollectible": (3, 3),
     "SB/GM/Engine/Game/zHitButton": (4, 4),
@@ -283,7 +284,7 @@ EXPECT = {
     "SB/GM/Engine/WAD00_32": (177, 177),
     "SB/GM/Engine/WAD01_13_1": (2, 2),
     "SB/GM/Engine/WAD01_1_1": (123, 127),
-    "SB/GM/Engine/WAD01_28": (237, 243),
+    "SB/GM/Engine/WAD01_28": (238, 244),
     "SB/GM/Engine/WAD01_29": (2, 2),
     "SB/GM/Engine/WAD02_6_1": (2, 2),
     "SB/GM/Engine/WAD03_32_2": (3, 3),
@@ -294,7 +295,7 @@ EXPECT = {
     "SB/NG/Engine/WAD00_12_3": (7, 7),
     "SB/NG/Engine/WAD00_17_1": (16, 16),
     "SB/NG/Engine/WAD00_5_1": (2, 2),
-    "SB/NG/Engine/WAD02_15_1": (3, 3),
+    "SB/NG/Engine/WAD02_15_1": (5, 5),
     "SB/NG/Source/Engine/AssetManager/Loader/TableManager": (1, 1),
     "SB/NG/Source/Engine/AssetManager/Overseer/Coordinator": (2, 2),
     "SB/NG/Source/Engine/Entities/Blobs/CameraFlyBlobEntity": (3, 3),

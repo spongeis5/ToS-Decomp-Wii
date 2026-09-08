@@ -356,6 +356,7 @@ class zPlayerLandBoard {
 public:
     unsigned int GetID();
 
+    ~zPlayerLandBoard();
 };
 
 

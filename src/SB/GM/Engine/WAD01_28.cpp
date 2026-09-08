@@ -971,6 +971,7 @@ public:
     bool LaunchGooBackCheck(xAnimTransition* a0, xAnimSingle* a1);
     static unsigned int anLaunchGooFrontCheck(xAnimTransition* a0, xAnimSingle* a1, void* a2);
     bool LaunchGooFrontCheck(xAnimTransition* a0, xAnimSingle* a1);
+    void AddStandardTransitionsFrom(xAnimTable* table, const char* name);
 };
 
 class zBoardPlayerSpinPowerupAttack : public zPlayerAction {
@@ -3618,3 +3619,8 @@ public:
 };
 
 zSBCastCollector::~zSBCastCollector() {}
+
+// zPlayerHitLaunchBoard::AddStandardTransitionsFrom: 1 call(s)
+void zPlayerHitLaunchBoard::AddStandardTransitionsFrom(xAnimTable* table, const char* name) {
+    AddTransitions(table, name, 0, 0, 1100, 0.15f, 0, 0, (zPlayerAction::SpecialActions)0);
+}

@@ -7,18 +7,18 @@ numbers here, which move.
 ## State at time of writing
 
 ```
-Game Code:  67 of 777 files complete  296,504 / 2,116,616 bytes  2,578 / 10,697 fn
-            14.0084% of game code
+Game Code:  67 of 777 files complete  298,140 / 2,116,616 bytes  2,595 / 10,697 fn
+            14.0857% of game code
 
-Of those 2,578 functions, 696 are GENERATED -- machine-recognised
+Of those 2,595 functions, 696 are GENERATED -- machine-recognised
 shapes, not one of which is decompiling. They are real matched
 functions and the offsets and constants are recovered fact, but a
 count of them is not a count of decompiled code. HAND-WRITTEN IS
-1,882, across 263 units and 285,344 bytes, and that is the figure to
+1,899, across 263 units and 286,980 bytes, and that is the figure to
 compare against earlier ones.
 
 Data:       4 unit(s) carry their own, 412 bytes; 134 more could
-All:        6.19% matched              main.dol reproduces byte for byte
+All:        6.22% matched              main.dol reproduces byte for byte
 ```
 
 Every number above is written by `python tools/notes_state.py`,
@@ -3758,6 +3758,57 @@ delete -- the GNewOverrideBase idiom -- not a different destructor.
 
 Game Code 12.1668% -> 14.0084%, 257,524 -> 296,504 bytes, 2,308 ->
 2,578 functions.
+
+### The GFx operator delete, and a filter that hid 47 functions
+
+A GFX CLASS DELETES THROUGH ITS OWN OPERATOR, and a one-line one is
+INLINED. The eight base-only destructors handed back last time --
+every word equal, credited by report.json, called overstated by
+reloc_audit because retail branches to `Free__11GMemoryHeapFPv` and
+ours reached the global `__dl__FPv` -- come back with six lines:
+
+    class GNewOverrideBase {
+    public:
+        static void operator delete(void* p) { GMemoryHeap::Free(p); }
+    };
+
+-inline auto takes it at the call site, so the heap's Free lands in
+the destructor itself rather than a call to the operator. All eight
+match and reloc_audit stays at 0 overstated. Four more went with them
+whose base is a TEMPLATE instantiation -- `26GRefCountBase<8GFxState,
+2>` is GRefCountBase<GFxState, 2>, which GFxState itself derives
+from, the CRTP the Scaleform headers use.
+
+AND A FILTER OF MY OWN HID 47 OF 72 TABLES. The driver that offers
+symbols to gen_animtables had its own `branchless()` test, and it
+counted `bctrl` as a branch. gen_animtables does not -- it HANDLES a
+vtable slot call, and its own test is exactly `bc` and an
+unconditional `b`. So every table whose only `branch` was a virtual
+call was filtered out before the tool ever saw it, and the 72 recorded
+here as `has a branch, which the tool refuses as a different shape`
+were 25. The rule in CLAUDE.md is about logs -- `a filter returns only
+what was already suspected` -- and it applies just as well to a filter
+in front of a tool. Ask the tool what it refuses; do not re-implement
+its test.
+
+WHAT IS ACTUALLY LEFT, measured rather than estimated, because the
+next target asked for 40,518 more bytes and the seams do not hold
+them:
+
+  * every mixed cluster twin_census finds: 449 unsolved members,
+    18,400 bytes, and the big ones are the recorded hard remainders;
+  * the largest single repeated opcode signature among the 7,743
+    unmatched functions of 3,000 bytes or less: 28 functions, 4,480
+    bytes. The top ten signatures together are 13,812;
+  * 7,743 unmatched functions carrying 1,637,928 bytes across more
+    than 5,388 distinct signatures.
+
+So there is no 40 KB seam. The three that existed -- the animation
+tables, the 116-byte callbacks and the destructor shapes -- are worked
+out to what their generators can verify. Past here the bytes come one
+function at a time, out of the two player-action units that hold
+260,000 bytes between them, and that is decompilation rather than
+transplanting.
 
 Two things that are NOT levers, measured rather than assumed: which
 overload of a name gets picked (CodeWarrior mangles static and non-static

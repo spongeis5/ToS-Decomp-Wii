@@ -135,3 +135,83 @@ public:
 }  // namespace UI
 
 UI::FontModule::~FontModule() {}
+
+// The 80-byte base-only destructor, the compiler's own: the
+// null-this test, the BASE's destructor on `this` with the flag
+// CLEAR, then the delete when the CALLER's flag is positive, and
+// `return this`.
+//
+// A GFx class DELETES THROUGH ITS OWN OPERATOR. Retail's branch here
+// is Free__11GMemoryHeapFPv and not the global __dl__FPv, which is
+// what reloc_audit caught when these were first written the ordinary
+// way: every word was equal, report.json credited them, and the call
+// went somewhere else. A one-line `operator delete` is taken by
+// -inline auto at the call site, so the heap's Free lands in the
+// destructor itself, which is what the bytes have.
+
+class GMemoryHeap {
+public:
+    static void Free(void* p);
+};
+
+class GNewOverrideBase {
+public:
+    static void operator delete(void* p) { GMemoryHeap::Free(p); }
+};
+
+class GFxFSCommandHandler : public GNewOverrideBase {
+public:
+    ~GFxFSCommandHandler();
+};
+
+namespace Scaleform {
+class CustomTranslator : public GFxFSCommandHandler {
+public:
+    ~CustomTranslator();
+};
+}  // namespace Scaleform
+
+namespace Scaleform {
+class CustomImageCreator : public GFxFSCommandHandler {
+public:
+    ~CustomImageCreator();
+};
+}  // namespace Scaleform
+
+namespace Scaleform {
+class CustomCommandHandler : public GFxFSCommandHandler {
+public:
+    ~CustomCommandHandler();
+};
+}  // namespace Scaleform
+
+namespace Scaleform {
+class ExternalInterfaceHandler : public GFxFSCommandHandler {
+public:
+    ~ExternalInterfaceHandler();
+};
+}  // namespace Scaleform
+
+namespace Scaleform {
+class GSFMemoryFile : public GNewOverrideBase {
+public:
+    ~GSFMemoryFile();
+};
+}  // namespace Scaleform
+
+namespace Scaleform {
+class GTextureMemoryFile : public Scaleform::GSFMemoryFile {
+public:
+    ~GTextureMemoryFile();
+};
+}  // namespace Scaleform
+
+Scaleform::CustomTranslator::~CustomTranslator() {}
+
+Scaleform::CustomImageCreator::~CustomImageCreator() {}
+
+Scaleform::CustomCommandHandler::~CustomCommandHandler() {}
+
+Scaleform::ExternalInterfaceHandler::~ExternalInterfaceHandler() {}
+
+Scaleform::GTextureMemoryFile::~GTextureMemoryFile() {}

@@ -79,6 +79,7 @@ public:
     virtual void __vtable_anchor();
     zFXSpawnWithSoundAssetMultiple(World::EntityHandleBase* a0);
 
+    ~zFXSpawnWithSoundAssetMultiple();
 };
 
 }  // namespace FX
@@ -190,3 +191,10 @@ public:
 
 FX::zFXSpawn::~zFXSpawn() {}
 zFXScriptSpawnPtMgr::SpawnSlot::~SpawnSlot() {}
+
+// The 80-byte base-only destructor, the compiler's own: the
+// null-this test, the BASE's destructor on `this` with the flag
+// CLEAR -- r4 = 0 is a base subobject where r4 = -1 is a complete
+// one -- then operator delete when the CALLER's flag is positive,
+// and `return this`. No member is destroyed.
+FX::zFXSpawnWithSoundAssetMultiple::~zFXSpawnWithSoundAssetMultiple() {}

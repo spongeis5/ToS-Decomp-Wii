@@ -597,7 +597,7 @@ class Fields(object):
         return NL.join(out)
 
 
-def collect(ops, fl, names):
+def collect(ops, fl, names, sizes):
     """Every member a program touches, with the type its use implies. A
     sub-object stub is ONE byte -- see Fields.render -- and that is what
     the offsets of every member after it are measured against."""
@@ -612,13 +612,14 @@ def collect(ops, fl, names):
             ct, sz = INT[t[1]]
             fl.put(t[0], ct, names(t[0]), sz)
         elif k == "memberfix":
-            fl.put(o[1], o[2], names(o[1]), 1)
+            fl.put(o[1], o[2], names(o[1]),
+                   sizes.get(o[2].split("::")[-1], 1))
         elif k == "guard":
             ct, sz = INT[o[2]]
             if not o[6] and ct == "int":
                 ct = "unsigned int"
             fl.put(o[1], ct, names(o[1]), sz)
-            collect(o[4], fl, names)
+            collect(o[4], fl, names, sizes)
         elif k == "loop":
             arr, cnt, _mul, stride, body = o[1], o[2], o[3], o[4], o[5]
             t = elem_type(body, stride)
@@ -702,6 +703,43 @@ def emit(ops, indent, names, elem=None, cursors=None, cur="p"):
     return out
 
 
+def dependency_order(fresh):
+    """Where each fresh class must sit so that every class an inline body
+    NAMES is complete before it. A forward declaration covers a pointer
+    member; a cast through a type does not."""
+    names = {s for _n, s, _d in fresh}
+    need = {}
+    for _n, s, d in fresh:
+        body = d[d.find("void Fix(long base) {"):] \
+            if "void Fix(long base) {" in d else ""
+        need[s] = {t for t in names
+                   if t != s and re.search(r"" + chr(92) + "b%s" % t, body)}
+    order, placed = {}, set()
+    while len(placed) < len(names):
+        ready = sorted(n for n in names
+                       if n not in placed and not (need[n] - placed))
+        if not ready:                    # a cycle: leave the rest as-is
+            ready = sorted(names - placed)
+        for n in ready:
+            order[n] = len(placed)
+            placed.add(n)
+    return order
+
+
+def has_inline_fix(text, short):
+    """Does the file already declare this class with a Fix BODY in it?
+    Any spelling counts: the question is whether the wrapper is already
+    accounted for, not whether it is spelled the way this tool spells
+    it."""
+    i = text.find("class %s {" % short + NL)
+    if i < 0:
+        i = text.find("class %s " % short)
+        if i < 0:
+            return False
+    j = text.find(NL + "};", i)
+    return j > 0 and "void Fix(long base) {" in text[i:j]
+
+
 def declared_as(text, decl):
     """Is this declaration the one in the file? A nested stub the merge
     injected -- `class __srcEvent__ ...` inside LinkAssetBaseNew -- is an
@@ -732,7 +770,7 @@ def each(ops, kind, out):
     return out
 
 
-def render(cls, ops, pinned):
+def render(cls, ops, pinned, inline=False, sizes={}):
     """(declaration, body) for one asset. A class in `pinned` is one some
     OTHER asset already holds as a sub-object at a fixed offset, so its
     size is load-bearing and must stay at one byte -- it gets no
@@ -760,7 +798,7 @@ def render(cls, ops, pinned):
         return nmap.get(off, "m%X" % off)
 
     fl = Fields()
-    collect(ops, fl, names)
+    collect(ops, fl, names, sizes)
     decl = fl.render(cls.split("::")[-1], base)
 
     cursors = Cursors(kinds)
@@ -772,6 +810,15 @@ def render(cls, ops, pinned):
         body.pop()
     while body and body[0] == "":
         body.pop(0)
+    if inline:
+        inner = ["    void Fix(long base) {"]
+        if kinds:
+            inner += ["    " + l for l in cursors.declare()] + [""]
+        inner += ["    " + l if l else "" for l in body]
+        inner += ["    }"]
+        lines = decl.splitlines()
+        cut = lines.index("    void Fix(long base);")
+        return NL.join(lines[:cut] + inner + lines[cut + 1:]), None
     return decl, NL.join(head + body + ["}"])
 
 
@@ -800,9 +847,14 @@ def population():
     rows, refused = [], defaultdict(list)
     for a in sorted(funcs):
         nm, sz = funcs[a]
-        if not re.match(r"^Fix__(Q\d|\d)", nm) or not nm.endswith("Fl"):
+        kind = None
+        if re.match(r"^Fix__(Q\d|\d)", nm) and nm.endswith("Fl"):
+            kind, m = "fix", re.match(r"^Fix__(Q\d.*|\d+\w*)Fl$", nm)
+        elif nm.endswith(">__4UtilFPvl_v") and sz > 4:
+            # A wrapper bigger than a tail call has T::Fix INSIDE it.
+            kind, m = "inline", re.match(r"^RTTID_Fix<(.+)>__4UtilFPvl_v$", nm)
+        if kind is None:
             continue
-        m = re.match(r"^Fix__(Q\d.*|\d+\w*)Fl$", nm)
         cls = qualified(m.group(1)) if m else None
         if cls is None:
             refused["the class does not demangle"].append((nm, sz))
@@ -812,8 +864,36 @@ def population():
         except Refuse as e:
             refused[str(e)].append((nm, sz))
             continue
-        rows.append((nm, cls, sz, unit_of(a), ops, nm in matched))
+        rows.append((nm, cls, sz, unit_of(a), ops, nm in matched, kind))
     return rows, refused
+
+
+SIZEOF = {"int": 4, "unsigned int": 4, "unsigned short": 2,
+          "unsigned char": 1, "long": 4, "void*": 4, "char*": 4}
+
+
+def sizes_from_file(text):
+    """Every class the file declares with fields, and how many bytes it
+    takes. A bare stub is absent and therefore one byte."""
+    out = {}
+    for m in re.finditer(r"^class (\w+)[^{]*\{\n(.*?)^\};", text,
+                         re.S | re.M):
+        name, block = m.group(1), m.group(2)
+        at = 0
+        for line in block.splitlines():
+            g = re.match(r"^    unsigned char _pad\d+\[0x([0-9A-Fa-f]+)\];$",
+                         line)
+            if g:
+                at += int(g.group(1), 16)
+                continue
+            g = re.match(r"^    ([A-Za-z_][A-Za-z0-9_:* ]*?)\s+"
+                         r"(m[0-9A-F]+|links|linkCount|other)\;$", line)
+            if g:
+                ty = g.group(1).strip()
+                at += SIZEOF.get(ty, 4 if ty.endswith("*") else 1)
+        if at:
+            out[name] = at
+    return out
 
 
 def pinned_classes(rows):
@@ -834,6 +914,8 @@ def merge(unit, rows, pinned):
     if not path.exists():
         raise SystemExit("gen_assetfix: %s has no source file" % unit)
     text = path.read_text(encoding="utf-8")
+    sizes = sizes_from_file(text)
+    pinned = {c for c in pinned if c.split("::")[-1] not in sizes}
     if PRELUDE not in text:
         raise SystemExit("gen_assetfix: %s has no EventLinkNew; add the "
                          "prelude by hand (WAD00_32.cpp is the model)" % unit)
@@ -841,13 +923,17 @@ def merge(unit, rows, pinned):
     bodies, problems, rt, left = [], [], set(), defaultdict(int)
     named = set()
     fresh = []                      # (namespace, declaration) with no stub
-    for nm, cls, sz, _u, ops, _done in sorted(rows, key=lambda r: r[1]):
+    for nm, cls, sz, _u, ops, _done, kind in sorted(rows, key=lambda r: r[1]):
         try:
-            decl, body = render(cls, ops, pinned)
+            decl, body = render(cls, ops, pinned, kind == "inline", sizes)
         except Refuse as e:
             left[str(e)] += 1
             continue
-        if body in text:
+        if kind == "inline":
+            if has_inline_fix(text, cls.split("::")[-1]):
+                left["already in the file"] += 1
+                continue
+        elif body in text:
             # Already written -- by an earlier run of this tool, or by
             # the version before it. The merge is keyed on the FILE, not
             # on report.json: keying it on what already matches made the
@@ -862,6 +948,14 @@ def merge(unit, rows, pinned):
             left["a nested class this writer cannot declare"] += 1
             continue
         stub = "class %s { public: void Fix(long); };" % short
+        if stub not in text and (("class %s {" % short + NL) in text
+                                 or ("class %s :" % short) in text):
+            # Already DEFINED here, by another generator and for another
+            # reason -- World::ShaderCodeBlobAsset carries a Create. Its
+            # members are not ours to add to, and a second definition
+            # does not compile.
+            left["already defined in this unit for another reason"] += 1
+            continue
         if stub in text:
             missing = []
             for line in decl.splitlines():
@@ -892,16 +986,21 @@ def merge(unit, rows, pinned):
             # forward declaration ahead of it so the order of the block
             # does not have to be a dependency order.
             fresh.append((parts[0] if len(parts) > 1 else "", short, decl))
-        bodies.append(body)
+        if body is not None:
+            bodies.append(body)
+        if kind == "inline":
+            # Only AFTER every refusal: instantiating a wrapper whose
+            # class was not written asks mwcc for a Fix that is not there.
+            rt.add(cls)
         for o in each(ops, "rttid", []):
             rt.add(o[2])
-        for kind, ix in (("elemfix", 2), ("memberfix", 2), ("selffix", 1)):
-            for o in each(ops, kind, []):
+        for opkind, ix in (("elemfix", 2), ("memberfix", 2), ("selffix", 1)):
+            for o in each(ops, opkind, []):
                 named.add(o[ix])
 
     for p in sorted(set(problems)):
         print("  not written: %s" % p)
-    if not bodies:
+    if not bodies and not fresh:
         raise SystemExit("gen_assetfix: nothing writable in %s" % unit)
 
     # A type a WRITTEN body names -- a loop's element, a sub-object, a
@@ -940,6 +1039,7 @@ def merge(unit, rows, pinned):
                       "class %s { public: void Fix(long); };" % short))
 
     head = []
+    order = dependency_order(fresh)
     for ns in sorted({n for n, _s, _d in fresh}):
         rows_ns = [(s, d) for n, s, d in fresh if n == ns]
         open_ns = ["namespace %s {" % ns] if ns else []
@@ -947,7 +1047,7 @@ def merge(unit, rows, pinned):
         head += open_ns
         head += ["class %s;" % s for s, _d in sorted(rows_ns)]
         head += [""]
-        for _s, d in sorted(rows_ns):
+        for _s, d in sorted(rows_ns, key=lambda r: order[r[0]]):
             head += [d, ""]
         head += close_ns + [""]
 
@@ -955,10 +1055,17 @@ def merge(unit, rows, pinned):
             if ("Util::RTTID_Fix<%s>(void*, long);" % t) not in text]
     block = NL.join(
         head
+        + (["#pragma always_inline on"] if inst else [])
         + ["template void Util::RTTID_Fix<%s>(void*, long);" % t for t in inst]
+        + (["#pragma always_inline off"] if inst else [])
         + ["", "#pragma dont_inline on"]
         + [(NL + NL).join(bodies)]
-        + ["#pragma dont_inline off"])
+        + ["#pragma dont_inline off"]) if bodies else NL.join(
+        head
+        + (["#pragma always_inline on"] if inst else [])
+        + ["template void Util::RTTID_Fix<%s>(void*, long);" % t
+           for t in inst]
+        + (["#pragma always_inline off"] if inst else []))
     path.write_text(text.rstrip(NL) + NL + NL + block + NL, encoding="utf-8")
     print("  merged %d Fix bodies into %s (%d class(es) newly declared)"
           % (len(bodies), unit, len(fresh)))
@@ -976,42 +1083,60 @@ def main():
 
     rows, refused = population()
     pinned = pinned_classes(rows)
+    sizes = {}
     nref = sum(len(v) for v in refused.values())
 
     if args.show:
-        for nm, cls, sz, u, ops, done in rows:
+        for nm, cls, sz, u, ops, done, kind in rows:
             if args.show not in nm:
                 continue
             print("// %s -- %d bytes, %s, %s"
                   % (nm, sz, u, "MATCHED" if done else "to write"))
             for o in ops:
                 print("//    %s" % (o,))
-            decl, body = render(cls, ops, pinned)
+            decl, body = render(cls, ops, pinned,
+                                kind == "inline", sizes)
             print(decl)
-            print(body)
+            if body is not None:
+                print(body)
             print("")
         return
 
     if args.validate:
         path = ROOT / "src/SB/GM/Engine/WAD00_32.cpp"
         text = path.read_text(encoding="utf-8")
-        good, bad = 0, []
-        for nm, cls, sz, u, ops, done in rows:
+        sizes = sizes_from_file(text)
+        pinned = {c for c in pinned if c.split("::")[-1] not in sizes}
+        good, byhand, bad = 0, 0, []
+        for nm, cls, sz, u, ops, done, kind in rows:
             if not done:
                 continue
             try:
-                decl, body = render(cls, ops, pinned)
+                decl, body = render(cls, ops, pinned, kind == "inline", sizes)
             except Refuse as e:
                 bad.append((cls, "cannot be rendered: %s" % e))
                 continue
-            if body in text and declared_as(text, decl):
+            if body is None:
+                # An inline row: the class carries the body. A spelling
+                # this tool did not write still counts as written --
+                # DTRMovieSettings is `offset += base` by hand -- so say
+                # so rather than calling a matched function a failure.
+                if declared_as(text, decl):
+                    good += 1
+                elif has_inline_fix(text, cls.split("::")[-1]):
+                    byhand += 1
+                else:
+                    bad.append((cls, "renders differently from the file"))
+            elif body in text and declared_as(text, decl):
                 good += 1
             else:
                 bad.append((cls, "renders differently from the file"))
         for cls, why in bad:
             print("  %-52s %s" % (cls, why))
-        print("%d of %d already-matched Fix bodies render exactly as they are "
-              "written; %d do not" % (good, good + len(bad), len(bad)))
+        print("%d of %d already-matched Fix bodies render exactly as they "
+              "are written; %d more are the same program in a spelling "
+              "written by hand; %d do not"
+              % (good, good + byhand + len(bad), byhand, len(bad)))
         return
 
     todo = [r for r in rows if not r[5]]
@@ -1038,7 +1163,8 @@ def main():
             okb = 0
             for r in v:
                 try:
-                    render(r[1], r[4], pinned)
+                    render(r[1], r[4], pinned, r[6] == "inline",
+                           sizes)
                     ok += 1
                     okb += r[2]
                 except Refuse as e:

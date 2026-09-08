@@ -4332,3 +4332,241 @@ void World::MaterialParamFormatTableAsset::Fix(long base) {
     }
 }
 #pragma dont_inline off
+
+namespace Sext {
+class Basic3D;
+class Cloud;
+class NPCCounterPattern;
+class NPCTemplate;
+class TextureAnimationSettings;
+class UIDModelReference;
+class ZoneMarker;
+class zHouseAsset;
+class zSoundCueAsset;
+class zSoundFXAsset;
+class zSoundFXMultipleAsset;
+class zUpFloatingObjectGeneratorAsset;
+
+class Basic3D {
+public:
+    void Fix(long base) {
+        m30.Fix(base);
+    }
+
+    unsigned char _pad0[0x30];
+    World::ModelInstanceAsset m30;
+};
+
+class Cloud : public xBaseAsset {
+public:
+    void Fix(long base) {
+        CustomFix(base);
+
+        m40.Fix(base);
+    }
+
+    unsigned char _pad0[0x40];
+    World::ModelInstanceAsset m40;
+};
+
+class NPCCounterPattern {
+public:
+    void Fix(long base) {
+        other = (void*)((long)other + base);
+    }
+
+    unsigned char _pad0[0x8];
+    void* other;
+};
+
+class NPCTemplate {
+public:
+    void Fix(long base) {
+        other = (void*)((long)other + base);
+    }
+
+    unsigned char _pad0[0x110];
+    void* other;
+};
+
+class TextureAnimationSettings {
+public:
+    void Fix(long base) {
+        other = (void*)((long)other + base);
+    }
+
+    unsigned char _pad0[0x10];
+    void* other;
+};
+
+class UIDModelReference {
+public:
+    void Fix(long base) {
+        m10.Fix(base);
+    }
+
+    unsigned char _pad0[0x10];
+    World::ModelInstanceAsset m10;
+};
+
+class ZoneMarker {
+public:
+    void Fix(long base) {
+        other = (void*)((long)other + base);
+    }
+
+    unsigned char _pad0[0x44];
+    void* other;
+};
+
+class zHouseAsset : public xBaseAsset {
+public:
+    void Fix(long base) {
+        CustomFix(base);
+
+        m30.Fix(base);
+    }
+
+    unsigned char _pad0[0x30];
+    World::ModelInstanceAsset m30;
+};
+
+class zSoundCueAsset : public xBaseAsset {
+public:
+    void Fix(long base) {
+        CustomFix(base);
+
+        m14.Fix(base);
+    }
+
+    unsigned char _pad0[0x14];
+    Sext::LinkAsset m14;
+};
+
+class zSoundFXAsset : public xBaseAsset {
+public:
+    void Fix(long base) {
+        CustomFix(base);
+
+        m28.Fix(base);
+    }
+
+    unsigned char _pad0[0x28];
+    Sext::SoundBankSource m28;
+};
+
+class zSoundFXMultipleAsset : public xBaseAsset {
+public:
+    void Fix(long base) {
+        CustomFix(base);
+
+        m10.Fix(base);
+    }
+
+    unsigned char _pad0[0x10];
+    Sext::SoundBankSource m10;
+};
+
+class zUpFloatingObjectGeneratorAsset : public xBaseAsset {
+public:
+    void Fix(long base) {
+        CustomFix(base);
+
+        m40.Fix(base);
+        mD0.Fix(base);
+        m120.Fix(base);
+    }
+
+    unsigned char _pad0[0x40];
+    World::ModelInstanceAsset m40;
+    unsigned char _pad1[0x8F];
+    World::ModelInstanceAsset mD0;
+    unsigned char _pad2[0x4F];
+    Sext::SoundBankSource m120;
+};
+
+}  // namespace Sext
+
+namespace World {
+class CameraFlyAsset;
+class CollisionMeshBlobAsset;
+class ImmediateGeometryAsset;
+class MaterialParam;
+
+class CameraFlyAsset {
+public:
+    void Fix(long base) {
+        other = (void*)((long)other + base);
+    }
+
+    unsigned char _pad0[0xC];
+    void* other;
+};
+
+class CollisionMeshBlobAsset {
+public:
+    void Fix(long base) {
+        other = (void*)((long)other + base);
+    }
+
+    unsigned char _pad0[0x24];
+    void* other;
+};
+
+class MaterialParam { public: void Fix(long); };
+
+class ImmediateGeometryAsset {
+public:
+    void Fix(long base) {
+        char* end;
+        char* p;
+        char* end2;
+        char* p2;
+
+        p = (char*)((long)m14 + base);
+        m14 = p;
+        end = p + m8 * 8;
+
+        while (p != end) {
+            ((World::MaterialParam*)p)->Fix(base);
+            p += 8;
+        }
+        p2 = (char*)((long)m18 + base);
+        m18 = p2;
+        end2 = p2 + m9 * 8;
+
+        while (p2 != end2) {
+            ((World::MaterialParam*)p2)->Fix(base);
+            p2 += 8;
+        }
+        other = (void*)((long)other + base);
+    }
+
+    unsigned char _pad0[0x8];
+    unsigned char m8;
+    unsigned char m9;
+    unsigned char _pad1[0xA];
+    char* m14;
+    char* m18;
+    void* other;
+};
+
+}  // namespace World
+
+#pragma always_inline on
+template void Util::RTTID_Fix<Sext::Basic3D>(void*, long);
+template void Util::RTTID_Fix<Sext::Cloud>(void*, long);
+template void Util::RTTID_Fix<Sext::NPCCounterPattern>(void*, long);
+template void Util::RTTID_Fix<Sext::NPCTemplate>(void*, long);
+template void Util::RTTID_Fix<Sext::TextureAnimationSettings>(void*, long);
+template void Util::RTTID_Fix<Sext::UIDModelReference>(void*, long);
+template void Util::RTTID_Fix<Sext::ZoneMarker>(void*, long);
+template void Util::RTTID_Fix<Sext::zHouseAsset>(void*, long);
+template void Util::RTTID_Fix<Sext::zSoundCueAsset>(void*, long);
+template void Util::RTTID_Fix<Sext::zSoundFXAsset>(void*, long);
+template void Util::RTTID_Fix<Sext::zSoundFXMultipleAsset>(void*, long);
+template void Util::RTTID_Fix<Sext::zUpFloatingObjectGeneratorAsset>(void*, long);
+template void Util::RTTID_Fix<World::CameraFlyAsset>(void*, long);
+template void Util::RTTID_Fix<World::CollisionMeshBlobAsset>(void*, long);
+template void Util::RTTID_Fix<World::ImmediateGeometryAsset>(void*, long);
+#pragma always_inline off

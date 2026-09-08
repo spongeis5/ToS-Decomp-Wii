@@ -24,6 +24,23 @@
 // into. The branch is written to the name the source had; reloc_audit
 // counts it as folded, which is the honest answer -- the linked image
 // cannot say which of them was written.
+//
+// Three functions at the foot belong to none of that. OGUpdateList's
+// destructor runs its two members' and returns this, and the two Scene
+// ones each call their own Apply or Unapply through a POINTER TO MEMBER
+// -- the twelve-byte constant onto the stack, r12 pointed at it,
+// __ptmf_scall. Each constant is in the image and names its target: delta
+// 0, vtable offset -1, and a third word that is ApplyLightKitScene's
+// address at 801CFA30 or UnapplyLightKitScene's at 801CFAB0. The DWARF
+// says both were DEFINED IN Scene.h, so they are inlines some translation
+// unit in this run emitted out of line, and this is the run; nothing
+// about them belongs to zScene.
+//
+// The two differ in one thing and it is visible: Apply takes a pointer,
+// so the constant is copied through r7/r6, where Unapply's -- which takes
+// nothing -- uses r6/r5. __ptmf_scall adjusts r3 and jumps, so the
+// argument itself is never touched; the compiler only has to route the
+// constant around the registers the arguments already hold.
 
 class xVec3;
 class xBase;
@@ -769,3 +786,32 @@ template void zScene_SetupEach<zWallNetGroup>(unsigned int);
 template void zScene_SetupEach<zWaterWheel>(unsigned int);
 
 OGUpdateList::~OGUpdateList() {}
+
+namespace World { class LightKitSceneEntity; }
+
+namespace Graphics {
+
+class Scene {
+public:
+    void ApplyLightKitScene(const World::LightKitSceneEntity* lightKit);
+    void UnapplyLightKitScene();
+
+    void AmendApplyLightKitScene(const World::LightKitSceneEntity* lightKit);
+    void AmendUnapplyLightKitScene();
+};
+
+}  // namespace Graphics
+
+void Graphics::Scene::AmendApplyLightKitScene(
+    const World::LightKitSceneEntity* lightKit) {
+    void (Scene::*apply)(const World::LightKitSceneEntity*) =
+        &Scene::ApplyLightKitScene;
+
+    (this->*apply)(lightKit);
+}
+
+void Graphics::Scene::AmendUnapplyLightKitScene() {
+    void (Scene::*unapply)() = &Scene::UnapplyLightKitScene;
+
+    (this->*unapply)();
+}

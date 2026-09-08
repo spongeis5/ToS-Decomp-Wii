@@ -7,18 +7,18 @@ numbers here, which move.
 ## State at time of writing
 
 ```
-Game Code:  67 of 777 files complete  221,712 / 2,116,616 bytes  2,150 / 10,697 fn
-            10.4748% of game code
+Game Code:  67 of 777 files complete  223,208 / 2,116,616 bytes  2,172 / 10,697 fn
+            10.5455% of game code
 
-Of those 2,150 functions, 737 are GENERATED -- machine-recognised
+Of those 2,172 functions, 725 are GENERATED -- machine-recognised
 shapes, not one of which is decompiling. They are real matched
 functions and the offsets and constants are recovered fact, but a
 count of them is not a count of decompiled code. HAND-WRITTEN IS
-1,413, across 236 units and 210,640 bytes, and that is the figure to
+1,447, across 244 units and 212,340 bytes, and that is the figure to
 compare against earlier ones.
 
 Data:       4 unit(s) carry their own, 412 bytes; 134 more could
-All:        5.07% matched              main.dol reproduces byte for byte
+All:        5.09% matched              main.dol reproduces byte for byte
 ```
 
 Every number above is written by `python tools/notes_state.py`,
@@ -3443,6 +3443,84 @@ the oracle could not.
 Five of these units were gen_accessors output; taking them over moved
 five generated functions across alongside the seven added: written
 1,401 -> 1,413, generated 742 -> 737.
+
+### The pointer-to-member call, and why a cluster is not a population
+
+One statement: take the address of one of your own members, call it
+through the pointer. mwcc puts a twelve-byte constant in `.data`,
+copies it onto the stack, points r12 at the copy and branches to
+`__ptmf_scall`. Seventeen words, 68 bytes, and the whole of what the
+source says is in those twelve bytes: a delta, a vtable offset, and a
+function address.
+
+THE CONSTANT NAMES THE TARGET, so nothing has to be guessed. All 24
+of the image's 68-byte ones read delta 0, vtable offset -1 (not
+virtual) and a third word that is the address of the caller's own
+`Set<same name>` or `Destroy`. `Amend<X>` calls `Set<X>`;
+`Deactivate` calls `Destroy`. Retail puts each Set immediately after
+its own Amend -- AmendRendering at 801D51A0 and SetRendering at
+801D51F0, AmendLodEnabled at 801D5380 and SetLodEnabled at 801D53D0
+-- so they were written as pairs.
+
+THE SURVEY'S CLUSTER WAS HALF OF IT. twin_census filed 12 of the 24
+together and the other 12 elsewhere, because it clusters on opcodes
+AND REGISTERS and the two groups use different ones: r6/r5 in the
+first, r7/r6 in the second. That is not noise, it is the argument
+list showing through. __ptmf_scall adjusts r3 and jumps, so every
+argument register is already in place and none is touched -- but the
+constant has to be copied through a register the arguments are not
+using, and the compiler takes the first free GPR. Nought, one, two,
+three and four FLOATS all give r6/r5, because floats go in f1..f4 and
+take no GPR at all; one pointer, bool, enum or const reference gives
+r7/r6; two give r8/r7. AmendFOVY(float) and AmendRelativeCorner(float,
+float, float, float) are the same seventeen words to the instruction.
+
+So the question to ask was not `what else is in this cluster` but
+`what else calls this function`. 109 of the image's 23,359 function
+symbols branch to __ptmf_scall, in 63 distinct sizes from 44 bytes to
+7,220; 24 of them are the 68-byte shape. Twenty-two were written and
+matched here. The other two were already written: CMeshBlobEntity.cpp's
+Deactivate, which was the donor, and Texture.cpp's
+AmendImageFromFileInMemory -- and that second one is exactly why the
+survey never offered its half. A cluster with a solved member does not
+look like a backlog.
+
+THE LINE TABLE SAYS THE DECLARATION IS A SEPARATE STATEMENT AND THEN
+DISAPPEARS. Retail's rows for every one of these are seven over three
+lines: the function's own line, the CALL's line, the function's line
+again, then three more on the call's, then the closing brace's. The
+line between them -- the declaration -- has no row at all. Written as
+two statements it reproduces those rows exactly, which is what the
+matched donor already did.
+
+A SINGLE QUALIFIER IS WRITTEN BARE, AND TWO ARE NOT. gen_accessors.py
+had spelled zMainOGModule.cpp's `Graphics` as a class, because
+`HackGetScreenView__8GraphicsFv` cannot tell a class from a namespace
+-- CodeWarrior only reaches for `Q<n>` at two qualifiers or more. The
+second name in the same unit does tell: AmendAddView is
+`Q28Graphics5Scene`, and Scene is a class in namespace Graphics
+everywhere else in the image. Changing it to a namespace left both
+accessors byte-identical, which is the check that says the rename cost
+nothing.
+
+WHERE A FUNCTION LANDED IS THE LINKER'S BUSINESS, AND THE DWARF SAYS
+WHICH ONES TO EXPECT TO BE STRANGE. 8 of the 24 are declared in a
+header (Scene.h, Renderable.h, Renderable3D.h) and 16 in a .cpp, 0 not
+said -- and it is exactly the eight header ones that sit in units with
+nothing to do with them. They are inlines this run emitted out of line,
+and they came to rest wherever there was room: AmendAddRenderable at
+8018F7D0 is in the middle of xtextbox's tag parsers, AmendLOD between
+two Graphics::Model functions, AmendColorMulAlpha in zPlatform. The
+sixteen declared in a .cpp are all in the unit their own name suggests.
+Two of those units had no source file at all until this batch and now
+hold one function each of the 154 and the 9 the linker put in them.
+
+Twenty-two written and matched, 1,496 bytes: eleven in Viewport.cpp,
+three in RenderCustomizerEntity.cpp, two in WAD03_24.cpp and one each
+in zPlatform.cpp, zMainOGModule.cpp, zPhysicsObject.cpp,
+ModelInstanceArticle.cpp, Model.cpp and WAD04.cpp. Six of those units
+were gen_accessors output, so taking them over moved twelve generated
+functions across as well: written 1,413 -> 1,447, generated 737 -> 725.
 
 Two things that are NOT levers, measured rather than assumed: which
 overload of a name gets picked (CodeWarrior mangles static and non-static

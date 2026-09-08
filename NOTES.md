@@ -7,18 +7,18 @@ numbers here, which move.
 ## State at time of writing
 
 ```
-Game Code:  67 of 777 files complete  321,092 / 2,116,616 bytes  2,707 / 10,697 fn
-            15.1701% of game code
+Game Code:  67 of 777 files complete  330,944 / 2,116,616 bytes  2,730 / 10,697 fn
+            15.6355% of game code
 
-Of those 2,707 functions, 774 are GENERATED -- machine-recognised
+Of those 2,730 functions, 774 are GENERATED -- machine-recognised
 shapes, not one of which is decompiling. They are real matched
 functions and the offsets and constants are recovered fact, but a
 count of them is not a count of decompiled code. HAND-WRITTEN IS
-1,933, across 263 units and 296,540 bytes, and that is the figure to
+1,956, across 263 units and 306,392 bytes, and that is the figure to
 compare against earlier ones.
 
 Data:       4 unit(s) carry their own, 412 bytes; 134 more could
-All:        6.56% matched              main.dol reproduces byte for byte
+All:        6.71% matched              main.dol reproduces byte for byte
 ```
 
 Every number above is written by `python tools/notes_state.py`,
@@ -3189,6 +3189,56 @@ is a few words SHORT is not a register-allocation problem.** Words
 that are absent are source that is absent. Both of these looked like
 permuted register allocation in the word diff, because everything
 after the missing store shifts by one.
+
+## THE BRANCH THAT IS NOT IN THE SOURCE -- 9,852 bytes of it
+
+`gen_animtables` refuses a table with a branch in it: that is a
+different shape. Twenty-three tables in zSBPlayerActions.cpp have a
+branch and no branching source -- it is inside the INLINED helper.
+
+`zPlayerAction::AddActionTransition` ends `c == 0 ? ActionChange : c`.
+Where `c` is a constant mwcc folds the test away, which is why every
+table written before this one is branchless. Where `c` is the table's
+own PARAMETER the test survives:
+
+    cmpwi rX,0 ; ... ; bne +12 ; lis rD,hi ; addi rD,rD,lo
+
+with the two skipped words forming ActionChange. Two things follow,
+and BOTH are needed -- either alone is wrong:
+
+  * the walk SKIPS those three words, so rD keeps the parameter,
+    which is what the call is actually given, and the branch is not
+    counted;
+  * the call has to be spelled THROUGH the helper, whose inline body
+    compiles the test back. Skipping the test and then emitting
+    xAnimTableNewTransition directly leaves the body six words short.
+
+Which calls those are is recorded where the test is skipped, not
+guessed from the arguments: with `c` a parameter the existing test
+(r8 == ActionChange) cannot fire, which is exactly why these bodies
+would otherwise come out direct.
+
+Only that exact shape -- a `bne` over exactly two words that form
+ActionChange and nothing else. Any other branch still refuses the
+table, and the seven `CreateAnimTable__*FUx` bodies still do: those
+open with a real search of a linked list of tables and an early
+return, which is source, not an inlined test.
+
+**And `Ux` was not a scalar type.** Seven CreateAnimTable bodies take
+an `unsigned long long` id, and the mangled token for it was missing
+from the table -- so the signature did not read and the whole
+function was refused before its shape was even looked at. `Fv`, a
+function of no arguments, was read as a function of one void for the
+same reason.
+
+**The regression, run against the tool as it was.** 13 tables that
+the new tool writes and the old one refused come out APPENDED rather
+than merged: `into()` looks for the head as one line, and those were
+hand-wrapped with the parameters named a and b where the generator
+names them c and d. A duplicate definition does not compile, so
+measuring the unit after each symbol catches it; comparing the two
+tools' output directly is what said the difference was in the
+MERGE and not in the bodies.
 
 ## WAD01_28 IS WHOLE -- 256 of 256, and what the walk could not see
 

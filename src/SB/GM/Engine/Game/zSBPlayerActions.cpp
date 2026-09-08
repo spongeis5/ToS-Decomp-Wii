@@ -247,6 +247,7 @@ public:
     bool IdleLowHealthCheck(xAnimTransition* a0, xAnimSingle* a1);
     bool IdleNormalHappyCheck(xAnimTransition* a0, xAnimSingle* a1);
     bool IdleSlipperyCheck(xAnimTransition* a0, xAnimSingle* a1);
+    void AddTransitionsFrom(xAnimTable* table, const char* name, unsigned int (*c)(xAnimTransition*, xAnimSingle*, void*), unsigned int (*d)(xAnimTransition*, xAnimSingle*, void*), unsigned short e, float f, unsigned int g, unsigned int h, zPlayerAction::SpecialActions i);
 };
 
 
@@ -266,6 +267,8 @@ public:
     bool FallMovingCheck(xAnimTransition* a0, xAnimSingle* a1);
     bool LandRunCheck(xAnimTransition* a0, xAnimSingle* a1);
     bool LandWalkCheck(xAnimTransition* a0, xAnimSingle* a1);
+    static unsigned int anFallIdleCheck(xAnimTransition*, xAnimSingle*, void*);
+    void AddTransitionsFrom(xAnimTable* table, const char* name, unsigned int (*c)(xAnimTransition*, xAnimSingle*, void*), unsigned int (*d)(xAnimTransition*, xAnimSingle*, void*), unsigned short e, float f, unsigned int g, unsigned int h, zPlayerAction::SpecialActions i);
 };
 
 
@@ -281,6 +284,7 @@ public:
     static const char* GetTransitionString() { return "HighFallLand*"; }
     void AddActionTransitions(xAnimTable* table);
     void AddStates(xAnimTable* table);
+    void AddTransitionsFrom(xAnimTable* table, const char* name, unsigned int (*c)(xAnimTransition*, xAnimSingle*, void*), unsigned int (*d)(xAnimTransition*, xAnimSingle*, void*), unsigned short e, float f, unsigned int g, unsigned int h, zPlayerAction::SpecialActions i);
 };
 
 
@@ -303,6 +307,8 @@ public:
     bool StartHammerAttackCheck(xAnimTransition* a0, xAnimSingle* a1);
     static unsigned int anStartHammerSpongebuffCheck(xAnimTransition* a0, xAnimSingle* a1, void* a2);
     bool StartHammerSpongebuffCheck(xAnimTransition* a0, xAnimSingle* a1);
+    static unsigned int anAirHammerSpongebuffCheck(xAnimTransition*, xAnimSingle*, void*);
+    void AddTransitionsFrom(xAnimTable* table, const char* name, unsigned int (*c)(xAnimTransition*, xAnimSingle*, void*), unsigned int (*d)(xAnimTransition*, xAnimSingle*, void*), unsigned short e, float f, unsigned int g, unsigned int h, zPlayerAction::SpecialActions i);
 };
 
 
@@ -369,6 +375,13 @@ public:
     static unsigned int anHitPowerupCheck(xAnimTransition* a0, xAnimSingle* a1, void* a2);
     bool HitPowerupCheck(xAnimTransition* a0, xAnimSingle* a1);
     bool CanExitCheck(xAnimTransition* a0, xAnimSingle* a1);
+    static unsigned int anHitGooBackCheck(xAnimTransition*, xAnimSingle*, void*);
+    static unsigned int anHitGooFrontCheck(xAnimTransition*, xAnimSingle*, void*);
+    static unsigned int anHitPuckBackCheck(xAnimTransition*, xAnimSingle*, void*);
+    static unsigned int anHitPuckFrontCheck(xAnimTransition*, xAnimSingle*, void*);
+    static unsigned int anHitSpinBackCheck(xAnimTransition*, xAnimSingle*, void*);
+    static unsigned int anHitSpinFrontCheck(xAnimTransition*, xAnimSingle*, void*);
+    void AddTransitionsFrom(xAnimTable* table, const char* name, unsigned int (*c)(xAnimTransition*, xAnimSingle*, void*), unsigned int (*d)(xAnimTransition*, xAnimSingle*, void*), unsigned short e, float f, unsigned int g, unsigned int h, zPlayerAction::SpecialActions i);
 };
 
 
@@ -386,6 +399,8 @@ public:
     void AddStates(xAnimTable* table);
     static unsigned int anHammerPowerupMovingCheck(xAnimTransition* a0, xAnimSingle* a1, void* a2);
     bool HammerPowerupMovingCheck(xAnimTransition* a0, xAnimSingle* a1);
+    static unsigned int anHammerPowerupIdleCheck(xAnimTransition*, xAnimSingle*, void*);
+    void AddTransitionsFrom(xAnimTable* table, const char* name, unsigned int (*c)(xAnimTransition*, xAnimSingle*, void*), unsigned int (*d)(xAnimTransition*, xAnimSingle*, void*), unsigned short e, float f, unsigned int g, unsigned int h, zPlayerAction::SpecialActions i);
 };
 
 
@@ -401,6 +416,8 @@ public:
     void AddStates(xAnimTable* table);
     static unsigned int anPuckPowerupMovingCheck(xAnimTransition* a0, xAnimSingle* a1, void* a2);
     bool PuckPowerupMovingCheck(xAnimTransition* a0, xAnimSingle* a1);
+    static unsigned int anPuckPowerupIdleCheck(xAnimTransition*, xAnimSingle*, void*);
+    void AddTransitionsFrom(xAnimTable* table, const char* name, unsigned int (*c)(xAnimTransition*, xAnimSingle*, void*), unsigned int (*d)(xAnimTransition*, xAnimSingle*, void*), unsigned short e, float f, unsigned int g, unsigned int h, zPlayerAction::SpecialActions i);
 };
 
 
@@ -470,6 +487,7 @@ public:
     bool KelpTrapCheck(xAnimTransition* a0, xAnimSingle* a1);
     static unsigned int anLavaVersionCheck(xAnimTransition* a0, xAnimSingle* a1, void* a2);
     bool LavaVersionCheck(xAnimTransition* a0, xAnimSingle* a1);
+    void AddTransitionsFrom(xAnimTable* table, const char* name, unsigned int (*c)(xAnimTransition*, xAnimSingle*, void*), unsigned int (*d)(xAnimTransition*, xAnimSingle*, void*), unsigned short e, float f, unsigned int g, unsigned int h, zPlayerAction::SpecialActions i);
 };
 
 
@@ -575,6 +593,7 @@ public:
     bool RunRegularNormalCheck(xAnimTransition* a0, xAnimSingle* a1);
     bool RunSlipperyCheck(xAnimTransition* a0, xAnimSingle* a1);
     bool RunSuccessCheck(xAnimTransition* a0, xAnimSingle* a1);
+    void AddTransitionsFrom(xAnimTable* table, const char* name, unsigned int (*c)(xAnimTransition*, xAnimSingle*, void*), unsigned int (*d)(xAnimTransition*, xAnimSingle*, void*), unsigned short e, float f, unsigned int g, unsigned int h, zPlayerAction::SpecialActions i);
 };
 
 class zSBPlayerBungeeBall : public zPlayerAction {
@@ -1015,6 +1034,7 @@ public:
     static unsigned int anDoubleJumpStartMovingCheck(xAnimTransition* a0, xAnimSingle* a1, void* a2);
     bool DoubleJumpStartMovingCheck(xAnimTransition* a0, xAnimSingle* a1);
     bool TransToFallCheck(xAnimTransition* a0, xAnimSingle* a1);
+    void AddTransitionsFrom(xAnimTable* table, const char* name, unsigned int (*c)(xAnimTransition*, xAnimSingle*, void*), unsigned int (*d)(xAnimTransition*, xAnimSingle*, void*), unsigned short e, float f, unsigned int g, unsigned int h, zPlayerAction::SpecialActions i);
 };
 
 class zSBPlayerSpinAttack : public zPlayerAction {
@@ -1057,6 +1077,7 @@ public:
     bool SBJumpCheck(xAnimTransition* a0, xAnimSingle* a1);
     static unsigned int anSBJumpMovingCheck(xAnimTransition* a0, xAnimSingle* a1, void* a2);
     bool SBJumpMovingCheck(xAnimTransition* a0, xAnimSingle* a1);
+    void AddTransitionsFrom(xAnimTable* table, const char* name, unsigned int (*c)(xAnimTransition*, xAnimSingle*, void*), unsigned int (*d)(xAnimTransition*, xAnimSingle*, void*), unsigned short e, float f, unsigned int g, unsigned int h, zPlayerAction::SpecialActions i);
 };
 
 class zSBPlayerCandy : public zPlayerAction {
@@ -1065,6 +1086,7 @@ public:
     static const char* GetTransitionString() { return "CandyGetOff CandyBuffGetOff"; }
     void AddActionTransitions(xAnimTable* table);
     void AddStates(xAnimTable* table);
+    void AddTransitionsFrom(xAnimTable* table, const char* name, unsigned int (*c)(xAnimTransition*, xAnimSingle*, void*), unsigned int (*d)(xAnimTransition*, xAnimSingle*, void*), unsigned short e, float f, unsigned int g, unsigned int h, zPlayerAction::SpecialActions i);
 };
 
 class zPlayerSpringboardSB : public zPlayerAction {
@@ -1076,6 +1098,7 @@ public:
     static unsigned int anSBSpringboardCheck(xAnimTransition* a0, xAnimSingle* a1, void* a2);
     bool SBSpringboardCheck(xAnimTransition* a0, xAnimSingle* a1);
     bool SBSpringboardDoubleJumpCheck(xAnimTransition* a0, xAnimSingle* a1);
+    void AddTransitionsFrom(xAnimTable* table, const char* name, unsigned int (*c)(xAnimTransition*, xAnimSingle*, void*), unsigned int (*d)(xAnimTransition*, xAnimSingle*, void*), unsigned short e, float f, unsigned int g, unsigned int h, zPlayerAction::SpecialActions i);
 };
 
 class zPlayerCheat {
@@ -1101,6 +1124,13 @@ public:
     bool LaunchBackCheck(xAnimTransition* a0, xAnimSingle* a1);
     static unsigned int anLaunchFrontCheck(xAnimTransition* a0, xAnimSingle* a1, void* a2);
     bool LaunchFrontCheck(xAnimTransition* a0, xAnimSingle* a1);
+    static unsigned int anKnockbackBackCheck(xAnimTransition*, xAnimSingle*, void*);
+    static unsigned int anKnockbackFrontCheck(xAnimTransition*, xAnimSingle*, void*);
+    static unsigned int anLaunchGooBackCheck(xAnimTransition*, xAnimSingle*, void*);
+    static unsigned int anLaunchGooFrontCheck(xAnimTransition*, xAnimSingle*, void*);
+    static unsigned int anLaunchRubberBandBackCheck(xAnimTransition*, xAnimSingle*, void*);
+    static unsigned int anLaunchRubberBandFrontCheck(xAnimTransition*, xAnimSingle*, void*);
+    void AddTransitionsFrom(xAnimTable* table, const char* name, unsigned int (*c)(xAnimTransition*, xAnimSingle*, void*), unsigned int (*d)(xAnimTransition*, xAnimSingle*, void*), unsigned short e, float f, unsigned int g, unsigned int h, zPlayerAction::SpecialActions i);
 };
 
 class zPlayerWalkSB : public zPlayerAction {
@@ -1116,6 +1146,7 @@ public:
     bool WalkSlipperyCheck(xAnimTransition* a0, xAnimSingle* a1);
     bool WalkToRun1Check(xAnimTransition* a0, xAnimSingle* a1);
     bool WalkToRun2Check(xAnimTransition* a0, xAnimSingle* a1);
+    void AddTransitionsFrom(xAnimTable* table, const char* name, unsigned int (*c)(xAnimTransition*, xAnimSingle*, void*), unsigned int (*d)(xAnimTransition*, xAnimSingle*, void*), unsigned short e, float f, unsigned int g, unsigned int h, zPlayerAction::SpecialActions i);
 };
 
 class zSBPlayerGainPowerup : public zPlayerAction {
@@ -1136,6 +1167,7 @@ public:
     bool GainSpinPowerupCheck(xAnimTransition* a0, xAnimSingle* a1);
     static unsigned int anGainSpongebuffPowerupCheck(xAnimTransition* a0, xAnimSingle* a1, void* a2);
     bool GainSpongebuffPowerupCheck(xAnimTransition* a0, xAnimSingle* a1);
+    void AddTransitionsFrom(xAnimTable* table, const char* name, unsigned int (*c)(xAnimTransition*, xAnimSingle*, void*), unsigned int (*d)(xAnimTransition*, xAnimSingle*, void*), unsigned short e, float f, unsigned int g, unsigned int h, zPlayerAction::SpecialActions i);
 };
 
 class zSBPlayerBombRoll : public zPlayerAction {
@@ -1174,6 +1206,7 @@ public:
     bool Spray25Check(xAnimTransition* a0, xAnimSingle* a1);
     bool Spray50Check(xAnimTransition* a0, xAnimSingle* a1);
     bool Spray75Check(xAnimTransition* a0, xAnimSingle* a1);
+    void AddTransitionsFrom(xAnimTable* table, const char* name, unsigned int (*c)(xAnimTransition*, xAnimSingle*, void*), unsigned int (*d)(xAnimTransition*, xAnimSingle*, void*), unsigned short e, float f, unsigned int g, unsigned int h, zPlayerAction::SpecialActions i);
 };
 
 class zSBPlayerSpinPowerupAttack : public zPlayerAction {
@@ -1198,6 +1231,7 @@ public:
     static const char* GetTransitionString() { return "QuicksandStuck*"; }
     void AddActionTransitions(xAnimTable* table);
     void AddStates(xAnimTable* table);
+    void AddTransitionsFrom(xAnimTable* table, const char* name, unsigned int (*c)(xAnimTransition*, xAnimSingle*, void*), unsigned int (*d)(xAnimTransition*, xAnimSingle*, void*), unsigned short e, float f, unsigned int g, unsigned int h, zPlayerAction::SpecialActions i);
 };
 
 class zBoardPlayerFillWithGoo {
@@ -1463,6 +1497,7 @@ public:
     void AddStates(xAnimTable* table);
     static unsigned int anSlamCheck(xAnimTransition* a0, xAnimSingle* a1, void* a2);
     bool SlamCheck(xAnimTransition* a0, xAnimSingle* a1);
+    void AddTransitionsFrom(xAnimTable* table, const char* name, unsigned int (*c)(xAnimTransition*, xAnimSingle*, void*), unsigned int (*d)(xAnimTransition*, xAnimSingle*, void*), unsigned short e, float f, unsigned int g, unsigned int h, zPlayerAction::SpecialActions i);
 };
 
 // The four floats this AddStates sets on the action before the
@@ -1483,6 +1518,7 @@ public:
     static unsigned int anSlamLandCheck(xAnimTransition*, xAnimSingle*, void*);
     void AddActionTransitions(xAnimTable* table);
     void AddStates(xAnimTable* table);
+    void AddTransitionsFrom(xAnimTable* table, const char* name, unsigned int (*c)(xAnimTransition*, xAnimSingle*, void*), unsigned int (*d)(xAnimTransition*, xAnimSingle*, void*), unsigned short e, float f, unsigned int g, unsigned int h, zPlayerAction::SpecialActions i);
 };
 
 class zPlayerSlamLandSB : public zPlayerAction {
@@ -1490,6 +1526,7 @@ public:
     static const char* GetTransitionString() { return "SlamLand*"; }
     void AddActionTransitions(xAnimTable* table);
     void AddStates(xAnimTable* table);
+    void AddTransitionsFrom(xAnimTable* table, const char* name, unsigned int (*c)(xAnimTransition*, xAnimSingle*, void*), unsigned int (*d)(xAnimTransition*, xAnimSingle*, void*), unsigned short e, float f, unsigned int g, unsigned int h, zPlayerAction::SpecialActions i);
 };
 
 class zPlayerFluidBurstSB : public zPlayerAction {
@@ -1502,6 +1539,7 @@ public:
     void AddStates(xAnimTable* table);
     static unsigned int anFluidBurstCheck(xAnimTransition* a0, xAnimSingle* a1, void* a2);
     bool FluidBurstCheck(xAnimTransition* a0, xAnimSingle* a1);
+    void AddTransitionsFrom(xAnimTable* table, const char* name, unsigned int (*c)(xAnimTransition*, xAnimSingle*, void*), unsigned int (*d)(xAnimTransition*, xAnimSingle*, void*), unsigned short e, float f, unsigned int g, unsigned int h, zPlayerAction::SpecialActions i);
 };
 
 class zPlayerLandSB : public zPlayerAction {
@@ -1572,6 +1610,7 @@ public:
     void AddStates(xAnimTable* table);
     static unsigned int anSBQuicksandJumpCheck(xAnimTransition* a0, xAnimSingle* a1, void* a2);
     bool SBQuicksandJumpCheck(xAnimTransition* a0, xAnimSingle* a1);
+    void AddTransitionsFrom(xAnimTable* table, const char* name, unsigned int (*c)(xAnimTransition*, xAnimSingle*, void*), unsigned int (*d)(xAnimTransition*, xAnimSingle*, void*), unsigned short e, float f, unsigned int g, unsigned int h, zPlayerAction::SpecialActions i);
 };
 
 class zPlayerCelebrationSB : public zPlayerAction {
@@ -3863,4 +3902,179 @@ unsigned int zPlayerWalkSB::anWalkToRun2Check(xAnimTransition* a0, xAnimSingle* 
     }
 
     return result;
+}
+
+// zPlayerHitSB::AddTransitionsFrom: 15 call(s)
+void zPlayerHitSB::AddTransitionsFrom(xAnimTable* table, const char* name, unsigned int (*c)(xAnimTransition*, xAnimSingle*, void*), unsigned int (*d)(xAnimTransition*, xAnimSingle*, void*), unsigned short e, float f, unsigned int g, unsigned int h, zPlayerAction::SpecialActions i) {
+    zPlayerAction::AddActionTransition(table, name, "HitGooFront01", zPlayerHitSB::anHitGooFrontCheck, c, d, e + 100, f, g, h);
+    zPlayerAction::AddActionTransition(table, name, "HitGooBack01", zPlayerHitSB::anHitGooBackCheck, c, d, e + 100, f, g, h);
+    zPlayerAction::AddActionTransition(table, name, "HitPowerup01", zPlayerHitSB::anHitPowerupCheck, c, d, e + 100, f, g, h);
+    zPlayerAction::AddActionTransition(table, name, "HitSpongebuffFront01", zPlayerHitSB::anHitBuffFrontCheck, c, d, e + 100, f, g, h);
+    zPlayerAction::AddActionTransition(table, name, "HitSpongebuffBack01", zPlayerHitSB::anHitBuffBackCheck, c, d, e + 100, f, g, h);
+    zPlayerAction::AddActionTransition(table, name, "HitFront01", zPlayerHitSB::anHitFrontCheck, c, d, e + -10, f, g, h);
+    zPlayerAction::AddActionTransition(table, name, "HitBack01", zPlayerHitSB::anHitBackCheck, c, d, e + -10, f, g, h);
+    zPlayerAction::AddActionTransition(table, name, "HitSpinFront01", zPlayerHitSB::anHitSpinFrontCheck, c, d, e, f, g, h);
+    zPlayerAction::AddActionTransition(table, name, "HitSpinBack01", zPlayerHitSB::anHitSpinBackCheck, c, d, e, f, g, h);
+    zPlayerAction::AddActionTransition(table, name, "HitPuckFront01", zPlayerHitSB::anHitPuckFrontCheck, c, d, e, f, g, h);
+    zPlayerAction::AddActionTransition(table, name, "HitPuckBack01", zPlayerHitSB::anHitPuckBackCheck, c, d, e, f, g, h);
+    zPlayerAction::AddActionTransition(table, name, "HitElectricArc01", zPlayerHitSB::anHitElectricArcCheck, c, d, e, f, g, h);
+    zPlayerAction::AddActionTransition(table, name, "HitByDOT01", zPlayerHitSB::anHitByDOTCheck, c, d, e, f, g, h);
+    zPlayerAction::AddActionTransition(table, name, "HammerHitIn01", zPlayerHitSB::anHitHammerCheck, c, d, e, 0.0f, g, h);
+    zPlayerAction::AddActionTransition(table, name, "HammerHitIn02", zPlayerHitSB::anHitHammerCheck, c, d, e, 0.0f, g, h);
+}
+
+// zPlayerDefeatedSB::AddTransitionsFrom: 14 call(s)
+void zPlayerDefeatedSB::AddTransitionsFrom(xAnimTable* table, const char* name, unsigned int (*c)(xAnimTransition*, xAnimSingle*, void*), unsigned int (*d)(xAnimTransition*, xAnimSingle*, void*), unsigned short e, float f, unsigned int g, unsigned int h, zPlayerAction::SpecialActions i) {
+    zPlayerAction::AddActionTransition(table, name, "DefeatedBeginStand01", zPlayerDefeatedSB::anDeathCheck, c, d, e, f, g, h);
+    zPlayerAction::AddActionTransition(table, name, "DefeatedBeginStand02", zPlayerDefeatedSB::anDeathCheck, c, d, e, f, g, h);
+    zPlayerAction::AddActionTransition(table, name, "DefeatedBeginStand03", zPlayerDefeatedSB::anDeathCheck, c, d, e, f, g, h);
+    zPlayerAction::AddActionTransition(table, name, "DefeatedBeginFragBob01", zPlayerDefeatedSB::anFragBobCheck, c, d, e + 1000, 0.0f, g, h);
+    zPlayerAction::AddActionTransition(table, name, "DefeatedBeginKelpTrap01", zPlayerDefeatedSB::anKelpTrapCheck, c, d, e + 1000, 0.0f, g, h);
+    zPlayerAction::AddActionTransition(table, name, "DefeatedBeginLava01", zPlayerDefeatedSB::anLavaVersionCheck, c, d, e + 1000, f, g, h);
+    zPlayerAction::AddActionTransition(table, name, "DefeatedBeginLava02", zPlayerDefeatedSB::anLavaVersionCheck, c, d, e + 1000, f, g, h);
+    zPlayerAction::AddActionTransition(table, name, "DefeatedBeginLava03", zPlayerDefeatedSB::anLavaVersionCheck, c, d, e + 1000, f, g, h);
+    zPlayerAction::AddActionTransition(table, name, "DefeatedBeginGoo01", zPlayerDefeatedSB::anGooVersionCheck, c, d, e + 1000, f, g, h);
+    zPlayerAction::AddActionTransition(table, name, "DefeatedBeginGoo02", zPlayerDefeatedSB::anGooVersionCheck, c, d, e + 1000, f, g, h);
+    zPlayerAction::AddActionTransition(table, name, "DefeatedBeginFrozenGoo01", zPlayerDefeatedSB::anFrozenGooDeathCheck, c, d, e + 1000, f, g, h);
+    zPlayerAction::AddActionTransition(table, name, "DefeatedBeginAcid01", zPlayerDefeatedSB::anAcidVersionCheck, c, d, e + 1000, f, g, h);
+    zPlayerAction::AddActionTransition(table, name, "DefeatedBeginAcid02", zPlayerDefeatedSB::anAcidVersionCheck, c, d, e + 1000, f, g, h);
+    zPlayerAction::AddActionTransition(table, name, "DefeatedFrozenVent01", zPlayerDefeatedSB::anFrozenVentDeathCheck, c, d, e + 1000, 0.0f, g, h);
+}
+
+// zPlayerHitLaunchSB::AddTransitionsFrom: 8 call(s)
+void zPlayerHitLaunchSB::AddTransitionsFrom(xAnimTable* table, const char* name, unsigned int (*c)(xAnimTransition*, xAnimSingle*, void*), unsigned int (*d)(xAnimTransition*, xAnimSingle*, void*), unsigned short e, float f, unsigned int g, unsigned int h, zPlayerAction::SpecialActions i) {
+    zPlayerAction::AddActionTransition(table, name, "LaunchGooFront01", zPlayerHitLaunchSB::anLaunchGooFrontCheck, c, d, e + 100, f, g, h);
+    zPlayerAction::AddActionTransition(table, name, "LaunchGooBack01", zPlayerHitLaunchSB::anLaunchGooBackCheck, c, d, e + 100, f, g, h);
+    zPlayerAction::AddActionTransition(table, name, "LaunchRubberBandFront01", zPlayerHitLaunchSB::anLaunchRubberBandFrontCheck, c, d, e + 10, f, g, h);
+    zPlayerAction::AddActionTransition(table, name, "LaunchRubberBandBack01", zPlayerHitLaunchSB::anLaunchRubberBandBackCheck, c, d, e + 10, f, g, h);
+    zPlayerAction::AddActionTransition(table, name, "LaunchFront01", zPlayerHitLaunchSB::anLaunchFrontCheck, c, d, e + -10, f, g, h);
+    zPlayerAction::AddActionTransition(table, name, "LaunchBack01", zPlayerHitLaunchSB::anLaunchBackCheck, c, d, e + -10, f, g, h);
+    zPlayerAction::AddActionTransition(table, name, "LaunchKnockbackFront01", zPlayerHitLaunchSB::anKnockbackFrontCheck, c, d, e, f, g, h);
+    zPlayerAction::AddActionTransition(table, name, "LaunchKnockbackBack01", zPlayerHitLaunchSB::anKnockbackBackCheck, c, d, e, f, g, h);
+}
+
+// zPlayerIdleSB::AddTransitionsFrom: 6 call(s)
+void zPlayerIdleSB::AddTransitionsFrom(xAnimTable* table, const char* name, unsigned int (*c)(xAnimTransition*, xAnimSingle*, void*), unsigned int (*d)(xAnimTransition*, xAnimSingle*, void*), unsigned short e, float f, unsigned int g, unsigned int h, zPlayerAction::SpecialActions i) {
+    zPlayerAction::AddActionTransition(table, name, "Idle01", zPlayerIdleSB::anIdleNormalHappyCheck, c, d, e, f, g, h);
+    zPlayerAction::AddActionTransition(table, name, "IdleHappy01", zPlayerIdleSB::anIdleHappyCheck, c, d, e, f, g, h);
+    zPlayerAction::AddActionTransition(table, name, "IdleHappier01", zPlayerIdleSB::anIdleHappierCheck, c, d, e, f, g, h);
+    zPlayerAction::AddActionTransition(table, name, "IdleSlippery01", zPlayerIdleSB::anIdleSlipperyCheck, c, d, e, f, g, h);
+    zPlayerAction::AddActionTransition(table, name, "IdleLowHealth01", zPlayerIdleSB::anIdleLowHealthCheck, c, d, e, f, g, h);
+    zPlayerAction::AddActionTransition(table, name, "IdleCold01", zPlayerIdleSB::anIdleColdCheck, c, d, e, f, g, h);
+}
+
+// zPlayerRunSB::AddTransitionsFrom: 6 call(s)
+void zPlayerRunSB::AddTransitionsFrom(xAnimTable* table, const char* name, unsigned int (*c)(xAnimTransition*, xAnimSingle*, void*), unsigned int (*d)(xAnimTransition*, xAnimSingle*, void*), unsigned short e, float f, unsigned int g, unsigned int h, zPlayerAction::SpecialActions i) {
+    zPlayerAction::AddActionTransition(table, name, "RunStart01", zPlayerRunSB::anRunRegularNormalCheck, c, d, e, f, g, h);
+    zPlayerAction::AddActionTransition(table, name, "RunHappyStart01", zPlayerRunSB::anRunRegularHappyCheck, c, d, e, f, g, h);
+    zPlayerAction::AddActionTransition(table, name, "RunHappierStart01", zPlayerRunSB::anRunRegularHappierCheck, c, d, e, f, g, h);
+    zPlayerAction::AddActionTransition(table, name, "RunSlipperyStart01", zPlayerRunSB::anRunSlipperyCheck, c, d, e, f, g, h);
+    zPlayerAction::AddActionTransition(table, name, "RunBraveStart01", zPlayerRunSB::anRunBraveCheck, c, d, e, f, g, h);
+    zPlayerAction::AddActionTransition(table, name, "RunSuccessStart01", zPlayerRunSB::anRunSuccessCheck, c, d, e, f, g, h);
+}
+
+// zSBPlayerHammerAttack::AddTransitionsFrom: 4 call(s)
+void zSBPlayerHammerAttack::AddTransitionsFrom(xAnimTable* table, const char* name, unsigned int (*c)(xAnimTransition*, xAnimSingle*, void*), unsigned int (*d)(xAnimTransition*, xAnimSingle*, void*), unsigned short e, float f, unsigned int g, unsigned int h, zPlayerAction::SpecialActions i) {
+    zPlayerAction::AddActionTransition(table, name, "HammerAttack01", zSBPlayerHammerAttack::anStartHammerAttackCheck, c, d, e, f, g, h);
+    zPlayerAction::AddActionTransition(table, name, "HammerAttackAirIn01", zSBPlayerHammerAttack::anAirHammerAttackCheck, c, d, e + 10, f, g, h);
+    zPlayerAction::AddActionTransition(table, name, "HammerSpongebuffAirIn01", zSBPlayerHammerAttack::anAirHammerSpongebuffCheck, c, d, e + 10, f, g, h);
+    zPlayerAction::AddActionTransition(table, name, "HammerSpongebuff01", zSBPlayerHammerAttack::anStartHammerSpongebuffCheck, c, d, e + 1, f, g, h);
+}
+
+// zPlayerFluidSpraySB::AddTransitionsFrom: 4 call(s)
+void zPlayerFluidSpraySB::AddTransitionsFrom(xAnimTable* table, const char* name, unsigned int (*c)(xAnimTransition*, xAnimSingle*, void*), unsigned int (*d)(xAnimTransition*, xAnimSingle*, void*), unsigned short e, float f, unsigned int g, unsigned int h, zPlayerAction::SpecialActions i) {
+    zPlayerAction::AddActionTransition(table, name, "Spray100", zPlayerFluidSpraySB::anSpray100Check, c, d, 1010, 0.15f, 0, 0);
+    zPlayerAction::AddActionTransition(table, name, "Spray75", zPlayerFluidSpraySB::anSpray75Check, c, d, 1010, 0.15f, 0, 0);
+    zPlayerAction::AddActionTransition(table, name, "Spray50", zPlayerFluidSpraySB::anSpray50Check, c, d, 1010, 0.15f, 0, 0);
+    zPlayerAction::AddActionTransition(table, name, "Spray25", zPlayerFluidSpraySB::anSpray25Check, c, d, 1010, 0.15f, 0, 0);
+}
+
+// zSBPlayerGainPowerup::AddTransitionsFrom: 3 call(s)
+void zSBPlayerGainPowerup::AddTransitionsFrom(xAnimTable* table, const char* name, unsigned int (*c)(xAnimTransition*, xAnimSingle*, void*), unsigned int (*d)(xAnimTransition*, xAnimSingle*, void*), unsigned short e, float f, unsigned int g, unsigned int h, zPlayerAction::SpecialActions i) {
+    zPlayerAction::AddActionTransition(table, name, "GainPowerup_Spongebuff", zSBPlayerGainPowerup::anGainSpongebuffPowerupCheck, c, d, e, f, g, h);
+    zPlayerAction::AddActionTransition(table, name, "GainPowerup_Invincibility", zSBPlayerGainPowerup::anGainInvincibilityPowerupCheck, c, d, e, f, g, h);
+    zPlayerAction::AddActionTransition(table, name, "GainPowerup_In", zSBPlayerGainPowerup::anGainSidekickPowerupCheck, c, d, e, f, g, h);
+}
+
+// zSBPlayerHammerPowerupAttack::AddTransitionsFrom: 2 call(s)
+void zSBPlayerHammerPowerupAttack::AddTransitionsFrom(xAnimTable* table, const char* name, unsigned int (*c)(xAnimTransition*, xAnimSingle*, void*), unsigned int (*d)(xAnimTransition*, xAnimSingle*, void*), unsigned short e, float f, unsigned int g, unsigned int h, zPlayerAction::SpecialActions i) {
+    zPlayerAction::AddActionTransition(table, name, "HammerPowerupAttack_Idle_Lift", zSBPlayerHammerPowerupAttack::anHammerPowerupIdleCheck, c, d, e, f, g, h);
+    zPlayerAction::AddActionTransition(table, name, "HammerPowerupAttack_Run_Lift", zSBPlayerHammerPowerupAttack::anHammerPowerupMovingCheck, c, d, e, f, g, h);
+}
+
+// zSBPlayerPuckPowerupAttack::AddTransitionsFrom: 2 call(s)
+void zSBPlayerPuckPowerupAttack::AddTransitionsFrom(xAnimTable* table, const char* name, unsigned int (*c)(xAnimTransition*, xAnimSingle*, void*), unsigned int (*d)(xAnimTransition*, xAnimSingle*, void*), unsigned short e, float f, unsigned int g, unsigned int h, zPlayerAction::SpecialActions i) {
+    zPlayerAction::AddActionTransition(table, name, "PuckPowerupAttack_Idle_Charge", zSBPlayerPuckPowerupAttack::anPuckPowerupIdleCheck, c, d, e, f, g, h);
+    zPlayerAction::AddActionTransition(table, name, "PuckPowerupAttack_Run_Charge", zSBPlayerPuckPowerupAttack::anPuckPowerupMovingCheck, c, d, e, f, g, h);
+}
+
+// zSBPlayerQuicksandStuck::AddTransitionsFrom: 2 call(s)
+void zSBPlayerQuicksandStuck::AddTransitionsFrom(xAnimTable* table, const char* name, unsigned int (*c)(xAnimTransition*, xAnimSingle*, void*), unsigned int (*d)(xAnimTransition*, xAnimSingle*, void*), unsigned short e, float f, unsigned int g, unsigned int h, zPlayerAction::SpecialActions i) {
+    zPlayerAction::AddActionTransition(table, name, "QuicksandStuckIdle", zSBPlayerAction::anSBQuicksandStopCheck, c, d, e, f, g, h);
+    zPlayerAction::AddActionTransition(table, name, "QuicksandStuckWalk", zSBPlayerAction::anSBQuicksandMoveCheck, c, d, e, f, g, h);
+}
+
+// zSBPlayerCandy::AddTransitionsFrom: 2 call(s)
+void zSBPlayerCandy::AddTransitionsFrom(xAnimTable* table, const char* name, unsigned int (*c)(xAnimTransition*, xAnimSingle*, void*), unsigned int (*d)(xAnimTransition*, xAnimSingle*, void*), unsigned short e, float f, unsigned int g, unsigned int h, zPlayerAction::SpecialActions i) {
+    zPlayerAction::AddActionTransition(table, name, "CandyGetOn", zSBPlayerAction::anSBCandyCheck, c, d, e, f, g, h);
+    zPlayerAction::AddActionTransition(table, name, "CandyBuffGetOn", zSBPlayerAction::anSBCandyBuffCheck, c, d, e, f, g, h);
+}
+
+// zPlayerWalkSB::AddTransitionsFrom: 2 call(s)
+void zPlayerWalkSB::AddTransitionsFrom(xAnimTable* table, const char* name, unsigned int (*c)(xAnimTransition*, xAnimSingle*, void*), unsigned int (*d)(xAnimTransition*, xAnimSingle*, void*), unsigned short e, float f, unsigned int g, unsigned int h, zPlayerAction::SpecialActions i) {
+    zPlayerAction::AddActionTransition(table, name, "Walk01", zPlayerWalkSB::anWalkRegularCheck, c, d, e, f, g, h);
+    zPlayerAction::AddActionTransition(table, name, "WalkSlippery01", zPlayerWalkSB::anWalkSlipperyCheck, c, d, e, f, g, h);
+}
+
+// zPlayerFallSB::AddTransitionsFrom: 2 call(s)
+void zPlayerFallSB::AddTransitionsFrom(xAnimTable* table, const char* name, unsigned int (*c)(xAnimTransition*, xAnimSingle*, void*), unsigned int (*d)(xAnimTransition*, xAnimSingle*, void*), unsigned short e, float f, unsigned int g, unsigned int h, zPlayerAction::SpecialActions i) {
+    zPlayerAction::AddActionTransition(table, name, "FallIdle01", zPlayerFallSB::anFallIdleCheck, c, d, e, f, g, h);
+    zPlayerAction::AddActionTransition(table, name, "FallMoving01", zPlayerFallSB::anFallMovingCheck, c, d, e, f, g, h);
+}
+
+// zPlayerDoubleJumpSB::AddTransitionsFrom: 2 call(s)
+void zPlayerDoubleJumpSB::AddTransitionsFrom(xAnimTable* table, const char* name, unsigned int (*c)(xAnimTransition*, xAnimSingle*, void*), unsigned int (*d)(xAnimTransition*, xAnimSingle*, void*), unsigned short e, float f, unsigned int g, unsigned int h, zPlayerAction::SpecialActions i) {
+    zPlayerAction::AddActionTransition(table, name, "DoubleJumpInMoving01", zPlayerDoubleJumpSB::anDoubleJumpStartMovingCheck, c, d, 1010, 0.15f, 0, 0);
+    zPlayerAction::AddActionTransition(table, name, "DoubleJumpInIdle01", zPlayerDoubleJumpSB::anDoubleJumpStartCheck, c, d, 1000, 0.15f, 0, 0);
+}
+
+// zPlayerJumpSB::AddTransitionsFrom: 2 call(s)
+void zPlayerJumpSB::AddTransitionsFrom(xAnimTable* table, const char* name, unsigned int (*c)(xAnimTransition*, xAnimSingle*, void*), unsigned int (*d)(xAnimTransition*, xAnimSingle*, void*), unsigned short e, float f, unsigned int g, unsigned int h, zPlayerAction::SpecialActions i) {
+    zPlayerAction::AddActionTransition(table, name, "JumpStartMoving01", zPlayerJumpSB::anSBJumpMovingCheck, c, d, 1010, 0.15f, 0, 0);
+    zPlayerAction::AddActionTransition(table, name, "JumpStartIdle01", zPlayerJumpSB::anSBJumpCheck, c, d, 1000, 0.15f, 0, 0);
+}
+
+// zPlayerSpringboardSB::AddTransitionsFrom: 1 call(s)
+void zPlayerSpringboardSB::AddTransitionsFrom(xAnimTable* table, const char* name, unsigned int (*c)(xAnimTransition*, xAnimSingle*, void*), unsigned int (*d)(xAnimTransition*, xAnimSingle*, void*), unsigned short e, float f, unsigned int g, unsigned int h, zPlayerAction::SpecialActions i) {
+    zPlayerAction::AddActionTransition(table, name, "SprBoStartIdle01", zPlayerSpringboardSB::anSBSpringboardCheck, c, d, 1000, 0.15f, 0, 0);
+}
+
+// zPlayerFluidBurstSB::AddTransitionsFrom: 1 call(s)
+void zPlayerFluidBurstSB::AddTransitionsFrom(xAnimTable* table, const char* name, unsigned int (*c)(xAnimTransition*, xAnimSingle*, void*), unsigned int (*d)(xAnimTransition*, xAnimSingle*, void*), unsigned short e, float f, unsigned int g, unsigned int h, zPlayerAction::SpecialActions i) {
+    zPlayerAction::AddActionTransition(table, name, "Burst01", zPlayerFluidBurstSB::anFluidBurstCheck, c, d, 1010, 0.15f, 0, 0);
+}
+
+// zPlayerSlamStartSB::AddTransitionsFrom: 1 call(s)
+void zPlayerSlamStartSB::AddTransitionsFrom(xAnimTable* table, const char* name, unsigned int (*c)(xAnimTransition*, xAnimSingle*, void*), unsigned int (*d)(xAnimTransition*, xAnimSingle*, void*), unsigned short e, float f, unsigned int g, unsigned int h, zPlayerAction::SpecialActions i) {
+    zPlayerAction::AddActionTransition(table, name, "SlamStart01", zPlayerSlamStartSB::anSlamCheck, c, d, 1010, 0.15f, 0, 0);
+}
+
+// zSBPlayerQuicksandJump::AddTransitionsFrom: 1 call(s)
+void zSBPlayerQuicksandJump::AddTransitionsFrom(xAnimTable* table, const char* name, unsigned int (*c)(xAnimTransition*, xAnimSingle*, void*), unsigned int (*d)(xAnimTransition*, xAnimSingle*, void*), unsigned short e, float f, unsigned int g, unsigned int h, zPlayerAction::SpecialActions i) {
+    zPlayerAction::AddActionTransition(table, name, "QuicksandJump", zSBPlayerQuicksandJump::anSBQuicksandJumpCheck, c, d, 1015, 0.15f, g, i);
+}
+
+// zPlayerSlamLandSB::AddTransitionsFrom: 1 call(s)
+void zPlayerSlamLandSB::AddTransitionsFrom(xAnimTable* table, const char* name, unsigned int (*c)(xAnimTransition*, xAnimSingle*, void*), unsigned int (*d)(xAnimTransition*, xAnimSingle*, void*), unsigned short e, float f, unsigned int g, unsigned int h, zPlayerAction::SpecialActions i) {
+    zPlayerAction::AddActionTransition(table, name, "SlamLand01", 0, c, d, 1010, 0.15f, 0, 0);
+}
+
+// zPlayerSlamFallSB::AddTransitionsFrom: 1 call(s)
+void zPlayerSlamFallSB::AddTransitionsFrom(xAnimTable* table, const char* name, unsigned int (*c)(xAnimTransition*, xAnimSingle*, void*), unsigned int (*d)(xAnimTransition*, xAnimSingle*, void*), unsigned short e, float f, unsigned int g, unsigned int h, zPlayerAction::SpecialActions i) {
+    zPlayerAction::AddActionTransition(table, name, "SlamFall01", 0, c, d, 1010, 0.15f, 0, 0);
+}
+
+// zPlayerLandHighSB::AddTransitionsFrom: 1 call(s)
+void zPlayerLandHighSB::AddTransitionsFrom(xAnimTable* table, const char* name, unsigned int (*c)(xAnimTransition*, xAnimSingle*, void*), unsigned int (*d)(xAnimTransition*, xAnimSingle*, void*), unsigned short e, float f, unsigned int g, unsigned int h, zPlayerAction::SpecialActions i) {
+    zPlayerAction::AddActionTransition(table, name, "HighFallLandIdle01", 0, c, d, e, f, g, h);
 }

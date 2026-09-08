@@ -200,8 +200,29 @@ def walk(sym, callee):
         raise SystemExit("gen_animtables: no symbol %s" % sym)
     addr, size = hit[0]
     ws = struct.unpack(">" + "I" * (size // 4), D.read(raw, secs, addr, size))
-    branches = sum(1 for w in ws if (w >> 26) == 16
-                   or ((w >> 26) == 18 and not (w & 1)))
+    # The helper's own `c == 0 ? ActionChange : c`, inlined: a bne
+    # over exactly two words that form ActionChange. The source has
+    # no branch there -- it passes the parameter and the helper does
+    # the test -- so those three words are skipped and the value the
+    # register already held, the parameter, is what the call gets.
+    skip = set()
+    for _i in range(len(ws) - 2):
+        if (ws[_i] >> 26) != 16 or (ws[_i] & 0xFFFC) != 12:
+            continue
+        a, b = ws[_i + 1], ws[_i + 2]
+        if (a >> 26) != 15 or (b >> 26) != 14:
+            continue
+        rd = (a >> 21) & 31
+        if ((b >> 21) & 31) != rd or ((b >> 16) & 31) != rd:
+            continue
+        lo = b & 0xFFFF
+        v = ((a & 0xFFFF) << 16) + (lo - 0x10000 if lo & 0x8000 else lo)
+        if (v & 0xFFFFFFFF) == ACTION_CHANGE:
+            skip.update((_i, _i + 1, _i + 2))
+    branches = sum(1 for _i, w in enumerate(ws)
+                   if _i not in skip and ((w >> 26) == 16
+                                          or ((w >> 26) == 18
+                                              and not (w & 1))))
     # Every incoming argument register, not just the two the
     # one-parameter tables use: a table that FORWARDS a parameter to
     # the call leaves it untouched in the register it arrived in, and
@@ -216,9 +237,13 @@ def walk(sym, callee):
     for _n in range(1, 9):
         fprs[_n] = ("farg", _n)
     stack, calls, stores = {}, [], []
+    helper_at, pending = set(), False
     mgrloads = 0
     frame = 0
     for i, w in enumerate(ws):
+        if i in skip:
+            pending = True
+            continue
         a = addr + 4 * i
         op = w >> 26
         if op == 18 and (w & 1):
@@ -237,6 +262,9 @@ def walk(sym, callee):
             # emitter cannot spell must stop the merge, not vanish from
             # the body and leave the size to say something was missed.
             calls.append((a, nm, dict(regs), dict(fprs), dict(stack)))
+            if pending:
+                helper_at.add(a)
+                pending = False
             clobber(regs, fprs)
         elif op == 37 and ((w >> 21) & 31) == 1 and ((w >> 16) & 31) == 1:
             frame = 0x10000 - (w & 0xFFFF)                # stwu r1,-N(r1)
@@ -363,7 +391,7 @@ def walk(sym, callee):
             regs.pop((w >> 21) & 31, None)
         elif op in (33, 34, 35, 40, 41, 42, 43, 46):
             regs.pop((w >> 21) & 31, None)
-    return addr, size, branches, calls, stores, mgrloads
+    return addr, size, branches, calls, stores, mgrloads, helper_at
 
 
 # ---- spelling ---------------------------------------------------------
@@ -394,6 +422,11 @@ class Merge(object):
     def fn_ref(self, v, where):
         if v == 0:
             return "0"
+        # A callback the table FORWARDS: the value is the parameter
+        # it arrived in, not an address, and %08X on a tuple is a
+        # TypeError rather than a refusal.
+        if v in self.argnames:
+            return self.argnames[v]
         sp = self.split_sym(BYADDR.get(v))
         if sp is None or sp[2] not in CB:
             self.problems.append("%s: function pointer %08X (%s)"
@@ -463,7 +496,8 @@ class Merge(object):
     SLOTS = {1: "AddStandardTransitions", 2: "AddDefaultTransitions",
              3: "AddTransitions"}
 
-    SCALAR = {"Us": "unsigned short", "Ui": "unsigned int",
+    SCALAR = {"Ux": "unsigned long long",
+              "Us": "unsigned short", "Ui": "unsigned int",
               "Ul": "unsigned long", "Uc": "unsigned char", "i": "int",
               "s": "short", "c": "char", "b": "bool", "l": "long",
               "f": "float", "d": "double"}
@@ -474,6 +508,10 @@ class Merge(object):
         a GPR/stack word, 'f' for an FPR, 'cb' for a callback pointer.
         None when a token is not understood."""
         out, i = [], 0
+        # `Fv` is a function of NO arguments, not a function of
+        # one void: CreateAnimTable__7zPlayerFv takes none.
+        if s == "v":
+            return out
         while i < len(s):
             rest = s[i:]
             hit = None
@@ -513,14 +551,14 @@ class Merge(object):
                 # the whole of NewState signature with it -- 53
                 # callers and 18,252 bytes, all refused for one
                 # two-character token.
-                for k in ("Us", "Ui", "Ul", "Uc", "i", "s", "c", "b",
-                          "l", "f", "d"):
+                for k in ("Ux", "Us", "Ui", "Ul", "Uc", "i", "s", "c",
+                          "b", "l", "f", "d"):
                     if rest[1:].startswith(k):
                         hit = (cls.SCALAR[k] + "*", "g", 1 + len(k))
                         break
             if hit is None:
-                for k in ("Us", "Ui", "Ul", "Uc", "i", "s", "c", "b", "l",
-                          "f", "d"):
+                for k in ("Ux", "Us", "Ui", "Ul", "Uc", "i", "s", "c",
+                          "b", "l", "f", "d"):
                     if rest.startswith(k):
                         hit = (cls.SCALAR[k], "f" if k in "fd" else "g",
                                len(k))
@@ -707,7 +745,8 @@ class Merge(object):
                                  "does not read as a parameter list"
                                  % (sym, params))
             psrc, self.argnames, self.fargnames = self.param_src(types)
-        addr, size, branches, calls, stores, mgrloads = walk(sym, "xAnimTableNew")
+        addr, size, branches, calls, stores, mgrloads, helper_at = walk(
+            sym, "xAnimTableNew")
         if branches:
             raise SystemExit("gen_animtables: %s has %d branch(es); not a "
                              "table" % (sym, branches))
@@ -817,7 +856,8 @@ class Merge(object):
                         L(st.get(32, 0), where)]
                 lines.append("    xAnimTableNewState(%s);" % ", ".join(args))
             elif callee.startswith("xAnimTableNewTransition") \
-                    and r.get(8) == ACTION_CHANGE and f.get(1) == 0.0 \
+                    and (r.get(8) == ACTION_CHANGE or a in helper_at) \
+                    and f.get(1) == 0.0 \
                     and f.get(2) == 0.0 and st.get(12, 0) == 0 \
                     and st.get(16, 0) == 0:
                 # zPlayerAction::AddActionTransition, inlined: the source
@@ -826,7 +866,9 @@ class Merge(object):
                 # it as the direct one is one register pair the other way
                 # round (zPlayerCheatSB, 21 of 150 words).
                 args = ["table", L(r.get(4, "?"), where), L(r.get(5, "?"), where),
-                        P(r.get(6, 0), where), P(r.get(7, 0), where), "0",
+                        P(r.get(6, 0), where), P(r.get(7, 0), where),
+                        "0" if a not in helper_at
+                        else P(r.get(8, 0), where),
                         L(st.get(8, 0), where), F(f.get(3, "?"), where),
                         L(r.get(9, "?"), where), L(r.get(10, "?"), where)]
                 self.helper_needed = True
@@ -1041,7 +1083,8 @@ class Merge(object):
 
 
 def show_calls(sym, callee):
-    addr, size, branches, calls, stores, mgrloads = walk(sym, callee)
+    addr, size, branches, calls, stores, mgrloads, helper_at = walk(
+        sym, callee)
     print("  %s  %08X  %d bytes  %d branch(es)  %d call(s) to %s*"
           % (sym.split("__")[0], addr, size, branches, len(calls), callee))
     unresolved = 0

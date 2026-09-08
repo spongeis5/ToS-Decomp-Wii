@@ -185,6 +185,7 @@ class xAnimTransition;
 // the branch is four bytes and names nothing else.
 class xScene;
 class xBase;
+class zPlayerInput;
 class xEntFrame;
 
 class zPlantTrap {
@@ -204,6 +205,10 @@ public:
 namespace Sext { class EventAny; }
 
 enum ForceEvent { ForceEvent_ = 0x7FFFFFFF };
+
+void zEntEventAllOfType(xBase* from, unsigned int fromEvent,
+                        unsigned int toEvent, Sext::EventAny* param,
+                        unsigned int type, ForceEvent force);
 
 void zEntEvent(xBase* from, unsigned int fromEvent, xBase* to,
                unsigned int toEvent, Sext::EventAny* param,
@@ -332,7 +337,7 @@ public:
     virtual void _v79();
     virtual void _v80();
     virtual void _v81();
-    virtual void _v82();
+    virtual float _v82();
     virtual void _v83();
     virtual void _v84();
     virtual void _v85();
@@ -379,11 +384,61 @@ public:
     virtual void _v126();
     virtual void _v127();
     virtual void _v128(xScene* scene, float dt, xEntFrame* frame);
+    virtual void _v129();
+    virtual void _v130();
+    virtual void _v131();
+    virtual void _v132();
+    virtual void _v133();
+    virtual void _v134();
+    virtual void _v135();
+    virtual void _v136();
+    virtual void _v137();
+    virtual void _v138();
+    virtual void _v139();
+    virtual float _v140();
+    virtual void _v141();
+    virtual void _v142();
+    virtual void _v143();
+    virtual void _v144();
+    virtual void _v145();
+    virtual void _v146();
+    virtual void _v147();
+    virtual void _v148();
+    virtual void _v149();
+    virtual void _v150();
+    virtual void _v151();
+    virtual void _v152();
+    virtual void _v153();
+    virtual void _v154();
+    virtual void _v155();
+    virtual void _v156();
+    virtual void _v157();
+    virtual void _v158();
+    virtual void _v159();
+    virtual void _v160();
+    virtual void _v161();
+    virtual void _v162();
+    virtual void _v163();
+    virtual void _v164();
+    virtual void _v165();
+    virtual void _v166();
+    virtual void _v167();
+    virtual void _v168();
+    virtual void _v169();
+    virtual void _v170();
+    virtual float _v171();
+    virtual void _v172();
+    virtual void _v173();
+    virtual void _v174();
+    virtual void _v175();
 
     void StopSBB3SmokeTrailFX();
     void SetGooState(SBGooFilledState state);
     void SetPowerupState(SBPowerupState state);
     void PlayLosePowerupFX();
+    void SetPowerupTimerToMax(SBPowerupState state);
+    void SetCapsuleSize(float radius, float height);
+    bool IsOnSlipperySurface(float f) const;
 
     unsigned char _pad0[0x30];
     xOGModelHandle ogModel;
@@ -391,38 +446,47 @@ public:
     xEntFrame* frame;
     unsigned char _pad2[0x168];
     int zPlayerFlags;
-    unsigned char _pad3[0x12C];
+    unsigned char _pad3[0x20];
+    zPlayerInput* playerInput;
+    unsigned char _pad4[0x108];
     float fallingTime;
-    unsigned char _pad4[0x25C];
+    unsigned char _pad5[0x180];
+    int lastDamageType;
+    unsigned char _pad6[0xD8];
     int currentHitType;
-    unsigned char _pad5[0x340];
+    unsigned char _pad7[0x340];
     SBGooFilledState gooState;
-    unsigned char _pad6[0x14];
+    unsigned char _pad8[0x14];
     SBPowerupState powerupState;
     SBPowerupState powerupModelState;
-    unsigned char _pad7[0x1];
+    unsigned char _pad9[0x1];
     bool powerupPerformDeferredModelSwap;
-    unsigned char _pad8[0xE];
+    unsigned char _pad10[0xE];
     eRPSAttackTypes attackState;
-    unsigned char _pad9[0x8];
+    unsigned char _pad11[0x8];
     float spinCooldownTimer;
-    unsigned char _pad10[0x84];
+    unsigned char _pad12[0x8];
+    int nearbyEnemyState;
+    unsigned char _pad13[0x62];
+    bool breathFXEnabled;
+    bool coldArea;
+    unsigned char _pad13a[0x14];
     unsigned char isSquirting;
     unsigned char shouldStopSquirting;
-    unsigned char _pad11[0x6];
+    unsigned char _pad14[0x6];
     float f964;
-    unsigned char _pad12[0x70];
+    unsigned char _pad15[0x70];
     int attackID;
-    unsigned char _pad13[0x8];
+    unsigned char _pad16[0x8];
     void* trampolineLink;
-    unsigned char _pad14[0x9];
+    unsigned char _pad17[0x9];
     bool canDoubleJump;
     bool canSpinGlide;
-    unsigned char _pad15[0x1];
+    unsigned char _pad18[0x1];
     zProjectileSBBombNPC* bombLink;
-    unsigned char _pad16[0x24];
+    unsigned char _pad19[0x24];
     float quicksandSinkDistance;
-    unsigned char _pad17[0x18];
+    unsigned char _pad20[0x18];
     zPlantTrap* kelpTrapLink;
     bool performCelebration;
 };
@@ -501,6 +565,8 @@ public:
     bool IdleNormalHappyCheck(xAnimTransition* a0, xAnimSingle* a1);
     bool IdleSlipperyCheck(xAnimTransition* a0, xAnimSingle* a1);
     void AddTransitionsFrom(xAnimTable* table, const char* name, unsigned int (*c)(xAnimTransition*, xAnimSingle*, void*), unsigned int (*d)(xAnimTransition*, xAnimSingle*, void*), unsigned short e, float f, unsigned int g, unsigned int h, zPlayerAction::SpecialActions i);
+
+    bool IdleCheck(xAnimTransition* a0, xAnimSingle* a1);
 };
 
 
@@ -861,6 +927,8 @@ public:
     bool SBWalkCheck(xAnimTransition* a0, xAnimSingle* a1);
 
     bool SBFallCheck(xAnimTransition* a0, xAnimSingle* a1);
+
+    bool DefaultStateCheck(xAnimTransition* a0, xAnimSingle* a1);
 };
 
 class zCommonPlayerAction {
@@ -1483,6 +1551,8 @@ public:
     void AddTransitionsFrom(xAnimTable* table, const char* name, unsigned int (*c)(xAnimTransition*, xAnimSingle*, void*), unsigned int (*d)(xAnimTransition*, xAnimSingle*, void*), unsigned short e, float f, unsigned int g, unsigned int h, zPlayerAction::SpecialActions i);
 
     void Begin();
+
+    void End();
 };
 
 class zSBPlayerBombRoll : public zPlayerAction {
@@ -4878,4 +4948,64 @@ bool zPlayerIdleSB::IdleAgingNextCheck(xAnimTransition* a0,
     }
 
     return false;
+}
+
+void zSBPlayerGainPowerup::End() {
+    zSBPlayer* p = (zSBPlayer*)player;
+
+    p->powerupPerformDeferredModelSwap = true;
+    p->SetPowerupTimerToMax(p->powerupState);
+
+    unsigned char param = p->powerupState;
+
+    zEntEventAllOfType(0, 0, 0xFEF69755, (Sext::EventAny*)&param, 219,
+                       (ForceEvent)1);
+
+    if (p->powerupState == 2) {
+        p->SetCapsuleSize(p->_v171(), 0.4f + p->_v140());
+    }
+}
+
+bool zPlayerIdleSB::IdleColdCheck(xAnimTransition* a0,
+                                  xAnimSingle* a1) {
+    // +0x20C through the offset: this file's zPlayerIdleSB opens
+    // with a 480-byte extra-idle table, so a member appended after
+    // it lands at 0x408 and not where the load reads.
+    if (((zSBPlayer*)player)->coldArea &&
+        *(float*)((char*)this + 0x20C) > 0.0f &&
+        ((zSBPlayerAction*)this)->DefaultStateCheck(a0, a1) &&
+        IdleCheck(a0, a1) &&
+        !((zSBPlayer*)player)->IsOnSlipperySurface(0.13f) &&
+        !IdleLowHealthCheck(a0, a1)) {
+        ((zSBPlayer*)player)->breathFXEnabled = true;
+
+        return true;
+    }
+
+    return false;
+}
+
+bool zPlayerIdleSB::IdleLowHealthCheck(xAnimTransition* a0,
+                                       xAnimSingle* a1) {
+    // Three flags, not one chain: the three `li rN,0` before the
+    // first call are three variables, and each `if` tests the one
+    // before it.
+    bool result = false;
+    bool notSlippery = false;
+    bool stateOk = false;
+
+    if (((zSBPlayerAction*)this)->DefaultStateCheck(a0, a1) &&
+        IdleCheck(a0, a1)) {
+        stateOk = true;
+    }
+
+    if (stateOk && !((zSBPlayer*)player)->IsOnSlipperySurface(0.13f)) {
+        notSlippery = true;
+    }
+
+    if (notSlippery && ((zSBPlayer*)player)->_v82() <= 1.0f) {
+        result = true;
+    }
+
+    return result;
 }

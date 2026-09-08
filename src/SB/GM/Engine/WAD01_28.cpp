@@ -47,7 +47,78 @@ void zBoardAnimPackageBE(xAnimPlay*, xAnimState*, void*);
 
 class xAnimSingle;
 class xAnimTransition;
-class xEntFrame;
+class xEntFrame {
+public:
+    void zeroVel();
+
+    unsigned char _pad0[0x88];
+    float f88;
+    float f8C;
+    float f90;
+};
+
+class xVec3 {
+public:
+    void assign(float v);
+    xVec3& operator=(const xVec3& o);
+    xVec3& operator+=(const xVec3& o);
+
+    static const xVec3 m_Null;
+
+    float x;
+    float y;
+    float z;
+};
+
+class xVec2 {
+public:
+    float length2() const;
+
+    float x;
+    float y;
+};
+
+unsigned int xStrHash(const char* s);
+
+class xScene;
+
+class zCommonPlayer {
+public:
+    void DefaultMove(xScene* scene, float dt, xEntFrame* frame);
+    void GetSafePos();
+};
+
+class zPlayerInput { public: float GetPadWeight(); };
+
+class xOGModel { public: unsigned char _pad0[0x30]; xVec3 pos; };
+class xOGModelHandle { public: xOGModel* model; int f4; };
+
+// The board player's own layout, at the offsets its callers read.
+// Reached through a cast, the way this file already reaches
+// zBoardPlayer, so nothing else here moves.
+class zBoardPlayerOffsets {
+public:
+    unsigned char _pad0[0x34];
+    xOGModelHandle ogModel;
+    unsigned char _pad1[0x188];
+    int zPlayerFlags;
+    unsigned char _pad2[0x12C];
+    float fallingTime;
+    unsigned char _pad3[0x25C];
+    int currentHitType;
+    unsigned char _pad4[0x364];
+    float f8BC;
+    unsigned char _pad5[0xC0];
+    void* trampolineLink;
+    bool canDoubleJump;
+    bool canSpinGlide;
+    unsigned char _pad6[0x12];
+    float f998;
+    float f99C;
+    unsigned char _pad7[0x14];
+    void* kelpTrapLink;
+    bool performCelebration;
+};
 class xScene;
 
 
@@ -342,6 +413,8 @@ public:
     void AddActionTransitions(xAnimTable* table);
     void AddStates(xAnimTable* table);
     void AddStandardTransitionsFrom(xAnimTable* table, const char* name);
+
+    void Begin();
 };
 
 
@@ -413,6 +486,11 @@ public:
 
 class zBoardPlayer {
 public:
+    void DefaultMove(xScene* scene, float dt, xEntFrame* frame);
+    void GetGoodPos(zCommonPlayer* other, int which);
+    void UpdateCharacterProxy(float dt);
+    unsigned int GetBehaviorSetRefHash() const;
+    float GetCharacterProxyYOffset();
     virtual void _v0() const;
     virtual void _v1() const;
     virtual void _v2() const;
@@ -591,6 +669,10 @@ public:
 class zPlayer {
 public:
     const int* GetFloorNormal() const;
+    void UpdateCharacterProxy(float dt);
+    void ImpartVelocity(const xVec3& v);
+    void ImpartMomentumlessVelocity(const xVec3& v);
+    void ClearMomentumlessVelocity();
 
     unsigned char _pad0[0x160];
     int f160;
@@ -673,6 +755,10 @@ public:
     bool FallMovingCheck(xAnimTransition* a0, xAnimSingle* a1);
     bool LandRunCheck(xAnimTransition* a0, xAnimSingle* a1);
     bool LandWalkCheck(xAnimTransition* a0, xAnimSingle* a1);
+
+    void Begin();
+
+    float f10;
 };
 
 
@@ -732,6 +818,10 @@ public:
     void AddActionTransitions(xAnimTable* table);
     void AddStates(xAnimTable* table);
     bool StartPuckAttackCheck(xAnimTransition* a0, xAnimSingle* a1);
+
+
+    unsigned char _padA[0x14 - 0x10];
+    unsigned char f14;
 };
 
 
@@ -775,6 +865,8 @@ public:
     static unsigned int anHitSpinBackCheck(xAnimTransition*, xAnimSingle*, void*);
     static unsigned int anHitSpinFrontCheck(xAnimTransition*, xAnimSingle*, void*);
     void AddTransitionsFrom(xAnimTable* table, const char* name, unsigned int (*c)(xAnimTransition*, xAnimSingle*, void*), unsigned int (*d)(xAnimTransition*, xAnimSingle*, void*), unsigned short e, float f, unsigned int g, unsigned int h, zPlayerAction::SpecialActions i);
+
+    void Begin();
 };
 
 
@@ -840,7 +932,7 @@ public:
     static unsigned int anSlideJumpCheck(xAnimTransition* a0, xAnimSingle* a1, void* a2);
     bool SlideJumpCheck(xAnimTransition* a0, xAnimSingle* a1);
     static unsigned int anSlideLandCheck(xAnimTransition* a0, xAnimSingle* a1, void* a2);
-    bool SlideLandCheck(xAnimTransition* a0, xAnimSingle* a1);
+    unsigned int SlideLandCheck(xAnimTransition* a0, xAnimSingle* a1);
 
     static unsigned int anSlideExitCheck(xAnimTransition*, xAnimSingle*, void*);
     static unsigned int anSlideHitCheck(xAnimTransition*, xAnimSingle*, void*);
@@ -1081,6 +1173,8 @@ public:
     static unsigned int anGooDeathCheck(xAnimTransition* a0, xAnimSingle* a1, void* a2);
     static unsigned int anLavaDeathCheck(xAnimTransition* a0, xAnimSingle* a1, void* a2);
     void AddTransitionsFrom(xAnimTable* table, const char* name, unsigned int (*c)(xAnimTransition*, xAnimSingle*, void*), unsigned int (*d)(xAnimTransition*, xAnimSingle*, void*), unsigned short e, float f, unsigned int g, unsigned int h, zPlayerAction::SpecialActions i);
+
+    void End();
 };
 
 class zPlayerJumpBoard : public zPlayerAction {
@@ -1098,6 +1192,8 @@ public:
     bool SBJumpMovingCheck(xAnimTransition* a0, xAnimSingle* a1);
     bool ApexCheck(xAnimTransition* a0, xAnimSingle* a1);
     bool TransToSpinPowerupCheck(xAnimTransition* a0, xAnimSingle* a1);
+
+    void End();
 };
 
 class zBoardPlayerFillWithGoo : public zPlayerAction {
@@ -1110,6 +1206,10 @@ public:
     void AddActionTransitions(xAnimTable* table);
     void AddStates(xAnimTable* table);
     bool StartFillWithGooCheck(xAnimTransition* a0, xAnimSingle* a1);
+
+
+    unsigned char _padA[0x1C - 0x10];
+    unsigned char f1C;
 };
 
 // -- the animation tables, read from the image ------------------
@@ -1555,6 +1655,9 @@ public:
     void AddStates(xAnimTable* table);
     bool BoardSpringboardCheck(xAnimTransition* a0, xAnimSingle* a1);
     bool BoardSpringboardDoubleJumpCheck(xAnimTransition* a0, xAnimSingle* a1);
+
+    void Begin();
+    void End();
 };
 
 // zPlayerSpringboardBoard::AddTransitionsFrom: 1 call(s)
@@ -1580,6 +1683,8 @@ public:
     void AddActionTransitions(xAnimTable* table);
     void AddStates(xAnimTable* table);
     bool StartLedgeCheck(xAnimTransition* a0, xAnimSingle* a1);
+
+    void UpdateFall(float dt);
 };
 
 // zPlayerLedgeBoard::AddTransitionsFrom: 1 call(s)
@@ -1655,6 +1760,8 @@ public:
     void AddActionTransitions(xAnimTable* table);
     void AddStates(xAnimTable* table);
     bool CelebrationCheck(xAnimTransition* a0, xAnimSingle* a1);
+
+    void Begin();
 };
 
 // zPlayerCelebrationBoard::AddTransitionsFrom: 1 call(s)
@@ -1851,6 +1958,11 @@ public:
     static unsigned int anSBQuicksandJumpCheck(xAnimTransition* a0, xAnimSingle* a1, void* a2);
     bool SBQuicksandJumpCheck(xAnimTransition* a0, xAnimSingle* a1);
     void AddTransitionsFrom(xAnimTable* table, const char* name, unsigned int (*c)(xAnimTransition*, xAnimSingle*, void*), unsigned int (*d)(xAnimTransition*, xAnimSingle*, void*), unsigned short e, float f, unsigned int g, unsigned int h, zPlayerAction::SpecialActions i);
+
+    void Begin();
+
+    float f10;
+    float f14;
 };
 
 // zBoardPlayerQuicksandJump::AddActionTransitions: 7 call(s)
@@ -3867,4 +3979,138 @@ void zPlayerLandHighBoard::AddStates(xAnimTable* table) {
     NewState(table, "HighFallLandIdle01", 32, 0, 1.0f, 0, 0, 0.0f, 0, zBoardAnimPackageBE, 0, 0, 0, 0);
     NewState(table, "HighFallLandMoving01", 32, 0, 1.0f, 0, 0, 0.0f, 0, zBoardAnimPackageBE, 0, 0, 0, 0);
     NewState(table, "HighFallLandGetUp01", 32, 0, 1.0f, 0, 0, 0.0f, 0, zBoardAnimPackageBE, 0, 0, 0, 0);
+}
+
+// The velocity is at +0x40C and the momentumless one at +0x424:
+// `addi r3,r3,1036` and `addi r3,r3,1060` are their addresses,
+// taken so operator+= can have them.
+class zPlayerVectors {
+public:
+    unsigned char _pad0[0x40C];
+    xVec3 velocity;
+    unsigned char _pad1[0x424 - 0x418];
+    xVec3 momentumlessVelocity;
+};
+
+void zBoardPlayer::DefaultMove(xScene* scene, float dt,
+                               xEntFrame* frame) {
+    ((zCommonPlayer*)this)->DefaultMove(scene, dt, frame);
+}
+
+void zBoardPlayer::GetGoodPos(zCommonPlayer* other, int which) {
+    ((zCommonPlayer*)this)->GetSafePos();
+}
+
+void zBoardPlayer::UpdateCharacterProxy(float dt) {
+    ((zPlayer*)this)->UpdateCharacterProxy(dt);
+}
+
+void zPlayer::ImpartVelocity(const xVec3& v) {
+    ((zPlayerVectors*)this)->velocity += v;
+}
+
+void zPlayer::ImpartMomentumlessVelocity(const xVec3& v) {
+    ((zPlayerVectors*)this)->momentumlessVelocity += v;
+}
+
+void zPlayer::ClearMomentumlessVelocity() {
+    ((zPlayerVectors*)this)->momentumlessVelocity = xVec3::m_Null;
+}
+
+float zPlayerInput::GetPadWeight() {
+    return 0.0f;
+}
+
+unsigned int zBoardPlayer::GetBehaviorSetRefHash() const {
+    return xStrHash("SpongeBob_set_ref");
+}
+
+void xVec3::assign(float v) {
+    x = v;
+    y = v;
+    z = v;
+}
+
+float xVec2::length2() const {
+    return x * x + y * y;
+}
+
+void xEntFrame::zeroVel() {
+    f88 = 0.0f;
+    f8C = 0.0f;
+    f90 = 0.0f;
+}
+
+float zBoardPlayer::GetCharacterProxyYOffset() {
+    zBoardPlayerOffsets* p = (zBoardPlayerOffsets*)this;
+
+    return p->f99C + (p->f8BC + p->f998);
+}
+
+void zPlayerHitBoard::Begin() {
+    // +0x10 through the offset: this class already opens with a
+    // four-byte pad before its variant array, so a member appended
+    // at the end is not the one the store names.
+    *(float*)((char*)this + 0x10) = 0.0f;
+}
+
+void zPlayerCelebrationBoard::Begin() {
+    ((zBoardPlayerOffsets*)player)->performCelebration = false;
+}
+
+void zPlayerDefeatedBoard::End() {
+    ((zBoardPlayerOffsets*)player)->currentHitType = -1;
+}
+
+void zPlayerSpringboardBoard::End() {
+    ((zBoardPlayerOffsets*)player)->trampolineLink = 0;
+}
+
+bool zBoardPlayerPuckAttack::ShootPuckCheck(xAnimTransition* a0,
+                                            xAnimSingle* a1) {
+    return f14 == 0;
+}
+
+unsigned int zPlayerSlide::SlideLandCheck(xAnimTransition* a0,
+                                          xAnimSingle* a1) {
+    return (((zBoardPlayerOffsets*)player)->zPlayerFlags >> 1) & 1;
+}
+
+unsigned int zBoardPlayerFillWithGoo::anTurnDoneCheck(xAnimTransition* a0,
+                                                      xAnimSingle* a1,
+                                                      void* a2) {
+    return ((zBoardPlayerFillWithGoo*)((AnimCBHolder*)a1)->slot->owner)
+               ->f1C;
+}
+
+void zPlayerFallBoard::Begin() {
+    f10 = ((zBoardPlayerOffsets*)player)->ogModel.model->pos.y;
+}
+
+void zPlayerJumpBoard::End() {
+    ((zBoardPlayerOffsets*)player)->zPlayerFlags &= ~0x10;
+}
+
+bool zBoardPlayerKelpTrap::KelpTrapCheck(xAnimTransition* a0,
+                                         xAnimSingle* a1) {
+    return ((zBoardPlayerOffsets*)player)->kelpTrapLink != 0;
+}
+
+void zPlayerLedgeBoard::UpdateFall(float dt) {
+    ((zBoardPlayerOffsets*)player)->fallingTime = 0.0f;
+}
+
+void zPlayerSpringboardBoard::Begin() {
+    ((zBoardPlayerOffsets*)player)->canDoubleJump = true;
+    ((zBoardPlayerOffsets*)player)->canSpinGlide = true;
+}
+
+void zPlayerLandBoard::Begin() {
+    ((zBoardPlayerOffsets*)player)->canDoubleJump = false;
+    ((zBoardPlayerOffsets*)player)->canSpinGlide = true;
+}
+
+void zBoardPlayerQuicksandJump::Begin() {
+    f10 = 0.0f;
+    f14 = ((zBoardPlayerOffsets*)player)->f998;
 }

@@ -187,6 +187,14 @@ class xScene;
 class xBase;
 class xEntFrame;
 
+class zPlantTrap {
+public:
+    unsigned char _pad0[0x3C];
+    int f3C;
+    unsigned char _pad1[0x5C - 0x40];
+    int f5C;
+};
+
 class zProjectileSBBombNPC {
 public:
     unsigned char _pad0[0x1BC];
@@ -415,7 +423,7 @@ public:
     unsigned char _pad16[0x24];
     float quicksandSinkDistance;
     unsigned char _pad17[0x18];
-    void* kelpTrapLink;
+    zPlantTrap* kelpTrapLink;
     bool performCelebration;
 };
 
@@ -424,7 +432,11 @@ public:
 // Nothing in the image NAMES either type, so both are
 // spelled as the offsets that were measured. Neither
 // struct emits a symbol.
-struct AnimCBSlot { unsigned char _pad[0x90]; void* owner; };
+struct AnimCBSlot {
+    unsigned char _pad[0x90];
+    void* owner;
+    int f94;
+};
 struct AnimCBHolder { unsigned char _pad[0x4]; AnimCBSlot* slot; };
 
 
@@ -743,7 +755,7 @@ public:
     void AddStates(xAnimTable* table);
     void AddInternalTransitions(xAnimTable* table);
     static unsigned int anAcidVersionCheck(xAnimTransition* a0, xAnimSingle* a1, void* a2);
-    bool AcidVersionCheck(xAnimTransition* a0, xAnimSingle* a1);
+    unsigned int AcidVersionCheck(xAnimTransition* a0, xAnimSingle* a1);
     static unsigned int anDeathCheck(xAnimTransition* a0, xAnimSingle* a1, void* a2);
     bool DeathCheck(xAnimTransition* a0, xAnimSingle* a1);
     static unsigned int anFragBobCheck(xAnimTransition* a0, xAnimSingle* a1, void* a2);
@@ -753,12 +765,16 @@ public:
     static unsigned int anFrozenVentDeathCheck(xAnimTransition* a0, xAnimSingle* a1, void* a2);
     bool FrozenVentDeathCheck(xAnimTransition* a0, xAnimSingle* a1);
     static unsigned int anGooVersionCheck(xAnimTransition* a0, xAnimSingle* a1, void* a2);
-    bool GooVersionCheck(xAnimTransition* a0, xAnimSingle* a1);
+    unsigned int GooVersionCheck(xAnimTransition* a0, xAnimSingle* a1);
     static unsigned int anKelpTrapCheck(xAnimTransition* a0, xAnimSingle* a1, void* a2);
     bool KelpTrapCheck(xAnimTransition* a0, xAnimSingle* a1);
     static unsigned int anLavaVersionCheck(xAnimTransition* a0, xAnimSingle* a1, void* a2);
-    bool LavaVersionCheck(xAnimTransition* a0, xAnimSingle* a1);
+    unsigned int LavaVersionCheck(xAnimTransition* a0, xAnimSingle* a1);
     void AddTransitionsFrom(xAnimTable* table, const char* name, unsigned int (*c)(xAnimTransition*, xAnimSingle*, void*), unsigned int (*d)(xAnimTransition*, xAnimSingle*, void*), unsigned short e, float f, unsigned int g, unsigned int h, zPlayerAction::SpecialActions i);
+
+    bool AcidDeathCheck(xAnimTransition* a0, xAnimSingle* a1);
+    bool GooDeathCheck(xAnimTransition* a0, xAnimSingle* a1);
+    bool LavaDeathCheck(xAnimTransition* a0, xAnimSingle* a1);
 };
 
 
@@ -4804,4 +4820,62 @@ void zPlayerSingleCustomAnimSB::End() {
     _v13();
 
     ((zSBPlayer*)player)->zPlayerFlags |= 0x8;
+}
+
+bool zSBPlayerKelpTrap::KelpReleaseCheck(xAnimTransition* a0,
+                                         xAnimSingle* a1) {
+    zPlantTrap* trap = ((zSBPlayer*)player)->kelpTrapLink;
+
+    if (trap == 0) {
+        return true;
+    }
+
+    if (trap->f5C == 1 || trap->f5C == 6 || trap->f3C == 0) {
+        return true;
+    }
+
+    return false;
+}
+
+unsigned int zPlayerDefeatedSB::AcidVersionCheck(xAnimTransition* a0,
+                                                  xAnimSingle* a1) {
+    if (AcidDeathCheck(a0, a1)) {
+        return ((AnimCBHolder*)a0)->slot->f94 & 0x20000;
+    }
+
+    return 0;
+}
+
+unsigned int zPlayerDefeatedSB::GooVersionCheck(xAnimTransition* a0,
+                                                 xAnimSingle* a1) {
+    if (GooDeathCheck(a0, a1)) {
+        return ((AnimCBHolder*)a0)->slot->f94 & 0x20000;
+    }
+
+    return 0;
+}
+
+unsigned int zPlayerDefeatedSB::LavaVersionCheck(xAnimTransition* a0,
+                                                  xAnimSingle* a1) {
+    if (LavaDeathCheck(a0, a1)) {
+        return ((AnimCBHolder*)a0)->slot->f94 & 0x20000;
+    }
+
+    return 0;
+}
+
+bool zPlayerIdleSB::IdleAgingNextCheck(xAnimTransition* a0,
+                                       xAnimSingle* a1) {
+    // +0x28 through the offset: this file's zPlayerIdleSB puts the
+    // extra-idle table at +0x10, and a float inside its first entry
+    // is not what that layout says is there.
+    float* timer = (float*)((char*)this + 0x28);
+
+    if (*timer <= 0.0f) {
+        *timer = 10.0f;
+
+        return true;
+    }
+
+    return false;
 }

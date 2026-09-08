@@ -7,14 +7,14 @@ numbers here, which move.
 ## State at time of writing
 
 ```
-Game Code:  67 of 777 files complete  220,240 / 2,116,616 bytes  2,131 / 10,697 fn
-            10.4053% of game code
+Game Code:  67 of 777 files complete  220,528 / 2,116,616 bytes  2,135 / 10,697 fn
+            10.4189% of game code
 
-Of those 2,131 functions, 755 are GENERATED -- machine-recognised
+Of those 2,135 functions, 751 are GENERATED -- machine-recognised
 shapes, not one of which is decompiling. They are real matched
 functions and the offsets and constants are recovered fact, but a
 count of them is not a count of decompiled code. HAND-WRITTEN IS
-1,376, across 223 units and 208,416 bytes, and that is the figure to
+1,384, across 227 units and 209,236 bytes, and that is the figure to
 compare against earlier ones.
 
 Data:       4 unit(s) carry their own, 412 bytes; 134 more could
@@ -3319,6 +3319,45 @@ World::xOGEntity exactly that way and matches.
 zDirection was skipped: its file exists and is a gen_accessors one,
 so taking it over would move generated functions into the written
 column for one function. TriggerPhantom has no Object row at all.
+
+### The 72-byte Init, and what happens when you skip the fill sheet
+
+xBaseInit, then three stores: the asset, an event wrapper, and
+asset+N. 14 members, 2 solved. The fill sheet for zCamDrivable read
+three holes -- the two halves of the wrapper's address and N -- so a
+script was written to pull those two facts for the whole cluster and
+the store offsets were taken from the donor.
+
+THAT WAS WRONG AND THE SKELETON SAYS SO. `stw` is a D-form, so
+twin_census blanks its displacement: two members storing to different
+offsets are one skeleton, and where the members sit is a HOLE. zFog
+keeps its asset at +0x3C like the donor; zSlope keeps it at +0x68 and
+zSinkingSurface at +0x50. Both came out 1 of 18 words wrong, at
+exactly that store.
+
+The fill sheet would have printed it. The script built on top of the
+tool would not, because it had already decided which fields mattered.
+That is the same failure as SIZE IS NOT SHAPE two commits before --
+the tool was right and the query was not -- and it is worth stating
+as a rule: IF A FIELD IS BLANKED BY THE SKELETON IT IS A HOLE, and
+the only fields the skeleton does not blank are opcodes and
+registers. Read the sheet.
+
+Measured after the fix, over all fourteen: the event function is at
++0x30 and the link array at +0x28 in every one, and only the asset's
+offset moves.
+
+zPortal needed its class restructured before the Init would fit. It
+is 0x40 bytes, exactly what template A's xBase/xOGEntity scaffolding
+already occupied, so there was nowhere to put members at +0x28,
++0x30 and +0x3C. Spelled as zPOWObject.cpp does -- xBase forward-
+declared only, xOGEntity carrying nothing but its constructor, every
+offset riding on the entity -- both its functions match.
+
+Extending four transplant-emitted files by hand took their banners
+off, so the four Creates in them moved from the generated column to
+the written one along with the four Inits: written 1,376 -> 1,384,
+generated 755 -> 751.
 
 Two things that are NOT levers, measured rather than assumed: which
 overload of a name gets picked (CodeWarrior mangles static and non-static

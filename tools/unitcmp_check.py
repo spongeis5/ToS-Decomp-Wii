@@ -467,7 +467,7 @@ EXPECT = {
     "SB/GM/Engine/Game/zCameraCurve": (1, 1),
     "SB/GM/Engine/Game/zConditional": (1, 1),
     "SB/GM/Engine/Game/zLensFlare": (1, 1),
-    "SB/GM/Engine/Game/zPortal": (1, 1),
+    "SB/GM/Engine/Game/zPortal": (2, 2),
     "SB/GM/Engine/Game/zScript": (1, 1),
     "SB/GM/Engine/Game/zTextBox": (1, 1),
     "SB/GM/Engine/Game/zUIFlashOnScreenText": (1, 1),
@@ -483,10 +483,10 @@ EXPECT = {
     "SB/GM/Engine/Game/zScreenWarp": (2, 2),
     "SB/GM/Engine/Game/zSoundsNamed": (1, 1),
     "SB/GM/Engine/Game/zTikiScreen": (1, 1),
-    "SB/GM/Engine/Game/zFog": (1, 1),
+    "SB/GM/Engine/Game/zFog": (2, 2),
     "SB/GM/Engine/Game/zLedge": (1, 1),
-    "SB/GM/Engine/Game/zSlope": (1, 1),
-    "SB/GM/Engine/Game/zSurfaces": (1, 1),
+    "SB/GM/Engine/Game/zSlope": (2, 2),
+    "SB/GM/Engine/Game/zSurfaces": (2, 2),
     "SB/GM/Engine/Game/zTrampoline": (1, 1),
 }
 

@@ -35,6 +35,7 @@ EXPECT = {
     "SB/NG/Source/Engine/Graphics/Scaleform": (5, 5),
     "SB/GM/Engine/Game/zWallNetPosition": (3, 3),
     "SB/NG/Source/Engine/AssetManager/Domains/Blobloids": (9, 9),
+    "SB/NG/Source/Engine/AssetManager/Domains/DomainMgr": (1, 1),
     "SB/GM/Engine/Game/zNPCBTConditionBuilder": (1, 1),
     "SB/GM/Engine/Game/zLaser": (1, 1),
     # Four of seven. The three left are one compiler decision
@@ -76,9 +77,9 @@ EXPECT = {
     # refuses to lower a pin, correctly, so these seven are written here.
     "SB/GM/Engine/WAD00": (6, 6),
     "SB/GM/Engine/WAD00_1": (2, 2),
-    "SB/GM/Engine/WAD00_2": (6, 6),
+    "SB/GM/Engine/WAD00_2": (7, 7),
     "SB/GM/Engine/WAD01_21": (4, 4),
-    "SB/GM/Engine/WAD02_38": (12, 12),
+    "SB/GM/Engine/WAD02_38": (13, 13),
     "SB/GM/Engine/WAD03_16": (4, 5),
     "SB/GM/Engine/WAD03_2": (1, 1),
     # Three pins were LOWERED by hand on 2026-08-31 -- these two and
@@ -103,7 +104,7 @@ EXPECT = {
     "SB/GM/Engine/WAD02_31": (2, 2),
     "SB/GM/Engine/WAD02_4": (6, 6),
     "SB/GM/Engine/WAD04_13": (3, 3),
-    "SB/NG/Engine/WAD02_37": (13, 13),
+    "SB/NG/Engine/WAD02_37": (14, 14),
     "SB/NG/Source/Engine/IO/VirtualKeyboard/VirtualKeyboard": (2, 2),
     # Lowered by hand for the reason given above WAD03_3.
     "SB/NG/Source/Engine/TRC/TRCMessageBox": (1, 1),
@@ -123,7 +124,7 @@ EXPECT = {
     "SB/GM/Engine/WAD04": (1, 1),
     "SB/GM/Engine/WAD03_24": (43, 46),
     "SB/NG/Engine/WAD02_12": (2, 2),
-    "SB/NG/Engine/WAD02_13": (2, 2),
+    "SB/NG/Engine/WAD02_13": (3, 3),
     # One function of the 68 in this chunk.
     "SB/NG/Engine/WAD02_14": (1, 1),
     "SB/NG/Source/Engine/Graphics/Display": (2, 2),
@@ -291,6 +292,9 @@ EXPECT = {
     "SB/NG/Source/Engine/Entities/Blobs/CameraFlyBlobEntity": (2, 2),
     "SB/NG/Source/Engine/Entities/ModelInstanceArticle": (3, 3),
     "SB/NG/Source/Engine/Entities/RenderCustomizerEntity": (6, 6),
+    # The last six of the 68-byte module-constructor cluster,
+    # one function each in a unit that had no source file.
+    "SB/NG/Source/Engine/Entities/CurveEntity": (1, 1),
     "SB/NG/Source/Engine/Entities/RenderModeEntity": (7, 7),
     # One function of the six in this chunk, and it is not an
     # entity: Graphics::StaticBuilder's destructor landed here.
@@ -301,8 +305,10 @@ EXPECT = {
     # One function of the nine in this chunk, and it is not a
     # Model: an inline from Renderable3D.h that landed here.
     "SB/NG/Source/Engine/Graphics/Model": (1, 1),
+    "SB/NG/Source/Engine/Graphics/RenderState": (1, 1),
     "SB/NG/Source/Engine/Graphics/RenderTargetWii": (1, 1),
     "SB/NG/Source/Engine/Graphics/Scene": (1, 1),
+    "SB/NG/Source/Engine/Graphics/SceneGraph": (1, 1),
     "SB/NG/Source/Engine/Graphics/Viewport": (13, 13),
     "SB/NG/Source/Engine/IO/File/LFDevice": (2, 2),
     "SB/NG/Source/Engine/IO/File/MediaFile": (8, 8),
@@ -327,6 +333,9 @@ EXPECT = {
     "SB/GM/Engine/Game/zStoryMoment": (1, 1),
     "SB/GM/Engine/WAD01_5": (1, 1),
     "SB/NG/Engine/WAD00_11": (1, 1),
+    # Two of the nine and one of the 34: units that had a
+    # configure row and no source file until the 84-byte batch.
+    "SB/NG/Engine/WAD00_11_1": (1, 1),
     "SB/NG/Engine/WAD00_11_3": (1, 1),
     "SB/NG/Engine/WAD00_9": (1, 1),
     "SB/NG/Engine/WAD02_1_1": (1, 1),
@@ -365,6 +374,7 @@ EXPECT = {
     "SB/GM/Engine/Game/zPOWObject": (3, 3),
     "SB/GM/Engine/WAD00_7_1": (1, 1),
     "SB/GM/Engine/WAD01_11": (1, 1),
+    "SB/NG/Engine/WAD01_17_1": (2, 2),
     "SB/NG/Engine/WAD01_22": (1, 1),
     "SB/NG/Source/Engine/Entities/Blobs/Anims/ComboAnimBlobEntity": (2, 2),
     "SB/NG/Source/Engine/Math/MathUtil": (1, 2),
@@ -401,6 +411,7 @@ EXPECT = {
     "SB/NG/Source/Engine/Graphics/Channel": (2, 2),
     "SB/NG/Source/Engine/Graphics/View": (4, 4),
     "SB/NG/Source/Engine/IO/File/MediaConfig": (1, 1),
+    "SB/NG/Source/Engine/Memory/Memory": (1, 1),
     "SB/NG/Source/Engine/Memory/MemoryUtil": (8, 8),
     "SB/NG/Source/Engine/System/StartupConfig": (1, 1),
     "SB/GM/Engine/Core/Wii/iMath3": (3, 4),

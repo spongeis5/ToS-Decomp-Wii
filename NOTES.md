@@ -7,18 +7,18 @@ numbers here, which move.
 ## State at time of writing
 
 ```
-Game Code:  67 of 777 files complete  224,264 / 2,116,616 bytes  2,183 / 10,697 fn
-            10.5954% of game code
+Game Code:  67 of 777 files complete  225,176 / 2,116,616 bytes  2,195 / 10,697 fn
+            10.6385% of game code
 
-Of those 2,183 functions, 719 are GENERATED -- machine-recognised
+Of those 2,195 functions, 686 are GENERATED -- machine-recognised
 shapes, not one of which is decompiling. They are real matched
 functions and the offsets and constants are recovered fact, but a
 count of them is not a count of decompiled code. HAND-WRITTEN IS
-1,464, across 251 units and 213,444 bytes, and that is the figure to
+1,509, across 262 units and 214,816 bytes, and that is the figure to
 compare against earlier ones.
 
 Data:       4 unit(s) carry their own, 412 bytes; 134 more could
-All:        5.11% matched              main.dol reproduces byte for byte
+All:        5.12% matched              main.dol reproduces byte for byte
 ```
 
 Every number above is written by `python tools/notes_state.py`,
@@ -3579,6 +3579,63 @@ eleven added: written 1,447 -> 1,464 over 244 -> 251 units, generated
 725 -> 719 over 127 -> 123. WAD03_16.cpp was a fifth kind: it still
 carried the generator's banner while holding a hand-written asset
 Create, so gen_units.py would have deleted that work on its next run.
+
+### Two clusters closed, and what `(no source file)` was hiding
+
+The 84-byte destructor is the one-member shape with a longer prologue:
+the null-this test, ONE member destroyed with the don't-delete flag,
+operator delete when the caller's flag is positive, `return this`, and
+no second call at all -- so nothing it derives from has a destructor.
+Eleven solved, eight unsolved, six written and matched here.
+
+The 68-byte module constructor's last six went with them: run
+System::Module's constructor, store the vtable at +0x14, put one
+constant in one events.stage slot. `events` starts at +4, so the store
+at +4 is stage[0] and the one at +8 is stage[1] -- the donor
+HavokModule is the only one of the sixteen that uses stage[1].
+Memory::AllocModule takes 35, Domains::DomainModule 67,
+Graphics::RenderStateModule 128, Graphics::SceneGraphModule 1999, and
+IO::MediaModuleLFS takes 3, which is the donor's own constant and why
+its fill sheet shows no immediate hole at all. World::CurveEntity is
+the sixth and is not a module: its vptr is at +0 and its constant is
+the type id 18 at +0x10, which is the offset telling the two shapes
+apart before anything else is read.
+
+`(no source file)` WAS NOT A BLOCKER, AND IT ACCOUNTED FOR EIGHT OF
+THE TWELVE. Every one of those units already had its `Object(...)` row
+in configure.py; what was missing was the .cpp, and creating it is one
+file plus a `python configure.py`. Two 84-byte destructors and all six
+of the remaining 68-byte constructors were sitting behind that marker,
+and the previous pass had read it as a reason to skip them. Seven
+files created, eight functions, 576 bytes. Check configure.py before
+believing the survey's marker.
+
+ONE CONSTRUCTOR HAD TO BE RE-SPELLED TO GET ITS DESTRUCTOR.
+xDecal::decal_instance's constructor was already matched as
+`{ f54 = 0; }`, and the destructor needs +0x54 to be a
+World::xOGModelRefPtr so the branch reaches that type's own
+destructor. Giving the member its type and the type a default
+constructor that nulls its one word -- the layout xOGModelRefPtr.cpp
+already records from the DWARF -- leaves the constructor emitting the
+same `li r0,0; stw r0,84(r3); blr` it did before. Both are
+byte-identical now; the accessor was not damaged to get the
+destructor.
+
+TWO ARE LEFT AND THEY ARE THE ONES anon_blocked.py NAMES.
+`@unnamed@WAD00_cpp@13xMemWatermark` and
+`@unnamed@WAD00_cpp@16intersect_env_CB` live in anonymous namespaces,
+and CodeWarrior mangles an anonymous namespace with the name of the
+TRANSLATION UNIT it compiled. Split out of the blob, ours would carry
+`@unnamed@WAD00_31_cpp@` and never pair. Two ways round it are already
+measured and excluded: `#line` does not move it (the mangler reads the
+real input filename), and naming our file WAD00.cpp collides with the
+parent unit and dtk refuses it. They are reachable as part of the
+whole blob and not before.
+
+Four of these units were gen_accessors output and taking them over
+moved 33 generated functions into the written column alongside the
+twelve added: written 1,464 -> 1,509 over 251 -> 262 units, generated
+719 -> 686 over 123 -> 119.
 
 Two things that are NOT levers, measured rather than assumed: which
 overload of a name gets picked (CodeWarrior mangles static and non-static

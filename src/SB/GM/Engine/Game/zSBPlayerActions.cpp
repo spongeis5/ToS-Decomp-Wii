@@ -3549,6 +3549,28 @@ unsigned int zSBPlayerHammerPowerupAttack::anHammerPowerupMovingCheck(xAnimTrans
     return result;
 }
 
+unsigned int zPlayerHitSB::anHitPuckFrontCheck(xAnimTransition* a0,
+                                               xAnimSingle* a1, void* a2) {
+    unsigned int result = 0;
+
+    if (((zPlayerHitSB*)((AnimCBHolder*)a0)->slot->owner)->_v5()) {
+        zPlayerHitSB* owner =
+            (zPlayerHitSB*)((AnimCBHolder*)a0)->slot->owner;
+        bool hit = false;
+
+        if (owner->HitFrontCheck(a0, a1) &&
+            ((zSBPlayer*)owner->player)->lastDamageType == 31) {
+            hit = true;
+        }
+
+        if (hit) {
+            result = 1;
+        }
+    }
+
+    return result;
+}
+
 unsigned int zPlayerHitSB::anHitBackCheck(xAnimTransition* a0, xAnimSingle* a1,
                                           void* a2) {
     unsigned int result = 0;
@@ -5421,6 +5443,26 @@ bool zSBPlayerAction::DefaultStateCheck(xAnimTransition* a0,
         ((zSBPlayer*)player)->powerupModelState == 0 &&
         !((zSBPlayer*)player)->IsInAnyGooState()) {
         result = true;
+    }
+
+    return result;
+}
+
+bool zSBPlayerAction::SBCandyCheck(xAnimTransition* a0,
+                                   xAnimSingle* a1) {
+    bool result = false;
+
+    if (((zBoardPlayer*)player)->IsOnCandy()) {
+        bool ok = true;
+
+        if (!DefaultStateCheck(a0, a1) &&
+            ((zSBPlayer*)player)->powerupState != (SBPowerupState)1) {
+            ok = false;
+        }
+
+        if (ok) {
+            result = true;
+        }
     }
 
     return result;

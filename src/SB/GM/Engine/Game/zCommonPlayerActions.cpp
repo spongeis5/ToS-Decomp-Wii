@@ -657,8 +657,10 @@ class zPlayerTriggered : public zPlayerAction {
 public:
     void Reset();
 
+    void End();
+
     unsigned int states[4];
-    unsigned char _pad0[0x24 - 0x20];
+    xBase* f20;
     int f24;
     void AddActionTransitions(xAnimTable* table);
     static unsigned int anTriggeredAnimCheck(xAnimTransition*, xAnimSingle*, void*);
@@ -833,6 +835,16 @@ void zPlayerSlip::Reset() { f10 = 0; }
 void zPlayerJump::End() { f10 = 0; }
 bool zPlayerFall::anFallHighCheck(xAnimTransition* a0, xAnimSingle* a1, void* a2) { return ((zPlayerFall*)((AnimCBHolder*)a1)->slot->owner)->FallHighCheck(a0, a1); }
 void zPlayerTriggered::Reset() { f24 = 4; }
+
+void zPlayerTriggered::End() {
+    int event = f24;
+
+    zEntEvent(f20, 0, (xBase*)player, 0x7543E2E6,
+              (Sext::EventAny*)&event, (ForceEvent)1);
+
+    f24 = 4;
+}
+
 unsigned int zPlayerLedge::anLedgeGrabUpCB(xAnimTransition* a0, xAnimSingle* a1, void* a2) { return ((zPlayerLedge*)((AnimCBHolder*)a1)->slot->owner)->LedgeGrabUpCB(a0, a1); }
 unsigned int zCommonPlayerDash::GetID() { return 0x0000000Fu; }
 unsigned int zCommonPlayerDash::anEndCheck(xAnimTransition* a0, xAnimSingle* a1, void* a2) { return ((zCommonPlayerDash*)((AnimCBHolder*)a1)->slot->owner)->EndCheck(a0, a1); }
@@ -1058,11 +1070,18 @@ public:
     void AddTransitionsFrom(xAnimTable* table, const char* name, unsigned int (*c)(xAnimTransition*, xAnimSingle*, void*), unsigned int (*d)(xAnimTransition*, xAnimSingle*, void*), unsigned short e, float f, unsigned int g, unsigned int h, zPlayerAction::SpecialActions i);
     void AddStates(xAnimTable* table);
     bool StartWalkCheck(xAnimTransition* a0, xAnimSingle* a1);
+    void Update(float dt);
     static const char* GetTransitionString() { return "StartWalk#"; }
     void AddActionTransitions(xAnimTable* table);
 };
 
 // zPlayerWalkStart::AddTransitionsFrom: 1 call(s)
+void zPlayerWalkStart::Update(float dt) {
+    ((zPlayerWalk*)this)->Update(dt);
+
+    player->ogModel.model->f4C->f0C->f0C = 0.0f;
+}
+
 void zPlayerWalkStart::AddTransitionsFrom(xAnimTable* table, const char* name, unsigned int (*c)(xAnimTransition*, xAnimSingle*, void*), unsigned int (*d)(xAnimTransition*, xAnimSingle*, void*), unsigned short e, float f, unsigned int g, unsigned int h, zPlayerAction::SpecialActions i) {
     zPlayerAction::AddActionTransition(table, name, "StartWalk01", zPlayerWalkStart::anStartWalkCheck, c, d, e, 0.05f, g, h);
 }

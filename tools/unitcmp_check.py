@@ -498,7 +498,7 @@ EXPECT = {
     "SB/NG/Engine/WAD00_1": (22, 42),
     "SB/GM/Engine/WAD02_29_1": (41, 42),
     "SB/GM/Engine/WAD02_22_1": (19, 21),
-    "SB/GM/Engine/Game/zVar": (42, 47),
+    "SB/GM/Engine/Game/zVar": (47, 47),
     "SB/GM/Engine/WAD02_24_2": (14, 17),
     "SB/GM/Engine/Game/zPlayerInputHuman": (42, 42),
     "SB/GM/Engine/Core/x/xCamTransition": (1, 1),

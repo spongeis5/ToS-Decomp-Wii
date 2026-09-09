@@ -10,6 +10,8 @@
 // localisation is a subset of one language id, and the rest read a
 // field off the context or off the game's globals.
 
+#include "SB/GM/Engine/Game/zVar.pool.h"
+
 class zCounter {
 public:
     unsigned char _pad0[0x40];

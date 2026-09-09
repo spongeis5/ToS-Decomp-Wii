@@ -7,14 +7,14 @@ numbers here, which move.
 ## State at time of writing
 
 ```
-Game Code:  67 of 777 files complete  377,456 / 2,116,616 bytes  3,208 / 10,697 fn
-            17.8330% of game code
+Game Code:  67 of 777 files complete  377,872 / 2,116,616 bytes  3,213 / 10,697 fn
+            17.8526% of game code
 
-Of those 3,208 functions, 856 are GENERATED -- machine-recognised
+Of those 3,213 functions, 856 are GENERATED -- machine-recognised
 shapes, not one of which is decompiling. They are real matched
 functions and the offsets and constants are recovered fact, but a
 count of them is not a count of decompiled code. HAND-WRITTEN IS
-2,352, across 265 units and 343,156 bytes, and that is the figure to
+2,357, across 265 units and 343,572 bytes, and that is the figure to
 compare against earlier ones.
 
 Data:       4 unit(s) carry their own, 412 bytes; 134 more could
@@ -5272,3 +5272,64 @@ not addressing. WAD02 (Sort), GeometryEntity and xEvent likewise load
 no float literal. WAD00_1's first literal IS its translation unit's
 lowest .rodata address: 0 bytes apart, so there is nothing to put in
 front of it.
+
+## zVar IS COMPLETE, AND THE DIAGNOSIS THAT PARKED IT WAS RIGHT
+
+**47 of 47. All five var_text near-misses, 416 bytes, at once.**
+
+Earlier this session those five were diagnosed and PARKED: each
+differs in one `addi r4,r4,K` holding a pooled-string offset, ours
+reaching a string at 0 or 6 where retail has 0x825, 0x2722 or 0x2725,
+and var_text_CurrentScene's offset being ZERO is why mwcc emitted no
+addi at all and the function came out 92 bytes against retail's 96.
+The conclusion recorded was *that is the whole unity blob's pool, not
+these five functions, and no spelling reaches it*.
+
+Every word of that was correct. It was still the wrong place to stop,
+because `gen_poolprefix.py --whole` supplies exactly that pool and had
+existed the whole time. It wrote a 569-string prefix (10,003 bytes)
+and the 64,984-byte rodata array together, and all five landed.
+
+A correct diagnosis is not a finished investigation. The diagnosis
+named a missing ingredient; the next question was whether the tree
+already makes it.
+
+The route there is worth keeping because it was not a straight line:
+
+  * padding alone moved var_text_CurrentScene from 92 bytes to a
+    MATCH at 96 -- the array lands in .rodata ahead of the string
+    pool, so the offset stopped being zero and the addi appeared --
+    and left the other four one word out;
+  * with padding, MCMaxSpace read `addi r4,r4,0x2716` against retail's
+    0x2725: fifteen bytes short, not thousands;
+  * growing the padding by exactly those 15 bytes changed NOTHING. K
+    is set by the pool's CONTENT, not by what sits in front of it.
+    That measurement is what ruled out the padding size and pointed at
+    the prefix.
+
+
+## ALWAYS MEASURE gen_poolprefix IN BOTH MODES
+
+The plain/--whole distinction produced THREE separate errors in one
+session, and each one looked like a result rather than a mistake:
+
+  1. CMeshBlobEntity regenerated without --whole silently dropped 8
+     strings from a 14-entry prefix. The build passed, because that
+     unit references only `shape`; the seventh function, still
+     unwritten, would have been the one to pay.
+  2. A staleness sweep of the 29 string-prefix headers run in the
+     default mode reported 17 STALE. All 17 were --whole files being
+     compared against output nobody asked for. In both modes: 0 of 29.
+  3. zNPCNinjaManager and WAD02_4_1 were called INERT after testing
+     padding only -- the mode that does not fix zVar. Retested in
+     both, they are genuinely inert (the generator emits no string
+     prefix for either, so the two modes write the same file), but
+     the claim was made before it was earned.
+
+So: a gen_poolprefix result in one mode is half a measurement. Run
+both, and say which one the answer came from.
+
+One more correction from the same stretch: the padding was reported
+as REGRESSING zNPCNinjaManager, 332 bytes to 340. It was not. 332 is
+RETAIL's size and ours was already 340 before the change -- a column
+misread, and the numbers are identical with and without.

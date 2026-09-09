@@ -88,7 +88,51 @@ public:
     void GetSafePos();
 };
 
-class zPlayerInput { public: float GetPadWeight(); };
+class zPlayerInput {
+public:
+    float GetPadWeight();
+
+    virtual void _v0();
+    virtual void _v1();
+    virtual void _v2();
+    virtual void _v3();
+    virtual void _v4();
+    virtual void _v5();
+    virtual void _v6();
+    virtual void _v7();
+    virtual void _v8();
+    virtual void _v9();
+    virtual void _v10();
+    virtual void _v11();
+    virtual void _v12();
+    virtual void _v13();
+    virtual void _v14();
+    virtual void _v15();
+    virtual void _v16();
+    virtual void _v17();
+    virtual void _v18();
+    virtual void _v19();
+    virtual void _v20();
+    virtual void _v21();
+    virtual void _v22();
+    virtual void _v23();
+    virtual void _v24();
+    virtual void _v25();
+    virtual void _v26();
+    virtual float _v27(int a0, int a1);
+};
+
+enum SBGooFilledState { SBGooFilledState_ = 0x7FFFFFFF };
+enum BoardPowerupState { BoardPowerupState_ = 0x7FFFFFFF };
+enum ForceEvent { ForceEvent_ = 0x7FFFFFFF };
+
+namespace Sext { class EventAny; }
+
+class xBase;
+
+void zEntEventAllOfType(xBase* from, unsigned int fromEvent,
+                        unsigned int toEvent, Sext::EventAny* param,
+                        unsigned int type, ForceEvent force);
 
 class xOGModel { public: unsigned char _pad0[0x30]; xVec3 pos; };
 class xOGModelHandle { public: xOGModel* model; int f4; };
@@ -368,9 +412,19 @@ public:
     bool BoardCandyCheck(xAnimTransition* a0, xAnimSingle* a1);
     bool BoardLandCheck(xAnimTransition* a0, xAnimSingle* a1);
     bool BoardQuicksandMoveCheck(xAnimTransition* a0, xAnimSingle* a1);
-    bool BoardRunCheck(xAnimTransition* a0, xAnimSingle* a1);
-    bool BoardStopCheck(xAnimTransition* a0, xAnimSingle* a1);
-    bool BoardWalkCheck(xAnimTransition* a0, xAnimSingle* a1);
+    unsigned int BoardRunCheck(xAnimTransition* a0, xAnimSingle* a1);
+    unsigned int BoardStopCheck(xAnimTransition* a0, xAnimSingle* a1);
+    unsigned int BoardWalkCheck(xAnimTransition* a0, xAnimSingle* a1);
+
+    bool BoardFallCheck(xAnimTransition* a0, xAnimSingle* a1);
+    bool DefaultStateCheck(xAnimTransition* a0, xAnimSingle* a1);
+
+    // No symbol of its own in retail: both are inlined at their one
+    // call site, and the flag each materialises is how the bytes
+    // say the boundary was there.
+    bool BoardMoveCheck(xAnimTransition* a0, xAnimSingle* a1);
+    bool BoardQuicksandStopCheck(xAnimTransition* a0,
+                                 xAnimSingle* a1);
 };
 
 
@@ -488,6 +542,14 @@ class zBoardPlayer {
 public:
     void DefaultMove(xScene* scene, float dt, xEntFrame* frame);
     void GetGoodPos(zCommonPlayer* other, int which);
+    int IsInAnyGooState();
+    int IsOnCandy();
+    bool IsOnQuicksand();
+    float GetRunStartMag();
+    float GetWalkStartMag();
+    void SetGooState(SBGooFilledState state);
+    void SetPowerupTimerToMax(BoardPowerupState state);
+    void SetCapsuleSize(float radius, float height);
     void UpdateCharacterProxy(float dt);
     unsigned int GetBehaviorSetRefHash() const;
     float GetCharacterProxyYOffset();
@@ -631,7 +693,7 @@ public:
     virtual void _v137() const;
     virtual void _v138() const;
     virtual void _v139() const;
-    virtual void _v140() const;
+    virtual float _v140() const;
     virtual void _v141() const;
     virtual void _v142() const;
     virtual void _v143() const;
@@ -653,6 +715,16 @@ public:
     virtual void _v159() const;
     virtual void _v160() const;
     virtual void _v161(float a0, float a1, float a2) const;
+    virtual void _v162() const;
+    virtual void _v163() const;
+    virtual void _v164() const;
+    virtual void _v165() const;
+    virtual void _v166() const;
+    virtual void _v167() const;
+    virtual void _v168() const;
+    virtual void _v169() const;
+    virtual void _v170() const;
+    virtual float _v171() const;
     void AbsControl(float a0, float a1, float a2);
     float GetRigidBodyHeight();
 
@@ -660,7 +732,30 @@ public:
     // bytes shorter than the member's offset: fAA4 is at 0xAA4
     // (halfExtents.y in the DWARF), and 0xAA4 of padding read it at
     // 0xAA8 -- the one accessor of this unit that did not match.
-    unsigned char _pad0[0xAA0];
+    unsigned char _pad0[0x54];
+    xEntFrame* frame;
+    unsigned char _pad1[0x168];
+    int zPlayerFlags;
+    unsigned char _pad2[0x20];
+    zPlayerInput* playerInput;
+    unsigned char _pad3[0x108];
+    float fallingTime;
+    unsigned char _pad4[0x180];
+    int lastDamageType;
+    unsigned char _pad5[0xD8];
+    int currentHitType;
+    unsigned char _pad6[0x340];
+    SBGooFilledState gooState;
+    unsigned char _pad7[0x10];
+    BoardPowerupState powerupState;
+    BoardPowerupState powerupModelState;
+    bool powerupPerformDeferredModelSwap;
+    unsigned char _pad8[0xB];
+    int f8C0;
+    float f8C4;
+    unsigned char _pad9[0x34];
+    bool f8FC;
+    unsigned char _pad10[0x1A7];
     float fAA4;
 };
 
@@ -1090,6 +1185,9 @@ public:
     bool GainSidekickPowerupCheck(xAnimTransition* a0, xAnimSingle* a1);
     bool GainSpinPowerupCheck(xAnimTransition* a0, xAnimSingle* a1);
     bool GainSpongebuffPowerupCheck(xAnimTransition* a0, xAnimSingle* a1);
+
+    void Begin();
+    void End();
 };
 
 class zPlayerHitLaunchBoard : public zPlayerAction {
@@ -1103,9 +1201,9 @@ public:
     static unsigned int anKnockbackFrontCheck(xAnimTransition* a0, xAnimSingle* a1, void* a2);
     bool KnockbackFrontCheck(xAnimTransition* a0, xAnimSingle* a1);
     static unsigned int anLaunchBackCheck(xAnimTransition* a0, xAnimSingle* a1, void* a2);
-    bool LaunchBackCheck(xAnimTransition* a0, xAnimSingle* a1);
+    unsigned int LaunchBackCheck(xAnimTransition* a0, xAnimSingle* a1);
     static unsigned int anLaunchFrontCheck(xAnimTransition* a0, xAnimSingle* a1, void* a2);
-    bool LaunchFrontCheck(xAnimTransition* a0, xAnimSingle* a1);
+    unsigned int LaunchFrontCheck(xAnimTransition* a0, xAnimSingle* a1);
     static unsigned int anLaunchGooBackCheck(xAnimTransition* a0, xAnimSingle* a1, void* a2);
     bool LaunchGooBackCheck(xAnimTransition* a0, xAnimSingle* a1);
     static unsigned int anLaunchGooFrontCheck(xAnimTransition* a0, xAnimSingle* a1, void* a2);
@@ -4113,4 +4211,382 @@ void zPlayerLandBoard::Begin() {
 void zBoardPlayerQuicksandJump::Begin() {
     f10 = 0.0f;
     f14 = ((zBoardPlayerOffsets*)player)->f998;
+}
+
+// Above the three predicates they name: mwcc inlines what it has
+// already read, and retail calls all three.
+// Three `addic ; subfe` pairs, and each one is a conversion of an
+// int to a bool as a VALUE: the two operands, then the local on the
+// way out.  Spelled `return a || b;` mwcc sets a flag register from
+// two branches instead, which is eight bytes and four words wrong.
+inline bool zBoardPlayerAction::BoardMoveCheck(xAnimTransition* a0,
+                                               xAnimSingle* a1) {
+    unsigned int moved = BoardWalkCheck(a0, a1) != 0;
+
+    if (!moved) {
+        moved = BoardRunCheck(a0, a1) != 0;
+    }
+
+    return moved;
+}
+
+inline bool zBoardPlayerAction::BoardQuicksandStopCheck(xAnimTransition* a0,
+                                                        xAnimSingle* a1) {
+    bool result = false;
+
+    if (((zBoardPlayer*)player)->IsOnQuicksand() &&
+        BoardStopCheck(a0, a1)) {
+        result = true;
+    }
+
+    return result;
+}
+
+// The pragma covers the three call sites, not the definitions: both
+// members grew past what -inline auto takes, and retail has no symbol
+// for either.
+#pragma always_inline on
+unsigned int zBoardPlayerAction::anBoardMoveCheck(xAnimTransition* a0,
+                                                  xAnimSingle* a1,
+                                                  void* a2) {
+    return ((zBoardPlayerAction*)((AnimCBHolder*)a0)->slot->owner)->_v5() &&
+           ((zBoardPlayerAction*)((AnimCBHolder*)a0)->slot->owner)->BoardMoveCheck(a0, a1);
+}
+
+unsigned int zBoardPlayerAction::anBoardQuicksandStopCheck(xAnimTransition* a0,
+                                                           xAnimSingle* a1,
+                                                           void* a2) {
+    unsigned int result = 0;
+
+    if (((zBoardPlayerAction*)((AnimCBHolder*)a0)->slot->owner)->_v5()) {
+        if (((zBoardPlayerAction*)((AnimCBHolder*)a0)->slot->owner)->BoardQuicksandStopCheck(a0, a1)) {
+            result = 1;
+        }
+    }
+
+    return result;
+}
+
+bool zBoardPlayerAction::BoardQuicksandMoveCheck(xAnimTransition* a0,
+                                                 xAnimSingle* a1) {
+    return ((zBoardPlayer*)player)->IsOnQuicksand() &&
+           BoardMoveCheck(a0, a1);
+}
+#pragma always_inline off
+
+unsigned int zBoardPlayerAction::anBoardNotCandyCheck(xAnimTransition* a0,
+                                                      xAnimSingle* a1,
+                                                      void* a2) {
+    unsigned int result = 0;
+
+    if (((zBoardPlayerAction*)((AnimCBHolder*)a0)->slot->owner)->_v5()) {
+        bool notCandy = !((zBoardPlayer*)((zBoardPlayerAction*)((AnimCBHolder*)a0)->slot->owner)->player)->IsOnCandy();
+
+        if (notCandy) {
+            result = 1;
+        }
+    }
+
+    return result;
+}
+
+unsigned int zBoardPlayerAction::anBoardNotQuicksandCheck(xAnimTransition* a0,
+                                                          xAnimSingle* a1,
+                                                          void* a2) {
+    unsigned int result = 0;
+
+    if (((zBoardPlayerAction*)((AnimCBHolder*)a0)->slot->owner)->_v5()) {
+        bool notQuicksand =
+            !((zBoardPlayer*)((zBoardPlayerAction*)((AnimCBHolder*)a0)->slot->owner)->player)->IsOnQuicksand();
+
+        if (notQuicksand) {
+            result = 1;
+        }
+    }
+
+    return result;
+}
+
+// Two locals, not two casts: retail loads the input pointer BEFORE
+// the magnitude call, which only a value already in a register can
+// survive.
+unsigned int zBoardPlayerAction::BoardRunCheck(xAnimTransition* a0,
+                                               xAnimSingle* a1) {
+    zBoardPlayer* p = (zBoardPlayer*)player;
+    zPlayerInput* input = p->playerInput;
+
+    return input->_v27(0, 2) >= p->GetRunStartMag();
+}
+
+unsigned int zBoardPlayerAction::BoardStopCheck(xAnimTransition* a0,
+                                                xAnimSingle* a1) {
+    zBoardPlayer* p = (zBoardPlayer*)player;
+    zPlayerInput* input = p->playerInput;
+
+    if (input->_v27(0, 2) < p->GetWalkStartMag() ||
+        ((zBoardPlayer*)player)->f8FC) {
+        return true;
+    }
+
+    return false;
+}
+
+// The same pair of locals twice, in their own scopes: retail reads
+// the player and the input pointer again for the second threshold,
+// which one pair kept in registers would not do.
+unsigned int zBoardPlayerAction::BoardWalkCheck(xAnimTransition* a0,
+                                                xAnimSingle* a1) {
+    zBoardPlayer* p = (zBoardPlayer*)player;
+    zPlayerInput* input = p->playerInput;
+
+    if (input->_v27(0, 2) < p->GetRunStartMag()) {
+        zBoardPlayer* p2 = (zBoardPlayer*)player;
+        zPlayerInput* input2 = p2->playerInput;
+
+        if (input2->_v27(0, 2) >= p2->GetWalkStartMag() &&
+            !((zBoardPlayer*)player)->f8FC) {
+            return true;
+        }
+    }
+
+    return false;
+}
+
+bool zBoardPlayerAction::DefaultStateCheck(xAnimTransition* a0,
+                                           xAnimSingle* a1) {
+    bool result = false;
+
+    if (((zBoardPlayer*)player)->powerupState == 0 &&
+        ((zBoardPlayer*)player)->powerupModelState == 0 &&
+        !((zBoardPlayer*)player)->IsInAnyGooState()) {
+        result = true;
+    }
+
+    return result;
+}
+
+bool zBoardPlayerAction::BoardCandyCheck(xAnimTransition* a0,
+                                         xAnimSingle* a1) {
+    bool result = false;
+
+    if (((zBoardPlayer*)player)->IsOnCandy()) {
+        bool inner = true;
+
+        if (!DefaultStateCheck(a0, a1) &&
+            ((zBoardPlayer*)player)->powerupState != 1) {
+            inner = false;
+        }
+
+        if (inner) {
+            result = true;
+        }
+    }
+
+    return result;
+}
+
+bool zBoardPlayerAction::BoardCandyBuffCheck(xAnimTransition* a0,
+                                             xAnimSingle* a1) {
+    bool result = false;
+
+    if (BoardCandyCheck(a0, a1) &&
+        ((zBoardPlayer*)player)->powerupState == 1) {
+        result = true;
+    }
+
+    return result;
+}
+
+bool zBoardPlayerAction::BoardFallCheck(xAnimTransition* a0,
+                                        xAnimSingle* a1) {
+    // No frame at all: two conditional returns, which is what `&&`
+    // gives a leaf.
+    return !(((zBoardPlayer*)player)->zPlayerFlags & 0x4) &&
+           ((zBoardPlayer*)player)->fallingTime > 0.13f;
+}
+
+bool zPlayerHitLaunchBoard::KnockbackFrontCheck(xAnimTransition* a0,
+                                                 xAnimSingle* a1) {
+    bool hit = ((zBoardPlayer*)player)->lastDamageType == 9;
+
+    if (hit) {
+        hit = LaunchFrontCheck(a0, a1) != 0;
+    }
+
+    return hit;
+}
+
+bool zPlayerHitLaunchBoard::LaunchGooFrontCheck(xAnimTransition* a0,
+                                                 xAnimSingle* a1) {
+    bool goo = ((zBoardPlayer*)player)->gooState == 2;
+
+    if (goo) {
+        goo = LaunchFrontCheck(a0, a1) != 0;
+    }
+
+    return goo;
+}
+
+bool zPlayerHitLaunchBoard::KnockbackBackCheck(xAnimTransition* a0,
+                                                xAnimSingle* a1) {
+    bool hit = ((zBoardPlayer*)player)->lastDamageType == 9;
+
+    if (hit) {
+        hit = LaunchBackCheck(a0, a1) != 0;
+    }
+
+    return hit;
+}
+
+bool zPlayerHitLaunchBoard::LaunchGooBackCheck(xAnimTransition* a0,
+                                                xAnimSingle* a1) {
+    bool goo = ((zBoardPlayer*)player)->gooState == 2;
+
+    if (goo) {
+        goo = LaunchBackCheck(a0, a1) != 0;
+    }
+
+    return goo;
+}
+
+unsigned int zPlayerHitLaunchBoard::LaunchFrontCheck(xAnimTransition* a0,
+                                                      xAnimSingle* a1) {
+    zBoardPlayer* p = (zBoardPlayer*)player;
+
+    if (p->currentHitType == 2) {
+        p->SetGooState((SBGooFilledState)0);
+
+        return 1;
+    }
+
+    return 0;
+}
+
+unsigned int zPlayerHitLaunchBoard::LaunchBackCheck(xAnimTransition* a0,
+                                                     xAnimSingle* a1) {
+    zBoardPlayer* p = (zBoardPlayer*)player;
+
+    if (p->currentHitType == 1) {
+        p->SetGooState((SBGooFilledState)0);
+
+        return 1;
+    }
+
+    return 0;
+}
+
+bool zBoardPlayerGainPowerup::GainSpinPowerupCheck(xAnimTransition* a0,
+                                                    xAnimSingle* a1) {
+    zBoardPlayer* p = (zBoardPlayer*)player;
+
+    if (p->powerupState == 9) {
+        p->f8C0 = 2;
+        p->f8C4 = -1.0f;
+
+        return true;
+    }
+
+    return false;
+}
+
+bool zBoardPlayerGainPowerup::GainHammerPowerupCheck(xAnimTransition* a0,
+                                                      xAnimSingle* a1) {
+    zBoardPlayer* p = (zBoardPlayer*)player;
+
+    if (p->powerupState == 10) {
+        p->f8C0 = 1;
+        p->f8C4 = -1.0f;
+
+        return true;
+    }
+
+    return false;
+}
+
+bool zBoardPlayerGainPowerup::GainPuckPowerupCheck(xAnimTransition* a0,
+                                                    xAnimSingle* a1) {
+    zBoardPlayer* p = (zBoardPlayer*)player;
+
+    if (p->powerupState == 11) {
+        p->f8C0 = 3;
+        p->f8C4 = -1.0f;
+
+        return true;
+    }
+
+    return false;
+}
+
+bool zBoardPlayerGainPowerup::GainSpongebuffPowerupCheck(xAnimTransition* a0,
+                                                          xAnimSingle* a1) {
+    zBoardPlayer* p = (zBoardPlayer*)player;
+
+    if (p->powerupState == 1 && p->powerupModelState == 0) {
+        // `stw r3` stores the register the compare loaded, so the
+        // source assigns the member and not the literal.
+        p->powerupModelState = p->powerupState;
+
+        return true;
+    }
+
+    return false;
+}
+
+bool zBoardPlayerGainPowerup::GainInvincibilityPowerupCheck(xAnimTransition* a0,
+                                                             xAnimSingle* a1) {
+    zBoardPlayer* p = (zBoardPlayer*)player;
+
+    if (p->powerupState == 5 && p->powerupModelState == 0) {
+        // `stw r3` stores the register the compare loaded, so the
+        // source assigns the member and not the literal.
+        p->powerupModelState = p->powerupState;
+
+        return true;
+    }
+
+    return false;
+}
+
+bool zBoardPlayerGainPowerup::GainSidekickPowerupCheck(xAnimTransition* a0,
+                                                       xAnimSingle* a1) {
+    zBoardPlayer* p = (zBoardPlayer*)player;
+
+    // Three equalities, not a range: a range spelled as one folds
+    // to `addi -9 ; cmplwi 2` (chained or nested, both tried), and
+    // retail keeps the two signed compares mwcc leaves when it
+    // builds the range itself.
+    if (p->powerupModelState == 0 &&
+        (p->powerupState == 9 || p->powerupState == 10 ||
+         p->powerupState == 11)) {
+        return true;
+    }
+
+    return false;
+}
+
+void zBoardPlayerGainPowerup::Begin() {
+    zBoardPlayer* p = (zBoardPlayer*)player;
+
+    p->frame->zeroVel();
+    p->zPlayerFlags &= ~0x10;
+    p->SetGooState((SBGooFilledState)0);
+}
+
+// The board twin of zSBPlayerGainPowerup::End: the two virtual calls
+// are evaluated RIGHT TO LEFT, so slot 140 comes first in the bytes
+// and its result feeds the SECOND argument.
+void zBoardPlayerGainPowerup::End() {
+    zBoardPlayer* p = (zBoardPlayer*)player;
+
+    p->powerupPerformDeferredModelSwap = true;
+    p->SetPowerupTimerToMax(p->powerupState);
+
+    unsigned char param = p->powerupState;
+
+    zEntEventAllOfType(0, 0, 0xFEF69755, (Sext::EventAny*)&param, 219,
+                       (ForceEvent)1);
+
+    if (p->powerupState == 2) {
+        p->SetCapsuleSize(p->_v171(), 0.4f + p->_v140());
+    }
 }

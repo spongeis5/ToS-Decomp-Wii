@@ -7,18 +7,18 @@ numbers here, which move.
 ## State at time of writing
 
 ```
-Game Code:  67 of 777 files complete  350,840 / 2,116,616 bytes  2,894 / 10,697 fn
-            16.5755% of game code
+Game Code:  67 of 777 files complete  354,532 / 2,116,616 bytes  2,953 / 10,697 fn
+            16.7499% of game code
 
-Of those 2,894 functions, 856 are GENERATED -- machine-recognised
+Of those 2,953 functions, 856 are GENERATED -- machine-recognised
 shapes, not one of which is decompiling. They are real matched
 functions and the offsets and constants are recovered fact, but a
 count of them is not a count of decompiled code. HAND-WRITTEN IS
-2,038, across 265 units and 316,540 bytes, and that is the figure to
+2,097, across 265 units and 320,232 bytes, and that is the figure to
 compare against earlier ones.
 
 Data:       4 unit(s) carry their own, 412 bytes; 134 more could
-All:        7.01% matched              main.dol reproduces byte for byte
+All:        7.06% matched              main.dol reproduces byte for byte
 ```
 
 Every number above is written by `python tools/notes_state.py`,
@@ -4321,3 +4321,96 @@ Two things that are NOT levers, measured rather than assumed: which
 overload of a name gets picked (CodeWarrior mangles static and non-static
 members identically -- read the registers instead, see Blobloids.cpp), and
 operand order in a commutative expression.
+
+## A BOOL IS ARITHMETIC OR IT IS A FLAG, and the bytes say which
+
+The twenty-six predicates zBoardPlayerAction and its two powerup
+actions are made of are all the same four lines of C++ with different
+members in them, and the first twelve went in at three of twelve. Every
+one of the nine misses was one of five spellings, and each of the five
+is readable in the bytes BEFORE a line is written.
+
+**`addic rX,rY,-1 ; subfe rX,rX,rY` is an int being converted to a
+bool as a VALUE.** Not a branch -- the value ends up in a register and
+the branch, if there is one, comes from the record form. Count them:
+anBoardMoveCheck has three, which is one per `||` operand plus one for
+the conversion on the way out, and that is the whole shape of the
+function. `return a || b;` does NOT give it: mwcc sets a flag register
+from two branches instead, which is eight bytes and a saved register
+wrong. What gives it is the value spelled as a value --
+
+```cpp
+unsigned int moved = BoardWalkCheck(a0, a1) != 0;
+
+if (!moved) {
+    moved = BoardRunCheck(a0, a1) != 0;
+}
+
+return moved;                 // the bool return is normalise #3
+```
+
+-- and the operands have to be int-returning for the first two to
+exist at all. mwcc knows a bool-returning call is already 0 or 1 and
+skips the conversion, so a `bool BoardWalkCheck` costs two of the
+three. The return type is not in the mangled name, so it is free to
+change, and here the CALLERS are what fix it.
+
+**`cntlzw ; srwi. r0,r0,5` on `x - k` is `x == k` as a value**, the
+same idea one step earlier. KnockbackFrontCheck is `bool hit = lastDamageType
+== 9; if (hit) { hit = LaunchFrontCheck(a0, a1) != 0; } return hit;` --
+no saved register, no flag, r0 all the way. Spelled `return lastDamageType
+== 9 && LaunchFrontCheck(a0, a1);` it saves r31 and sets a flag: eight
+bytes and fifteen of seventeen words.
+
+**The left operand of an `&&` is normalised too if it returns int.**
+BoardQuicksandMoveCheck was one word from exact with a spurious
+`addic ; subfe` right after `bl IsOnQuicksand`, and the fix was the
+callee's declared return type -- `bool IsOnQuicksand()` gives the
+`cmpwi r3,0 ; beq` retail has. Two functions in the same file, one
+wanting bool and one wanting int, and the only evidence is which of
+the two sequences the caller holds.
+
+**A materialised flag is a function boundary.** `li r30,1` before a
+call and `li r30,0` after it is a bool mwcc had to keep, and mwcc only
+keeps one when the value crossed a call it inlined. Where retail has a
+flag and the obvious source does not, retail called something. Nine of
+the twenty-six here forward to a member with no symbol of its own:
+anBoardQuicksandStopCheck is the standard wrapper around an inlined
+`BoardQuicksandStopCheck`, and BoardWalkCheck is `!BoardRunCheck() &&
+!BoardStopCheck()` with both taken in -- which is why it reads the
+input magnitude twice.
+
+**`#pragma always_inline on` goes around the CALL SITE.** Both
+invented members grew past what `-inline auto` takes and mwcc emitted
+them out of line -- unitcmp says EXTRA, NOT IN RETAIL, which is the
+check that catches it. The pragma around the three callers inlines
+them and the out-of-line copies stop being emitted; around the
+DEFINITION it does nothing, because it is a property of the call.
+
+**And a local is not a cast.** `((zBoardPlayer*)player)->playerInput->
+GetMag() >= ((zBoardPlayer*)player)->GetRunStartMag()` loads the
+player, calls, and loads it AGAIN, because mwcc cannot prove a call
+leaves `this->player` alone. Retail loads it once and takes the input
+pointer BEFORE the call:
+
+```cpp
+zBoardPlayer* p = (zBoardPlayer*)player;
+zPlayerInput* input = p->playerInput;
+
+return input->_v27(0, 2) >= p->GetRunStartMag();
+```
+
+Two locals, four words, exact. And BoardWalkCheck needs the pair
+TWICE, in two scopes, because retail re-derives both for the second
+threshold -- one pair held in registers would not.
+
+STILL UNREACHED, with its mechanism recorded: GainSidekickPowerupCheck
+(52 B). Retail tests `>= 9` and `<= 11` with two signed compares;
+every spelling of a range on one variable folds to `addi r0,r3,-9 ;
+cmplwi r0,2` -- one expression, three nested ifs, and three equalities
+joined by `||` were each tried, and all three fold. It is the same
+fold that holds zSBPlayerActions' PowerupStateCheck, so the answer is
+worth two functions and not one.
+
+Twenty-five of twenty-six, 2,332 bytes. WAD01_28 309 of 310. Game Code
+16.6403% -> 16.75%.

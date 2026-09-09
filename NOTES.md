@@ -7,18 +7,18 @@ numbers here, which move.
 ## State at time of writing
 
 ```
-Game Code:  67 of 777 files complete  370,204 / 2,116,616 bytes  3,151 / 10,697 fn
-            17.4904% of game code
+Game Code:  67 of 777 files complete  371,136 / 2,116,616 bytes  3,160 / 10,697 fn
+            17.5344% of game code
 
-Of those 3,151 functions, 856 are GENERATED -- machine-recognised
+Of those 3,160 functions, 856 are GENERATED -- machine-recognised
 shapes, not one of which is decompiling. They are real matched
 functions and the offsets and constants are recovered fact, but a
 count of them is not a count of decompiled code. HAND-WRITTEN IS
-2,295, across 265 units and 335,904 bytes, and that is the figure to
+2,304, across 265 units and 336,836 bytes, and that is the figure to
 compare against earlier ones.
 
 Data:       4 unit(s) carry their own, 412 bytes; 134 more could
-All:        7.30% matched              main.dol reproduces byte for byte
+All:        7.31% matched              main.dol reproduces byte for byte
 ```
 
 Every number above is written by `python tools/notes_state.py`,
@@ -4776,3 +4776,32 @@ a body written.
 
 zCommonPlayerActions 109 of 112 -> 119 of 122. Game Code 17.46% ->
 17.49%, 369,460 -> 370,204 bytes of 2,116,616.
+
+## MOVE THE CALLEE, NOT THE CALLER -- nine bodies behind two `bl`s
+
+Seven of nine new bodies in zCommonPlayerActions call IsLastEntry or
+SetBlend, and retail leaves both as a `bl`. Both were ALREADY
+matched and already sitting in the file above where a new body
+lands, so mwcc would have inlined them.
+
+The fix is not a pragma and not a rewrite: **the two definitions
+move to the end of the file, after every caller.** A function's own
+bytes do not depend on where its definition sits -- both stayed
+byte-identical across the move, which is the measurement that says
+the technique is free. Only its callers' bytes depend on it.
+
+That makes ordering a lever that can be applied to work already
+done, not only to work being written. A near-miss whose only fault
+is an inlined call has a fix available even when the callee has
+been matched and committed for weeks: move the callee down.
+
+**Only a NON-ZERO constant carries signedness.** TranToLoop1DefCheck
+compares f38 with `cmplwi r0,1` and TranToLoop2DefCheck compares the
+same member with `cmpwi r0,0`. That is not a contradiction -- mwcc
+compares against zero with cmpwi whatever the type -- so the member
+is unsigned and only the first of the two says so. Reading the
+zero-compare as evidence of a signed type would have got it wrong,
+and the pair is in the same file eight bytes apart.
+
+zCommonPlayerActions 119 of 122 -> 128 of 131. Game Code 17.49% ->
+17.53%, 370,204 -> 371,136 bytes of 2,116,616.

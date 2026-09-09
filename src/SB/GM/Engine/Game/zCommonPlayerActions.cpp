@@ -147,7 +147,7 @@ public:
     virtual void _v45();
     virtual void _v46();
     virtual void _v47();
-    virtual void _v48();
+    virtual bool _v48();
     virtual void _v49();
     virtual void _v50();
     virtual void _v51();
@@ -234,7 +234,9 @@ public:
     xOGModelHandle ogModel;
     unsigned char _pad1[0x58 - 0x3C];
     xEntFrame* frame;
-    unsigned char _pad2[0x1C4 - 0x5C];
+    unsigned char _pad2[0x14C - 0x5C];
+    int f14C;
+    unsigned char _pad2b[0x1C4 - 0x150];
     int zPlayerFlags;
     unsigned char _pad3[0x2F4 - 0x1C8];
     float fallingTime;
@@ -573,7 +575,8 @@ public:
     float f20;
     unsigned char _pad1[0x34 - 0x24];
     int f34;
-    int f38;
+    // `cmplwi r0,1` in TranToLoop1DefCheck, so unsigned.
+    unsigned int f38;
 
     void SetNextState();
 
@@ -832,6 +835,13 @@ void zPlayerSlip::AddActionTransitions(xAnimTable* table) {
     manager->AddStandardTransitionsTo(12, table, zPlayerSlip::GetTransitionString());
 }
 
+// Only the static zPlayerDefeated::Begin calls; the mangling
+// carries no `this`.
+class zSoundModule {
+public:
+    static void SoundCategoryStopAllEvents(const char* a0);
+};
+
 class zPlayerDefeated : public zPlayerAction {
 public:
     static unsigned int anDeathCheck(xAnimTransition*, xAnimSingle*, void*);
@@ -840,6 +850,8 @@ public:
     void AddStates(xAnimTable* table);
     bool DeathCheck(xAnimTransition* a0, xAnimSingle* a1);
     bool DrownCheck(xAnimTransition* a0, xAnimSingle* a1);
+
+    void Begin();
 };
 
 // zPlayerDefeated::AddTransitionsFrom: 2 call(s)
@@ -1318,10 +1330,6 @@ void zPlayerLand::anLandBeforeEnter(xAnimPlay* a0, xAnimState* a1,
     ((zPlayerLand*)((AnimCBSlot*)a1)->owner)->LandBeforeEnter(a0, a1);
 }
 
-bool zPlayerCustomAnim::IsLastEntry() {
-    return f14 >= f10->f4;
-}
-
 void zPlayerHit::End() {
     player->currentHitType = -1;
 
@@ -1577,6 +1585,134 @@ void zPlayerAction::AddStandardTransitionsFrom(xAnimTable* table,
                                                const char* name) {
     AddTransitions(table, name, 0, 0, 1000, 0.15f, 0, 0,
                    (zPlayerAction::SpecialActions)0);
+}
+
+
+bool zPlayerCustomAnim::TranToTranDefCheck(xAnimTransition* a0,
+                                           xAnimSingle* a1) {
+    if (IsLastEntry()) {
+        return false;
+    }
+
+    if (!f1A) {
+        SetBlend(a0);
+
+        return true;
+    }
+
+    return false;
+}
+
+bool zPlayerCustomAnim::TranToLoop1DefCheck(xAnimTransition* a0,
+                                            xAnimSingle* a1) {
+    if (IsLastEntry()) {
+        return false;
+    }
+
+    if (f1A && f38 == 1) {
+        SetBlend(a0);
+
+        return true;
+    }
+
+    return false;
+}
+
+bool zPlayerCustomAnim::TranToLoop2DefCheck(xAnimTransition* a0,
+                                            xAnimSingle* a1) {
+    if (IsLastEntry()) {
+        return false;
+    }
+
+    if (f1A && f38 == 0) {
+        SetBlend(a0);
+
+        return true;
+    }
+
+    return false;
+}
+
+bool zPlayerCustomAnim::TranToTranCheck(xAnimTransition* a0,
+                                        xAnimSingle* a1) {
+    if (IsLastEntry()) {
+        return false;
+    }
+
+    if (f18 && !f1A) {
+        SetBlend(a0);
+
+        return true;
+    }
+
+    return false;
+}
+
+bool zPlayerCustomAnim::LoopToLoopCheck(xAnimTransition* a0,
+                                        xAnimSingle* a1) {
+    if (IsLastEntry()) {
+        return false;
+    }
+
+    if (f18 && f1A) {
+        SetBlend(a0);
+
+        return true;
+    }
+
+    return false;
+}
+
+unsigned int zPlayerCustomAnim::anStopCheck(xAnimTransition* a0,
+                                            xAnimSingle* a1,
+                                            void* a2) {
+    unsigned int result = 0;
+
+    if (((zPlayerCustomAnim*)((AnimCBHolder*)a1)->slot->owner)->_v5()) {
+        if (((zPlayerCustomAnim*)((AnimCBHolder*)a1)->slot->owner)->f19) {
+            result = 1;
+        }
+    }
+
+    return result;
+}
+
+unsigned int zPlayerCustomAnim::anStopDefCheck(xAnimTransition* a0,
+                                               xAnimSingle* a1,
+                                               void* a2) {
+    unsigned int result = 0;
+
+    if (((zPlayerCustomAnim*)((AnimCBHolder*)a1)->slot->owner)->_v5()) {
+        if (((zPlayerCustomAnim*)((AnimCBHolder*)a1)->slot->owner)->IsLastEntry()) {
+            result = 1;
+        }
+    }
+
+    return result;
+}
+
+bool zPlayerHit::HitCheck(xAnimTransition* a0, xAnimSingle* a1) {
+    bool result = false;
+
+    if (player->currentHitType == 0 && !player->_v48()) {
+        result = true;
+    }
+
+    return result;
+}
+
+void zPlayerDefeated::Begin() {
+    zSoundModule::SoundCategoryStopAllEvents("dialog");
+
+    player->f14C++;
+    player->zPlayerFlags |= 0x8000;
+}
+
+// The two below are called by the bodies above and retail leaves
+// both as a `bl`, so they are defined LAST.
+
+bool zPlayerCustomAnim::IsLastEntry() {
+    return f14 >= f10->f4;
 }
 
 void zPlayerCustomAnim::SetBlend(xAnimTransition* a0) {

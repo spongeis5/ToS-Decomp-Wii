@@ -4986,3 +4986,63 @@ The twelve run r31, r30, r29 -- reversed. So the allocation order
 flips between the two-condition and three-condition forms, and the
 question is what the third condition changes. That is a smaller
 question than it was, and it is 1,808 bytes.
+
+## 44,480 BYTES ARE ALREADY WRITTEN AND DO NOT COUNT
+
+`tools/nearmiss.py` ranks every Game Code function whose fuzzy score
+is strictly between 0 and 100 -- work whose object we build and
+whose bytes disagree. There are **102 of them across 777 game
+units, 44,480 bytes**, and seventeen of those are at 99% or better
+for 16,296 bytes.
+
+A near miss pays its WHOLE size when it lands, not the missing
+fraction, so the ranking is by size. This is a bigger pool than
+everything unwritten that is small enough to hand-write, and it is
+the first place to look.
+
+**The biggest single prize in the project is two words.**
+Sext::FixWmlType is 11,944 bytes and 2 of its 2,986 words differ.
+Both are the same register: retail reuses r31 -- the register the
+`p` parameter occupied, dead one instruction earlier -- for the
+third walking loop's `end`, and we take r28 and leave r31 alone.
+The other two walking loops in the function match.
+
+Seven spellings of that loop were measured. The one already in the
+file is the floor:
+
+  * `end` declared, then `e`, then `end` assigned -- 2 words
+  * the addend on the left of the `+` -- 2
+  * a `for` rather than a `while` -- 2
+  * the count read into its own local first -- 2
+  * `e` declared and initialised first -- 11
+  * both declared up front, assigned after -- 11
+  * `end` held `const` -- 11
+
+So the choice is between two FREE callee-saved registers and is not
+reachable from this loop's spelling. r28 and r31 are both used
+elsewhere in the function and both are dead here; the allocator is
+colouring a graph the whole function shapes. That is a different
+kind of search from every lever recorded so far, and 11,944 bytes
+are behind it.
+
+**The five animation-table near-misses are not regeneration
+failures.** Running gen_animtables.py over
+AddActionTransitions__12zPlayerLedge and
+AddActionTransitions__13zPlayerWalkSB produced an EMPTY diff -- the
+generator reproduces what the file already says, byte for byte, and
+the file disagrees with retail. Their argument lists were checked
+against `--calls` and agree. What differs is register allocation and
+string-base hoisting across a long call sequence, so the fault is in
+what the generator READS, not in the merge.
+
+**zGameStateSwitchEvent is eight words, all stack offsets.** Retail
+puts each block's `now` at the low slot of its pair and `current` at
+the high one; we have them reversed. Three spellings were measured
+and the one in the file is again the floor -- declaring both locals
+up front lets mwcc MERGE the pair, and the function shrinks from 256
+to 224 bytes with 41 words out instead of 8.
+
+Nothing in this survey moved a byte. What it moved is the shape of
+the question: three of the biggest near-misses are now known to be
+allocation and layout choices that no local respelling reaches, and
+the tool that finds the rest is in tools/.

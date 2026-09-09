@@ -360,6 +360,7 @@ public:
 class xOGModel : public xModelInstance {
 public:
     void UpdateRender();
+    void SwapXModel(xOGModel& src);
     int AllocAnimationInstances();
     void DeallocAnimationInstances();
     RefInstanceAnimation* GetRefAnimation(unsigned long long refId,
@@ -384,6 +385,24 @@ public:
 };
 
 }  // namespace World
+
+class xAnimPlay {
+public:
+    xAnimPlay* Next;
+    unsigned short NumSingle;
+    unsigned short BoneCount;
+    unsigned short MorphCount;
+    unsigned short padding0;
+    void* Single;
+    void* Object;
+    void* Table;
+    void* Pool;
+    World::xOGModel* ModelInst;
+    void (*BeforeAnimMatrices)();
+    void (*AfterAnimMatrices)();
+    void (*AnimMorphWeights)();
+    unsigned int padding1[1];
+};
 
 class xMemPool {
 public:
@@ -889,6 +908,44 @@ xModelInstance::RefInstanceAnimation* World::xOGModel::GetRefAnimation(
     }
 
     return animInst;
+}
+
+
+// Everything the instance owns moves across and the source is left
+// holding nothing; the play, if there is one, is re-pointed at the new
+// owner and re-counted. The member order below is the store order in
+// the image, which is what decides the schedule.
+// NOT MATCHING: 220 against retail's 260 and all 55 words differ, so
+// the shape is wrong rather than the order. The member list below is
+// read off the store addresses and is not in doubt; what is missing is
+// whatever makes retail spend another 40 bytes.
+void World::xOGModel::SwapXModel(World::xOGModel& src) {
+    Mat = src.Mat;
+    Scale = src.Scale;
+    Anim = src.Anim;
+    Flags = src.Flags;
+    renderCustomizerMask = src.renderCustomizerMask;
+    visModel = src.visModel;
+    boundRefModelInstanceAnimationCount =
+        src.boundRefModelInstanceAnimationCount;
+    referenceAnimations = src.referenceAnimations;
+    numAnimationsEnabled = src.numAnimationsEnabled;
+    nextReferenceAnimationLODUpdate = src.nextReferenceAnimationLODUpdate;
+    disabledReferenceAnimations = src.disabledReferenceAnimations;
+    enabledReferenceAnimations = src.enabledReferenceAnimations;
+
+    if (Anim != 0) {
+        Anim->ModelInst = this;
+        Anim->BoneCount = xModelGetBoneCount(this);
+        Anim->MorphCount = xModelGetMorphCount(this);
+    }
+
+    src.Anim = 0;
+    src.numAnimationsEnabled = 0;
+    src.enabledReferenceAnimations = 0;
+    src.disabledReferenceAnimations = 0;
+    src.nextReferenceAnimationLODUpdate = 0;
+    src.referenceAnimations = 0;
 }
 
 // -- generated accessor part (gen_accessors.py) --------------------

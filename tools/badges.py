@@ -36,12 +36,12 @@ OUT = ROOT / "progress"
 # top level rather than in a category, which is what decomp.dev calls
 # `category=all`.
 BADGES = [
-    ("game_code", "Game Code", "game", "matched_code_percent"),
+    ("game_code", "Game Matched", "game", "matched_code_percent"),
     ("game_fuzzy", "Game Fuzzy", "game", "fuzzy_match_percent"),
-    ("image_code", "Image", None, "matched_code_percent"),
+    ("image_code", "Image Matched", None, "matched_code_percent"),
     ("image_fuzzy", "Image Fuzzy", None, "fuzzy_match_percent"),
     ("linked", "Image Linked", None, "complete_code_percent"),
-    ("data", "Data", None, "matched_data_percent"),
+    ("data", "Image Data", None, "matched_data_percent"),
 ]
 
 COLOR = "007ec6"

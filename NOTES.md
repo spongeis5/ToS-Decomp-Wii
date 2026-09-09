@@ -7,18 +7,18 @@ numbers here, which move.
 ## State at time of writing
 
 ```
-Game Code:  67 of 777 files complete  368,912 / 2,116,616 bytes  3,129 / 10,697 fn
-            17.4293% of game code
+Game Code:  67 of 777 files complete  369,460 / 2,116,616 bytes  3,141 / 10,697 fn
+            17.4552% of game code
 
-Of those 3,129 functions, 856 are GENERATED -- machine-recognised
+Of those 3,141 functions, 856 are GENERATED -- machine-recognised
 shapes, not one of which is decompiling. They are real matched
 functions and the offsets and constants are recovered fact, but a
 count of them is not a count of decompiled code. HAND-WRITTEN IS
-2,273, across 265 units and 334,612 bytes, and that is the figure to
+2,285, across 265 units and 335,160 bytes, and that is the figure to
 compare against earlier ones.
 
 Data:       4 unit(s) carry their own, 412 bytes; 134 more could
-All:        7.28% matched              main.dol reproduces byte for byte
+All:        7.29% matched              main.dol reproduces byte for byte
 ```
 
 Every number above is written by `python tools/notes_state.py`,
@@ -4661,3 +4661,69 @@ a commutation, and this is the case that shows the difference.
 
 Thirty-three functions across the two files, 2,384 bytes.  Game Code
 17.25% -> 17.30%.
+
+## A FLOAT COMPARE IS A VALUE OR A BRANCH, and four registers say which
+
+Twenty-five functions of zCommonPlayerActions in two batches, and
+the five that missed all missed for a reason that generalises.
+
+**A single float compare RETURNED DIRECTLY becomes `mfcr`;
+assigned to a flag first it stays a branch.**
+`return f10 <= 0.0f;` gives `fcmpo ; cror 2,0,2 ; mfcr ; rlwinm`
+-- eight bytes and no branch. Retail wanted
+`bool result = false; if (f10 <= 0.0f) result = true; return result;`,
+which is `li r3,0 ; fcmpo ; cror ; bnelr ; li r3,1 ; blr`. This is
+the same lever as `bool ok = A && B` versus `if (A && B) ok = true`,
+but pointing the other way, and the count of operands is what
+decides: the `||` chain in LaunchCheck one line below returns
+DIRECTLY and matches, because short-circuiting an `||` needs the
+branches anyway. One comparison folds to a value; two do not.
+
+**An early `return` on the NEGATED float condition costs a `cror`.**
+`if (f1C <= 0.0f) return;` has to build LE as LT|EQ before it can
+branch on it: `fcmpo ; cror 2,0,2 ; beqlr`, three instructions.
+Nesting the body under the positive `if (f1C > 0.0f) { ... }` lets
+mwcc negate with the single `blelr` the ISA already has. Four bytes,
+and it is the difference between 48 and retail's 44.
+
+The integer form does not have this problem -- `cmplwi` sets EQ
+directly and `beqlr` is one instruction either way -- so the lever
+is specific to the four float relations that are not LT, GT or EQ.
+
+**In a MEMBER check the holder is a0; in a static `an*` callback it
+is whichever of a0 and a1 the bytes name.** A member has `this` in
+r3, so a0 is r4 and a1 is r5; a static has a0 in r3 and a1 in r4.
+TriggeredAnimCheck came out the right SIZE and the right SHAPE with
+four words differing, and all four were a register number: reading
+the holder out of a1 kept r5 live and pushed the flag to r6, where
+retail reads it out of a0 and the flag falls into r5. A diff that is
+entirely register numbers is a diff about which parameter was used.
+
+**The virtuals go in FRONT of the padding.** zPlayerHit::End tail
+calls slot 129 through a vptr at 0, so zPlayer stops being a byte
+array -- and the padding before its first known field gives up
+exactly the four bytes the vptr takes. Appending them instead would
+have moved every field by four, which is the mistake the previous
+commit made with a member and which unitcmp caught both times.
+
+**The player is loaded twice where the store went THROUGH it and
+once where the store went through `this`.** zPlayerHit::End reloads
+`player` after `stw r0,1364(r4)` because that store could alias
+`this->player`; zCommonPlayerInterAction::End does not, because its
+store is to `this->f10` and mwcc knows two members of one object are
+distinct. Writing a local to hold the player is wrong in the first
+case and unnecessary in the second -- the aliasing decides, not the
+reader.
+
+Two under 60 bytes are deliberately unwritten, with the mechanism
+measured rather than assumed. End__11zPlayerIdle calls a 16-byte
+indexed accessor -- `lwz r3,0(r3) ; slwi ; lwzx ; blr` -- whose only
+symbol is Graphics::ModelPrototype::GetBuilder(int); that is what
+zPlayerActionManager::GetAction compiles to given `zPlayerAction**
+actions` at 0, so the linker folded them and kept the other name.
+Begin__24zCommonPlayerInterAction calls
+Pointer32<Sext::EventAny*>::Get, which wants the template declared
+before it can be named.
+
+zCommonPlayerActions 84 of 87 -> 109 of 112. Game Code 17.41% ->
+17.46%, 368,524 -> 369,460 bytes of 2,116,616.

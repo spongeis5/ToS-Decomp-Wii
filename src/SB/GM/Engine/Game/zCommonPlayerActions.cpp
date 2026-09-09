@@ -61,6 +61,20 @@ class xVec3 { public: float x; float y; float z; };
 class xOGModel { public: unsigned char _pad0[0x30]; xVec3 pos; };
 class xOGModelHandle { public: xOGModel* model; int f4; };
 
+// The two fields ApplyBasicPhysics touches: a flag word it ORs 2
+// into, and the vector it adds through. `ori`, so unsigned.
+class xEntFrame {
+public:
+    unsigned char _pad0[0x94];
+    unsigned int flags;
+    xVec3 pos;
+};
+void v3add(xVec3* d, xVec3* a, xVec3* b);
+
+// Q24Sext10eHitSource -- two components, so Sext qualifies it.
+// Only the value zPlayerFallToDeath::Begin passes is known.
+namespace Sext { enum eHitSource { eHitSource_ = 0x7FFFFFFF }; }
+
 // Nothing NAMES it -- `addi r3,r4,1244` carries no relocation, so
 // it is the player's own storage at +0x4DC, reached as an offset
 // rather than declared as a member of unknown size.
@@ -208,12 +222,26 @@ public:
 
     unsigned char _pad0[0x34 - 0x4];
     xOGModelHandle ogModel;
-    unsigned char _pad1[0x4A0 - 0x3C];
+    unsigned char _pad1[0x58 - 0x3C];
+    xEntFrame* frame;
+    unsigned char _pad2[0x1C4 - 0x5C];
+    int zPlayerFlags;
+    unsigned char _pad3[0x2F4 - 0x1C8];
+    float fallingTime;
+    unsigned char _pad4[0x4A0 - 0x2F8];
     int f4A0;
-    unsigned char _pad2[0x4A8 - 0x4A4];
+    unsigned char _pad5[0x4A8 - 0x4A4];
     float f4A8;
-    unsigned char _pad3[0x554 - 0x4AC];
+    unsigned char _pad6[0x554 - 0x4AC];
     int currentHitType;
+    unsigned char _pad7[0x5C4 - 0x558];
+    float f5C4;
+    unsigned char _pad8[0x5EC - 0x5C8];
+    // `extsb`, so signed.
+    signed char f5EC;
+    signed char f5ED;
+
+    static void KillAllPlayers(Sext::eHitSource a0);
 };
 class zPlayerActionManager;
 
@@ -356,6 +384,10 @@ public:
     void AddStates(xAnimTable* table);
 
     void Begin();
+
+    static const char* GetTransitionString() { return "Idle*"; }
+    static void AddTransitionsTo(zPlayerActionManager* a0, xAnimTable* a1, const char* a2);
+    void AddActionTransitions(xAnimTable* table);
 };
 
 
@@ -401,6 +433,10 @@ public:
 
     float f14;
     float f18;
+
+    void Timestep(float dt);
+
+    float f1C;
 };
 
 
@@ -522,6 +558,8 @@ public:
     unsigned char _pad1[0x34 - 0x20];
     int f34;
     int f38;
+
+    void SetNextState();
 };
 
 
@@ -553,6 +591,8 @@ public:
     static unsigned int anWalkCheck(xAnimTransition*, xAnimSingle*, void*);
     static unsigned int anFallCheck(xAnimTransition* a0, xAnimSingle* a1, void* a2);
     bool FallCheck(xAnimTransition* a0, xAnimSingle* a1);
+
+    void ApplyBasicPhysics(const xVec3& v);
 };
 
 class zPlayerFallToDeath : public zPlayerAction {
@@ -562,6 +602,10 @@ public:
     void AddTransitionsFrom(xAnimTable* table, const char* name, unsigned int (*c)(xAnimTransition*, xAnimSingle*, void*), unsigned int (*d)(xAnimTransition*, xAnimSingle*, void*), unsigned short e, float f, unsigned int g, unsigned int h, zPlayerAction::SpecialActions i);
     void AddStates(xAnimTable* table);
     bool StartCheck(xAnimTransition* a0, xAnimSingle* a1);
+
+    void Begin();
+
+    float f10;
 };
 
 class zPlayerLand : public zPlayerAction {
@@ -1311,4 +1355,105 @@ void zPlayerCustomAnim::Reset() {
     f34 = 0;
     f38 = 0;
     f1C = 0.0f;
+}
+
+void zPlayerIdle::AddActionTransitions(xAnimTable* table) {
+    zPlayerIdle::AddTransitionsTo(manager, table,
+                                  zPlayerIdle::GetTransitionString());
+}
+
+void zCommonPlayerAction::ApplyBasicPhysics(const xVec3& v) {
+    player->frame->flags |= 2;
+
+    v3add(&player->frame->pos, &player->frame->pos, (xVec3*)&v);
+}
+
+bool zPlayerWalkStart::StartWalkCheck(xAnimTransition* a0,
+                                      xAnimSingle* a1) {
+    bool result = false;
+
+    if (!player->f5ED && player->f5EC >= 1) {
+        result = true;
+    }
+
+    return result;
+}
+
+bool zPlayerSlip::SlipCheck(xAnimTransition* a0, xAnimSingle* a1) {
+    bool result = false;
+
+    if (player->f5EC > 0 && f10 == 1) {
+        result = true;
+    }
+
+    return result;
+}
+
+void zPlayerJump::Timestep(float dt) {
+    if (f1C > 0.0f) {
+        f1C -= dt;
+
+        if (f1C < 0.0f) {
+            f1C = 0.0f;
+        }
+    }
+}
+
+bool zPlayerFall::FallHighCheck(xAnimTransition* a0, xAnimSingle* a1) {
+    return f10 - player->ogModel.model->pos.y > 12.0f;
+}
+
+unsigned int zPlayerCustomAnim::anNewStateCB(xAnimTransition* a0,
+                                             xAnimSingle* a1,
+                                             void* a2) {
+    ((zPlayerCustomAnim*)((AnimCBHolder*)a1)->slot->owner)->SetNextState();
+
+    return 0;
+}
+
+bool zCommonPlayerAction::FallCheck(xAnimTransition* a0,
+                                    xAnimSingle* a1) {
+    bool result = false;
+
+    if (!(player->zPlayerFlags & 2) && player->fallingTime > 0.15f) {
+        result = true;
+    }
+
+    return result;
+}
+
+bool zPlayerIdle::IdleCB(xAnimTransition* a0, xAnimSingle* a1) {
+    if (player->currentHitType == 1 || player->currentHitType == 2) {
+        player->currentHitType = -1;
+    }
+
+    player->f5C4 = 0.0f;
+
+    return false;
+}
+
+bool zPlayerTriggered::TriggeredAnimCheck(xAnimTransition* a0,
+                                          xAnimSingle* a1) {
+    bool result = false;
+
+    if (f24 < 4 &&
+        (unsigned int)((AnimCBHolder*)a0)->slot == states[f24]) {
+        result = true;
+    }
+
+    return result;
+}
+
+unsigned int zCommonPlayerDash::anStartCheck(xAnimTransition* a0,
+                                             xAnimSingle* a1,
+                                             void* a2) {
+    ((zCommonPlayerDash*)((AnimCBHolder*)a0)->slot->owner)->_v5();
+
+    return 0;
+}
+
+void zPlayerFallToDeath::Begin() {
+    zPlayer::KillAllPlayers((Sext::eHitSource)1);
+
+    f10 = 0.0f;
 }

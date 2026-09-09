@@ -271,7 +271,18 @@ public:
 
 namespace World { class xOGModel { public: void Show(); }; }
 
-extern unsigned char gGameCheats;
+struct zGameCheatBits {
+    unsigned char _b0 : 1;
+    unsigned char _b1 : 1;
+    unsigned char _b2 : 1;
+    unsigned char _b3 : 1;
+    unsigned char buffHits : 1;
+    unsigned char _b5 : 1;
+    unsigned char _b6 : 1;
+    unsigned char _b7 : 1;
+};
+
+extern zGameCheatBits gGameCheats;
 
 class zProjectileSBBombNPC {
 public:
@@ -2858,6 +2869,25 @@ void zSBPlayerKelpTrap::AddTransitionsFrom(xAnimTable* table, const char* name,
                                        a, b, e, f, g, h);
 }
 
+bool zSBPlayerBungeeBall::SBBungeeBallHitExitCheck(xAnimTransition* a0,
+                                                   xAnimSingle* a1) {
+    int type = ((zSBPlayer*)player)->lastDamageType;
+
+    if (((zSBPlayer*)player)->currentHitType == -1) {
+        return false;
+    }
+
+    if (((zSBPlayer*)player)->_v48()) {
+        return false;
+    }
+
+    if (type == 27 || type == 29 || type == 31) {
+        return true;
+    }
+
+    return false;
+}
+
 void zSBPlayerBungeeBall::AddTransitionsFrom(xAnimTable* table, const char* name,
                             unsigned int (*a)(xAnimTransition*, xAnimSingle*, void*),
                             unsigned int (*b)(xAnimTransition*, xAnimSingle*, void*),
@@ -4823,6 +4853,17 @@ void zPlayerSpringboardSB::End() {
     ((zSBPlayer*)player)->trampolineLink = 0;
 }
 
+bool zSBPlayerPuckAttack::AimPuckCheck(xAnimTransition* a0,
+                                       xAnimSingle* a1) {
+    bool result = false;
+
+    if (f1C) {
+        result = true;
+    }
+
+    return result;
+}
+
 bool zSBPlayerPuckAttack::ShootPuckCheck(xAnimTransition* a0,
                                         xAnimSingle* a1) {
     return f1C == 0;
@@ -5255,6 +5296,30 @@ void zDefeatedDeathBonesBE(xAnimPlay* a0, xAnimState* a1, void* a2) {
     zSBAnimPackageBE(a0, a1, a2);
 
     ((zSBPlayer*)a2)->powerupPerformDeferredModelSwap = true;
+}
+
+bool zSBPlayerSpinAttack::FinishedQueueCheck(xAnimTransition* a0,
+                                             xAnimSingle* a1) {
+    if (((zSBPlayer*)player)->powerupState == 0) {
+        return true;
+    }
+
+    if (!((zSBPlayer*)player)->_v74()) {
+        return true;
+    }
+
+    if (f14 >= 5) {
+        return true;
+    }
+
+    if (f10 > 0) {
+        f14++;
+        f10--;
+
+        return false;
+    }
+
+    return true;
 }
 
 bool zSBPlayerSpinAttack::SpongebuffIdleSpinCheck(
@@ -5711,6 +5776,21 @@ bool zSBPlayerBungeeBall::SBBungeeBallCheck(xAnimTransition* a0,
         if (inner) {
             result = true;
         }
+    }
+
+    return result;
+}
+
+bool zPlayerHitSB::HitBuffFrontCheck(xAnimTransition* a0,
+                                     xAnimSingle* a1) {
+    bool result = false;
+    unsigned int buff;
+
+    buff = gGameCheats.buffHits &&
+           ((zSBPlayer*)player)->powerupState == (SBPowerupState)1;
+
+    if (buff && AnyHitFrontCheck(a0, a1)) {
+        result = true;
     }
 
     return result;

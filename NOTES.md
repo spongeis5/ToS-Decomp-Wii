@@ -7,18 +7,18 @@ numbers here, which move.
 ## State at time of writing
 
 ```
-Game Code:  67 of 777 files complete  356,952 / 2,116,616 bytes  2,972 / 10,697 fn
-            16.8643% of game code
+Game Code:  67 of 777 files complete  359,224 / 2,116,616 bytes  2,993 / 10,697 fn
+            16.9716% of game code
 
-Of those 2,972 functions, 856 are GENERATED -- machine-recognised
+Of those 2,993 functions, 856 are GENERATED -- machine-recognised
 shapes, not one of which is decompiling. They are real matched
 functions and the offsets and constants are recovered fact, but a
 count of them is not a count of decompiled code. HAND-WRITTEN IS
-2,116, across 265 units and 322,652 bytes, and that is the figure to
+2,137, across 265 units and 324,924 bytes, and that is the figure to
 compare against earlier ones.
 
 Data:       4 unit(s) carry their own, 412 bytes; 134 more could
-All:        7.10% matched              main.dol reproduces byte for byte
+All:        7.13% matched              main.dol reproduces byte for byte
 ```
 
 Every number above is written by `python tools/notes_state.py`,
@@ -4468,3 +4468,46 @@ is worth four functions and 736 bytes rather than one.
 
 Nineteen functions, 2,420 bytes.  WAD01_28 328 of 329. Game Code
 16.75% -> 16.86%.
+
+## TWENTY-ONE CALLBACKS, AND FOUR THINGS TO READ OFF EACH
+
+The transition tables call 116-byte static callbacks, and WAD01_28
+holds about sixty of them.  Twenty-one went in here, and the whole of
+reading one is four questions:
+
+**Which parameter carries the holder.** `lwz r5,4(r3)` is a0 and
+`lwz r3,4(r4)` is a1, and this unit uses both -- anSprayCheck takes
+a0 and anSprayEndCheck, its own mirror image, takes a1.  Nothing but
+the register says which.
+
+**Whether there is one flag or two.** One is `_v5() && <test>` with
+the test written out; two means the member it forwards to was inlined,
+and the inner flag is that member's own `result`.  Four of the
+twenty-one are the second kind, and they go ABOVE the block that
+defines what they call, because `#pragma always_inline on` is a region
+and would otherwise take BoardStopCheck in as well.
+
+**Whether the second test is a branch or a value.** `cmpwi r0,0 ; beq`
+is a branch and belongs inside the `if`; `cntlzw ; srwi.` on a call
+result, or `mfcr ; rlwinm.` on a float compare, is a bool built in a
+register and then tested, which is a bool LOCAL.  Three of the
+twenty-one wanted the local and were four words short without it.
+
+**And what the tail is.** `bctr` with no epilogue after it is a tail
+call -- `return owner->player->_v74();` and nothing else.  `addi
+r0,r3,-K ; cntlzw ; srwi` with no record bit is `== K` returned
+directly; two of the 28-byte ones are one expression each.
+
+The same four questions cover zPlayerHitBoard's whole family, the
+cheat and spray pairs, the two hammer interrupts, and five of
+zBoardPlayerBungeeBall's six.
+
+STILL UNREACHED: anSBBungeeBallHitCB (96 B), and the eight bytes that
+are wrong are a `li r3,0` retail does not emit -- its false path
+branches straight to the epilogue with r3 already zero from the
+`cmpwi`.  Four spellings were measured (return-1, a `result` flag, an
+early `return 0`, and an inlined member behind `always_inline`) and
+none of them drops it.
+
+Twenty-one functions, 2,272 bytes.  WAD01_28 349 of 350. Game Code
+16.86% -> 16.97%.

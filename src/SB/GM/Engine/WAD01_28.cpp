@@ -134,6 +134,13 @@ void zEntEventAllOfType(xBase* from, unsigned int fromEvent,
                         unsigned int toEvent, Sext::EventAny* param,
                         unsigned int type, ForceEvent force);
 
+class zBungeeBall { public: void BallReturn(); };
+
+class xEnt;
+
+unsigned int xEntGetAnimFlags(const xEnt* ent);
+void zSceneReset();
+
 class hkVector4 {
 public:
     float dot3(const hkVector4& o) const;
@@ -652,7 +659,7 @@ public:
     virtual void _v71() const;
     virtual void _v72() const;
     virtual void _v73() const;
-    virtual void _v74() const;
+    virtual unsigned int _v74() const;
     virtual void _v75() const;
     virtual void _v76() const;
     virtual void _v77() const;
@@ -765,29 +772,35 @@ public:
     int zPlayerFlags;
     unsigned char _pad2[0x20];
     zPlayerInput* playerInput;
-    unsigned char _pad3[0x108];
+    unsigned char _pad3[0x1C];
+    bool f208;
+    unsigned char _pad4[0xEB];
     float fallingTime;
-    unsigned char _pad4[0x180];
+    unsigned char _pad5[0x180];
     int lastDamageType;
-    unsigned char _pad5[0xD8];
+    unsigned char _pad6[0xD8];
     int currentHitType;
     hkVector4 hitDir;
-    unsigned char _pad6[0x330];
+    unsigned char _pad7[0x330];
     SBGooFilledState gooState;
-    unsigned char _pad7[0x10];
+    unsigned char _pad8[0x10];
     BoardPowerupState powerupState;
     BoardPowerupState powerupModelState;
     bool powerupPerformDeferredModelSwap;
-    unsigned char _pad8[0xB];
+    unsigned char _pad9[0xB];
     int f8C0;
     float f8C4;
-    unsigned char _pad9[0xC];
+    unsigned char _pad10[0xC];
     int f8D4;
-    unsigned char _pad10[0x24];
+    unsigned char _pad11[0x24];
     bool f8FC;
-    unsigned char _pad11[0x17B];
+    unsigned char _pad12[0xA7];
+    zBungeeBall* bungeeBall;
+    unsigned char _pad13[0x18];
+    int f9C0;
+    unsigned char _pad14[0xB4];
     float fA78;
-    unsigned char _pad12[0x28];
+    unsigned char _pad15[0x28];
     float fAA4;
 };
 
@@ -894,6 +907,8 @@ public:
     void Begin();
 
     float f10;
+
+    bool FallIdleCheck(xAnimTransition* a0, xAnimSingle* a1);
 };
 
 
@@ -933,6 +948,14 @@ public:
     bool StartHammerSpongebuffCheck(xAnimTransition* a0, xAnimSingle* a1);
     static unsigned int anAirHammerSpongebuffCheck(xAnimTransition*, xAnimSingle*, void*);
     void AddTransitionsFrom(xAnimTable* table, const char* name, unsigned int (*c)(xAnimTransition*, xAnimSingle*, void*), unsigned int (*d)(xAnimTransition*, xAnimSingle*, void*), unsigned short e, float f, unsigned int g, unsigned int h, zPlayerAction::SpecialActions i);
+
+
+    int f10;
+
+    // No symbol of its own: inlined into the callback that names
+    // it, and the flag it materialises says it was there.
+    bool AirHammerSpongebuffCheck(xAnimTransition* a0,
+                                  xAnimSingle* a1);
 };
 
 
@@ -1031,6 +1054,10 @@ public:
     static const char* GetTransitionString() { return "HammerPowerupAttack*"; }
     void AddActionTransitions(xAnimTable* table);
     void AddStates(xAnimTable* table);
+
+    bool HammerPowerupCheck(xAnimTransition* a0, xAnimSingle* a1);
+    bool HammerPowerupIdleCheck(xAnimTransition* a0,
+                                xAnimSingle* a1);
 };
 
 
@@ -1048,6 +1075,9 @@ public:
     void AddTransitionsFrom(xAnimTable* table, const char* name, unsigned int (*c)(xAnimTransition*, xAnimSingle*, void*), unsigned int (*d)(xAnimTransition*, xAnimSingle*, void*), unsigned short e, float f, unsigned int g, unsigned int h, zPlayerAction::SpecialActions i);
     void AddStates(xAnimTable* table);
     bool PuckPowerupMovingCheck(xAnimTransition* a0, xAnimSingle* a1);
+
+    bool PuckPowerupCheck(xAnimTransition* a0, xAnimSingle* a1);
+    bool PuckPowerupIdleCheck(xAnimTransition* a0, xAnimSingle* a1);
 };
 
 
@@ -1157,6 +1187,9 @@ public:
     bool SBBungeeBallHitCheck(xAnimTransition* a0, xAnimSingle* a1);
     bool SBBungeeBallIdleCheck(xAnimTransition* a0, xAnimSingle* a1);
     bool SBBungeeBallReturnCheck(xAnimTransition* a0, xAnimSingle* a1);
+
+    unsigned char _pad0[0x18 - 0x10];
+    unsigned char f18;
 };
 
 class zPlayerRunBoard : public zPlayerAction {
@@ -4266,6 +4299,114 @@ void zBoardPlayerQuicksandJump::Begin() {
     f14 = ((zBoardPlayerOffsets*)player)->f998;
 }
 
+inline bool zBoardPlayerHammerAttack::AirHammerSpongebuffCheck(xAnimTransition* a0,
+                                                               xAnimSingle* a1) {
+    bool result = false;
+
+    if (StartHammerSpongebuffCheck(a0, a1) &&
+        AirHammerAttackCheck(a0, a1)) {
+        result = true;
+    }
+
+    return result;
+}
+
+inline bool zBoardPlayerHammerPowerupAttack::HammerPowerupIdleCheck(xAnimTransition* a0,
+                                                                    xAnimSingle* a1) {
+    bool result = false;
+
+    if (((zBoardPlayerAction*)this)->BoardStopCheck(a0, a1) &&
+        HammerPowerupCheck(a0, a1)) {
+        result = true;
+    }
+
+    return result;
+}
+
+inline bool zBoardPlayerPuckPowerupAttack::PuckPowerupIdleCheck(xAnimTransition* a0,
+                                                                xAnimSingle* a1) {
+    bool result = false;
+
+    if (((zBoardPlayerAction*)this)->BoardStopCheck(a0, a1) &&
+        PuckPowerupCheck(a0, a1)) {
+        result = true;
+    }
+
+    return result;
+}
+
+inline bool zPlayerFallBoard::FallIdleCheck(xAnimTransition* a0,
+                                            xAnimSingle* a1) {
+    bool result = false;
+
+    if (((zBoardPlayerAction*)this)->BoardFallCheck(a0, a1) &&
+        ((zBoardPlayerAction*)this)->BoardStopCheck(a0, a1)) {
+        result = true;
+    }
+
+    return result;
+}
+
+#pragma always_inline on
+
+unsigned int zBoardPlayerHammerAttack::anAirHammerSpongebuffCheck(xAnimTransition* a0,
+                                                                 xAnimSingle* a1,
+                                                                 void* a2) {
+    unsigned int result = 0;
+
+    if (((zBoardPlayerHammerAttack*)((AnimCBHolder*)a0)->slot->owner)->_v5()) {
+        if (((zBoardPlayerHammerAttack*)((AnimCBHolder*)a0)->slot->owner)->AirHammerSpongebuffCheck(a0, a1)) {
+            result = 1;
+        }
+    }
+
+    return result;
+}
+
+unsigned int zBoardPlayerHammerPowerupAttack::anHammerPowerupIdleCheck(xAnimTransition* a0,
+                                                                      xAnimSingle* a1,
+                                                                      void* a2) {
+    unsigned int result = 0;
+
+    if (((zBoardPlayerHammerPowerupAttack*)((AnimCBHolder*)a0)->slot->owner)->_v5()) {
+        if (((zBoardPlayerHammerPowerupAttack*)((AnimCBHolder*)a0)->slot->owner)->HammerPowerupIdleCheck(a0, a1)) {
+            result = 1;
+        }
+    }
+
+    return result;
+}
+
+unsigned int zBoardPlayerPuckPowerupAttack::anPuckPowerupIdleCheck(xAnimTransition* a0,
+                                                                  xAnimSingle* a1,
+                                                                  void* a2) {
+    unsigned int result = 0;
+
+    if (((zBoardPlayerPuckPowerupAttack*)((AnimCBHolder*)a0)->slot->owner)->_v5()) {
+        if (((zBoardPlayerPuckPowerupAttack*)((AnimCBHolder*)a0)->slot->owner)->PuckPowerupIdleCheck(a0, a1)) {
+            result = 1;
+        }
+    }
+
+    return result;
+}
+
+unsigned int zPlayerFallBoard::anFallIdleCheck(xAnimTransition* a0,
+                                              xAnimSingle* a1,
+                                              void* a2) {
+    unsigned int result = 0;
+
+    if (((zPlayerFallBoard*)((AnimCBHolder*)a0)->slot->owner)->_v5()) {
+        if (((zPlayerFallBoard*)((AnimCBHolder*)a0)->slot->owner)->FallIdleCheck(a0, a1)) {
+            result = 1;
+        }
+    }
+
+    return result;
+}
+#pragma always_inline off
+
+
 // Above the three predicates they name: mwcc inlines what it has
 // already read, and retail calls all three.
 // Three `addic ; subfe` pairs, and each one is a conversion of an
@@ -4969,4 +5110,222 @@ bool zPlayerRunBoard::RunCheck(xAnimTransition* a0, xAnimSingle* a1) {
     zPlayerInput* input = p->playerInput;
 
     return input->_v27(0, 2) >= p->GetRunStartMag();
+}
+
+unsigned int zBoardPlayerSpinPowerupAttack::anShouldSingleJumpCheck(xAnimTransition* a0,
+                                                                   xAnimSingle* a1,
+                                                                   void* a2) {
+    unsigned int result = 0;
+
+    if (((zBoardPlayerSpinPowerupAttack*)((AnimCBHolder*)a1)->slot->owner)->_v5() &&
+        ((zBoardPlayer*)((zBoardPlayerSpinPowerupAttack*)((AnimCBHolder*)a1)->slot->owner)->player)->_v74()) {
+        result = 1;
+    }
+
+    return result;
+}
+
+unsigned int zBoardPlayerSpinPowerupAttack::anShouldDoubleJumpCheck(xAnimTransition* a0,
+                                                                   xAnimSingle* a1,
+                                                                   void* a2) {
+    unsigned int result = 0;
+
+    if (((zBoardPlayerSpinPowerupAttack*)((AnimCBHolder*)a1)->slot->owner)->_v5()) {
+        bool noJump = 
+            !((zBoardPlayer*)((zBoardPlayerSpinPowerupAttack*)((AnimCBHolder*)a1)->slot->owner)->player)->_v74();
+
+        if (noJump) {
+            result = 1;
+        }
+    }
+
+    return result;
+}
+
+unsigned int zPlayerCheat::anCheatBeginCheck(xAnimTransition* a0,
+                                            xAnimSingle* a1,
+                                            void* a2) {
+    unsigned int result = 0;
+
+    if (((zPlayerCheat*)((AnimCBHolder*)a0)->slot->owner)->_v5() &&
+        ((zBoardPlayer*)((zPlayerCheat*)((AnimCBHolder*)a0)->slot->owner)->player)->f208) {
+        result = 1;
+    }
+
+    return result;
+}
+
+unsigned int zPlayerCheat::anCheatEndCheck(xAnimTransition* a0,
+                                          xAnimSingle* a1,
+                                          void* a2) {
+    unsigned int result = 0;
+
+    if (((zPlayerCheat*)((AnimCBHolder*)a1)->slot->owner)->_v5() &&
+        !((zBoardPlayer*)((zPlayerCheat*)((AnimCBHolder*)a1)->slot->owner)->player)->f208) {
+        result = 1;
+    }
+
+    return result;
+}
+
+unsigned int zPlayerFluidSprayBoard::anSprayCheck(xAnimTransition* a0,
+                                                 xAnimSingle* a1,
+                                                 void* a2) {
+    unsigned int result = 0;
+
+    if (((zPlayerFluidSprayBoard*)((AnimCBHolder*)a0)->slot->owner)->_v5() &&
+        ((zBoardPlayer*)((zPlayerFluidSprayBoard*)((AnimCBHolder*)a0)->slot->owner)->player)->f8FC) {
+        result = 1;
+    }
+
+    return result;
+}
+
+unsigned int zPlayerFluidSprayBoard::anSprayEndCheck(xAnimTransition* a0,
+                                                    xAnimSingle* a1,
+                                                    void* a2) {
+    unsigned int result = 0;
+
+    if (((zPlayerFluidSprayBoard*)((AnimCBHolder*)a1)->slot->owner)->_v5() &&
+        !((zBoardPlayer*)((zPlayerFluidSprayBoard*)((AnimCBHolder*)a1)->slot->owner)->player)->f8FC) {
+        result = 1;
+    }
+
+    return result;
+}
+
+unsigned int zPlayerSlide::anSlideCheck(xAnimTransition* a0,
+                                       xAnimSingle* a1,
+                                       void* a2) {
+    unsigned int result = 0;
+
+    if (((zPlayerSlide*)((AnimCBHolder*)a0)->slot->owner)->_v5() &&
+        ((zBoardPlayer*)((zPlayerSlide*)((AnimCBHolder*)a0)->slot->owner)->player)->f9C0) {
+        result = 1;
+    }
+
+    return result;
+}
+
+unsigned int zPlayerLandBoard::anNotFluidCheck(xAnimTransition* a0,
+                                              xAnimSingle* a1,
+                                              void* a2) {
+    unsigned int result = 0;
+
+    if (((zPlayerLandBoard*)((AnimCBHolder*)a1)->slot->owner)->_v5()) {
+        bool notFluid = 
+            !((zBoardPlayer*)((zPlayerLandBoard*)((AnimCBHolder*)a1)->slot->owner)->player)->IsInAnyGooState();
+
+        if (notFluid) {
+            result = 1;
+        }
+    }
+
+    return result;
+}
+
+unsigned int zBoardPlayerQuicksandJump::anSBQuicksandApexCheck(xAnimTransition* a0,
+                                                              xAnimSingle* a1,
+                                                              void* a2) {
+    unsigned int result = 0;
+
+    if (((zBoardPlayerQuicksandJump*)((AnimCBHolder*)a1)->slot->owner)->_v5()) {
+        bool apex = 
+            ((zBoardPlayerQuicksandJump*)((AnimCBHolder*)a1)->slot->owner)->f10 >= 0.25f;
+
+        if (apex) {
+            result = 1;
+        }
+    }
+
+    return result;
+}
+
+// Three expressions and no frame: `== K` as a value, and a `bctr`
+// with no epilogue after it is a tail call.
+unsigned int zBoardPlayerHammerAttack::anHammerInterruptHighCheck(
+    xAnimTransition* a0, xAnimSingle* a1, void* a2) {
+    return ((zBoardPlayerHammerAttack*)((AnimCBHolder*)a1)->slot->owner)->f10 == 1;
+}
+
+unsigned int zBoardPlayerHammerAttack::anHammerInterruptMedCheck(
+    xAnimTransition* a0, xAnimSingle* a1, void* a2) {
+    return ((zBoardPlayerHammerAttack*)((AnimCBHolder*)a1)->slot->owner)->f10 == 2;
+}
+
+unsigned int zBoardPlayerHammerAttack::anAirHammerLandCheck(
+    xAnimTransition* a0, xAnimSingle* a1, void* a2) {
+    return ((zBoardPlayer*)((zBoardPlayerHammerAttack*)((AnimCBHolder*)a1)->slot->owner)->player)->_v74();
+}
+
+unsigned int zBoardPlayerBungeeBall::anSBBungeeBallHitEndCB(xAnimTransition* a0,
+                                                            xAnimSingle* a1,
+                                                            void* a2) {
+    unsigned int result = 0;
+
+    if (((zBoardPlayerBungeeBall*)((AnimCBHolder*)a1)->slot->owner)->_v5()) {
+        // The owner is a local and the player is not: retail
+        // keeps one in r4 and reloads the other twice.
+        zBoardPlayerBungeeBall* p = ((zBoardPlayerBungeeBall*)((AnimCBHolder*)a1)->slot->owner);
+
+        ((zBoardPlayer*)p->player)->currentHitType = -1;
+        ((zBoardPlayer*)p->player)->_v129();
+
+        result = 1;
+    }
+
+    return result;
+}
+
+unsigned int zBoardPlayerBungeeBall::anSBBungeeBallExitCheck(xAnimTransition* a0,
+                                                             xAnimSingle* a1,
+                                                             void* a2) {
+    unsigned int result = 0;
+
+    if (((zBoardPlayerBungeeBall*)((AnimCBHolder*)a1)->slot->owner)->_v5() &&
+        !(xEntGetAnimFlags((const xEnt*)((zBoardPlayerBungeeBall*)((AnimCBHolder*)a1)->slot->owner)->player) & 0x8000)) {
+        result = 1;
+    }
+
+    return result;
+}
+
+unsigned int zBoardPlayerBungeeBall::anSBBungeeBallTransferCheck(xAnimTransition* a0,
+                                                                 xAnimSingle* a1,
+                                                                 void* a2) {
+    unsigned int result = 0;
+
+    if (((zBoardPlayerBungeeBall*)((AnimCBHolder*)a1)->slot->owner)->_v5() && ((zBoardPlayerBungeeBall*)((AnimCBHolder*)a1)->slot->owner)->f18 == 1) {
+        result = 1;
+    }
+
+    return result;
+}
+
+unsigned int zBoardPlayerBungeeBall::anSBBungeeBallTransferCB(xAnimTransition* a0,
+                                                              xAnimSingle* a1,
+                                                              void* a2) {
+    unsigned int result = 0;
+
+    if (((zBoardPlayerBungeeBall*)((AnimCBHolder*)a1)->slot->owner)->_v5()) {
+        ((zBoardPlayerBungeeBall*)((AnimCBHolder*)a1)->slot->owner)->f18 = 0;
+
+        result = 1;
+    }
+
+    return result;
+}
+
+unsigned int zBoardPlayerBungeeBall::anSBBungeeBallDeathEndCB(xAnimTransition* a0,
+                                                              xAnimSingle* a1,
+                                                              void* a2) {
+    unsigned int result = 0;
+
+    if (((zBoardPlayerBungeeBall*)((AnimCBHolder*)a1)->slot->owner)->_v5()) {
+        zSceneReset();
+
+        result = 1;
+    }
+
+    return result;
 }

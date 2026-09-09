@@ -7,18 +7,18 @@ numbers here, which move.
 ## State at time of writing
 
 ```
-Game Code:  67 of 777 files complete  361,536 / 2,116,616 bytes  3,030 / 10,697 fn
-            17.0808% of game code
+Game Code:  67 of 777 files complete  362,844 / 2,116,616 bytes  3,044 / 10,697 fn
+            17.1426% of game code
 
-Of those 3,030 functions, 856 are GENERATED -- machine-recognised
+Of those 3,044 functions, 856 are GENERATED -- machine-recognised
 shapes, not one of which is decompiling. They are real matched
 functions and the offsets and constants are recovered fact, but a
 count of them is not a count of decompiled code. HAND-WRITTEN IS
-2,174, across 265 units and 327,236 bytes, and that is the figure to
+2,188, across 265 units and 328,544 bytes, and that is the figure to
 compare against earlier ones.
 
 Data:       4 unit(s) carry their own, 412 bytes; 134 more could
-All:        7.17% matched              main.dol reproduces byte for byte
+All:        7.19% matched              main.dol reproduces byte for byte
 ```
 
 Every number above is written by `python tools/notes_state.py`,
@@ -4592,3 +4592,36 @@ that defines it.
 
 Nineteen functions, 1,548 bytes.  WAD01_28 386 of 387. Game Code
 17.01% -> 17.08%.
+
+## A LOCAL CAN BE DECLARED AFTER A STORE, and the bytes say it was
+
+Fourteen more -- the four *MovingChecks, the two magnitude getters,
+the powerup timer, the five zBoard*BE callbacks and two zBoardPlayer
+members.  Thirteen went in first time on the conversion-counting
+procedure from the last section; the fourteenth was one line in the
+wrong place.
+
+**SetPowerupTimerToMax stores the member BEFORE it declares the local
+it sends.** Retail is `stfs f0,2232(r3)` and then `stfs f0,12(r1)`,
+both from the same register; written with the local first the two
+stores swap and four of thirty-two words are wrong.  So:
+
+```cpp
+f8B8 = -1.0f;
+
+float param = -1.0f;        // declared AFTER the store
+
+zEntEventAllOfType((xBase*)this, 0, 0x373264EF, ...);
+```
+
+and the two branches use different stack slots -- 12(r1) and 8(r1) --
+which is two locals in two scopes and not one hoisted above the `if`.
+
+**Five callbacks, one number.** zBoardHitByHammerBE and its four
+siblings are the same eight lines with 8, 0, 6, 7 and -- for
+GainPowerupProp -- the powerup state itself, which is a `lwz` before
+the `stw` where the others have a `li`.  The third parameter is the
+player: `mr r31,r5` and every offset off r5.
+
+Fourteen functions, 1,308 bytes.  WAD01_28 400 of 401. Game Code
+17.08% -> 17.14%.

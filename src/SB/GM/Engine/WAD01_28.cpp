@@ -87,6 +87,7 @@ public:
     void DefaultMove(xScene* scene, float dt, xEntFrame* frame);
     void GetSafePos();
     bool CanSwitchPlayer();
+    bool SkipCharacterProxyHavokUpdate();
 };
 
 class zPlayerInput {
@@ -138,6 +139,18 @@ public:
 void zEntEventAllOfType(xBase* from, unsigned int fromEvent,
                         unsigned int toEvent, Sext::EventAny* param,
                         unsigned int type, ForceEvent force);
+
+namespace FX { class zFXSpawn; }
+
+class zFXScriptSpawnPtMgr {
+public:
+    static void ReturnPoolSpawnPoint(FX::zFXSpawn* spawn);
+};
+
+class xAnimPlay;
+class xAnimState;
+
+void zBoardAnimPackageBE(xAnimPlay* a0, xAnimState* a1, void* a2);
 
 class zBungeeBall {
 public:
@@ -280,6 +293,7 @@ public:
     void AddTransitionsTo(unsigned int, xAnimTable*, const char*, unsigned int (*)(xAnimTransition*, xAnimSingle*, void*), unsigned int (*)(xAnimTransition*, xAnimSingle*, void*), unsigned short, float, unsigned int, unsigned int, zPlayerAction::SpecialActions);
     void AddStandardTransitionsTo(unsigned int, xAnimTable*, const char*);
     void AddDefaultTransitionsTo(unsigned int, xAnimTable*, const char*);
+    unsigned int GetCurrentActionID() const;
 };
 
 // A base only in the sense that r3 reaches it unchanged:
@@ -618,6 +632,8 @@ public:
     bool IsUsingPhysicsDrive(xBase* base);
     bool CanJoinDrop();
     void SetPowerupState(BoardPowerupState state);
+    bool SkipCharacterProxyHavokUpdate();
+    void StopInvincibilityFX();
     int IsOnGoo();
     void SetGooState(SBGooFilledState state);
     void SetPowerupTimerToMax(BoardPowerupState state);
@@ -811,46 +827,62 @@ public:
     xEntFrame* frame;
     unsigned char _pad1[0x10];
     xSurfaceInfo* surface;
-    unsigned char _pad2[0xDC];
+    unsigned char _pad2[0x50];
+    zPlayerActionManager actionManager;
+    unsigned char _pad3[0x88];
     int f14C;
-    unsigned char _pad3[0x74];
+    unsigned char _pad4[0x74];
     int zPlayerFlags;
-    unsigned char _pad4[0x20];
+    unsigned char _pad5[0x20];
     zPlayerInput* playerInput;
-    unsigned char _pad5[0x1C];
+    unsigned char _pad6[0x1C];
     bool f208;
-    unsigned char _pad6[0xEB];
+    unsigned char _pad7[0xEB];
     float fallingTime;
-    unsigned char _pad7[0x180];
+    unsigned char _pad8[0x180];
     int lastDamageType;
-    unsigned char _pad8[0xD8];
+    unsigned char _pad9[0xD8];
     int currentHitType;
     hkVector4 hitDir;
-    unsigned char _pad9[0x330];
+    unsigned char _pad10[0x330];
     SBGooFilledState gooState;
-    unsigned char _pad10[0x10];
+    unsigned char _pad11[0x10];
     BoardPowerupState powerupState;
     BoardPowerupState powerupModelState;
     bool powerupPerformDeferredModelSwap;
-    unsigned char _pad11[0xB];
+    unsigned char _pad12[0x3];
+    float f8B8;
+    unsigned char _pad13[0x4];
     int f8C0;
     float f8C4;
-    unsigned char _pad12[0x4];
+    unsigned char _pad14[0x4];
     float f8CC;
     float f8D0;
     int f8D4;
-    unsigned char _pad13[0x24];
+    unsigned char _pad15[0x14];
+    FX::zFXSpawn* f8EC;
+    unsigned char _pad16[0x4];
+    FX::zFXSpawn* f8F4;
+    bool f8F8;
+    unsigned char _pad17[0x3];
     bool f8FC;
-    unsigned char _pad14[0x87];
+    unsigned char _pad18[0x87];
     bool f984;
-    unsigned char _pad15[0x1B];
+    unsigned char _pad19[0x1B];
     int f9A0;
     zBungeeBall* bungeeBall;
-    unsigned char _pad16[0x18];
+    unsigned char _pad20[0x18];
     int f9C0;
-    unsigned char _pad17[0xB4];
+    unsigned char _pad21[0x78];
+    float fA3C;
+    float fA40;
+    unsigned char _pad22[0x4];
+    float fA48;
+    float fA4C;
+    unsigned char _pad23[0x24];
+    float fA74;
     float fA78;
-    unsigned char _pad18[0x28];
+    unsigned char _pad24[0x28];
     float fAA4;
 };
 
@@ -1105,7 +1137,7 @@ public:
     void AddActionTransitions(xAnimTable* table);
     void AddStates(xAnimTable* table);
 
-    bool HammerPowerupCheck(xAnimTransition* a0, xAnimSingle* a1);
+    unsigned int HammerPowerupCheck(xAnimTransition* a0, xAnimSingle* a1);
     bool HammerPowerupIdleCheck(xAnimTransition* a0,
                                 xAnimSingle* a1);
 
@@ -1128,7 +1160,7 @@ public:
     void AddStates(xAnimTable* table);
     bool PuckPowerupMovingCheck(xAnimTransition* a0, xAnimSingle* a1);
 
-    bool PuckPowerupCheck(xAnimTransition* a0, xAnimSingle* a1);
+    unsigned int PuckPowerupCheck(xAnimTransition* a0, xAnimSingle* a1);
     bool PuckPowerupIdleCheck(xAnimTransition* a0, xAnimSingle* a1);
 
     void Begin();
@@ -1390,7 +1422,7 @@ public:
     static unsigned int anTransToSpinPowerupCheck(xAnimTransition*, xAnimSingle*, void*);
     void AddActionTransitions(xAnimTable* table);
     void AddStates(xAnimTable* table);
-    bool DoubleJumpStartCheck(xAnimTransition* a0, xAnimSingle* a1);
+    unsigned int DoubleJumpStartCheck(xAnimTransition* a0, xAnimSingle* a1);
     bool DoubleJumpStartMovingCheck(xAnimTransition* a0, xAnimSingle* a1);
     bool TransToFallCheck(xAnimTransition* a0, xAnimSingle* a1);
     bool TransToSpinPowerupCheck(xAnimTransition* a0, xAnimSingle* a1);
@@ -5760,4 +5792,180 @@ bool zBoardPlayerBungeeBall::SBBungeeBallHitCheck(xAnimTransition* a0,
     }
 
     return false;
+}
+
+
+bool zBoardPlayerHammerPowerupAttack::HammerPowerupMovingCheck(
+    xAnimTransition* a0, xAnimSingle* a1) {
+    unsigned int moved = ((zBoardPlayerAction*)this)->BoardWalkCheck(a0, a1) != 0;
+
+    if (!moved) {
+        moved = ((zBoardPlayerAction*)this)->BoardRunCheck(a0, a1) != 0;
+    }
+
+    bool ok = moved != 0;
+
+    if (ok) {
+        ok = HammerPowerupCheck(a0, a1) != 0;
+    }
+
+    return ok;
+}
+
+bool zBoardPlayerPuckPowerupAttack::PuckPowerupMovingCheck(
+    xAnimTransition* a0, xAnimSingle* a1) {
+    unsigned int moved = ((zBoardPlayerAction*)this)->BoardWalkCheck(a0, a1) != 0;
+
+    if (!moved) {
+        moved = ((zBoardPlayerAction*)this)->BoardRunCheck(a0, a1) != 0;
+    }
+
+    bool ok = moved != 0;
+
+    if (ok) {
+        ok = PuckPowerupCheck(a0, a1) != 0;
+    }
+
+    return ok;
+}
+
+bool zPlayerDoubleJumpBoard::DoubleJumpStartMovingCheck(
+    xAnimTransition* a0, xAnimSingle* a1) {
+    bool ok = DoubleJumpStartCheck(a0, a1) != 0;
+
+    if (ok) {
+        zBoardPlayer* p = (zBoardPlayer*)player;
+        zPlayerInput* input = p->playerInput;
+
+        ok = input->_v27(0, 2) >= p->GetRunStartMag();
+    }
+
+    return ok;
+}
+
+float zBoardPlayer::GetRunStartMag() {
+    if (gooState == 2) {
+        return fA74;
+    }
+
+    if (_v74()) {
+        return fA3C;
+    }
+
+    return fA48;
+}
+
+float zBoardPlayer::GetWalkStartMag() {
+    if (gooState == 2) {
+        return fA78;
+    }
+
+    if (_v74()) {
+        return fA40;
+    }
+
+    return fA4C;
+}
+
+bool zBoardPlayerSpinAttack::SpongebuffMovingSpinCheck(
+    xAnimTransition* a0, xAnimSingle* a1) {
+    bool spin = ((zBoardPlayer*)player)->powerupState == 1;
+
+    if (spin) {
+        unsigned int moved = ((zBoardPlayerAction*)this)->BoardWalkCheck(a0, a1) != 0;
+
+        if (!moved) {
+            moved = ((zBoardPlayerAction*)this)->BoardRunCheck(a0, a1) != 0;
+        }
+
+        spin = moved;
+    }
+
+    return spin;
+}
+
+void zBoardPlayer::SetPowerupTimerToMax(BoardPowerupState state) {
+    if (state == 1) {
+        f8B8 = -1.0f;
+
+        float param = -1.0f;
+
+        zEntEventAllOfType((xBase*)this, 0, 0x373264EF,
+                           (Sext::EventAny*)&param, 219,
+                           (ForceEvent)1);
+    } else {
+        f8B8 = 10.0f;
+
+        float param = 10.0f;
+
+        zEntEventAllOfType((xBase*)this, 0, 0x373264EF,
+                           (Sext::EventAny*)&param, 219,
+                           (ForceEvent)1);
+    }
+}
+
+
+void zBoardHitByHammerBE(xAnimPlay* a0, xAnimState* a1, void* a2) {
+    ((zBoardPlayer*)a2)->powerupModelState = (BoardPowerupState)8;
+
+    zBoardAnimPackageBE(a0, a1, a2);
+
+    ((zBoardPlayer*)a2)->powerupPerformDeferredModelSwap = true;
+}
+
+void zBoardRestoreFromHitByHammerBE(xAnimPlay* a0, xAnimState* a1, void* a2) {
+    ((zBoardPlayer*)a2)->powerupModelState = (BoardPowerupState)0;
+
+    zBoardAnimPackageBE(a0, a1, a2);
+
+    ((zBoardPlayer*)a2)->powerupPerformDeferredModelSwap = true;
+}
+
+void zBoardGainPowerupPropBE(xAnimPlay* a0, xAnimState* a1, void* a2) {
+    ((zBoardPlayer*)a2)->powerupModelState = ((zBoardPlayer*)a2)->powerupState;
+
+    zBoardAnimPackageBE(a0, a1, a2);
+
+    ((zBoardPlayer*)a2)->powerupPerformDeferredModelSwap = true;
+}
+
+void zBoardFrozenGooBE(xAnimPlay* a0, xAnimState* a1, void* a2) {
+    ((zBoardPlayer*)a2)->powerupModelState = (BoardPowerupState)6;
+
+    zBoardAnimPackageBE(a0, a1, a2);
+
+    ((zBoardPlayer*)a2)->powerupPerformDeferredModelSwap = true;
+}
+
+void zBoardGravestoneBE(xAnimPlay* a0, xAnimState* a1, void* a2) {
+    ((zBoardPlayer*)a2)->powerupModelState = (BoardPowerupState)7;
+
+    zBoardAnimPackageBE(a0, a1, a2);
+
+    ((zBoardPlayer*)a2)->powerupPerformDeferredModelSwap = true;
+}
+
+bool zBoardPlayer::SkipCharacterProxyHavokUpdate() {
+    if (actionManager.GetCurrentActionID() == 0x23 && bungeeBall != 0 &&
+        bungeeBall->fCC == 2) {
+        return true;
+    }
+
+    return ((zCommonPlayer*)this)->SkipCharacterProxyHavokUpdate();
+}
+
+void zBoardPlayer::StopInvincibilityFX() {
+    f8F8 = false;
+
+    if (f8EC != 0) {
+        zFXScriptSpawnPtMgr::ReturnPoolSpawnPoint(f8EC);
+
+        f8EC = 0;
+    }
+
+    if (f8F4 != 0) {
+        zFXScriptSpawnPtMgr::ReturnPoolSpawnPoint(f8F4);
+
+        f8F4 = 0;
+    }
 }

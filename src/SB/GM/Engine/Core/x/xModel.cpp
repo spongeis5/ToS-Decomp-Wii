@@ -51,6 +51,7 @@ class SkeletonBlobEntity;
 class xVec3 {
 public:
     xVec3& operator=(const xVec3& other);
+    xVec3& operator+=(const xVec3& other);
 
     float x;
     float y;
@@ -69,6 +70,8 @@ public:
 
 class xMat4x3 : public xMat3x3 {
 public:
+    xMat4x3& operator=(const xMat4x3& other);
+
     xVec3 pos;
     unsigned int pad3;
 };
@@ -264,9 +267,9 @@ public:
         RefInstanceAnimation* nextAnim;
         RefInstanceAnimation* lastAnim;
         unsigned int currentLODDistance : 14;
-        unsigned int _pad0 : 16;
-        bool looping : 1;
+        unsigned int refModelProtoInstanceNum : 16;
         bool enabled : 1;
+        bool looping : 1;
         float time;
         xAnimFile* animFile;
     };
@@ -287,8 +290,13 @@ public:
     static RefUniqueAnimation* GetRefAnimationEntry(unsigned long long animationID);
     RefInstanceAnimation* GetNextAnimationLODUpdateNode();
 
+    static RefUniqueAnimation* AddRefAnimation(
+        unsigned long long animationID, unsigned int numRefsToAdd,
+        unsigned int& numInstancesCurrentlyBound);
     static void RemoveRefAnimation(RefUniqueAnimation* uniqueAnimEntry,
                                    unsigned int numRefsToRemove);
+    void RefAnimationEnable(RefInstanceAnimation* animInst);
+    void RefAnimationDisable(RefInstanceAnimation* animInst);
 
     static RefUniqueAnimation uniqueRefAnimations[50];
     static RefUniqueAnimation* uniqueRefAnimationsUsed;
@@ -352,7 +360,10 @@ public:
 class xOGModel : public xModelInstance {
 public:
     void UpdateRender();
+    int AllocAnimationInstances();
     void DeallocAnimationInstances();
+    RefInstanceAnimation* GetRefAnimation(unsigned long long refId,
+                                          unsigned short refInstanceOffset);
 
     float blendTime;
     float blendTimeCurrent;
@@ -387,7 +398,10 @@ public:
     unsigned int Total;
 };
 
+void* xMemPoolAlloc(xMemPool* pool, unsigned int count);
 void xMemPoolFree(xMemPool* pool, void* data);
+
+extern "C" void* memset(void* dst, int val, unsigned long len);
 
 void xAnimPlayEval(xAnimPlay* play, xModelInstance::ModelVisibility* vis);
 void xAnimPlayEvalRefModels(World::xOGModel* modelInst);
@@ -397,6 +411,11 @@ void xAnimPlayUpdate(xAnimPlay* play, float timeDelta, bool chooseTransition);
 void xModelUpdatePartsVis(World::xOGModel* modelInst);
 void xModelGetBoneMatNoScale(xMat4x3& mat, const World::xOGModel& model,
                              unsigned long index);
+void xModelGetBoneMatNoScale(xMat4x3& mat, const World::xOGModel& model,
+                             unsigned long index, const xMat4x3& root);
+void xMat3x3RMulVec(xVec3* o, const xMat3x3* m, const xVec3* v);
+void xMat3x3MulScaleC(xMat3x3* o, const xMat3x3* m, float x, float y,
+                      float z);
 
 // A file static: CodeWarrior leaves its name unmangled, which is how
 // it reads in the image.
@@ -441,10 +460,10 @@ xModelInstance::GetRefAnimationEntry(unsigned long long animationID) {
 
 void xModelInstance::RefInstanceAnimation::Clear() {
     next = 0;
-    looping = true;
-    enabled = false;
+    enabled = true;
+    looping = false;
     animFile = 0;
-    time = 8.0f;
+    time = 0.0f;
     lastAnim = 0;
     nextAnim = 0;
     currentLODDistance = 0x3FFF;
@@ -605,9 +624,9 @@ void xModelInstance::RemoveRefAnimation(RefUniqueAnimation* uniqueAnimEntry,
         return;
     }
 
-    RefUniqueAnimation* firstAvail = uniqueRefAnimationsAvailable;
-
     uniqueAnimEntry->animID = 0;
+
+    RefUniqueAnimation* firstAvail = uniqueRefAnimationsAvailable;
 
     if (uniqueAnimEntry->next != 0) {
         uniqueAnimEntry->next->previous = uniqueAnimEntry->previous;
@@ -622,6 +641,254 @@ void xModelInstance::RemoveRefAnimation(RefUniqueAnimation* uniqueAnimEntry,
     }
 
     uniqueRefAnimationsAvailable = uniqueAnimEntry;
+}
+
+
+void xModelGetBoneMatNoScale(xMat4x3& mat, const World::xOGModel& model,
+                             unsigned long index, const xVec3& offset) {
+    const xMat4x3& root_mat = model.Mat;
+
+    if (index >= (unsigned long)xModelGetBoneCount(&model)) {
+        mat = root_mat;
+    } else {
+        xModelGetBoneMatNoScale(mat, model, index);
+    }
+
+    xVec3 newOffset;
+
+    xMat3x3RMulVec(&newOffset, &mat, &offset);
+    mat.pos += newOffset;
+}
+
+// A zero Scale.x means no scale was ever set, so the root matrix is
+// used as it stands; otherwise a scaled copy is built on the stack and
+// the root pointer is aimed at that instead.
+void xModelGetBoneMatScaled(xMat4x3& mat, const World::xOGModel& model,
+                            unsigned long index) {
+    xMat4x3 temp_mat;
+    xMat4x3* root_mat = (xMat4x3*)&model.Mat;
+
+    if (model.Scale.x != 0.0f) {
+        xMat3x3MulScaleC(&temp_mat, &model.Mat, model.Scale.x,
+                         model.Scale.y, model.Scale.z);
+        temp_mat.pos = model.Mat.pos;
+        root_mat = &temp_mat;
+    }
+
+    if (index >= (unsigned long)xModelGetBoneCount(&model)) {
+        mat = *root_mat;
+    } else {
+        xModelGetBoneMatNoScale(mat, model, index, *root_mat);
+    }
+}
+
+
+// No `this` in the debug info and the id arrives in r3:r4, so this is
+// static like both GetRefAnimationEntry overloads.
+xModelInstance::RefUniqueAnimation* xModelInstance::AddRefAnimation(
+    unsigned long long animationID, unsigned int numRefsToAdd,
+    unsigned int& numInstancesCurrentlyBound) {
+    RefUniqueAnimation* uniqueAnimEntry = GetRefAnimationEntry(animationID);
+
+    if (uniqueAnimEntry == 0 && numRefsToAdd != 0) {
+        uniqueAnimEntry = uniqueRefAnimationsAvailable;
+
+        // An `else` and not an early return: retail lays the `li r3,0`
+        // BETWEEN the assignment block and the refcount block, and pays
+        // for an extra branch to do it.
+        if (uniqueAnimEntry != 0) {
+            uniqueAnimEntry->animID = animationID;
+            uniqueRefAnimationsAvailable = uniqueAnimEntry->next;
+            uniqueAnimEntry->next = uniqueRefAnimationsUsed;
+            uniqueRefAnimationsUsed = uniqueAnimEntry;
+        } else {
+            return 0;
+        }
+    }
+
+    uniqueAnimEntry->refCount += numRefsToAdd;
+    numInstancesCurrentlyBound = uniqueAnimEntry->refCount;
+
+    return uniqueAnimEntry;
+}
+
+// Unlink from the disabled ring, splice onto the tail of the enabled
+// one. Retail re-reads enabledReferenceAnimations at every step rather
+// than holding it, so the source does too.
+void xModelInstance::RefAnimationEnable(RefInstanceAnimation* animInst) {
+    if (animInst->enabled) {
+        return;
+    }
+
+    if (animInst->nextAnim == animInst) {
+        disabledReferenceAnimations = 0;
+    } else {
+        animInst->lastAnim->nextAnim = animInst->nextAnim;
+        animInst->nextAnim->lastAnim = animInst->lastAnim;
+
+        if (animInst == disabledReferenceAnimations) {
+            disabledReferenceAnimations = animInst->nextAnim;
+        }
+    }
+
+    if (enabledReferenceAnimations != 0) {
+        animInst->lastAnim = enabledReferenceAnimations->lastAnim;
+        enabledReferenceAnimations->lastAnim->nextAnim = animInst;
+        animInst->nextAnim = enabledReferenceAnimations;
+        enabledReferenceAnimations->lastAnim = animInst;
+    } else {
+        animInst->nextAnim = animInst;
+        animInst->lastAnim = animInst;
+    }
+
+    enabledReferenceAnimations = animInst;
+    animInst->enabled = true;
+    numAnimationsEnabled++;
+}
+
+
+// The mirror of RefAnimationEnable: off the enabled ring, onto the
+// disabled one, flag cleared, counter down.
+void xModelInstance::RefAnimationDisable(RefInstanceAnimation* animInst) {
+    if (!animInst->enabled) {
+        return;
+    }
+
+    if (animInst->nextAnim == animInst) {
+        enabledReferenceAnimations = 0;
+    } else {
+        animInst->lastAnim->nextAnim = animInst->nextAnim;
+        animInst->nextAnim->lastAnim = animInst->lastAnim;
+
+        if (animInst == enabledReferenceAnimations) {
+            enabledReferenceAnimations = animInst->nextAnim;
+        }
+    }
+
+    if (disabledReferenceAnimations != 0) {
+        animInst->lastAnim = disabledReferenceAnimations->lastAnim;
+        disabledReferenceAnimations->lastAnim->nextAnim = animInst;
+        animInst->nextAnim = disabledReferenceAnimations;
+        disabledReferenceAnimations->lastAnim = animInst;
+    } else {
+        animInst->nextAnim = animInst;
+        animInst->lastAnim = animInst;
+    }
+
+    disabledReferenceAnimations = animInst;
+    animInst->enabled = false;
+    numAnimationsEnabled--;
+}
+
+
+// The length handed to memset is `count`, not count * sizeof: that is
+// what the image does and it is reproduced, not corrected.
+void xModelUniqueRefAnimationPoolInit(unsigned int count) {
+    memset(xModelInstance::uniqueRefAnimations, 0, count);
+
+    xModelInstance::uniqueRefAnimationsAvailable =
+        xModelInstance::uniqueRefAnimations;
+    xModelInstance::uniqueRefAnimationsUsed = 0;
+
+    xModelInstance::RefUniqueAnimation* previous =
+        xModelInstance::uniqueRefAnimations;
+
+    previous->previous = 0;
+
+    for (unsigned int c = 1; c < count; c++) {
+        xModelInstance::RefUniqueAnimation* cur =
+            &xModelInstance::uniqueRefAnimations[c];
+
+        cur->previous = previous;
+        previous->next = cur;
+        previous = cur;
+    }
+
+    xModelInstance::uniqueRefAnimations[count - 1].next = 0;
+}
+
+// One instance per reference the prototype declares, chained into a
+// ring; any allocation failing throws the whole chain away.
+int World::xOGModel::AllocAnimationInstances() {
+    RefInstanceAnimation* recent;
+    RefInstanceAnimation* newInst;
+    unsigned int cmax;
+
+    numAnimationsEnabled = 0;
+
+    RefInstanceAnimation* first =
+        (RefInstanceAnimation*)xMemPoolAlloc(&refAnimPool, 1);
+
+    nextReferenceAnimationLODUpdate = first;
+    enabledReferenceAnimations = first;
+    referenceAnimations = first;
+    disabledReferenceAnimations = 0;
+
+    if (first == 0) {
+        return 0;
+    }
+
+    referenceAnimations->Clear();
+    referenceAnimations->refModelProtoInstanceNum = 0;
+    numAnimationsEnabled++;
+    recent = referenceAnimations;
+    cmax = mModelArt.model.modelProto->refInstanceCount - 1;
+
+    for (unsigned int c = 0; c < cmax; c++) {
+        newInst = (RefInstanceAnimation*)xMemPoolAlloc(&refAnimPool, 1);
+
+        if (newInst == 0) {
+            DeallocAnimationInstances();
+            return 0;
+        }
+
+        newInst->Clear();
+        newInst->refModelProtoInstanceNum = c + 1;
+        numAnimationsEnabled++;
+        recent->nextAnim = newInst;
+        newInst->lastAnim = recent;
+        recent->next = newInst;
+        recent = newInst;
+    }
+
+    newInst->nextAnim = referenceAnimations;
+    referenceAnimations->lastAnim = newInst;
+
+    return 1;
+}
+
+// Every reference model before this one contributes its instances to
+// the offset, and the answer is that many links down the chain.
+xModelInstance::RefInstanceAnimation* World::xOGModel::GetRefAnimation(
+    unsigned long long refId, unsigned short refInstanceOffset) {
+    unsigned short refModelIndex = 0;
+
+    if (mModelArt.model.GetReferenceModel(refId, refModelIndex) == 0) {
+        return 0;
+    }
+
+    Graphics::ModelPrototype* modelProto = &mModelArt.protoEnt->modelProto;
+    unsigned short refModelIndexCount;
+
+    for (refModelIndexCount = 0; refModelIndexCount < refModelIndex;
+         refModelIndexCount++) {
+        Graphics::ReferenceModelEntry* refEntry =
+            modelProto->GetReferenceModelEntry(refModelIndexCount);
+
+        refInstanceOffset += refEntry->numInstances;
+    }
+
+    RefInstanceAnimation* animInst = referenceAnimations;
+
+    for (int c = 0; c < refInstanceOffset; c++) {
+        if (animInst == 0) {
+            break;
+        }
+
+        animInst = animInst->next;
+    }
+
+    return animInst;
 }
 
 // -- generated accessor part (gen_accessors.py) --------------------

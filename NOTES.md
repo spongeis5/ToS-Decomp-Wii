@@ -7,18 +7,18 @@ numbers here, which move.
 ## State at time of writing
 
 ```
-Game Code:  67 of 777 files complete  359,224 / 2,116,616 bytes  2,993 / 10,697 fn
-            16.9716% of game code
+Game Code:  67 of 777 files complete  359,988 / 2,116,616 bytes  3,011 / 10,697 fn
+            17.0077% of game code
 
-Of those 2,993 functions, 856 are GENERATED -- machine-recognised
+Of those 3,011 functions, 856 are GENERATED -- machine-recognised
 shapes, not one of which is decompiling. They are real matched
 functions and the offsets and constants are recovered fact, but a
 count of them is not a count of decompiled code. HAND-WRITTEN IS
-2,137, across 265 units and 324,924 bytes, and that is the figure to
+2,155, across 265 units and 325,688 bytes, and that is the figure to
 compare against earlier ones.
 
 Data:       4 unit(s) carry their own, 412 bytes; 134 more could
-All:        7.13% matched              main.dol reproduces byte for byte
+All:        7.14% matched              main.dol reproduces byte for byte
 ```
 
 Every number above is written by `python tools/notes_state.py`,
@@ -4511,3 +4511,43 @@ none of them drops it.
 
 Twenty-one functions, 2,272 bytes.  WAD01_28 349 of 350. Game Code
 16.86% -> 16.97%.
+
+## AN `||` CHAIN IS A BITMASK AND A SWITCH IS A TREE -- 17% of Game Code
+
+Eighteen accessors and predicates off the bottom of WAD01_28's
+remaining list, and two of them were worth more than their bytes.
+
+**`a == 1 || a == 2 || a == 6` compiles to a bitmask; the switch with
+those three cases compiles to a decision tree.** IsInAnyGooState is
+`addi r4,r4,-1 ; cmplwi r4,5 ; bgtlr ; li r0,1 ; slw r0,r0,r4 ;
+andi. r0,r0,0x23`, which reads as a jump-free switch and is not one:
+written as a switch mwcc emits a range test for 1 and 2 and an
+equality for 6, four bytes short.  The mask is what the `||` chain
+gives, and the mask NAMES THE CASES -- 0x23 is bits 0, 1 and 5, and
+the `-1` in front makes those 1, 2 and 6.  So a mask in the bytes is
+a list of equalities in the source, however much it looks like a
+table.
+
+**`cmpw` and not `cmpwi` is a member compared against another
+member.** SpinPowerupCheck tests `powerupState == 2` and then
+`powerupModelState == powerupState` -- and the second value IS 2 on
+that path, so `== 2` compiles and runs identically and is four bytes
+wrong.  The register in the compare says which of the two the source
+wrote.
+
+The rest are the leaf idioms already recorded: `beqlr`/`bnelr` pairs
+for an `&&` with no frame, the surface pointer at +0x6C with a type
+word at +0x10 and a friction float at +0x38, and two returns of a
+constant float chosen by one compare.
+
+STILL UNREACHED, and now measured six ways: AimPuckCheck (28 B).
+Retail has two exits with the FALSE one first; `return x != 0;`,
+`if (x) return true; return false;`, `if (x == 0) return false;
+return true;` and that last one with an explicit `else` all fold to
+the 16-byte `cntlzw ; srwi` form.  It and GainSidekickPowerupCheck
+are the two in this unit whose difference is mwcc folding where
+retail did not.
+
+Eighteen functions, 764 bytes.  WAD01_28 367 of 368. Game Code
+16.97% -> 17.01% -- 359,988 of 2,116,616 bytes, 3,011 of 10,697
+functions.

@@ -86,6 +86,7 @@ class zCommonPlayer {
 public:
     void DefaultMove(xScene* scene, float dt, xEntFrame* frame);
     void GetSafePos();
+    bool CanSwitchPlayer();
 };
 
 class zPlayerInput {
@@ -128,13 +129,45 @@ enum ForceEvent { ForceEvent_ = 0x7FFFFFFF };
 
 namespace Sext { class EventAny; }
 
-class xBase;
+class xBase {
+public:
+    unsigned char _pad0[0x20];
+    unsigned int baseType;
+};
 
 void zEntEventAllOfType(xBase* from, unsigned int fromEvent,
                         unsigned int toEvent, Sext::EventAny* param,
                         unsigned int type, ForceEvent force);
 
-class zBungeeBall { public: void BallReturn(); };
+class zBungeeBall {
+public:
+    void BallReturn();
+
+    unsigned char _pad0[0xC0];
+    bool fC0;
+    unsigned char _pad1[0xC3 - 0xC1];
+    bool fC3;
+    unsigned char _pad2[0xC8 - 0xC4];
+    int fC8;
+    int fCC;
+};
+
+// The surface under the player: a type word compared unsigned, and
+// the friction the slippery test reads.
+class xSurfaceInfo {
+public:
+    unsigned char _pad0[0x10];
+    unsigned int type;
+    unsigned char _pad1[0x38 - 0x14];
+    float friction;
+};
+
+class zStoryMoment {
+public:
+    static zStoryMoment* GetInstance();
+
+    bool f0;
+};
 
 class xEnt;
 
@@ -578,6 +611,12 @@ public:
     bool IsOnQuicksand();
     float GetRunStartMag();
     float GetWalkStartMag();
+    float GetCapsuleHeight();
+    float GetCapsuleRadius();
+    void ResetPuckCooldownTimer();
+    bool IsUsingPhysicsDrive(xBase* base);
+    bool CanJoinDrop();
+    int IsOnGoo();
     void SetGooState(SBGooFilledState state);
     void SetPowerupTimerToMax(BoardPowerupState state);
     void SetCapsuleSize(float radius, float height);
@@ -768,39 +807,42 @@ public:
     xOGModel* ogModel;
     unsigned char _pad0a[0x58 - 0x38];
     xEntFrame* frame;
-    unsigned char _pad1[0x168];
+    unsigned char _pad1[0x10];
+    xSurfaceInfo* surface;
+    unsigned char _pad2[0x154];
     int zPlayerFlags;
-    unsigned char _pad2[0x20];
+    unsigned char _pad3[0x20];
     zPlayerInput* playerInput;
-    unsigned char _pad3[0x1C];
+    unsigned char _pad4[0x1C];
     bool f208;
-    unsigned char _pad4[0xEB];
+    unsigned char _pad5[0xEB];
     float fallingTime;
-    unsigned char _pad5[0x180];
+    unsigned char _pad6[0x180];
     int lastDamageType;
-    unsigned char _pad6[0xD8];
+    unsigned char _pad7[0xD8];
     int currentHitType;
     hkVector4 hitDir;
-    unsigned char _pad7[0x330];
+    unsigned char _pad8[0x330];
     SBGooFilledState gooState;
-    unsigned char _pad8[0x10];
+    unsigned char _pad9[0x10];
     BoardPowerupState powerupState;
     BoardPowerupState powerupModelState;
     bool powerupPerformDeferredModelSwap;
-    unsigned char _pad9[0xB];
+    unsigned char _pad10[0xB];
     int f8C0;
     float f8C4;
-    unsigned char _pad10[0xC];
+    unsigned char _pad11[0x8];
+    float f8D0;
     int f8D4;
-    unsigned char _pad11[0x24];
+    unsigned char _pad12[0x24];
     bool f8FC;
-    unsigned char _pad12[0xA7];
+    unsigned char _pad13[0xA7];
     zBungeeBall* bungeeBall;
-    unsigned char _pad13[0x18];
+    unsigned char _pad14[0x18];
     int f9C0;
-    unsigned char _pad14[0xB4];
+    unsigned char _pad15[0xB4];
     float fA78;
-    unsigned char _pad15[0x28];
+    unsigned char _pad16[0x28];
     float fAA4;
 };
 
@@ -1118,6 +1160,9 @@ public:
     void AddStates(xAnimTable* table);
     bool SlideExitCheck(xAnimTransition* a0, xAnimSingle* a1);
     bool SlideHitCheck(xAnimTransition* a0, xAnimSingle* a1);
+
+    unsigned char _padA[0x34 - 0x10];
+    bool f34;
 };
 
 
@@ -1335,6 +1380,8 @@ public:
     bool DoubleJumpStartMovingCheck(xAnimTransition* a0, xAnimSingle* a1);
     bool TransToFallCheck(xAnimTransition* a0, xAnimSingle* a1);
     bool TransToSpinPowerupCheck(xAnimTransition* a0, xAnimSingle* a1);
+
+    float f10;
 };
 
 // The variant set the states are kept in -- fifteen of them, a
@@ -1378,6 +1425,10 @@ public:
     bool TransToSpinPowerupCheck(xAnimTransition* a0, xAnimSingle* a1);
 
     void End();
+
+    float f10;
+    unsigned char _padA[0x20 - 0x14];
+    float f20;
 };
 
 class zBoardPlayerFillWithGoo : public zPlayerAction {
@@ -1770,6 +1821,9 @@ public:
     void AddStates(xAnimTable* table);
     bool SlamCheck(xAnimTransition* a0, xAnimSingle* a1);
     bool SlamApexCheck(xAnimTransition* a0, xAnimSingle* a1);
+
+    unsigned char _padA[0x1C - 0x10];
+    float f1C;
 };
 
 // zPlayerSlamStartBoard::AddActionTransitions: 1 call(s)
@@ -5328,4 +5382,133 @@ unsigned int zBoardPlayerBungeeBall::anSBBungeeBallDeathEndCB(xAnimTransition* a
     }
 
     return result;
+}
+
+int zBoardPlayer::IsOnCandy() {
+    return surface != 0 && surface->type == 8;
+}
+
+int zBoardPlayer::IsOnGoo() {
+    return surface != 0 && surface->type == 9;
+}
+
+bool zBoardPlayer::IsOnQuicksand() {
+    bool result = false;
+
+    if (powerupState == 0 && powerupModelState == 0 && surface != 0 &&
+        surface->type == 7) {
+        result = true;
+    }
+
+    return result;
+}
+
+bool zBoardPlayer::IsOnSlipperySurface(float f) const {
+    bool result = false;
+
+    if (fallingTime < f && surface != 0 && surface->friction < 1.0f) {
+        result = true;
+    }
+
+    return result;
+}
+
+// The mask names the cases: 0x23 is bits 0, 1 and 5, and the `-1`
+// before it makes those states 1, 2 and 6.
+int zBoardPlayer::IsInAnyGooState() {
+    return gooState == 1 || gooState == 2 || gooState == 6;
+}
+
+float zBoardPlayer::GetCapsuleHeight() {
+    if (gooState == 2) {
+        return 2.0f;
+    }
+
+    return 1.0f;
+}
+
+float zBoardPlayer::GetCapsuleRadius() {
+    if (gooState == 2) {
+        return 0.7f;
+    }
+
+    return 0.32f;
+}
+
+void zBoardPlayer::ResetPuckCooldownTimer() {
+    if (powerupState == 1) {
+        f8D0 = 0.15f;
+    } else {
+        f8D0 = 0.3f;
+    }
+}
+
+bool zBoardPlayer::IsUsingPhysicsDrive(xBase* base) {
+    unsigned int type = base->baseType;
+
+    if (type == 0x56 || type == 0x5A || type == 0xA3 || type == 0xA1) {
+        return true;
+    }
+
+    return false;
+}
+
+bool zBoardPlayer::CanJoinDrop() {
+    if (zStoryMoment::GetInstance()->f0) {
+        return false;
+    }
+
+    return ((zCommonPlayer*)this)->CanSwitchPlayer();
+}
+
+bool zBoardPlayerSpinPowerupAttack::SpinPowerupCheck(xAnimTransition* a0,
+                                                     xAnimSingle* a1) {
+    zBoardPlayer* p = (zBoardPlayer*)player;
+
+    // `cmpw` and not `cmpwi`: the second test is against the member
+    // the first one loaded, not against the 2 it holds.
+    return p->powerupState == 2 && p->powerupModelState == p->powerupState;
+}
+
+bool zBoardPlayerBungeeBall::SBBungeeBallIdleCheck(xAnimTransition* a0,
+                                                   xAnimSingle* a1) {
+    zBungeeBall* b = ((zBoardPlayer*)player)->bungeeBall;
+
+    return b->fCC == 0 && b->fC0;
+}
+
+bool zBoardPlayerBungeeBall::SBBungeeBallReturnCheck(xAnimTransition* a0,
+                                                     xAnimSingle* a1) {
+    return ((zBoardPlayer*)player)->bungeeBall->fCC == 2;
+}
+
+bool zBoardPlayerBungeeBall::SBBungeeBallFlattenedCheck(
+    xAnimTransition* a0, xAnimSingle* a1) {
+    zBungeeBall* b = ((zBoardPlayer*)player)->bungeeBall;
+
+    return b->fC8 == 2 || b->fC3;
+}
+
+bool zPlayerJumpBoard::ApexCheck(xAnimTransition* a0, xAnimSingle* a1) {
+    return f10 >= f20;
+}
+
+bool zPlayerSlamStartBoard::SlamApexCheck(xAnimTransition* a0,
+                                          xAnimSingle* a1) {
+    return ((zBoardPlayer*)player)->frame->f8C < f1C;
+}
+
+bool zPlayerDoubleJumpBoard::TransToFallCheck(xAnimTransition* a0,
+                                              xAnimSingle* a1) {
+    return f10 >= 0.4f;
+}
+
+bool zPlayerSlide::SlideHitCheck(xAnimTransition* a0, xAnimSingle* a1) {
+    if (f34) {
+        f34 = false;
+
+        return true;
+    }
+
+    return false;
 }

@@ -22,6 +22,7 @@ unsigned int xAnimTableNewState(xAnimTable* table, const char* name, unsigned in
 unsigned int xAnimTableNewTransition(xAnimTable* table, const char* from, const char* to, unsigned int (*a)(xAnimTransition*, xAnimSingle*, void*), unsigned int (*b)(xAnimTransition*, xAnimSingle*, void*), unsigned int (*c)(xAnimTransition*, xAnimSingle*, void*), unsigned int d, unsigned int e, float f, float g, unsigned short h, unsigned short i, float j, unsigned short* k);
 void zSBAnimPackageBE(xAnimPlay*, xAnimState*, void*);
 void xAnimDefaultBeforeEnter(xAnimPlay*, xAnimState*, void*);
+unsigned int xStrHash(const char* s);
 void zHitBE(xAnimPlay*, xAnimState*, void*);
 
 // -- generated accessor part (gen_accessors.py) ------------
@@ -836,6 +837,30 @@ void zPlayerJump::End() { f10 = 0; }
 bool zPlayerFall::anFallHighCheck(xAnimTransition* a0, xAnimSingle* a1, void* a2) { return ((zPlayerFall*)((AnimCBHolder*)a1)->slot->owner)->FallHighCheck(a0, a1); }
 void zPlayerTriggered::Reset() { f24 = 4; }
 
+void zHitBE(xAnimPlay* a0, xAnimState* a1, void* a2) {
+    if (a1->fB8 == 0) {
+        return;
+    }
+
+    unsigned int hash = xStrHash("Normal");
+    zPlayerLand_mB8* table = a1->fB8;
+    unsigned int found = 0;
+    unsigned int i;
+
+    for (i = 0; i < table->count; i++) {
+        if (hash == table->entries[i].key) {
+            a1->f20 = table->entries[i].value;
+            found = 1;
+
+            break;
+        }
+    }
+
+    if (!found) {
+        a1->f20 = a1->fB8->entries[0].value;
+    }
+}
+
 void zPlayerTriggered::End() {
     int event = f24;
 
@@ -901,6 +926,7 @@ public:
     static unsigned int anLandRunCheck(xAnimTransition* a0, xAnimSingle* a1, void* a2);
     bool LandRunCheck(xAnimTransition* a0, xAnimSingle* a1);
     static unsigned int anLandWalkCheck(xAnimTransition* a0, xAnimSingle* a1, void* a2);
+    void AddTransitionsFrom(xAnimTable* table, const char* name, unsigned int (*c)(xAnimTransition*, xAnimSingle*, void*), unsigned int (*d)(xAnimTransition*, xAnimSingle*, void*), unsigned short e, float f, unsigned int g, unsigned int h, zPlayerAction::SpecialActions i);
     bool LandWalkCheck(xAnimTransition* a0, xAnimSingle* a1);
 
     void LandBeforeEnter(xAnimPlay* a0, xAnimState* a1);
@@ -1048,6 +1074,22 @@ public:
 
     void End();
 };
+
+void zPlayerLand::AddTransitionsFrom(xAnimTable* table, const char* name, unsigned int (*c)(xAnimTransition*, xAnimSingle*, void*), unsigned int (*d)(xAnimTransition*, xAnimSingle*, void*), unsigned short e, float f, unsigned int g, unsigned int h, zPlayerAction::SpecialActions i) {
+    if (i == 1) {
+        zPlayerAction::AddActionTransition(table, name, "LandHighIdle01", zPlayerLand::anLandWalkCheck, c, d, e, f, g, h);
+        zPlayerAction::AddActionTransition(table, name, "LandHighIdle01", zPlayerLand::anLandRunCheck, c, d, e, f, g, h);
+    } else {
+        zPlayerAction::AddActionTransition(table, name, "LandIdle01", zPlayerLand::anLandWalkCheck, c, d, e, f, g, h);
+        zPlayerAction::AddActionTransition(table, name, "LandMoving01", zPlayerLand::anLandRunCheck, c, d, e, f, g, h);
+    }
+}
+
+void zCommonPlayerActionsNormalTransitions(zPlayerActionManager* manager, xAnimTable* table, const char* name, unsigned int (*c)(xAnimTransition*, xAnimSingle*, void*), unsigned int (*d)(xAnimTransition*, xAnimSingle*, void*), unsigned short e, float f, unsigned int g, unsigned int h) {
+    manager->AddTransitionsTo(0, table, name, c, d, e, f, g | 0x10, h, (zPlayerAction::SpecialActions)0);
+    manager->AddTransitionsTo(2, table, name, c, d, e, f, g | 0x10, h, (zPlayerAction::SpecialActions)0);
+    manager->AddTransitionsTo(3, table, name, c, d, e, f, g | 0x10, h, (zPlayerAction::SpecialActions)0);
+}
 
 // zPlayerHitLaunch::AddTransitionsFrom: 1 call(s)
 void zPlayerHitLaunch::AddTransitionsFrom(xAnimTable* table, const char* name, unsigned int (*c)(xAnimTransition*, xAnimSingle*, void*), unsigned int (*d)(xAnimTransition*, xAnimSingle*, void*), unsigned short e, float f, unsigned int g, unsigned int h, zPlayerAction::SpecialActions i) {

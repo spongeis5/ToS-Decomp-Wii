@@ -207,6 +207,18 @@ class xAnimTransition;
 // the branch is four bytes and names nothing else.
 class xScene;
 class xBase;
+// Defined in another unit; only these two checks are called from here,
+// and the mangled names give their signatures exactly.
+class zPlayerJumpBoard {
+public:
+    bool ApexCheck(xAnimTransition* a0, xAnimSingle* a1);
+};
+
+class zPlayerSlamStartBoard {
+public:
+    bool SlamApexCheck(xAnimTransition* a0, xAnimSingle* a1);
+};
+
 class zPlayerInput {
 public:
     virtual void _v0();
@@ -228,7 +240,7 @@ public:
     virtual void _v16();
     virtual void _v17();
     virtual void _v18();
-    virtual void _v19();
+    virtual int _v19(int a0, int a1, int a2);
     virtual void _v20();
     virtual void _v21();
     virtual void _v22();
@@ -237,6 +249,31 @@ public:
     virtual void _v25();
     virtual void _v26();
     virtual float _v27(int a0, int a1);
+    virtual void _v28();
+    virtual void _v29();
+    virtual void _v30();
+    virtual void _v31();
+    virtual void _v32();
+    virtual void _v33();
+    virtual void _v34();
+    virtual void _v35();
+    virtual void _v36();
+    virtual void _v37();
+    virtual void _v38();
+    virtual void _v39();
+    virtual void _v40();
+    virtual void _v41();
+    virtual void _v42();
+    virtual void _v43();
+    virtual int _v44();
+    virtual void _v45();
+    virtual void _v46();
+    virtual void _v47();
+    virtual void _v48();
+    virtual void _v49();
+    virtual void _v50();
+    virtual void _v51();
+    virtual int _v52();
 };
 class xEntFrame;
 
@@ -1140,6 +1177,7 @@ class zBoardPlayerBungeeBall {
 public:
     static unsigned int anSBBungeeBallHitEndCB(xAnimTransition*, xAnimSingle*, void*);
     static unsigned int anSBBungeeBallExitCheck(xAnimTransition*, xAnimSingle*, void*);
+    bool SBBungeeBallDeathCheck(xAnimTransition* a0, xAnimSingle* a1);
 };
 
 // -- the animation tables, read from the image ------------------
@@ -1990,6 +2028,31 @@ void zPlayerSingleCustomAnimSB::AddActionTransitions(xAnimTable* table) {
 }
 
 // zPlayerDoubleJumpSB::AddInternalTransitions: 2 call(s)
+bool zPlayerDoubleJumpSB::DoubleJumpStartCheck(xAnimTransition* a0,
+                                               xAnimSingle* a1) {
+    unsigned int hit = 0;
+
+    if (((zSBPlayer*)player)->canDoubleJump) {
+        if (((zSBPlayer*)player)->playerInput->_v44()) {
+            if (((zSBPlayer*)player)->playerInput->_v19(95, 0, 1)) {
+                hit = 1;
+            }
+        } else if (((zSBPlayer*)player)->playerInput->_v52()) {
+            if (((zSBPlayer*)player)->playerInput->_v19(8, 0, 1)) {
+                hit = 1;
+            }
+        } else if (((zSBPlayer*)player)->playerInput->_v19(8, 0, 1)) {
+            hit = 1;
+        }
+    }
+
+    if (hit) {
+        return true;
+    }
+
+    return false;
+}
+
 void zPlayerDoubleJumpSB::AddInternalTransitions(xAnimTable* table) {
     xAnimTableNewTransition(table, "DoubleJumpInIdle01", "DoubleJumpCycleIdle01", 0, 0, 0, 16, 0, 0.0f, 0.0f, 1000, 0, 0.15f, 0);
     xAnimTableNewTransition(table, "DoubleJumpInMoving01", "DoubleJumpCycleMoving01", 0, 0, 0, 16, 0, 0.0f, 0.0f, 1000, 0, 0.15f, 0);
@@ -4032,6 +4095,60 @@ unsigned int zSBPlayerAction::anSBLandCheck(xAnimTransition* a0, xAnimSingle* a1
 
     if (((zSBPlayerAction*)((AnimCBHolder*)a0)->slot->owner)->_v5()) {
         if (((zSBPlayerAction*)((AnimCBHolder*)a0)->slot->owner)->SBLandCheck(a0, a1)) {
+            result = 1;
+        }
+    }
+
+    return result;
+}
+
+unsigned int zPlayerJumpSB::anApexCheck(xAnimTransition* a0,
+                                   xAnimSingle* a1, void* a2) {
+    unsigned int result = 0;
+
+    if (((zPlayerJumpSB*)((AnimCBHolder*)a1)->slot->owner)->_v5()) {
+        if (((zPlayerJumpBoard*)((AnimCBHolder*)a1)->slot->owner)->ApexCheck(a0, a1)) {
+            result = 1;
+        }
+    }
+
+    return result;
+}
+
+unsigned int zPlayerSlamStartSB::anSlamApexCheck(xAnimTransition* a0,
+                                   xAnimSingle* a1, void* a2) {
+    unsigned int result = 0;
+
+    if (((zPlayerSlamStartSB*)((AnimCBHolder*)a1)->slot->owner)->_v5()) {
+        if (((zPlayerSlamStartBoard*)((AnimCBHolder*)a1)->slot->owner)->SlamApexCheck(a0, a1)) {
+            result = 1;
+        }
+    }
+
+    return result;
+}
+
+unsigned int zSBPlayerBungeeBall::anSBBungeeBallDeathCheck(
+    xAnimTransition* a0, xAnimSingle* a1, void* a2) {
+    unsigned int result = 0;
+
+    if (((zSBPlayerBungeeBall*)((AnimCBHolder*)a1)->slot->owner)->_v5()) {
+        if (((zBoardPlayerBungeeBall*)((AnimCBHolder*)a1)->slot->owner)->SBBungeeBallDeathCheck(a0, a1)) {
+            result = 1;
+        }
+    }
+
+    return result;
+}
+
+unsigned int zSBPlayerQuicksandJump::anSBQuicksandApexCheck(
+    xAnimTransition* a0, xAnimSingle* a1, void* a2) {
+    unsigned int result = 0;
+
+    if (((zSBPlayerQuicksandJump*)((AnimCBHolder*)a1)->slot->owner)->_v5()) {
+        bool ok = ((zSBPlayerQuicksandJump*)((AnimCBHolder*)a1)->slot->owner)->f10 >= 0.25f;
+
+        if (ok) {
             result = 1;
         }
     }

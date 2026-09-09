@@ -112,8 +112,56 @@ void v3add(xVec3* d, xVec3* a, xVec3* b);
 int xrand_RandomRange(int a0, int a1);
 void zSceneReset();
 class xEnt;
+
+class zPlayerInput {
+public:
+    virtual void _v0();
+    virtual void _v1();
+    virtual void _v2();
+    virtual void _v3();
+    virtual void _v4();
+    virtual void _v5();
+    virtual void _v6();
+    virtual void _v7();
+    virtual void _v8();
+    virtual void _v9();
+    virtual void _v10();
+    virtual void _v11();
+    virtual void _v12();
+    virtual void _v13();
+    virtual void _v14();
+    virtual void _v15();
+    virtual void _v16();
+    virtual void _v17();
+    virtual void _v18();
+    virtual bool _v19(int a0, int a1, int a2);
+};
 unsigned int xEntGetAnimFlags(const xEnt* e);
 class xSurfaceInfo;
+// The list zPlayerLand::LandBeforeEnter walks off the state's
+// +0xB8: a count, then pairs at +4 and +8 of each 8-byte entry.
+struct zPlayerLand_mB8_Entry { unsigned int key; unsigned int value; };
+struct zPlayerLand_mB8 {
+    unsigned int count;
+    zPlayerLand_mB8_Entry entries[1];
+};
+
+class xAnimState {
+public:
+    unsigned char _pad0[0x20];
+    unsigned int f20;
+    unsigned char _pad1[0xB8 - 0x24];
+    zPlayerLand_mB8* fB8;
+};
+
+namespace World {
+class EntityManager {
+public:
+    static void* FindAsset(unsigned long long a0);
+};
+EntityManager* GetEntityManager();
+}
+
 xAnimState* xAnimTableGetState(xAnimTable* table, const char* name);
 void xAnimPlaySetState(xAnimSingle* a0, xAnimState* a1, float a2);
 
@@ -269,7 +317,7 @@ public:
     virtual void _v102();
     virtual void _v103();
     virtual void _v104();
-    virtual bool _v105();
+    virtual unsigned int _v105();
     virtual void _v106();
     virtual void _v107();
     virtual void _v108();
@@ -305,7 +353,10 @@ public:
     int f14C;
     unsigned char _pad2b[0x1C4 - 0x150];
     int zPlayerFlags;
-    unsigned char _pad3[0x1F0 - 0x1C8];
+    unsigned char _pad3[0x1E4 - 0x1C8];
+    int f1E4;
+    zPlayerInput* playerInput;
+    unsigned char _pad3a[0x1F0 - 0x1EC];
     int f1F0;
     unsigned char _pad3b[0x2E8 - 0x1F4];
     xAnimTable* animTable;
@@ -367,7 +418,8 @@ public:
     // callbacks tests before it forwards: `lwz r12,28(r12)` on a
     // vptr that sits at +12, and (28 - 8) / 4 is 5. Appended, so the
     // three slots the tables call keep the indices they have.
-    virtual bool _v4();
+    // `cmplw` against an action id, so unsigned rather than bool.
+    virtual unsigned int _v4();
     virtual bool _v5();
     virtual void _v6();
     virtual void _v7();
@@ -471,9 +523,19 @@ struct AnimCBHolder { unsigned char _pad[0x4]; AnimCBSlot* slot; };
 
 // The one word IsLastEntry reads off whatever the custom-anim
 // action holds at +0x10. Named after where it was found.
+// `mulli r0,r0,48` in SetNextState, so an entry is 48 bytes, and
+// only its float at +0x10 is read.
+struct zPlayerCustomAnim_m10_Entry {
+    unsigned char _pad0[0x10];
+    float f10;
+    unsigned char _pad1[0x30 - 0x14];
+};
+
 struct zPlayerCustomAnim_m10 {
-    unsigned char _pad0[0x4];
+    unsigned char f00;
+    unsigned char _pad0[0x3];
     unsigned int f4;
+    zPlayerCustomAnim_m10_Entry* f08;
 };
 
 
@@ -517,6 +579,7 @@ public:
 
     unsigned char _pad0[0x4];
     int f4;
+    void AddStates(xAnimTable* table);
     void AddTransitionsFrom(xAnimTable* table, const char* name, unsigned int (*c)(xAnimTransition*, xAnimSingle*, void*), unsigned int (*d)(xAnimTransition*, xAnimSingle*, void*), unsigned short e, float f, unsigned int g, unsigned int h, zPlayerAction::SpecialActions i);
 };
 
@@ -581,6 +644,8 @@ public:
     float f10;
 
     int f14;
+
+    void AddTransitionsFrom(xAnimTable* table, const char* name, unsigned int (*c)(xAnimTransition*, xAnimSingle*, void*), unsigned int (*d)(xAnimTransition*, xAnimSingle*, void*), unsigned short e, float f, unsigned int g, unsigned int h, zPlayerAction::SpecialActions i);
 };
 
 
@@ -642,6 +707,8 @@ public:
     void Reset();
 
     float f10;
+
+    void Timestep(float dt);
 };
 
 
@@ -711,6 +778,11 @@ public:
     void Begin();
 
     unsigned char f3C;
+
+    void SetAnim();
+
+    void Update(float dt);
+    void StartSequence(unsigned long long a0);
 };
 
 
@@ -718,6 +790,29 @@ public:
 // it calls zPlayerWalk::Update and retail leaves that a `bl`. The
 // generated part must not be hand-edited, so the caller moves
 // rather than the callee.
+// Above the generated definitions for the same reason as
+// zPlayerLedge::Update below it: zPlayerWalk::Update must stay a
+// `bl`.
+void zPlayerCustomAnim::Update(float dt) {
+    ((zPlayerWalk*)this)->Update(dt);
+
+    if (f1C > 0.0f) {
+        f1C -= dt;
+
+        if (f1C <= 0.0f) {
+            if (!IsLastEntry()) {
+                f18 = 1;
+            } else {
+                f19 = 1;
+            }
+        }
+    }
+
+    if (f3C != player->_v105()) {
+        f19 = 1;
+    }
+}
+
 void zPlayerLedge::Update(float dt) {
     ((zPlayerWalk*)this)->Update(dt);
 
@@ -797,6 +892,8 @@ public:
     bool LandWalkCheck(xAnimTransition* a0, xAnimSingle* a1);
 
     void LandBeforeEnter(xAnimPlay* a0, xAnimState* a1);
+
+    unsigned int f10;
 };
 
 // -- the animation tables, read from the image ------------------
@@ -2212,6 +2309,115 @@ void zPlayerJump::Move(xScene* a0, float a1, xEntFrame* a2) {
     f14 += a1;
 
     player->_v128(a0, a1, a2);
+}
+
+// zPlayerWalk is a zPlayerAction -- NewState is called with `this`
+// unchanged -- but saying so in the declaration would move f4 and
+// break the matched Update, so the call casts.
+void zPlayerWalk::AddStates(xAnimTable* table) {
+    ((zPlayerAction*)this)->NewState(table, "Walk01", 16, 1042, 1.0f,
+                                     0, 0, 0.0f, 0,
+                                     xAnimDefaultBeforeEnter,
+                                     0, 0, 0, 0);
+}
+
+void zPlayerCustomAnim::SetNextState() {
+    f18 = 0;
+
+    f1C = f1A ? f10->f08[f14].f10 : 0.0f;
+
+    f14++;
+
+    if (IsLastEntry() && f10->f00) {
+        f14 = 0;
+    }
+
+    if (!IsLastEntry()) {
+        SetAnim();
+    }
+}
+
+void zCommonPlayerDash::Timestep(float dt) {
+    if (manager->GetCurrentActionID() == _v4()) {
+        float t = f10 - dt / 3.0f;
+
+        f10 = (t > 0.0f) ? t : 0.0f;
+    } else {
+        float t = f10 + dt;
+
+        f10 = (t < 1.0f) ? t : 1.0f;
+    }
+}
+
+bool zPlayerJump::JumpCheck(xAnimTransition* a0, xAnimSingle* a1) {
+    if (player->f1E4) {
+        return false;
+    }
+
+    if (f10) {
+        return false;
+    }
+
+    if (!player->playerInput) {
+        return false;
+    }
+
+    if (player->playerInput->_v19(9, 0, 1) &&
+        (player->zPlayerFlags & 2)) {
+        f10 = 1;
+
+        return true;
+    }
+
+    return false;
+}
+
+void zPlayerFall::AddTransitionsFrom(xAnimTable* table,
+                                     const char* name,
+                                     unsigned int (*c)(xAnimTransition*, xAnimSingle*, void*),
+                                     unsigned int (*d)(xAnimTransition*, xAnimSingle*, void*),
+                                     unsigned short e, float f,
+                                     unsigned int g, unsigned int h,
+                                     zPlayerAction::SpecialActions i) {
+    if (i == 1) {
+        zPlayerAction::AddActionTransition(
+            table, name, "FallMoving01",
+            zCommonPlayerAction::anFallCheck, c, d, e, f, g, h);
+    } else {
+        zPlayerAction::AddActionTransition(
+            table, name, "FallIdle01",
+            zCommonPlayerAction::anFallCheck, c, d, e, f, g, h);
+    }
+}
+
+void zPlayerLand::LandBeforeEnter(xAnimPlay* a0, xAnimState* a1) {
+    if (a1->fB8) {
+        if (!f10) {
+            f10 = 0x44464C54;
+        }
+
+        for (unsigned int i = 0; i < a1->fB8->count; i++) {
+            if (f10 == a1->fB8->entries[i].key) {
+                a1->f20 = a1->fB8->entries[i].value;
+            }
+        }
+    }
+
+    f10 = 0;
+}
+
+void zPlayerCustomAnim::StartSequence(unsigned long long a0) {
+    World::GetEntityManager();
+
+    f10 = (zPlayerCustomAnim_m10*)World::EntityManager::FindAsset(a0);
+
+    if (f10) {
+        f14 = 0;
+
+        SetAnim();
+
+        f18 = 1;
+    }
 }
 
 // The three below are called by the bodies above and retail leaves

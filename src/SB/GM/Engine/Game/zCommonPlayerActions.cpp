@@ -65,9 +65,19 @@ class xOGModelHandle { public: xOGModel* model; int f4; };
 // into, and the vector it adds through. `ori`, so unsigned.
 class xEntFrame {
 public:
-    unsigned char _pad0[0x94];
+    unsigned char _pad0[0x88];
+    // zPlayerHitLaunch::End zeroes all three; LandCheck reads the y.
+    xVec3 f88;
     unsigned int flags;
     xVec3 pos;
+};
+
+// The one field SetBlend writes. Everything else about the
+// transition is reached only as a pointer.
+class xAnimTransition {
+public:
+    unsigned char _pad0[0x28];
+    float f28;
 };
 void v3add(xVec3* d, xVec3* a, xVec3* b);
 
@@ -289,6 +299,7 @@ public:
     // and `void` name the same symbol.
     unsigned int NewState(xAnimTable*, const char*, unsigned int, unsigned int, float, float*, float*, float, unsigned short*, void (*)(xAnimPlay*, xAnimState*, void*), void (*)(xAnimPlay*, xAnimState*, void*), void (*)(xAnimState*, xAnimSingle*, void*), void (*)(xAnimPlay*, xQuat*, xVec3*, xVec3*, int), unsigned int);
     void NewStateMany(xAnimTable*, const char*, int, unsigned int, unsigned int, float, float*, float*, float, unsigned short*, void (*)(xAnimPlay*, xAnimState*, void*), void (*)(xAnimPlay*, xAnimState*, void*), void (*)(xAnimState*, xAnimSingle*, void*), void (*)(xAnimPlay*, xQuat*, xVec3*, xVec3*, int), unsigned int);
+    void AddStandardTransitionsFrom(xAnimTable* table, const char* name);
 };
 
 class zPlayerActionManager {
@@ -297,6 +308,7 @@ public:
     unsigned char _pad0[0xC - 0x4];
     // `cmplwi`, so unsigned.
     unsigned int f0C;
+    unsigned int f10;
     void AddStandardTransitionsTo(unsigned int, xAnimTable*, const char*);
     void AddTransitionsTo(unsigned int, xAnimTable*, const char*, unsigned int (*)(xAnimTransition*, xAnimSingle*, void*), unsigned int (*)(xAnimTransition*, xAnimSingle*, void*), unsigned short, float, unsigned int, unsigned int, zPlayerAction::SpecialActions);
 };
@@ -489,6 +501,8 @@ public:
     static const char* GetTransitionString() { return "LedgeLand01"; }
     void AddActionTransitions(xAnimTable* table);
     void AddStates(xAnimTable* table);
+
+    void End();
 };
 
 
@@ -553,13 +567,17 @@ public:
     unsigned int f14;
     unsigned char f18;
     unsigned char f19;
-    unsigned char _pad0[0x1C - 0x1A];
+    unsigned char f1A;
+    unsigned char _pad0[0x1C - 0x1B];
     float f1C;
-    unsigned char _pad1[0x34 - 0x20];
+    float f20;
+    unsigned char _pad1[0x34 - 0x24];
     int f34;
     int f38;
 
     void SetNextState();
+
+    void SetBlend(xAnimTransition* a0);
 };
 
 
@@ -593,6 +611,9 @@ public:
     bool FallCheck(xAnimTransition* a0, xAnimSingle* a1);
 
     void ApplyBasicPhysics(const xVec3& v);
+
+    bool LandCheck(xAnimTransition* a0, xAnimSingle* a1);
+    bool JumpLandCheck(xAnimTransition* a0, xAnimSingle* a1);
 };
 
 class zPlayerFallToDeath : public zPlayerAction {
@@ -753,6 +774,8 @@ public:
     void AddActionTransitions(xAnimTable* table);
     void AddStates(xAnimTable* table);
     bool LaunchCheck(xAnimTransition* a0, xAnimSingle* a1);
+
+    void End();
 };
 
 // zPlayerHitLaunch::AddTransitionsFrom: 1 call(s)
@@ -1456,4 +1479,112 @@ void zPlayerFallToDeath::Begin() {
     zPlayer::KillAllPlayers((Sext::eHitSource)1);
 
     f10 = 0.0f;
+}
+
+void zPlayerLedge::End() {
+    player->f5C4 = 0.0f;
+    player->f4A0 = 0;
+    player->zPlayerFlags |= 8;
+    player->zPlayerFlags &= ~0x10;
+}
+
+// Three conjuncts and no register spent on them.
+bool zCommonPlayerAction::LandCheck(xAnimTransition* a0,
+                                    xAnimSingle* a1) {
+    if ((player->zPlayerFlags & 2) && !(player->zPlayerFlags & 0x2000) &&
+        player->frame->f88.y <= 0.01f) {
+        return true;
+    }
+
+    return false;
+}
+
+bool zPlayerCustomAnim::StartTranCheck(xAnimTransition* a0,
+                                       xAnimSingle* a1) {
+    if (f18 && !f1A) {
+        SetBlend(a0);
+
+        return true;
+    }
+
+    return false;
+}
+
+bool zPlayerCustomAnim::StartLoopCheck(xAnimTransition* a0,
+                                       xAnimSingle* a1) {
+    if (f18 && f1A) {
+        SetBlend(a0);
+
+        return true;
+    }
+
+    return false;
+}
+
+void zPlayerHitLaunch::End() {
+    if (manager->f10 != 6) {
+        xEntFrame* frame = player->frame;
+
+        frame->f88.x = 0.0f;
+        frame->f88.y = 0.0f;
+        frame->f88.z = 0.0f;
+    }
+
+    player->currentHitType = -1;
+
+    player->_v129();
+}
+
+bool zPlayerLand::LandWalkCheck(xAnimTransition* a0, xAnimSingle* a1) {
+    bool result = false;
+
+    if (((zCommonPlayerAction*)this)->JumpLandCheck(a0, a1) &&
+        player->f5EC < 2) {
+        result = true;
+    }
+
+    return result;
+}
+
+bool zPlayerLand::LandRunCheck(xAnimTransition* a0, xAnimSingle* a1) {
+    bool result = false;
+
+    if (((zCommonPlayerAction*)this)->JumpLandCheck(a0, a1) &&
+        player->f5EC >= 2) {
+        result = true;
+    }
+
+    return result;
+}
+
+// The same predicate as LandCheck, with the first two conjuncts
+// ASSIGNED to a bool -- which is why this one materialises a flag
+// and LandCheck does not.
+bool zCommonPlayerAction::JumpLandCheck(xAnimTransition* a0,
+                                        xAnimSingle* a1) {
+    bool result = false;
+    bool onGround = (player->zPlayerFlags & 2) &&
+                    !(player->zPlayerFlags & 0x2000);
+
+    if (onGround && player->frame->f88.y <= 0.01f) {
+        result = true;
+    }
+
+    return result;
+}
+
+void zPlayerAction::AddStandardTransitionsFrom(xAnimTable* table,
+                                               const char* name) {
+    AddTransitions(table, name, 0, 0, 1000, 0.15f, 0, 0,
+                   (zPlayerAction::SpecialActions)0);
+}
+
+void zPlayerCustomAnim::SetBlend(xAnimTransition* a0) {
+    if (f20 < 0.0f) {
+        a0->f28 = 6.6666665f;
+    } else if (f20 == 0.0f) {
+        a0->f28 = 0.0f;
+    } else {
+        a0->f28 = 1.0f / f20;
+    }
 }

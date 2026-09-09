@@ -7,18 +7,18 @@ numbers here, which move.
 ## State at time of writing
 
 ```
-Game Code:  67 of 777 files complete  369,460 / 2,116,616 bytes  3,141 / 10,697 fn
-            17.4552% of game code
+Game Code:  67 of 777 files complete  370,204 / 2,116,616 bytes  3,151 / 10,697 fn
+            17.4904% of game code
 
-Of those 3,141 functions, 856 are GENERATED -- machine-recognised
+Of those 3,151 functions, 856 are GENERATED -- machine-recognised
 shapes, not one of which is decompiling. They are real matched
 functions and the offsets and constants are recovered fact, but a
 count of them is not a count of decompiled code. HAND-WRITTEN IS
-2,285, across 265 units and 335,160 bytes, and that is the figure to
+2,295, across 265 units and 335,904 bytes, and that is the figure to
 compare against earlier ones.
 
 Data:       4 unit(s) carry their own, 412 bytes; 134 more could
-All:        7.29% matched              main.dol reproduces byte for byte
+All:        7.30% matched              main.dol reproduces byte for byte
 ```
 
 Every number above is written by `python tools/notes_state.py`,
@@ -4727,3 +4727,52 @@ before it can be named.
 
 zCommonPlayerActions 84 of 87 -> 109 of 112. Game Code 17.41% ->
 17.46%, 368,524 -> 369,460 bytes of 2,116,616.
+
+## THE SAME PREDICATE, WRITTEN BOTH WAYS -- forty-eight bytes apart
+
+zCommonPlayerAction::LandCheck and zCommonPlayerAction::JumpLandCheck
+test the same two flag bits of the same player and the same velocity
+against the same 0.01f. They are 68 and 80 bytes, and the twelve
+bytes are a register.
+
+LandCheck spends nothing on it -- one `if` with three conjuncts, and
+the two exits are `li r3,1 ; blr` and `li r3,0 ; blr`. JumpLandCheck
+ASSIGNS the first two conjuncts to a bool, so mwcc materialises r4,
+sets it in both arms and then tests it. Same predicate, same file,
+and the only difference in the source is whether the intermediate
+was given a name.
+
+That is the `bool ok = A && B` versus `if (A && B) ok = true` lever,
+and this is the first place both halves appear together. It means
+the shape is not a property of the predicate: when a near-miss has
+one materialised flag too many or too few, the fix is to name or
+un-name an intermediate, and either direction is available.
+
+**A local is a lever one level deep as well as at the top.**
+zPlayerHitLaunch::End zeroes three floats through `player->frame`.
+Written that way it reloads BOTH the player and the frame before
+each store -- a store through a pointer can alias the pointer -- for
+92 bytes against retail's 76. `xEntFrame* frame = player->frame;`
+loads the player once into r5 and the frame once into r4 and does
+three stores. The lever is the same one that reads a cast player
+into a local; it just had two dereferences to collapse instead of
+one.
+
+**Definition order carries a `bl` between two members of the same
+file.** LandWalkCheck and LandRunCheck call JumpLandCheck, and the
+two Start*Checks call SetBlend; all four are written ABOVE their
+callee, because mwcc inlines a member whose definition it has
+already read. It is the same rule as the pragma region, applied by
+moving text rather than by writing one.
+
+Two under 120 bytes are unwritten and the reason is not about the
+code. AddTransitionsFrom__11zPlayerJump loads a `const char*` whose
+symbol is JUMP_START_DEFAULT_STATE__19@unnamed@WAD01_cpp@ -- a
+static in ANOTHER unit's anonymous namespace, which C++ has no
+spelling for. Update__16zPlayerWalkStart calls zPlayerWalk::Update,
+which this file defines above it, so mwcc would inline what retail
+leaves as a `bl`; reaching it needs the class declaration moved, not
+a body written.
+
+zCommonPlayerActions 109 of 112 -> 119 of 122. Game Code 17.46% ->
+17.49%, 369,460 -> 370,204 bytes of 2,116,616.

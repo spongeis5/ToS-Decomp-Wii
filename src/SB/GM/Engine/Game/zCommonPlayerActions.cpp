@@ -53,10 +53,167 @@ class zPlayer;
 // offset they read it from and the type their compare says --
 // cmpwi is signed, cmplwi is not. Nothing else about zPlayer is
 // known here.
+class xVec3 { public: float x; float y; float z; };
+
+// Only the y two Begins read, at +0x34 of the model the handle
+// at the player's +0x34 holds. Nothing else about either is known
+// here; both are spelled as the offsets that were measured.
+class xOGModel { public: unsigned char _pad0[0x30]; xVec3 pos; };
+class xOGModelHandle { public: xOGModel* model; int f4; };
+
+// Nothing NAMES it -- `addi r3,r4,1244` carries no relocation, so
+// it is the player's own storage at +0x4DC, reached as an offset
+// rather than declared as a member of unknown size.
+class zInteractionManager {
+public:
+    void StopCurrentInteraction();
+};
+
+// The virtuals come FIRST so the vptr lands at 0, which is where
+// zPlayerHit::End reads it: `lwz r12,0(r3)` then `lwz r12,524(r12)`,
+// and (524 - 8) / 4 is 129. They cost four bytes, and the padding
+// in front of f4A0 gives up exactly those four.
 class zPlayer {
 public:
-    unsigned char _pad0[0x4A0];
+    virtual void _v0();
+    virtual void _v1();
+    virtual void _v2();
+    virtual void _v3();
+    virtual void _v4();
+    virtual void _v5();
+    virtual void _v6();
+    virtual void _v7();
+    virtual void _v8();
+    virtual void _v9();
+    virtual void _v10();
+    virtual void _v11();
+    virtual void _v12();
+    virtual void _v13();
+    virtual void _v14();
+    virtual void _v15();
+    virtual void _v16();
+    virtual void _v17();
+    virtual void _v18();
+    virtual void _v19();
+    virtual void _v20();
+    virtual void _v21();
+    virtual void _v22();
+    virtual void _v23();
+    virtual void _v24();
+    virtual void _v25();
+    virtual void _v26();
+    virtual void _v27();
+    virtual void _v28();
+    virtual void _v29();
+    virtual void _v30();
+    virtual void _v31();
+    virtual void _v32();
+    virtual void _v33();
+    virtual void _v34();
+    virtual void _v35();
+    virtual void _v36();
+    virtual void _v37();
+    virtual void _v38();
+    virtual void _v39();
+    virtual void _v40();
+    virtual void _v41();
+    virtual void _v42();
+    virtual void _v43();
+    virtual void _v44();
+    virtual void _v45();
+    virtual void _v46();
+    virtual void _v47();
+    virtual void _v48();
+    virtual void _v49();
+    virtual void _v50();
+    virtual void _v51();
+    virtual void _v52();
+    virtual void _v53();
+    virtual void _v54();
+    virtual void _v55();
+    virtual void _v56();
+    virtual void _v57();
+    virtual void _v58();
+    virtual void _v59();
+    virtual void _v60();
+    virtual void _v61();
+    virtual void _v62();
+    virtual void _v63();
+    virtual void _v64();
+    virtual void _v65();
+    virtual void _v66();
+    virtual void _v67();
+    virtual void _v68();
+    virtual void _v69();
+    virtual void _v70();
+    virtual void _v71();
+    virtual void _v72();
+    virtual void _v73();
+    virtual void _v74();
+    virtual void _v75();
+    virtual void _v76();
+    virtual void _v77();
+    virtual void _v78();
+    virtual void _v79();
+    virtual void _v80();
+    virtual void _v81();
+    virtual void _v82();
+    virtual void _v83();
+    virtual void _v84();
+    virtual void _v85();
+    virtual void _v86();
+    virtual void _v87();
+    virtual void _v88();
+    virtual void _v89();
+    virtual void _v90();
+    virtual void _v91();
+    virtual void _v92();
+    virtual void _v93();
+    virtual void _v94();
+    virtual void _v95();
+    virtual void _v96();
+    virtual void _v97();
+    virtual void _v98();
+    virtual void _v99();
+    virtual void _v100();
+    virtual void _v101();
+    virtual void _v102();
+    virtual void _v103();
+    virtual void _v104();
+    virtual void _v105();
+    virtual void _v106();
+    virtual void _v107();
+    virtual void _v108();
+    virtual void _v109();
+    virtual void _v110();
+    virtual void _v111();
+    virtual void _v112();
+    virtual void _v113();
+    virtual void _v114();
+    virtual void _v115();
+    virtual void _v116();
+    virtual void _v117();
+    virtual void _v118();
+    virtual void _v119();
+    virtual void _v120();
+    virtual void _v121();
+    virtual void _v122();
+    virtual void _v123();
+    virtual void _v124();
+    virtual void _v125();
+    virtual void _v126();
+    virtual void _v127();
+    virtual void _v128();
+    virtual void _v129();
+
+    unsigned char _pad0[0x34 - 0x4];
+    xOGModelHandle ogModel;
+    unsigned char _pad1[0x4A0 - 0x3C];
     int f4A0;
+    unsigned char _pad2[0x4A8 - 0x4A4];
+    float f4A8;
+    unsigned char _pad3[0x554 - 0x4AC];
+    int currentHitType;
 };
 class zPlayerActionManager;
 
@@ -109,6 +266,9 @@ public:
 class zPlayerActionManager {
 public:
     zPlayerAction** actions;
+    unsigned char _pad0[0xC - 0x4];
+    // `cmplwi`, so unsigned.
+    unsigned int f0C;
     void AddStandardTransitionsTo(unsigned int, xAnimTable*, const char*);
     void AddTransitionsTo(unsigned int, xAnimTable*, const char*, unsigned int (*)(xAnimTransition*, xAnimSingle*, void*), unsigned int (*)(xAnimTransition*, xAnimSingle*, void*), unsigned short, float, unsigned int, unsigned int, zPlayerAction::SpecialActions);
 };
@@ -170,6 +330,13 @@ public:
 struct AnimCBSlot { unsigned char _pad[0x90]; void* owner; };
 struct AnimCBHolder { unsigned char _pad[0x4]; AnimCBSlot* slot; };
 
+// The one word IsLastEntry reads off whatever the custom-anim
+// action holds at +0x10. Named after where it was found.
+struct zPlayerCustomAnim_m10 {
+    unsigned char _pad0[0x4];
+    unsigned int f4;
+};
+
 
 class zPlayerIdle : public zPlayerAction {
 public:
@@ -187,6 +354,8 @@ public:
     static unsigned int anIdleNormalCheck(xAnimTransition*, xAnimSingle*, void*);
     void AddTransitionsFrom(xAnimTable* table, const char* name, unsigned int (*c)(xAnimTransition*, xAnimSingle*, void*), unsigned int (*d)(xAnimTransition*, xAnimSingle*, void*), unsigned short e, float f, unsigned int g, unsigned int h, zPlayerAction::SpecialActions i);
     void AddStates(xAnimTable* table);
+
+    void Begin();
 };
 
 
@@ -227,6 +396,11 @@ public:
     void AddStates(xAnimTable* table);
     static unsigned int anJumpCheck(xAnimTransition* a0, xAnimSingle* a1, void* a2);
     bool JumpCheck(xAnimTransition* a0, xAnimSingle* a1);
+
+    void Begin();
+
+    float f14;
+    float f18;
 };
 
 
@@ -240,6 +414,10 @@ public:
     void AddActionTransitions(xAnimTable* table);
     void AddStates(xAnimTable* table);
     void AddStandardTransitionsFrom(xAnimTable* table, const char* name);
+
+    void Begin();
+
+    float f10;
 };
 
 
@@ -291,6 +469,10 @@ public:
     static const char* GetTransitionString() { return "Dash*"; }
     void AddActionTransitions(xAnimTable* table);
     void AddStates(xAnimTable* table);
+
+    void Reset();
+
+    float f10;
 };
 
 
@@ -327,6 +509,19 @@ public:
     void AddStates(xAnimTable* table);
     bool StartLoopCheck(xAnimTransition* a0, xAnimSingle* a1);
     bool StartTranCheck(xAnimTransition* a0, xAnimSingle* a1);
+
+    bool IsLastEntry();
+    void Reset();
+
+    zPlayerCustomAnim_m10* f10;
+    unsigned int f14;
+    unsigned char f18;
+    unsigned char f19;
+    unsigned char _pad0[0x1C - 0x1A];
+    float f1C;
+    unsigned char _pad1[0x34 - 0x20];
+    int f34;
+    int f38;
 };
 
 
@@ -380,6 +575,8 @@ public:
     bool LandRunCheck(xAnimTransition* a0, xAnimSingle* a1);
     static unsigned int anLandWalkCheck(xAnimTransition* a0, xAnimSingle* a1, void* a2);
     bool LandWalkCheck(xAnimTransition* a0, xAnimSingle* a1);
+
+    void LandBeforeEnter(xAnimPlay* a0, xAnimState* a1);
 };
 
 // -- the animation tables, read from the image ------------------
@@ -460,6 +657,8 @@ public:
     void AddActionTransitions(xAnimTable* table);
     void AddStates(xAnimTable* table);
     bool HitCheck(xAnimTransition* a0, xAnimSingle* a1);
+
+    void End();
 };
 
 // zPlayerHit::AddTransitionsFrom: 1 call(s)
@@ -471,6 +670,10 @@ class zPlayerRun : public zPlayerAction {
 public:
     void AddTransitionsFrom(xAnimTable* table, const char* name, unsigned int (*c)(xAnimTransition*, xAnimSingle*, void*), unsigned int (*d)(xAnimTransition*, xAnimSingle*, void*), unsigned short e, float f, unsigned int g, unsigned int h, zPlayerAction::SpecialActions i);
     void AddStates(xAnimTable* table);
+
+    static unsigned int anSlowRunCheck(xAnimTransition* a0, xAnimSingle* a1, void* a2);
+
+    float f10;
 };
 
 // zPlayerRun::AddTransitionsFrom: 1 call(s)
@@ -1016,4 +1219,96 @@ unsigned int zPlayerLedge::anLedgeGrabCheck(xAnimTransition* a0, xAnimSingle* a1
     }
 
     return result;
+}
+
+// The interaction action is declared here rather than above: it is
+// the only thing in the unit that names zInteractionManager.
+class zCommonPlayerInterAction : public zPlayerAction {
+public:
+    void End();
+
+    int f10;
+};
+
+void zPlayerIdle::Begin() {
+    IdleCB(0, 0);
+}
+
+void zCommonPlayerDash::Reset() {
+    f10 = 1.0f;
+}
+
+void zCommonPlayerInterAction::End() {
+    f10 = 0;
+
+    ((zInteractionManager*)((char*)player + 0x4DC))->StopCurrentInteraction();
+}
+
+// The holder is a1 ITSELF here, not a1->slot: `lwz r3,144(r4)` is
+// the owner at +0x90 read straight off the state.
+void zPlayerLand::anLandBeforeEnter(xAnimPlay* a0, xAnimState* a1,
+                                    void* a2) {
+    ((zPlayerLand*)((AnimCBSlot*)a1)->owner)->LandBeforeEnter(a0, a1);
+}
+
+bool zPlayerCustomAnim::IsLastEntry() {
+    return f14 >= f10->f4;
+}
+
+void zPlayerHit::End() {
+    player->currentHitType = -1;
+
+    player->_v129();
+}
+
+void zPlayerFall::Begin() {
+    if (manager->f0C == 15) {
+        return;
+    }
+
+    f10 = player->ogModel.model->pos.y;
+}
+
+bool zCommonPlayerDash::EndCheck(xAnimTransition* a0,
+                                 xAnimSingle* a1) {
+    bool result = false;
+
+    if (f10 <= 0.0f) {
+        result = true;
+    }
+
+    return result;
+}
+
+bool zPlayerHitLaunch::LaunchCheck(xAnimTransition* a0,
+                                   xAnimSingle* a1) {
+    return player->currentHitType == 2 || player->currentHitType == 1;
+}
+
+bool zPlayerLedge::LedgeGrabUpCB(xAnimTransition* a0,
+                                 xAnimSingle* a1) {
+    player->f4A0 = 0;
+    player->f4A8 = 1.0f;
+
+    return false;
+}
+
+unsigned int zPlayerRun::anSlowRunCheck(xAnimTransition* a0,
+                                        xAnimSingle* a1, void* a2) {
+    return ((zPlayerRun*)((AnimCBHolder*)a1)->slot->owner)->f10 < 5.0f;
+}
+
+void zPlayerJump::Begin() {
+    f10 = 1;
+    f14 = 0.0f;
+    f18 = player->ogModel.model->pos.y;
+}
+
+void zPlayerCustomAnim::Reset() {
+    f10 = 0;
+    f18 = 0;
+    f19 = 0;
+    f34 = 0;
+    f38 = 0;
+    f1C = 0.0f;
 }

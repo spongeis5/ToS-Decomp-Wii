@@ -7,18 +7,18 @@ numbers here, which move.
 ## State at time of writing
 
 ```
-Game Code:  67 of 777 files complete  359,988 / 2,116,616 bytes  3,011 / 10,697 fn
-            17.0077% of game code
+Game Code:  67 of 777 files complete  361,536 / 2,116,616 bytes  3,030 / 10,697 fn
+            17.0808% of game code
 
-Of those 3,011 functions, 856 are GENERATED -- machine-recognised
+Of those 3,030 functions, 856 are GENERATED -- machine-recognised
 shapes, not one of which is decompiling. They are real matched
 functions and the offsets and constants are recovered fact, but a
 count of them is not a count of decompiled code. HAND-WRITTEN IS
-2,155, across 265 units and 325,688 bytes, and that is the figure to
+2,174, across 265 units and 327,236 bytes, and that is the figure to
 compare against earlier ones.
 
 Data:       4 unit(s) carry their own, 412 bytes; 134 more could
-All:        7.14% matched              main.dol reproduces byte for byte
+All:        7.17% matched              main.dol reproduces byte for byte
 ```
 
 Every number above is written by `python tools/notes_state.py`,
@@ -4551,3 +4551,44 @@ retail did not.
 Eighteen functions, 764 bytes.  WAD01_28 367 of 368. Game Code
 16.97% -> 17.01% -- 359,988 of 2,116,616 bytes, 3,011 of 10,697
 functions.
+
+## COUNT THE CONVERSIONS AND THE TYPES FALL OUT
+
+Nineteen more: seven Begin and End bodies, seven jump-fall-land
+predicates and five of zBoardPlayerBungeeBall's.  Twelve went in
+first time; the other seven were all the same question, and it is
+worth stating as a procedure rather than as a lever.
+
+**Count the `addic ; subfe` pairs and assign the types backwards.**
+Each one is an int being made into a bool, and every one has to come
+from somewhere in the source:
+
+  * one on a CALL RESULT means that callee returns int, not bool --
+    which is how BoardFallCheck, BoardLandCheck and SBJumpCheck got
+    their return types before any of them was written;
+  * one at the RETURN means the function returns bool and the value
+    it returns is an int local;
+  * and one that is NOT there means the two types already agree.
+
+LandRunCheck was 7 of 31 words out with an extra pair on the way out,
+and the fix was `bool ok` where `unsigned int ok` had been: the
+comparison that assigns it is already 0 or 1, so a bool local needs
+no conversion and an int one needs it at the return.  FallMovingCheck
+wanted the opposite -- its fourth conversion is INSIDE the `if`, which
+is an unsigned inner variable assigned to a bool outer one.
+
+**And an `if` whose false arm returns the value already in r3 costs
+nothing.** The four magnitude checks are `bool ok = <call> != 0;
+if (ok) { ok = <compare>; } return ok;` -- one variable that the
+second test ASSIGNS.  Written as `if (<call>) { return <compare>; }
+return false;` mwcc emits a `li r3,0` retail does not have, four
+bytes each, because it no longer knows the false path already holds
+zero.
+
+The order rule from the last section applied twice more: the two
+TransToSpinPowerupChecks call a 28-byte predicate that was already
+defined above them and got it inlined, so they moved above the block
+that defines it.
+
+Nineteen functions, 1,548 bytes.  WAD01_28 386 of 387. Game Code
+17.01% -> 17.08%.

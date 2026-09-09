@@ -284,7 +284,7 @@ EXPECT = {
     "SB/GM/Engine/WAD00_32": (328, 329),
     "SB/GM/Engine/WAD01_13_1": (2, 2),
     "SB/GM/Engine/WAD01_1_1": (123, 127),
-    "SB/GM/Engine/WAD01_28": (367, 368),
+    "SB/GM/Engine/WAD01_28": (386, 387),
     "SB/GM/Engine/WAD01_29": (2, 2),
     "SB/GM/Engine/WAD02_6_1": (3, 3),
     "SB/GM/Engine/WAD03_32_2": (3, 3),

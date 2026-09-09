@@ -142,6 +142,7 @@ void zEntEventAllOfType(xBase* from, unsigned int fromEvent,
 class zBungeeBall {
 public:
     void BallReturn();
+    bool IsPerformingFling();
 
     unsigned char _pad0[0xC0];
     bool fC0;
@@ -473,13 +474,13 @@ public:
     static unsigned int anBoardNotQuicksandCheck(xAnimTransition*, xAnimSingle*, void*);
     bool BoardCandyBuffCheck(xAnimTransition* a0, xAnimSingle* a1);
     bool BoardCandyCheck(xAnimTransition* a0, xAnimSingle* a1);
-    bool BoardLandCheck(xAnimTransition* a0, xAnimSingle* a1);
+    unsigned int BoardLandCheck(xAnimTransition* a0, xAnimSingle* a1);
     bool BoardQuicksandMoveCheck(xAnimTransition* a0, xAnimSingle* a1);
     unsigned int BoardRunCheck(xAnimTransition* a0, xAnimSingle* a1);
     unsigned int BoardStopCheck(xAnimTransition* a0, xAnimSingle* a1);
     unsigned int BoardWalkCheck(xAnimTransition* a0, xAnimSingle* a1);
 
-    bool BoardFallCheck(xAnimTransition* a0, xAnimSingle* a1);
+    unsigned int BoardFallCheck(xAnimTransition* a0, xAnimSingle* a1);
     bool DefaultStateCheck(xAnimTransition* a0, xAnimSingle* a1);
 
     // No symbol of its own in retail: both are inlined at their one
@@ -616,6 +617,7 @@ public:
     void ResetPuckCooldownTimer();
     bool IsUsingPhysicsDrive(xBase* base);
     bool CanJoinDrop();
+    void SetPowerupState(BoardPowerupState state);
     int IsOnGoo();
     void SetGooState(SBGooFilledState state);
     void SetPowerupTimerToMax(BoardPowerupState state);
@@ -672,7 +674,7 @@ public:
     virtual void _v45() const;
     virtual void _v46() const;
     virtual void _v47() const;
-    virtual void _v48() const;
+    virtual unsigned int _v48() const;
     virtual void _v49() const;
     virtual void _v50() const;
     virtual void _v51() const;
@@ -809,40 +811,46 @@ public:
     xEntFrame* frame;
     unsigned char _pad1[0x10];
     xSurfaceInfo* surface;
-    unsigned char _pad2[0x154];
+    unsigned char _pad2[0xDC];
+    int f14C;
+    unsigned char _pad3[0x74];
     int zPlayerFlags;
-    unsigned char _pad3[0x20];
+    unsigned char _pad4[0x20];
     zPlayerInput* playerInput;
-    unsigned char _pad4[0x1C];
+    unsigned char _pad5[0x1C];
     bool f208;
-    unsigned char _pad5[0xEB];
+    unsigned char _pad6[0xEB];
     float fallingTime;
-    unsigned char _pad6[0x180];
+    unsigned char _pad7[0x180];
     int lastDamageType;
-    unsigned char _pad7[0xD8];
+    unsigned char _pad8[0xD8];
     int currentHitType;
     hkVector4 hitDir;
-    unsigned char _pad8[0x330];
+    unsigned char _pad9[0x330];
     SBGooFilledState gooState;
-    unsigned char _pad9[0x10];
+    unsigned char _pad10[0x10];
     BoardPowerupState powerupState;
     BoardPowerupState powerupModelState;
     bool powerupPerformDeferredModelSwap;
-    unsigned char _pad10[0xB];
+    unsigned char _pad11[0xB];
     int f8C0;
     float f8C4;
-    unsigned char _pad11[0x8];
+    unsigned char _pad12[0x4];
+    float f8CC;
     float f8D0;
     int f8D4;
-    unsigned char _pad12[0x24];
+    unsigned char _pad13[0x24];
     bool f8FC;
-    unsigned char _pad13[0xA7];
+    unsigned char _pad14[0x87];
+    bool f984;
+    unsigned char _pad15[0x1B];
+    int f9A0;
     zBungeeBall* bungeeBall;
-    unsigned char _pad14[0x18];
+    unsigned char _pad16[0x18];
     int f9C0;
-    unsigned char _pad15[0xB4];
+    unsigned char _pad17[0xB4];
     float fA78;
-    unsigned char _pad16[0x28];
+    unsigned char _pad18[0x28];
     float fAA4;
 };
 
@@ -1100,6 +1108,8 @@ public:
     bool HammerPowerupCheck(xAnimTransition* a0, xAnimSingle* a1);
     bool HammerPowerupIdleCheck(xAnimTransition* a0,
                                 xAnimSingle* a1);
+
+    void Begin();
 };
 
 
@@ -1120,6 +1130,8 @@ public:
 
     bool PuckPowerupCheck(xAnimTransition* a0, xAnimSingle* a1);
     bool PuckPowerupIdleCheck(xAnimTransition* a0, xAnimSingle* a1);
+
+    void Begin();
 };
 
 
@@ -1354,6 +1366,8 @@ public:
     void AddActionTransitions(xAnimTable* table);
     void AddStates(xAnimTable* table);
     bool SpinPowerupCheck(xAnimTransition* a0, xAnimSingle* a1);
+
+    void Begin();
 };
 
 class zBoardPlayerQuicksandStuck : public zPlayerAction {
@@ -1382,6 +1396,10 @@ public:
     bool TransToSpinPowerupCheck(xAnimTransition* a0, xAnimSingle* a1);
 
     float f10;
+
+    void Begin();
+
+    float f14;
 };
 
 // The variant set the states are kept in -- fifteen of them, a
@@ -1419,7 +1437,7 @@ public:
     static unsigned int anTransToSpinPowerupCheck(xAnimTransition*, xAnimSingle*, void*);
     void AddActionTransitions(xAnimTable* table);
     void AddStates(xAnimTable* table);
-    bool SBJumpCheck(xAnimTransition* a0, xAnimSingle* a1);
+    unsigned int SBJumpCheck(xAnimTransition* a0, xAnimSingle* a1);
     bool SBJumpMovingCheck(xAnimTransition* a0, xAnimSingle* a1);
     bool ApexCheck(xAnimTransition* a0, xAnimSingle* a1);
     bool TransToSpinPowerupCheck(xAnimTransition* a0, xAnimSingle* a1);
@@ -1794,6 +1812,8 @@ public:
     void AddActionTransitions(xAnimTable* table);
     void AddStates(xAnimTable* table);
     bool SlamLandCheck(xAnimTransition* a0, xAnimSingle* a1);
+
+    void Begin();
 };
 
 // zPlayerSlamFallBoard::AddActionTransitions: 1 call(s)
@@ -1822,8 +1842,12 @@ public:
     bool SlamCheck(xAnimTransition* a0, xAnimSingle* a1);
     bool SlamApexCheck(xAnimTransition* a0, xAnimSingle* a1);
 
-    unsigned char _padA[0x1C - 0x10];
+    float f10;
+    float f14;
+    float f18;
     float f1C;
+
+    void Begin();
 };
 
 // zPlayerSlamStartBoard::AddActionTransitions: 1 call(s)
@@ -1983,6 +2007,8 @@ public:
     void AddActionTransitions(xAnimTable* table);
     void AddStates(xAnimTable* table);
     bool LosePowerupCheck(xAnimTransition* a0, xAnimSingle* a1);
+
+    void End();
 };
 
 // zBoardPlayerLosePowerup::AddTransitionsFrom: 1 call(s)
@@ -4645,8 +4671,8 @@ bool zBoardPlayerAction::BoardCandyBuffCheck(xAnimTransition* a0,
     return result;
 }
 
-bool zBoardPlayerAction::BoardFallCheck(xAnimTransition* a0,
-                                        xAnimSingle* a1) {
+unsigned int zBoardPlayerAction::BoardFallCheck(xAnimTransition* a0,
+                                                xAnimSingle* a1) {
     // No frame at all: two conditional returns, which is what `&&`
     // gives a leaf.
     return !(((zBoardPlayer*)player)->zPlayerFlags & 0x4) &&
@@ -5461,6 +5487,32 @@ bool zBoardPlayer::CanJoinDrop() {
     return ((zCommonPlayer*)this)->CanSwitchPlayer();
 }
 
+bool zPlayerJumpBoard::TransToSpinPowerupCheck(xAnimTransition* a0,
+                                                xAnimSingle* a1) {
+    bool result = false;
+    zBoardPlayer* p = (zBoardPlayer*)player;
+
+    if (ApexCheck(a0, a1) && p->powerupState == 2 &&
+        p->powerupModelState == p->powerupState) {
+        result = true;
+    }
+
+    return result;
+}
+
+bool zPlayerDoubleJumpBoard::TransToSpinPowerupCheck(xAnimTransition* a0,
+                                                      xAnimSingle* a1) {
+    bool result = false;
+    zBoardPlayer* p = (zBoardPlayer*)player;
+
+    if (TransToFallCheck(a0, a1) && p->powerupState == 2 &&
+        p->powerupModelState == p->powerupState) {
+        result = true;
+    }
+
+    return result;
+}
+
 bool zBoardPlayerSpinPowerupAttack::SpinPowerupCheck(xAnimTransition* a0,
                                                      xAnimSingle* a1) {
     zBoardPlayer* p = (zBoardPlayer*)player;
@@ -5506,6 +5558,203 @@ bool zPlayerDoubleJumpBoard::TransToFallCheck(xAnimTransition* a0,
 bool zPlayerSlide::SlideHitCheck(xAnimTransition* a0, xAnimSingle* a1) {
     if (f34) {
         f34 = false;
+
+        return true;
+    }
+
+    return false;
+}
+
+void zBoardPlayerHammerPowerupAttack::Begin() {
+    zBoardPlayer* p = (zBoardPlayer*)player;
+
+    p->f8C0 = 1;
+    p->f8C4 = -1.0f;
+}
+
+void zBoardPlayerSpinPowerupAttack::Begin() {
+    zBoardPlayer* p = (zBoardPlayer*)player;
+
+    p->f8C0 = 2;
+    p->f8C4 = -1.0f;
+}
+
+void zBoardPlayerPuckPowerupAttack::Begin() {
+    zBoardPlayer* p = (zBoardPlayer*)player;
+
+    p->f8C0 = 3;
+    p->f8C4 = -1.0f;
+}
+
+void zBoardPlayerLosePowerup::End() {
+    zBoardPlayer* p = (zBoardPlayer*)player;
+
+    p->powerupPerformDeferredModelSwap = true;
+    p->f8C0 = 0;
+    p->f8C4 = -1.0f;
+}
+
+void zPlayerSlamFallBoard::Begin() {
+    ((zBoardPlayer*)player)->zPlayerFlags |= 0x10;
+    ((zBoardPlayer*)player)->frame->f8C = -13.0f;
+}
+
+void zPlayerDoubleJumpBoard::Begin() {
+    zBoardPlayer* p = (zBoardPlayer*)player;
+
+    f10 = 0.0f;
+    f14 = p->ogModel->pos.y;
+    p->f984 = false;
+}
+
+void zPlayerSlamStartBoard::Begin() {
+    f10 = 0.0f;
+    f18 = 25.0f;
+    f14 = 0.35f;
+    f1C = 0.0f;
+}
+
+
+bool zPlayerJumpBoard::SBJumpMovingCheck(xAnimTransition* a0,
+                                        xAnimSingle* a1) {
+    bool ok = SBJumpCheck(a0, a1) != 0;
+
+    if (ok) {
+        zBoardPlayer* p = (zBoardPlayer*)player;
+        zPlayerInput* input = p->playerInput;
+
+        ok = input->_v27(0, 2) >= p->GetRunStartMag();
+    }
+
+    return ok;
+}
+
+bool zPlayerFallBoard::LandRunCheck(xAnimTransition* a0,
+                                   xAnimSingle* a1) {
+    bool ok = ((zBoardPlayerAction*)this)->BoardLandCheck(a0, a1) != 0;
+
+    if (ok) {
+        zBoardPlayer* p = (zBoardPlayer*)player;
+        zPlayerInput* input = p->playerInput;
+
+        ok = input->_v27(0, 2) >= p->GetRunStartMag();
+    }
+
+    return ok;
+}
+
+bool zPlayerFallBoard::LandWalkCheck(xAnimTransition* a0,
+                                    xAnimSingle* a1) {
+    bool ok = ((zBoardPlayerAction*)this)->BoardLandCheck(a0, a1) != 0;
+
+    if (ok) {
+        zBoardPlayer* p = (zBoardPlayer*)player;
+        zPlayerInput* input = p->playerInput;
+
+        ok = input->_v27(0, 2) < p->GetRunStartMag();
+    }
+
+    return ok;
+}
+
+bool zPlayerFallBoard::FallMovingCheck(xAnimTransition* a0,
+                                       xAnimSingle* a1) {
+    bool moved = ((zBoardPlayerAction*)this)->BoardFallCheck(a0, a1) != 0;
+
+    if (moved) {
+        unsigned int walk = ((zBoardPlayerAction*)this)->BoardWalkCheck(a0, a1) != 0;
+
+        if (!walk) {
+            walk = ((zBoardPlayerAction*)this)->BoardRunCheck(a0, a1) != 0;
+        }
+
+        moved = walk;
+    }
+
+    return moved;
+}
+
+bool zPlayerFallBoard::FallHighCheck(xAnimTransition* a0,
+                                     xAnimSingle* a1) {
+    bool result = false;
+
+    if (f10 - ((zBoardPlayer*)player)->ogModel->pos.y > 10.0f &&
+        ((zBoardPlayerAction*)this)->DefaultStateCheck(a0, a1)) {
+        result = true;
+    }
+
+    return result;
+}
+
+
+bool zBoardPlayerBungeeBall::SBBungeeBallFlingCheck(xAnimTransition* a0,
+                                                    xAnimSingle* a1) {
+    bool result = false;
+    zBoardPlayer* p = (zBoardPlayer*)player;
+
+    if (p->bungeeBall->IsPerformingFling() &&
+        p->bungeeBall->fCC != 2 && p->powerupState != 1) {
+        result = true;
+    }
+
+    return result;
+}
+
+bool zBoardPlayerBungeeBall::SBBungeeBallBuffFlingCheck(xAnimTransition* a0,
+                                                        xAnimSingle* a1) {
+    bool result = false;
+    zBoardPlayer* p = (zBoardPlayer*)player;
+
+    if (p->bungeeBall->IsPerformingFling() &&
+        p->bungeeBall->fCC != 2 && p->powerupState == 1) {
+        result = true;
+    }
+
+    return result;
+}
+
+bool zBoardPlayerBungeeBall::SBBungeeBallCheck(xAnimTransition* a0,
+                                               xAnimSingle* a1) {
+    bool result = false;
+
+    if (((zBoardPlayer*)player)->f9A0 != 0) {
+        bool inner = true;
+
+        if (!((zBoardPlayerAction*)this)->DefaultStateCheck(a0, a1) &&
+            ((zBoardPlayer*)player)->powerupState != 1) {
+            inner = false;
+        }
+
+        if (inner) {
+            result = true;
+        }
+    }
+
+    return result;
+}
+
+bool zBoardPlayerBungeeBall::SBBungeeBallDeathCheck(xAnimTransition* a0,
+                                                    xAnimSingle* a1) {
+    if (((zBoardPlayer*)player)->_v48()) {
+        ((zBoardPlayer*)player)->f14C++;
+        ((zBoardPlayer*)player)->zPlayerFlags |= 0x8000;
+
+        return true;
+    }
+
+    return false;
+}
+
+bool zBoardPlayerBungeeBall::SBBungeeBallHitCheck(xAnimTransition* a0,
+                                                  xAnimSingle* a1) {
+    zBoardPlayer* p = (zBoardPlayer*)player;
+
+    if (p->currentHitType != -1 && !p->_v48()) {
+        if (p->powerupState == 1) {
+            p->SetPowerupState((BoardPowerupState)0);
+
+            return false;
+        }
 
         return true;
     }

@@ -7,18 +7,18 @@ numbers here, which move.
 ## State at time of writing
 
 ```
-Game Code:  67 of 777 files complete  371,732 / 2,116,616 bytes  3,166 / 10,697 fn
-            17.5626% of game code
+Game Code:  67 of 777 files complete  372,308 / 2,116,616 bytes  3,171 / 10,697 fn
+            17.5898% of game code
 
-Of those 3,166 functions, 856 are GENERATED -- machine-recognised
+Of those 3,171 functions, 856 are GENERATED -- machine-recognised
 shapes, not one of which is decompiling. They are real matched
 functions and the offsets and constants are recovered fact, but a
 count of them is not a count of decompiled code. HAND-WRITTEN IS
-2,310, across 265 units and 337,432 bytes, and that is the figure to
+2,315, across 265 units and 338,008 bytes, and that is the figure to
 compare against earlier ones.
 
 Data:       4 unit(s) carry their own, 412 bytes; 134 more could
-All:        7.32% matched              main.dol reproduces byte for byte
+All:        7.33% matched              main.dol reproduces byte for byte
 ```
 
 Every number above is written by `python tools/notes_state.py`,
@@ -4805,3 +4805,31 @@ and the pair is in the same file eight bytes apart.
 
 zCommonPlayerActions 119 of 122 -> 128 of 131. Game Code 17.49% ->
 17.53%, 370,204 -> 371,136 bytes of 2,116,616.
+
+## A MASK STAYS PUT AND A BITFIELD COMES DOWN TO BIT 31
+
+Two readings of `rlwinm`, and the second one is a one-word diff that
+would otherwise look like noise.
+
+**Which bit.** `rlwinm rX,rY,SH,31,31` keeps the bit that rotating
+LEFT by SH brings to position 31, which is old position
+`(31 + SH) mod 32`. Reading the rotation the other way gives
+`31 - SH` and is wrong. The formula is checked against four cases
+that are already matched: SH=1 is cr0's LT, SH=2 its GT, SH=3 its
+EQ, and SH=25 is PPC bit 24 -- value 0x80 in a byte loaded by `lbz`,
+where `31 - 25` would have said bit 6.
+
+**Mask or bitfield.** `x & 0x80` masks the bit WHERE IT IS:
+`rlwinm. r0,r0,0,24,24`, a value of 0 or 0x80. Reading a one-bit
+bitfield NORMALISES: `rlwinm. r0,r0,25,31,31`, a value of 0 or 1.
+Both set cr0 identically, so the two behave the same and only the
+encoding tells them apart -- which makes this exactly the kind of
+one-word diff that reads as a compiler mood and is not one.
+
+On this big-endian target the FIRST bitfield declared in a byte is
+the 0x80 one, so `rlwinm. rX,rY,25,31,31` after an `lbz` names both
+the storage byte and the position within it. zPlayerLedge::Begin was
+108 bytes against 108 with a single word out, and the word was this.
+
+zCommonPlayerActions 134 of 137 -> 139 of 142. Game Code 17.56% ->
+17.59%, 371,732 -> 372,308 bytes of 2,116,616.

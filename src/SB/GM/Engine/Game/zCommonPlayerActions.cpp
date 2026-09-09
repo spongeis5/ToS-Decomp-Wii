@@ -58,7 +58,29 @@ class xVec3 { public: float x; float y; float z; };
 // Only the y two Begins read, at +0x34 of the model the handle
 // at the player's +0x34 holds. Nothing else about either is known
 // here; both are spelled as the offsets that were measured.
-class xOGModel { public: unsigned char _pad0[0x30]; xVec3 pos; };
+// The chain zPlayerDefeated::Update walks off the model's +0x4C.
+// Nothing NAMES any of these, so each is called after where it was
+// found, and each holds only the offsets that were loaded.
+struct xOGModel_m4C_C_4_20 { unsigned char _pad0[0x10]; float f10; };
+struct xOGModel_m4C_C_4 {
+    unsigned char _pad0[0x20];
+    xOGModel_m4C_C_4_20* f20;
+};
+struct xOGModel_m4C_C {
+    unsigned char _pad0[0x4];
+    xOGModel_m4C_C_4* f04;
+    float f08;
+    float f0C;
+};
+struct xOGModel_m4C { unsigned char _pad0[0xC]; xOGModel_m4C_C* f0C; };
+
+class xOGModel {
+public:
+    unsigned char _pad0[0x30];
+    xVec3 pos;
+    unsigned char _pad1[0x4C - 0x3C];
+    xOGModel_m4C* f4C;
+};
 class xOGModelHandle { public: xOGModel* model; int f4; };
 
 // The two fields ApplyBasicPhysics touches: a flag word it ORs 2
@@ -81,6 +103,16 @@ public:
 };
 void v3add(xVec3* d, xVec3* a, xVec3* b);
 int xrand_RandomRange(int a0, int a1);
+void zSceneReset();
+
+// `10ForceEvent`, not `Q24Sext11ForceEvent`, so the enum is global
+// and only the EventAny is qualified. Every call here passes a null
+// event, so nothing about its layout is known.
+class xBase;
+namespace Sext { class EventAny; }
+enum ForceEvent { ForceEvent_ = 0x7FFFFFFF };
+void zEntEvent(xBase* a0, unsigned int a1, xBase* a2, unsigned int a3,
+               Sext::EventAny* a4, ForceEvent a5);
 
 // zPlayerSlip::ApplyGust builds one on the stack from three floats
 // and reads back only the y. The frame is 32 bytes, which is what a
@@ -155,7 +187,7 @@ public:
     virtual void _v37();
     virtual void _v38();
     virtual void _v39();
-    virtual void _v40();
+    virtual void _v40(float dt);
     virtual void _v41();
     virtual void _v42();
     virtual void _v43();
@@ -258,7 +290,12 @@ public:
     float fallingTime;
     unsigned char _pad4[0x4A0 - 0x2F8];
     int f4A0;
-    unsigned char _pad5[0x4A8 - 0x4A4];
+    // `rlwinm. r0,r0,25,31,31` normalises to 0 or 1, which is a
+    // one-bit BITFIELD read; a mask would leave it at 0x80. The
+    // first bitfield in a byte is the 0x80 one here.
+    unsigned char f4A4_b0 : 1;
+    unsigned char _f4A4_rest : 7;
+    unsigned char _pad5[0x4A8 - 0x4A5];
     float f4A8;
     unsigned char _pad6[0x554 - 0x4AC];
     int currentHitType;
@@ -309,6 +346,14 @@ public:
     // three slots the tables call keep the indices they have.
     virtual bool _v4();
     virtual bool _v5();
+    virtual void _v6();
+    virtual void _v7();
+    virtual void _v8();
+    virtual void _v9();
+    virtual void _v10();
+    virtual void _v11();
+    virtual void _v12();
+    virtual void _v13();
 
     void Move(xScene* a0, float a1, xEntFrame* a2);
     static void AddActionTransition(xAnimTable*, const char*, const char*, unsigned int (*)(xAnimTransition*, xAnimSingle*, void*), unsigned int (*)(xAnimTransition*, xAnimSingle*, void*), unsigned int (*)(xAnimTransition*, xAnimSingle*, void*), unsigned short, float, unsigned int, unsigned int);
@@ -472,6 +517,8 @@ public:
     void Timestep(float dt);
 
     float f1C;
+
+    void ApplyGust(xVec3& v);
 };
 
 
@@ -526,6 +573,8 @@ public:
     void AddStates(xAnimTable* table);
 
     void End();
+
+    void Begin();
 };
 
 
@@ -604,6 +653,8 @@ public:
     void SetBlend(xAnimTransition* a0);
 
     void PlayNext();
+
+    void End();
 };
 
 
@@ -653,6 +704,8 @@ public:
     void Begin();
 
     float f10;
+
+    void Update(float dt);
 };
 
 class zPlayerLand : public zPlayerAction {
@@ -875,6 +928,8 @@ public:
     bool DrownCheck(xAnimTransition* a0, xAnimSingle* a1);
 
     void Begin();
+
+    void Update(float dt);
 };
 
 // zPlayerDefeated::AddTransitionsFrom: 2 call(s)
@@ -1784,6 +1839,62 @@ bool zPlayerIdle::InactiveIdleCB(xAnimTransition* a0, xAnimSingle* a1) {
     }
 
     return IdleCB(a0, a1);
+}
+
+void zPlayerJump::ApplyGust(xVec3& v) {
+    if (f1C > 0.0f) {
+        Math::Vector gust(v.x, v.y, v.z);
+
+        gust.y = 0.0f;
+
+        v3add(&player->frame->pos, &player->frame->pos,
+              (xVec3*)&gust);
+    }
+}
+
+void zPlayerLedge::Begin() {
+    player->zPlayerFlags &= ~0x8;
+    player->zPlayerFlags |= 0x10;
+
+    xEntFrame* frame = player->frame;
+
+    frame->f88.x = 0.0f;
+    frame->f88.y = 0.0f;
+    frame->f88.z = 0.0f;
+
+    if (player->f4A4_b0) {
+        return;
+    }
+
+    zEntEvent(0, 0, (xBase*)player, 0xCE238D9D, 0, (ForceEvent)1);
+}
+
+void zPlayerDefeated::Update(float dt) {
+    player->_v40(dt);
+
+    if (player->ogModel.model->f4C->f0C->f08 >=
+        player->ogModel.model->f4C->f0C->f04->f20->f10) {
+        zSceneReset();
+    }
+}
+
+void zPlayerFallToDeath::Update(float dt) {
+    f10 += dt;
+
+    if (f10 >= 2.0f) {
+        zSceneReset();
+    }
+
+    player->_v40(dt);
+}
+
+void zPlayerCustomAnim::End() {
+    _v13();
+
+    player->zPlayerFlags |= 8;
+    player->zPlayerFlags &= ~0x10;
+
+    zEntEvent(0, 0, (xBase*)player, 0x4F53236B, 0, (ForceEvent)1);
 }
 
 // The three below are called by the bodies above and retail leaves

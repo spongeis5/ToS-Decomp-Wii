@@ -34,16 +34,24 @@
 // differing word each until they were spelled that way, and Erase went
 // from 3 of 13 to exact with them.
 //
-// NEAR MISS -- RemoveMaterial and RemoveEffect, 15 of 15 words and two
-// instructions SHORT (60 bytes against 68). Retail builds the iterator
-// as a temporary at the call site -- `addi r0,r4,12 ; addi r4,r1,8 ;
-// stw r0,8(r1)` -- and passes its address, where ours passes the
-// address of a named local and needs no copy. Writing it as an explicit
-// temporary with an inline constructor,
-// `Erase(Iterator(&material->listNode))`, changes nothing: mwcc
-// optimises the copy away either way. So the extra pair comes from
-// something that makes the argument a value mwcc must materialise, and
-// what that is has not been found.
+// RemoveMaterial and RemoveEffect: FOUND, and it was not the argument.
+// VoidList::Erase was being INLINED. Ours passed r3 = material+12 and
+// no `this` at all, with the bl going to the static Unlink -- which is
+// Erase's body, not a call to Erase. Retail passes this = &materials
+// and r4 = the address of an iterator temporary, because retail CALLS
+// Erase. A call with no `this` to a non-static member is the tell.
+//
+// Erase is three statements and no loop, so -inline auto takes it.
+// `#pragma dont_inline` around the definition restores the call and
+// both removers land: RemoveMaterial 68 and RemoveEffect 68, 136
+// bytes. Erase itself was ALREADY emitted and already matching at 52
+// -- mwcc emits the out-of-line body of a non-inline member whether
+// or not it also inlines it at every use, so the unit's function
+// count is 9 either way. The pragma changed the CALL SITES only.
+//
+// The chase before that was for something that would make the ARGUMENT
+// a value mwcc must materialise. The materialised temporary is a
+// consequence of the call existing, not its cause.
 //
 // NEAR MISS -- Effect::FindFeature, 20 of 23 words and ONE instruction
 // short. Retail computes `lod->features + lod->count` TWICE, once into
@@ -162,6 +170,7 @@ public:
 
 }  // namespace Graphics
 
+#pragma dont_inline on
 Util::NodeListBase::NodeHeader* Util::VoidList::Erase(
     Util::VoidList::Iterator it) {
     NodeHeader* next = it.node->next;
@@ -170,6 +179,7 @@ Util::NodeListBase::NodeHeader* Util::VoidList::Erase(
 
     return next;
 }
+#pragma dont_inline off
 
 Graphics::MaterialDepot::MaterialDepot() {
     dirty = true;

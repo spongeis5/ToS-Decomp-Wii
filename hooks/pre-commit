@@ -29,3 +29,16 @@ if ! python tools/test_privacy.py; then
     echo "    git commit --no-verify"
     exit 1
 fi
+
+# A stale badge is a wrong number on the front page. The build rewrites
+# them from report.json (configure.py's progress mode), so this only
+# fires when someone commits without building -- which is exactly when
+# the number would be wrong.
+if ! python tools/badges.py --check --quiet; then
+    echo ""
+    echo "COMMIT REFUSED: the progress badges do not match the build."
+    echo ""
+    echo "    python tools/badges.py"
+    echo ""
+    exit 1
+fi

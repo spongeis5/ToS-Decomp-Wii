@@ -84,12 +84,13 @@ def build():
     return want
 
 
-def main():
-    ap = argparse.ArgumentParser(description=__doc__)
-    ap.add_argument("--check", action="store_true",
-                    help="fail if any badge file is out of date")
-    args = ap.parse_args()
+def run(check=False, quiet=False):
+    """Write (or check) the badges. Returns a process exit code.
 
+    Callable so the build can mechanize it: configure.py's `progress`
+    mode calls this, which is the ninja PROGRESS step, so the badges
+    follow the numbers without anyone remembering to refresh them.
+    """
     want = build()
     OUT.mkdir(exist_ok=True)
 
@@ -101,10 +102,10 @@ def main():
         if old == text:
             continue
         stale.append((name, doc["message"]))
-        if not args.check:
+        if not check:
             path.write_text(text, encoding="utf-8")
 
-    if args.check and stale:
+    if check and stale:
         for name, msg in stale:
             print("  STALE %-12s should be %s" % (name, msg))
         print()
@@ -112,12 +113,24 @@ def main():
               % (len(stale), len(want)))
         return 1
 
-    for name, doc in sorted(want.items()):
-        print("  %-12s %-12s %s" % (name, doc["label"], doc["message"]))
-    print()
-    print("  %d badge(s) written of %d, %d changed"
+    if not quiet:
+        for name, doc in sorted(want.items()):
+            print("  %-12s %-12s %s"
+                  % (name, doc["label"], doc["message"]))
+        print()
+    print("  %d badge(s) of %d written, %d changed"
           % (len(want), len(want), len(stale)))
     return 0
+
+
+def main():
+    ap = argparse.ArgumentParser(description=__doc__)
+    ap.add_argument("--check", action="store_true",
+                    help="fail if any badge file is out of date")
+    ap.add_argument("--quiet", action="store_true",
+                    help="print only the summary line")
+    args = ap.parse_args()
+    return run(check=args.check, quiet=args.quiet)
 
 
 if __name__ == "__main__":

@@ -2075,5 +2075,13 @@ if args.mode == "configure":
 elif args.mode == "progress":
     # Print progress information
     calculate_progress(config)
+
+    # And rewrite the README's badges from the report this just read.
+    # Mechanized here rather than run by hand: a figure that has to be
+    # remembered is a figure that rots, and the committed badge read
+    # 17.78% against a build measuring 17.86% before this.
+    from tools.badges import run as write_badges
+
+    write_badges(quiet=True)
 else:
     sys.exit("Unknown mode: " + args.mode)

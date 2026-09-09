@@ -7,14 +7,14 @@ numbers here, which move.
 ## State at time of writing
 
 ```
-Game Code:  67 of 777 files complete  377,872 / 2,116,616 bytes  3,213 / 10,697 fn
-            17.8526% of game code
+Game Code:  67 of 777 files complete  378,008 / 2,116,616 bytes  3,215 / 10,697 fn
+            17.8591% of game code
 
-Of those 3,213 functions, 856 are GENERATED -- machine-recognised
+Of those 3,215 functions, 856 are GENERATED -- machine-recognised
 shapes, not one of which is decompiling. They are real matched
 functions and the offsets and constants are recovered fact, but a
 count of them is not a count of decompiled code. HAND-WRITTEN IS
-2,357, across 265 units and 343,572 bytes, and that is the figure to
+2,359, across 265 units and 343,708 bytes, and that is the figure to
 compare against earlier ones.
 
 Data:       4 unit(s) carry their own, 412 bytes; 134 more could
@@ -5333,3 +5333,39 @@ One more correction from the same stretch: the padding was reported
 as REGRESSING zNPCNinjaManager, 332 bytes to 340. It was not. 332 is
 RETAIL's size and ours was already 340 before the change -- a column
 misread, and the numbers are identical with and without.
+
+## A CALL WITH NO `this` IS AN INLINED MEMBER FUNCTION
+
+**136 bytes: RemoveMaterial 68 and RemoveEffect 68.**
+
+Both removers were 60 bytes against retail's 68 and 15 of 15 words
+out, and the recorded note had them as an argument-passing puzzle:
+retail materialises an iterator temporary and passes its address, we
+do not, and *what that is has not been found*.
+
+The tell was in the register the call did NOT set. `Erase` is declared
+`NodeHeader* Erase(Iterator it)` -- a non-static member -- yet our
+call passed r3 = material+12 and no `this`, with the branch going to
+the STATIC Unlink. That is not a call to Erase; it is Erase's body,
+inlined, with its own call to Unlink left standing.
+
+Erase is three statements with no loop, which `-inline auto` takes.
+`#pragma dont_inline` around the definition restores the call and both
+removers land. Erase itself was ALREADY emitted and already matching
+at 52 bytes: mwcc emits the out-of-line body of a non-inline member
+whether or not it also inlines it at every use, so the unit's function
+count is 9 before and after. It was first claimed here that Erase had
+been missing from the object -- the pin going (6,9) to (8,9), with the
+TOTAL unchanged, is what disproves that. A count and its denominator
+settle what a percentage cannot.
+
+**So: a call that does not set `this` for a non-static member is an
+inlined body, and the caller's whole shape follows from that.** The
+materialised temporary the note was chasing is a consequence of the
+call existing, not its cause; there was nothing to find on the
+argument side. zNPCHelper's RotateWorldToLocal is guarded the same way
+for the same reason, so the idiom was already in the tree.
+
+Worth checking wherever a near miss is SHORT of retail: a function
+that is missing from the object entirely is invisible to nearmiss.py,
+which only ranks what the object defines.

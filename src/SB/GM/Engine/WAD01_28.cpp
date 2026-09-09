@@ -152,6 +152,21 @@ class xAnimState;
 
 void zBoardAnimPackageBE(xAnimPlay* a0, xAnimState* a1, void* a2);
 
+class zPlantTrap {
+public:
+    unsigned char _pad0[0x3C];
+    int f3C;
+    unsigned char _pad1[0x5C - 0x40];
+    int f5C;
+};
+
+class zPlayer;
+
+class zSoundWiimoteSpeakerList {
+public:
+    static void Play(int which, zPlayer* player);
+};
+
 class zBungeeBall {
 public:
     void BallReturn();
@@ -284,6 +299,7 @@ public:
     // Returns the state it made: four AddStates keep it in a
     // member. The mangled name carries no return type, so this
     // and `void` name the same symbol.
+    void UpdateFall(float dt);
     unsigned int NewState(xAnimTable*, const char*, unsigned int, unsigned int, float, float*, float*, float, unsigned short*, void (*)(xAnimPlay*, xAnimState*, void*), void (*)(xAnimPlay*, xAnimState*, void*), void (*)(xAnimState*, xAnimSingle*, void*), void (*)(xAnimPlay*, xQuat*, xVec3*, xVec3*, int), unsigned int);
 };
 
@@ -866,23 +882,27 @@ public:
     bool f8F8;
     unsigned char _pad17[0x3];
     bool f8FC;
-    unsigned char _pad18[0x87];
+    unsigned char _pad18[0x7];
+    float f904;
+    unsigned char _pad19[0x7C];
     bool f984;
-    unsigned char _pad19[0x1B];
+    unsigned char _pad20[0x1B];
     int f9A0;
     zBungeeBall* bungeeBall;
-    unsigned char _pad20[0x18];
+    unsigned char _pad21[0xC];
+    zPlantTrap* kelpTrapLink;
+    unsigned char _pad22[0x8];
     int f9C0;
-    unsigned char _pad21[0x78];
+    unsigned char _pad23[0x78];
     float fA3C;
     float fA40;
-    unsigned char _pad22[0x4];
+    unsigned char _pad24[0x4];
     float fA48;
     float fA4C;
-    unsigned char _pad23[0x24];
+    unsigned char _pad25[0x24];
     float fA74;
     float fA78;
-    unsigned char _pad24[0x28];
+    unsigned char _pad26[0x28];
     float fAA4;
 };
 
@@ -1038,6 +1058,8 @@ public:
     // it, and the flag it materialises says it was there.
     bool AirHammerSpongebuffCheck(xAnimTransition* a0,
                                   xAnimSingle* a1);
+
+    void Begin();
 };
 
 
@@ -1060,7 +1082,7 @@ public:
     bool StartPuckAttackCheck(xAnimTransition* a0, xAnimSingle* a1);
 
 
-    unsigned char _padA[0x14 - 0x10];
+    float f10;
     unsigned char f14;
 };
 
@@ -1181,6 +1203,8 @@ public:
     static void BeforeEnter(xAnimPlay*, xAnimState*, void*);
     void AddStates(xAnimTable* table);
     bool KelpTrapCheck(xAnimTransition* a0, xAnimSingle* a1);
+
+    void Begin();
 };
 
 
@@ -1207,6 +1231,8 @@ public:
 
     unsigned char _padA[0x34 - 0x10];
     bool f34;
+
+    void UpdateFall(float dt);
 };
 
 
@@ -1479,6 +1505,8 @@ public:
     float f10;
     unsigned char _padA[0x20 - 0x14];
     float f20;
+
+    void UpdateFall(float dt);
 };
 
 class zBoardPlayerFillWithGoo : public zPlayerAction {
@@ -1857,6 +1885,8 @@ class zPlayerSlamLandBoard : public zPlayerAction {
 public:
     void AddActionTransitions(xAnimTable* table);
     void AddStates(xAnimTable* table);
+
+    void Begin();
 };
 
 // zPlayerSlamLandBoard::AddActionTransitions: 1 call(s)
@@ -1999,6 +2029,8 @@ public:
     void AddActionTransitions(xAnimTable* table);
     void AddStates(xAnimTable* table);
     bool StartDrainGooCheck(xAnimTransition* a0, xAnimSingle* a1);
+
+    void Begin();
 };
 
 // zBoardPlayerDrainGoo::AddTransitionsFrom: 1 call(s)
@@ -2041,6 +2073,8 @@ public:
     bool LosePowerupCheck(xAnimTransition* a0, xAnimSingle* a1);
 
     void End();
+
+    void Begin();
 };
 
 // zBoardPlayerLosePowerup::AddTransitionsFrom: 1 call(s)
@@ -5968,4 +6002,139 @@ void zBoardPlayer::StopInvincibilityFX() {
 
         f8F4 = 0;
     }
+}
+
+
+unsigned int zBoardPlayerHammerPowerupAttack::HammerPowerupCheck(
+    xAnimTransition* a0, xAnimSingle* a1) {
+    zBoardPlayer* p = (zBoardPlayer*)player;
+
+    return p->powerupState == 3 &&
+           p->powerupModelState == p->powerupState;
+}
+
+unsigned int zBoardPlayerPuckPowerupAttack::PuckPowerupCheck(
+    xAnimTransition* a0, xAnimSingle* a1) {
+    zBoardPlayer* p = (zBoardPlayer*)player;
+
+    return p->powerupState == 4 &&
+           p->powerupModelState == p->powerupState;
+}
+
+bool zBoardPlayerSpinAttack::SpongebuffIdleSpinCheck(
+    xAnimTransition* a0, xAnimSingle* a1) {
+    bool result = false;
+
+    if (((zBoardPlayer*)player)->powerupState == 1 && ((zBoardPlayerAction*)this)->BoardStopCheck(a0, a1)) {
+        result = true;
+    }
+
+    return result;
+}
+
+bool zBoardPlayerHammerAttack::StartHammerSpongebuffCheck(
+    xAnimTransition* a0, xAnimSingle* a1) {
+    bool result = false;
+
+    if (((zBoardPlayer*)player)->powerupState == 1 && StartHammerAttackCheck(a0, a1)) {
+        result = true;
+    }
+
+    return result;
+}
+
+bool zPlayerSpringboardBoard::BoardSpringboardDoubleJumpCheck(
+    xAnimTransition* a0, xAnimSingle* a1) {
+    return ((zBoardPlayer*)player)->frame->f8C <= 3.0f;
+}
+
+void zPlayerJumpBoard::UpdateFall(float dt) {
+    if (f10 < f20) {
+        ((zBoardPlayer*)player)->fallingTime = 0.0f;
+    } else {
+        ((zPlayerAction*)this)->UpdateFall(dt);
+    }
+}
+
+void zPlayerSlide::UpdateFall(float dt) {
+    if (*(float*)((char*)this + 0x10) < 0.3f) {
+        ((zBoardPlayer*)player)->fallingTime = 0.0f;
+    } else {
+        ((zPlayerAction*)this)->UpdateFall(dt);
+    }
+}
+
+void zBoardPlayerHammerAttack::Begin() {
+    zBoardPlayer* p = (zBoardPlayer*)player;
+
+    p->f8C0 = 1;
+    p->f8C4 = -1.0f;
+    f10 = 0;
+    zSoundWiimoteSpeakerList::Play(0, (zPlayer*)player);
+}
+
+bool zPlayerSlide::SlideJumpApexCheck(xAnimTransition* a0,
+                                      xAnimSingle* a1) {
+    if (!(((zBoardPlayer*)player)->zPlayerFlags & 0x2) &&
+        *(float*)((char*)this + 0x10) >= 0.4f) {
+        return true;
+    }
+
+    return false;
+}
+
+void zBoardPlayerKelpTrap::Begin() {
+    xEntFrame* frame = ((zBoardPlayer*)player)->frame;
+
+    frame->f90 = 0.0f;
+    frame->f88 = 0.0f;
+    ((zBoardPlayer*)player)->zPlayerFlags |= 0x10;
+    ((zBoardPlayer*)player)->zPlayerFlags &= ~0x8;
+}
+
+bool zBoardPlayerDrainGoo::StartDrainGooCheck(xAnimTransition* a0,
+                                              xAnimSingle* a1) {
+    zBoardPlayer* p = (zBoardPlayer*)player;
+
+    if (p->gooState == 6) {
+        p->SetGooState((SBGooFilledState)0);
+
+        return true;
+    }
+
+    return false;
+}
+
+void zBoardPlayerDrainGoo::Begin() {
+    ((zBoardPlayer*)player)->frame->zeroVel();
+    ((zBoardPlayer*)player)->zPlayerFlags &= ~0x10;
+}
+
+void zPlayerSlamLandBoard::Begin() {
+    ((zBoardPlayer*)player)->SetGooState((SBGooFilledState)0);
+    ((zBoardPlayer*)player)->f904 = 0.0f;
+}
+
+bool zBoardPlayerKelpTrap::KelpReleaseCheck(xAnimTransition* a0,
+                                            xAnimSingle* a1) {
+    zPlantTrap* trap = ((zBoardPlayer*)player)->kelpTrapLink;
+
+    if (trap == 0) {
+        return true;
+    }
+
+    if (trap->f5C == 1 || trap->f5C == 6 || trap->f3C == 0) {
+        return true;
+    }
+
+    return false;
+}
+
+void zBoardPlayerLosePowerup::Begin() {
+    zBoardPlayer* p = (zBoardPlayer*)player;
+
+    p->frame->zeroVel();
+    p->zPlayerFlags &= ~0x10;
+    p->currentHitType = -1;
+    p->powerupModelState = (BoardPowerupState)0;
 }

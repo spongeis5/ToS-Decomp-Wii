@@ -80,6 +80,22 @@ public:
     float f28;
 };
 void v3add(xVec3* d, xVec3* a, xVec3* b);
+int xrand_RandomRange(int a0, int a1);
+
+// zPlayerSlip::ApplyGust builds one on the stack from three floats
+// and reads back only the y. The frame is 32 bytes, which is what a
+// SIXTEEN-byte local costs here, not a twelve-byte one.
+namespace Math {
+class Vector {
+public:
+    Vector(float x, float y, float z);
+
+    float x;
+    float y;
+    float z;
+    float w;
+};
+}
 
 // Q24Sext10eHitSource -- two components, so Sext qualifies it.
 // Only the value zPlayerFallToDeath::Begin passes is known.
@@ -402,6 +418,9 @@ public:
     static const char* GetTransitionString() { return "Idle*"; }
     static void AddTransitionsTo(zPlayerActionManager* a0, xAnimTable* a1, const char* a2);
     void AddActionTransitions(xAnimTable* table);
+
+    int f10;
+    int f14;
 };
 
 
@@ -428,6 +447,8 @@ public:
     void AddActionTransitions(xAnimTable* table);
     void AddStates(xAnimTable* table);
     bool SlipCheck(xAnimTransition* a0, xAnimSingle* a1);
+
+    void ApplyGust(xVec3& v);
 };
 
 
@@ -581,6 +602,8 @@ public:
     void SetNextState();
 
     void SetBlend(xAnimTransition* a0);
+
+    void PlayNext();
 };
 
 
@@ -1453,16 +1476,6 @@ bool zCommonPlayerAction::FallCheck(xAnimTransition* a0,
     return result;
 }
 
-bool zPlayerIdle::IdleCB(xAnimTransition* a0, xAnimSingle* a1) {
-    if (player->currentHitType == 1 || player->currentHitType == 2) {
-        player->currentHitType = -1;
-    }
-
-    player->f5C4 = 0.0f;
-
-    return false;
-}
-
 bool zPlayerTriggered::TriggeredAnimCheck(xAnimTransition* a0,
                                           xAnimSingle* a1) {
     bool result = false;
@@ -1708,8 +1721,83 @@ void zPlayerDefeated::Begin() {
     player->zPlayerFlags |= 0x8000;
 }
 
-// The two below are called by the bodies above and retail leaves
-// both as a `bl`, so they are defined LAST.
+void zPlayerCustomAnim::PlayNext() {
+    if (f10) {
+        if (!IsLastEntry()) {
+            f18 = 1;
+        } else {
+            f19 = 1;
+        }
+    }
+}
+
+void zPlayerSlip::ApplyGust(xVec3& v) {
+    Math::Vector gust(v.x, v.y, v.z);
+
+    gust.y = 0.0f;
+
+    v3add(&player->frame->pos, &player->frame->pos, (xVec3*)&gust);
+}
+
+bool zPlayerDefeated::DrownCheck(xAnimTransition* a0,
+                                 xAnimSingle* a1) {
+    bool result = false;
+
+    if (player->_v48() && player->currentHitType == 4) {
+        result = true;
+    }
+
+    return result;
+}
+
+bool zPlayerDefeated::DeathCheck(xAnimTransition* a0,
+                                 xAnimSingle* a1) {
+    bool result = false;
+
+    if (player->_v48() && player->currentHitType != 4 &&
+        player->currentHitType != 3) {
+        result = true;
+    }
+
+    return result;
+}
+
+unsigned int zPlayerIdle::anIdleNormalCheck(xAnimTransition* a0,
+                                            xAnimSingle* a1,
+                                            void* a2) {
+    unsigned int result = 0;
+
+    if (((zPlayerIdle*)((AnimCBHolder*)a0)->slot->owner)->_v5()) {
+        if (!((zPlayerIdle*)((AnimCBHolder*)a0)->slot->owner)->player->f5EC) {
+            result = 1;
+        }
+    }
+
+    return result;
+}
+
+bool zPlayerIdle::InactiveIdleCB(xAnimTransition* a0, xAnimSingle* a1) {
+    f10 = f14;
+
+    while (f14 == f10) {
+        f14 = xrand_RandomRange(2, 5);
+    }
+
+    return IdleCB(a0, a1);
+}
+
+// The three below are called by the bodies above and retail leaves
+// all three as a `bl`, so they are defined LAST.
+
+bool zPlayerIdle::IdleCB(xAnimTransition* a0, xAnimSingle* a1) {
+    if (player->currentHitType == 1 || player->currentHitType == 2) {
+        player->currentHitType = -1;
+    }
+
+    player->f5C4 = 0.0f;
+
+    return false;
+}
 
 bool zPlayerCustomAnim::IsLastEntry() {
     return f14 >= f10->f4;

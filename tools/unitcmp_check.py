@@ -264,7 +264,7 @@ EXPECT = {
     "SB/GM/Engine/Game/zNPCManager": (1, 1),
     "SB/GM/Engine/Game/zPOWGroup": (1, 1),
     "SB/GM/Engine/Game/zPhysicsObject": (3, 3),
-    "SB/GM/Engine/Game/zPlanktonPlayer": (16, 16),
+    "SB/GM/Engine/Game/zPlanktonPlayer": (19, 19),
     "SB/GM/Engine/Game/zPlantTrap": (17, 17),
     "SB/GM/Engine/Game/zPlatform": (3, 3),
     "SB/GM/Engine/Game/zPlayerConstrainer": (3, 3),

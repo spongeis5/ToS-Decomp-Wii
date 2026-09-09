@@ -11,6 +11,72 @@
 // offsets baked into the code come out as retail has them.
 #include "SB/GM/Engine/Game/zPlanktonPlayer.pool.h"
 
+struct xBase_mBC_78_0 { unsigned char _pad0[0x3C]; unsigned char f3C; };
+struct xBase_mBC_78 { xBase_mBC_78_0* f00; };
+struct xBase_mBC { unsigned char _pad0[0x78]; xBase_mBC_78* f78; };
+struct xBase_mCC { unsigned char _pad0[0x1C]; unsigned int f1C; };
+
+class xBase {
+public:
+    virtual void _v0();
+    virtual void _v1();
+    virtual void _v2();
+    virtual void _v3();
+    virtual void _v4();
+    virtual void _v5();
+    virtual void _v6();
+    virtual void _v7();
+    virtual void _v8();
+    virtual void _v9();
+    virtual void _v10();
+    virtual void _v11();
+    virtual void _v12();
+    virtual void _v13();
+    virtual void _v14();
+    virtual void _v15();
+    virtual void _v16();
+    virtual void _v17();
+    virtual void _v18();
+    virtual void _v19();
+    virtual void _v20();
+    virtual void _v21();
+    virtual void _v22();
+    virtual void _v23();
+    virtual void _v24();
+    virtual void _v25();
+    virtual void _v26();
+    virtual void _v27();
+    virtual void _v28();
+    virtual void _v29();
+    virtual void _v30();
+    virtual void _v31(unsigned int* color);
+
+    unsigned char _pad0[0x20 - 0x4];
+    unsigned int typeID;
+    unsigned char _pad1[0xBC - 0x24];
+    xBase_mBC* fBC;
+    unsigned char _pad2[0xCC - 0xC0];
+    xBase_mCC* fCC;
+};
+namespace Sext { class EventAny; }
+enum ForceEvent { ForceEvent_ = 0x7FFFFFFF };
+void zEntEvent(xBase* a0, unsigned int a1, xBase* a2,
+               unsigned int a3, Sext::EventAny* a4,
+               ForceEvent a5);
+
+// Five parts, each told to hide or show by the same event.
+class zPlanktonTargetIndicator {
+public:
+    void Hide();
+    void Show();
+    void UpdateColor();
+
+    xBase* parts[5];
+    unsigned char _pad0[0x3C - 0x14];
+    unsigned int colorFirst;
+    unsigned int colorRest;
+};
+
 class xAnimTable;
 class xAnimState;
 class xAnimPlay;
@@ -433,4 +499,42 @@ unsigned int zPlayerIdlePlankton::anZapStunCheck(xAnimTransition* a0, xAnimSingl
     }
 
     return result;
+}
+
+void zPlanktonTargetIndicator::Hide() {
+    zEntEvent(0, 0, parts[0], 0xAE72E9E5, 0, (ForceEvent)1);
+    zEntEvent(0, 0, parts[1], 0xAE72E9E5, 0, (ForceEvent)1);
+    zEntEvent(0, 0, parts[2], 0xAE72E9E5, 0, (ForceEvent)1);
+    zEntEvent(0, 0, parts[3], 0xAE72E9E5, 0, (ForceEvent)1);
+    zEntEvent(0, 0, parts[4], 0xAE72E9E5, 0, (ForceEvent)1);
+}
+
+void zPlanktonTargetIndicator::Show() {
+    zEntEvent(0, 0, parts[0], 0x27858BA2, 0, (ForceEvent)1);
+    zEntEvent(0, 0, parts[1], 0x27858BA2, 0, (ForceEvent)1);
+    zEntEvent(0, 0, parts[2], 0x27858BA2, 0, (ForceEvent)1);
+    zEntEvent(0, 0, parts[3], 0x27858BA2, 0, (ForceEvent)1);
+    zEntEvent(0, 0, parts[4], 0x27858BA2, 0, (ForceEvent)1);
+}
+
+void zPlanktonTargetIndicator::UpdateColor() {
+    unsigned int c0 = colorFirst;
+
+    parts[0]->_v31(&c0);
+
+    unsigned int c1 = colorRest;
+
+    parts[1]->_v31(&c1);
+
+    unsigned int c2 = colorRest;
+
+    parts[2]->_v31(&c2);
+
+    unsigned int c3 = colorRest;
+
+    parts[3]->_v31(&c3);
+
+    unsigned int c4 = colorRest;
+
+    parts[4]->_v31(&c4);
 }

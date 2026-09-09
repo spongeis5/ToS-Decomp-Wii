@@ -32,6 +32,14 @@ void zDefeatedFragBobBE(xAnimPlay*, xAnimState*, void*);
 void zDefeatedDeathBonesBE(xAnimPlay*, xAnimState*, void*);
 void zSBAnimPackageBE(xAnimPlay*, xAnimState*, void*);
 
+// The object the linker calls `globals`; only the byte at +0x59E
+// is read here.
+struct zGlobals {
+    unsigned char _pad0[0x59E];
+    unsigned char f59E;
+};
+extern zGlobals globals;
+
 // `Award__16zAchievementsMgrF16eAchievementTypeP5xBase` -- no
 // `this` in the mangling, so a static, and the enum is global.
 class xBase;
@@ -5759,6 +5767,34 @@ bool zPlayerFallSB::FallHighCheck(xAnimTransition* a0,
     return result;
 }
 
+// Above SBRunCheck, which this file defines below, so both keep
+// the `bl` retail has.
+bool zPlayerWalkSB::WalkToRun1Check(xAnimTransition* a0,
+                                    xAnimSingle* a1) {
+    bool result = false;
+
+    if (((zSBPlayerAction*)this)->SBRunCheck(a0, a1) &&
+        ((*(float*)((char*)a1 + 8)) <= 0.36667001f ||
+         (*(float*)((char*)a1 + 8)) > 0.8332999f)) {
+        result = true;
+    }
+
+    return result;
+}
+
+bool zPlayerWalkSB::WalkToRun2Check(xAnimTransition* a0,
+                                    xAnimSingle* a1) {
+    bool result = false;
+
+    if (((zSBPlayerAction*)this)->SBRunCheck(a0, a1) &&
+        (*(float*)((char*)a1 + 8)) > 0.36667001f &&
+        (*(float*)((char*)a1 + 8)) <= 0.8332999f) {
+        result = true;
+    }
+
+    return result;
+}
+
 bool zSBPlayerAction::SBRunCheck(xAnimTransition* a0,
                                  xAnimSingle* a1) {
     zSBPlayer* p = (zSBPlayer*)player;
@@ -5860,4 +5896,33 @@ float zPlayerJumpSB::GetY(float x) const {
     float d = x - f38;
 
     return d * (0.5f * f34 * d) + (f30 * d + (f38 * f30 + f14));
+}
+
+bool zPlayerIdleSB::IdleAgingStartCheck(xAnimTransition* a0,
+                                        xAnimSingle* a1) {
+    if (*(int*)((char*)this + 0x10) == 5 &&
+        *(float*)((char*)this + 0x20C) <= 0.0f && globals.f59E) {
+        *(float*)((char*)this + 0x28) = 10.0f;
+
+        return true;
+    }
+
+    return false;
+}
+
+bool zPlayerSpringboardSB::SBSpringboardCheck(xAnimTransition* a0,
+                                              xAnimSingle* a1) {
+    zSBPlayer* p = (zSBPlayer*)player;
+
+    if (*(int*)((char*)p + 0x1E4)) {
+        return false;
+    }
+
+    if (*(int*)((char*)p + 0x9E4)) {
+        p->SetGooState((SBGooFilledState)0);
+
+        return true;
+    }
+
+    return false;
 }

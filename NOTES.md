@@ -7,18 +7,18 @@ numbers here, which move.
 ## State at time of writing
 
 ```
-Game Code:  67 of 777 files complete  375,976 / 2,116,616 bytes  3,201 / 10,697 fn
-            17.7631% of game code
+Game Code:  67 of 777 files complete  376,368 / 2,116,616 bytes  3,205 / 10,697 fn
+            17.7816% of game code
 
-Of those 3,201 functions, 856 are GENERATED -- machine-recognised
+Of those 3,205 functions, 856 are GENERATED -- machine-recognised
 shapes, not one of which is decompiling. They are real matched
 functions and the offsets and constants are recovered fact, but a
 count of them is not a count of decompiled code. HAND-WRITTEN IS
-2,345, across 265 units and 341,676 bytes, and that is the figure to
+2,349, across 265 units and 342,068 bytes, and that is the figure to
 compare against earlier ones.
 
 Data:       4 unit(s) carry their own, 412 bytes; 134 more could
-All:        7.38% matched              main.dol reproduces byte for byte
+All:        7.39% matched              main.dol reproduces byte for byte
 ```
 
 Every number above is written by `python tools/notes_state.py`,
@@ -4940,3 +4940,49 @@ than another spelling.
 
 zCommonPlayerActions 152 of 155 -> 156 of 159. Game Code 17.67% ->
 17.69%, 373,976 -> 374,528 bytes of 2,116,616.
+
+## TWELVE CALLBACKS, ONE REGISTER SWAP, AND A SIBLING THAT MATCHES
+
+zPlayerIdle's four anInactiveNCheck were recorded as a near-miss:
+right size, eight of thirty-seven words out, all eight a register
+number. Eight more have now been written that miss the SAME way --
+zPlayerHitSB's anHitGoo/Spin/Puck Front and Back and
+zPlayerHitLaunchSB's anLaunchGoo pair, 152 bytes each and six to
+eight words out. Twelve functions, 1,808 bytes, one cause.
+
+Retail saves a0 to r31, a1 to r30 and the result to r29, then reuses
+r31 for the flag and r30 for the owner. Every spelling tried puts a1
+in r29 and the result in r30 -- the same instructions in the same
+order, two registers exchanged.
+
+Eight spellings measured now, words differing of 37:
+
+  * owner local then flag, both inside the `if` -- 8
+  * flag then owner local -- 14
+  * no owner local, re-derived at each use -- 26, and 4 bytes longer
+  * flag assigned rather than tested -- 14
+  * the outer variable a `bool` -- 8
+  * the flag an `unsigned int` -- 8
+  * the two conditions nested rather than `&&`-joined -- 14
+  * the flag at FUNCTION scope rather than inner -- 24
+
+**The lever is not the flag's type, its scope, or the assignment
+form.** Three spellings land on exactly 8 and none goes lower.
+
+What makes this worth another session rather than a shrug is that
+the family has a MATCHED sibling to measure against.
+zPlayerHitSB::anHitFrontCheck is 116 bytes, byte-identical, and two
+conditions deep instead of three:
+
+    unsigned int result = 0;
+    if (OWNER->_v5()) {
+        if (OWNER->HitFrontCheck(a0, a1)) { result = 1; }
+    }
+    return result;
+
+It has no owner local and no flag, writes the owner expression out
+TWICE, and its three saved values run r29, r30, r31 -- ASCENDING.
+The twelve run r31, r30, r29 -- reversed. So the allocation order
+flips between the two-condition and three-condition forms, and the
+question is what the third condition changes. That is a smaller
+question than it was, and it is 1,808 bytes.

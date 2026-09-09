@@ -7,7 +7,7 @@ numbers here, which move.
 ## State at time of writing
 
 ```
-Game Code:  67 of 777 files complete  382,200 / 2,116,616 bytes  3,247 / 10,697 fn
+Game Code:  80 of 777 files complete  382,200 / 2,116,616 bytes  3,247 / 10,697 fn
             18.0571% of game code
 
 Of those 3,247 functions, 855 are GENERATED -- machine-recognised

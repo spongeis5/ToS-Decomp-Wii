@@ -40,7 +40,7 @@ BADGES = [
     ("game_fuzzy", "Game Fuzzy", "game", "fuzzy_match_percent"),
     ("image_code", "Image", None, "matched_code_percent"),
     ("image_fuzzy", "Image Fuzzy", None, "fuzzy_match_percent"),
-    ("linked", "Linked", None, "complete_code_percent"),
+    ("linked", "Image Linked", None, "complete_code_percent"),
     ("data", "Data", None, "matched_data_percent"),
 ]
 

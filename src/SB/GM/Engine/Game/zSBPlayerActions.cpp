@@ -31,6 +31,15 @@ void zDefeatedFrozenBE(xAnimPlay*, xAnimState*, void*);
 void zDefeatedFragBobBE(xAnimPlay*, xAnimState*, void*);
 void zDefeatedDeathBonesBE(xAnimPlay*, xAnimState*, void*);
 void zSBAnimPackageBE(xAnimPlay*, xAnimState*, void*);
+
+// `Award__16zAchievementsMgrF16eAchievementTypeP5xBase` -- no
+// `this` in the mangling, so a static, and the enum is global.
+class xBase;
+enum eAchievementType { eAchievementType_ = 0x7FFFFFFF };
+class zAchievementsMgr {
+public:
+    static void Award(eAchievementType a0, xBase* a1);
+};
 void zSBAgingIdlePopOutBE(xAnimPlay*, xAnimState*, void*);
 void zSBAgingIdleBE(xAnimPlay*, xAnimState*, void*);
 
@@ -244,7 +253,13 @@ public:
 
 // The board player's own class: anSBNotCandyCheck names its
 // IsOnCandy, not zSBPlayer's.
-class zBoardPlayer { public: int IsOnCandy(); };
+class zBoardPlayer {
+public:
+    int IsOnCandy();
+    // Its result is passed straight to zSBPlayer::PlayerDiedSceneReset
+    // as `this`; nothing here names the return type.
+    static void* GetInstance();
+};
 
 namespace World { class xOGModel { public: void Show(); }; }
 
@@ -1569,8 +1584,15 @@ public:
     void UpdateFall(float dt);
 
     float f10;
-    unsigned char _pad0[0x20 - 0x14];
+    float f14;
+    unsigned char _pad0[0x20 - 0x18];
     float f20;
+    unsigned char _pad1[0x30 - 0x24];
+    float f30;
+    float f34;
+    float f38;
+
+    float GetY(float x) const;
 };
 
 class zSBPlayerCandy : public zPlayerAction {
@@ -5795,4 +5817,47 @@ void zSBPlayerBombRoll::End() {
     }
 
     p->zPlayerFlags &= ~0x10;
+}
+
+// The same two stores as the rest of the before-enter family, with
+// no call, and 20 bytes rather than 60.
+void zSBAgingIdlePopOutBE(xAnimPlay* a0, xAnimState* a1, void* a2) {
+    zSBPlayer* p = (zSBPlayer*)a2;
+
+    p->powerupModelState = (SBPowerupState)0;
+    p->powerupPerformDeferredModelSwap = true;
+}
+
+void _PlayerDeadSceneResetCB() {
+    ((zSBPlayer*)zBoardPlayer::GetInstance())->PlayerDiedSceneReset();
+}
+
+unsigned int zPlayerIdleSB::anAgingIdleAchievementCB(
+    xAnimTransition* a0, xAnimSingle* a1, void* a2) {
+    zAchievementsMgr::Award((eAchievementType)27, 0);
+
+    return 1;
+}
+
+bool zSBPlayerGainPowerup::GainSidekickPowerupCheck(
+    xAnimTransition* a0, xAnimSingle* a1) {
+    zSBPlayer* p = (zSBPlayer*)player;
+
+    // The constant on the LEFT is what stops the range fold.
+    if (p->powerupModelState == 0 && 9 <= p->powerupState &&
+        p->powerupState <= 11) {
+        return true;
+    }
+
+    return false;
+}
+
+float zPlayerJumpSB::GetY(float x) const {
+    if (x < f38) {
+        return x * f30 + f14;
+    }
+
+    float d = x - f38;
+
+    return d * (0.5f * f34 * d) + (f30 * d + (f38 * f30 + f14));
 }

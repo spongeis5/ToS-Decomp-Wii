@@ -15,6 +15,8 @@
 // are left as forward declarations here.
 
 // 0x38 in the DWARF, on an Entity base; only the type id is read here.
+#include "SB/GM/Engine/WAD02_22_1.pool.h"
+
 class xBase {
 public:
     unsigned char _base0[0x18];

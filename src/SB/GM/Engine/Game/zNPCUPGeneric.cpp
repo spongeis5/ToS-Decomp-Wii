@@ -197,7 +197,7 @@ class zNPCTemplateFlags {
 public:
     unsigned char _pad0[0x38];
     zNPCTemplateFlagBits flags;
-    unsigned char _pad1[0xC];
+    unsigned char _pad1[0x8];
     unsigned char headTracking;
 };
 

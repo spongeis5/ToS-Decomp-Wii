@@ -21,6 +21,8 @@
 // 0.0f the moment it is, and a target's line-of-sight cache starts at
 // -0.1f so the first check always runs.
 
+#include "SB/GM/Engine/WAD02_29_1.pool.h"
+
 class xVec3;
 
 class zWallNet {

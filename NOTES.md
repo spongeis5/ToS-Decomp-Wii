@@ -7,18 +7,18 @@ numbers here, which move.
 ## State at time of writing
 
 ```
-Game Code:  67 of 777 files complete  376,504 / 2,116,616 bytes  3,206 / 10,697 fn
-            17.7880% of game code
+Game Code:  67 of 777 files complete  377,456 / 2,116,616 bytes  3,208 / 10,697 fn
+            17.8330% of game code
 
-Of those 3,206 functions, 856 are GENERATED -- machine-recognised
+Of those 3,208 functions, 856 are GENERATED -- machine-recognised
 shapes, not one of which is decompiling. They are real matched
 functions and the offsets and constants are recovered fact, but a
 count of them is not a count of decompiled code. HAND-WRITTEN IS
-2,350, across 265 units and 342,204 bytes, and that is the figure to
+2,352, across 265 units and 343,156 bytes, and that is the figure to
 compare against earlier ones.
 
 Data:       4 unit(s) carry their own, 412 bytes; 134 more could
-All:        7.39% matched              main.dol reproduces byte for byte
+All:        7.41% matched              main.dol reproduces byte for byte
 ```
 
 Every number above is written by `python tools/notes_state.py`,
@@ -5149,3 +5149,126 @@ reason as the other four.
 That is the whole unity blob's pool, not these five functions: 416
 bytes that land when zVar's translation unit is complete, and not
 before. No spelling reaches it.
+
+## A FIELD FOUR BYTES LATE, AND TWO KINDS OF SCHEDULE
+
+`zNPCTemplateFlags::headTracking` was at 0x48 and retail reads 0x44.
+zNPCUPGeneric::Activate loads it as `lbz r0,0x48(r3)` where retail has
+`lbz r0,0x44(r3)`, and the sibling reads of `flags` at +0x38 in the
+same function already matched, which is what localised it to the one
+member. zNPCTemplateFlagBits is 32 bits of unsigned bitfields, so
+`flags` occupies 0x38..0x3B and the padding after it had to be 0x8,
+not 0xC. Activate went 22 words out to 21 and nothing else in the unit
+moved.
+
+That gained no bytes and was still worth doing: the offset was simply
+wrong, and every function written later that reads headTracking would
+have read the wrong byte and been debugged as a codegen puzzle.
+
+
+## THE SCHEDULER MOVES A LOAD ACROSS A STORE AND NO SPELLING STOPS IT
+
+zDecal::emit is six words, and they are the SAME EIGHT INSTRUCTIONS in
+a different order. Retail loads `model->model` -- the call's fourth
+argument -- LAST, after `stfs f0,0x90(r29)` writes nextEmit; we hoist
+it seven instructions earlier.
+
+The tell is that the function's FIRST call site, textually identical
+but with no float store in front of it, matches exactly. So it is the
+store the load is being moved across.
+
+Six spellings measured, all still 6 words: the load written as its own
+statement after the store, the same before it, the rate in a local
+(14, worse), the store spelled out rather than compounded, the store
+through `this`, and the reciprocal in its own local. The two that put
+the load in a local BEFORE and AFTER the store produce IDENTICAL
+output, which is the finding: mwcc reorders across that store freely
+and the source statement order does not reach the decision.
+
+
+## THE FLOAT BASE IS SHARED AND THE PADDING DOES NOT STOP IT
+
+zNPCHelper::GetTanTheta2 is 220 bytes against retail's 232 -- we are
+THREE INSTRUCTIONS SHORT, which is the whole difference and why 55 of
+55 words are out.
+
+Retail re-materialises `lis r3,0x8069` before every one of its seven
+float constant loads: two instructions each. We form one base
+(`lis; addi; addis r31,r6,1`) and read all seven off it with signed
+offsets: three instructions once, then one each.
+
+The kUnityRodataAhead padding IS working. `addis r31,r6,1` with an
+offset near -0x39xx puts the literal 0xC6B8 = 50872 bytes past our
+base, exactly the distance the header measured. What the padding does
+not do is stop the SHARING: mwcc reaches past 32 KB with an addis and
+keeps one base anyway, where retail keeps none.
+
+So the 32 KB rule in gen_poolprefix.py's header is about which
+ADDRESSING mwcc uses, not about whether it pools at all, and the
+padding cannot reach this. It is the same string-and-float base
+hoisting recorded against the animation tables, met from the other
+side, and it is what GetTanTheta2 and GetTanThetaXZ are waiting on --
+488 bytes between them.
+
+
+## THE POOL HEADERS ARE ALL CURRENT, AND THE FIRST ANSWER SAID 17
+
+`gen_poolprefix.py --check` over the 29 string-prefix headers reported
+17 STALE. It was run in the default mode, and 17 of the 29 were
+generated with `--whole`; the check was comparing them against output
+nobody asked for. CMeshBlobEntity appearing in the list is what gave
+it away, having been regenerated minutes earlier.
+
+Checked against BOTH modes, counting a file current if either mode
+reproduces it: **0 of 29 are stale**, 17 whole and 12 plain. A staleness
+check that does not know which mode wrote the file is not a staleness
+check.
+
+## TWO UNITS WERE WAITING ON A HEADER NOBODY GENERATED
+
+**952 bytes, and the fix was written down before it was needed.**
+
+The comment above HandleNPCDamage in WAD02_22_1.cpp says, in full:
+*BYTE-IDENTICAL AT 672 WHEN THE SECTION IS BIG ENOUGH, AND 660 HERE*
+-- and then, further down, *compiled with 36,000 bytes of .rodata
+placed AHEAD of them, this exact text is 168 of 168 words. So nothing
+below is wrong: it is waiting on the rest of its translation unit, the
+same as zNPCPerception's IsInDirectPath.*
+
+That is the kUnityRodataAhead mechanism, which gen_poolprefix.py
+generates. **WAD02_22_1 had no pool header at all** -- no include, no
+file. The measurement had been made, the cause identified and the
+remedy named, and the one command that supplies it was never run. The
+function sat at 90.59% from then until now.
+
+  * `python tools/gen_poolprefix.py SB/GM/Engine/WAD02_22_1.cpp`
+    measured 50,872 bytes for the translation unit -- more than the
+    36,000 already shown to be enough -- and the include goes FIRST so
+    the array's .rodata precedes the unit's float literals.
+    HandleNPCDamage: 660 bytes and 140 words out, to **MATCH at 672**.
+
+  * The same note named IsInDirectPath as the identical case.
+    WAD02_29_1 needed BOTH a 98-string prefix and the same 50,872
+    bytes. **MATCH at 280** on the first try.
+
+So the first question to ask of a near miss is not what is wrong with
+the source. It is whether the unit has the header its translation unit
+implies, because a fragment compiled with nothing in front of it
+addresses .rodata differently from the same text compiled in place.
+`tools/nearmiss.py` and a test for a missing .pool.h would have found
+both of these months ago.
+
+**Padding is not a universal fix, and the counter-example was already
+here.** zNPCHelper HAS 50,872 bytes of it and still shares one float
+base where retail materialises a high half per literal, which is why
+GetTanTheta2 remains 3 instructions short. The padding decides how far
+into .rodata the literals sit; it does not decide whether mwcc pools
+them. Two units it fixed, one it does not.
+
+What the generator says about the rest, so it is not re-probed:
+xWMLTypes builds no pool and loads no float literal -- nothing to do,
+which independently confirms FixWmlType's two words are allocation and
+not addressing. WAD02 (Sort), GeometryEntity and xEvent likewise load
+no float literal. WAD00_1's first literal IS its translation unit's
+lowest .rodata address: 0 bytes apart, so there is nothing to put in
+front of it.

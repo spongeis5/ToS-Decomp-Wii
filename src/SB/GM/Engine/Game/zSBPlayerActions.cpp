@@ -190,7 +190,37 @@ class xAnimTransition;
 // the branch is four bytes and names nothing else.
 class xScene;
 class xBase;
-class zPlayerInput;
+class zPlayerInput {
+public:
+    virtual void _v0();
+    virtual void _v1();
+    virtual void _v2();
+    virtual void _v3();
+    virtual void _v4();
+    virtual void _v5();
+    virtual void _v6();
+    virtual void _v7();
+    virtual void _v8();
+    virtual void _v9();
+    virtual void _v10();
+    virtual void _v11();
+    virtual void _v12();
+    virtual void _v13();
+    virtual void _v14();
+    virtual void _v15();
+    virtual void _v16();
+    virtual void _v17();
+    virtual void _v18();
+    virtual void _v19();
+    virtual void _v20();
+    virtual void _v21();
+    virtual void _v22();
+    virtual void _v23();
+    virtual void _v24();
+    virtual void _v25();
+    virtual void _v26();
+    virtual float _v27(int a0, int a1);
+};
 class xEntFrame;
 
 class zPlantTrap {
@@ -200,6 +230,8 @@ public:
     unsigned char _pad1[0x5C - 0x40];
     int f5C;
 };
+
+enum SBHappinessState { SBHappinessState_ = 0x7FFFFFFF };
 
 class zBungeeBall {
 public:
@@ -219,6 +251,9 @@ namespace World { class xOGModel { public: void Show(); }; }
 extern unsigned char gGameCheats;
 
 class zProjectileSBBombNPC {
+public:
+    void UnMountedBomb();
+
 public:
     unsigned char _pad0[0x1BC];
     int f1BC;
@@ -473,6 +508,7 @@ public:
     void SetGooState(SBGooFilledState state);
     int IsInAnyGooState();
     int IsOnQuicksand();
+    float GetRunStartMag();
     void PlayerDiedSceneReset();
     void SetPowerupState(SBPowerupState state);
     void PlayLosePowerupFX();
@@ -509,7 +545,9 @@ public:
     float spinCooldownTimer;
     unsigned char _pad12[0x8];
     int nearbyEnemyState;
-    unsigned char _pad13[0x62];
+    unsigned char _pad13[0x8];
+    SBHappinessState happinessState;
+    unsigned char _pad13b[0x56];
     bool breathFXEnabled;
     bool coldArea;
     unsigned char _pad13a[0x14];
@@ -526,7 +564,9 @@ public:
     bool canSpinGlide;
     unsigned char _pad18[0x1];
     zProjectileSBBombNPC* bombLink;
-    unsigned char _pad19[0x24];
+    unsigned char _pad19[0xC];
+    float bombMountTimer;
+    unsigned char _pad19a[0x14];
     float quicksandSinkDistance;
     unsigned char _pad20[0x4];
     zBungeeBall* bungeeBallLink;
@@ -1022,6 +1062,8 @@ public:
     bool RunSlipperyCheck(xAnimTransition* a0, xAnimSingle* a1);
     bool RunSuccessCheck(xAnimTransition* a0, xAnimSingle* a1);
     void AddTransitionsFrom(xAnimTable* table, const char* name, unsigned int (*c)(xAnimTransition*, xAnimSingle*, void*), unsigned int (*d)(xAnimTransition*, xAnimSingle*, void*), unsigned short e, float f, unsigned int g, unsigned int h, zPlayerAction::SpecialActions i);
+
+    bool RunRegularCheck(xAnimTransition* a0, xAnimSingle* a1);
 };
 
 class zSBPlayerBungeeBall : public zPlayerAction {
@@ -1497,8 +1539,12 @@ public:
 
     void End();
 
-    unsigned char _padA[0x1C - 0x10];
+    int f10;
+    int f14;
+    unsigned char _padA[0x1C - 0x18];
     unsigned char f1C;
+
+    void Begin();
 };
 
 class zBoardPlayerHammerAttack {
@@ -1646,6 +1692,8 @@ public:
     bool SBBombMoveCheck(xAnimTransition* a0, xAnimSingle* a1);
     bool SBBombStopCheck(xAnimTransition* a0, xAnimSingle* a1);
     bool SBNoBombCheck(xAnimTransition* a0, xAnimSingle* a1);
+
+    void End();
 };
 
 class zPlayerFluidSpraySB : public zPlayerAction {
@@ -1950,6 +1998,10 @@ public:
     void AddStates(xAnimTable* table);
     bool Turn180Check(xAnimTransition* a0, xAnimSingle* a1);
     bool Turn180DoneCheck(xAnimTransition* a0, xAnimSingle* a1);
+
+
+    unsigned char _padA[0x1C - 0x10];
+    unsigned char f1C;
 };
 
 class zPlayerSlamStartSB : public zPlayerAction {
@@ -5683,4 +5735,64 @@ bool zPlayerFallSB::FallHighCheck(xAnimTransition* a0,
     }
 
     return result;
+}
+
+bool zSBPlayerAction::SBRunCheck(xAnimTransition* a0,
+                                 xAnimSingle* a1) {
+    zSBPlayer* p = (zSBPlayer*)player;
+    zPlayerInput* input = p->playerInput;
+
+    return input->_v27(0, 2) >= p->GetRunStartMag();
+}
+
+bool zPlayerRunSB::RunRegularNormalCheck(xAnimTransition* a0,
+                                         xAnimSingle* a1) {
+    if (RunRegularCheck(a0, a1)) {
+        zSBPlayer* p = (zSBPlayer*)player;
+
+        if (p->happinessState == 0 || p->powerupState == 5 ||
+            p->powerupState == 1) {
+            return true;
+        }
+    }
+
+    return false;
+}
+
+bool zPlayerTurn180SB::Turn180DoneCheck(xAnimTransition* a0,
+                                        xAnimSingle* a1) {
+    bool result = false;
+
+    if (((zSBPlayer*)player)->ogModel.model->f20.dot3(
+            *(hkVector4*)((char*)this + 0x10)) >= 0.99999f ||
+        f1C) {
+        result = true;
+    }
+
+    return result;
+}
+
+void zSBPlayerSpinAttack::Begin() {
+    zSBPlayer* p = (zSBPlayer*)player;
+
+    f10 = -1;
+    f14 = 1;
+    f1C = 0;
+    p->attackState = (eRPSAttackTypes)2;
+
+    if (!p->_v74()) {
+        p->canSpinGlide = false;
+    }
+}
+
+void zSBPlayerBombRoll::End() {
+    zSBPlayer* p = (zSBPlayer*)player;
+
+    if (p->bombLink != 0) {
+        p->bombLink->UnMountedBomb();
+
+        p->bombMountTimer = 0.5f;
+    }
+
+    p->zPlayerFlags &= ~0x10;
 }

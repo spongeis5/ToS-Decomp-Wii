@@ -7,14 +7,14 @@ numbers here, which move.
 ## State at time of writing
 
 ```
-Game Code:  67 of 777 files complete  376,368 / 2,116,616 bytes  3,205 / 10,697 fn
-            17.7816% of game code
+Game Code:  67 of 777 files complete  376,504 / 2,116,616 bytes  3,206 / 10,697 fn
+            17.7880% of game code
 
-Of those 3,205 functions, 856 are GENERATED -- machine-recognised
+Of those 3,206 functions, 856 are GENERATED -- machine-recognised
 shapes, not one of which is decompiling. They are real matched
 functions and the offsets and constants are recovered fact, but a
 count of them is not a count of decompiled code. HAND-WRITTEN IS
-2,349, across 265 units and 342,068 bytes, and that is the figure to
+2,350, across 265 units and 342,204 bytes, and that is the figure to
 compare against earlier ones.
 
 Data:       4 unit(s) carry their own, 412 bytes; 134 more could
@@ -5046,3 +5046,106 @@ Nothing in this survey moved a byte. What it moved is the shape of
 the question: three of the biggest near-misses are now known to be
 allocation and layout choices that no local respelling reaches, and
 the tool that finds the rest is in tools/.
+
+## A REPEATED STRING IN THE POOL PREFIX COSTS EVERY OFFSET AFTER IT
+
+A generated `.pool.h` prefix seeds a fragment's string pool so the
+fragment's own strings land at retail's offsets. It emitted one C
+literal per string. Two IDENTICAL literals fold onto one address
+under `-str reuse`, so a repeated string occupies NOTHING and every
+later string sits one byte low -- and the offset is baked into every
+instruction that reaches them.
+
+CMeshBlobEntity's prefix lists the empty string twice, at +4 and +8.
+Our pool put `shape` at +31 where retail has +32, and
+`GetPhysicsShape` differed in exactly two words, both
+`addi r4,r31,0x1f` against `addi r4,r31,0x20`. **136 bytes for one
+byte of pool.**
+
+The fix is in gen_poolprefix.py, not in the generated file: a literal
+repeating one already emitted is written as part of its PREDECESSOR
+with an explicit NUL between. Adjacent C literals concatenate, so the
+bytes are unchanged and there is no second literal left to fold. The
+head of that prefix is now `", " "\0" ""`, which is
+`, ` and two terminators -- exactly retail's +5..+8.
+
+Of 53 generated pool headers, 29 carry a string prefix and 24 are
+`kUnityRodataAhead` padding; CMeshBlobEntity is the only one of the
+29 with a repeat, so this was worth 136 bytes and not more. That
+count had to be measured twice: the first scan used a regex that
+parsed 5 of the 29 and reported `0 of 29 files carry a duplicate`,
+which is what a failed measurement looks like when it is allowed to
+return a benign number.
+
+
+## tools/triage.py -- WHICH NEAR-MISSES ARE WORTH ATTACKING
+
+`nearmiss.py` says which written functions do not land and what they
+are worth. That is not the same question as which are reachable.
+Three of the four biggest were opened up this session and every one
+was a register-allocation tie: FixWmlType, CreateBuilderData and the
+zGameState pair. Each cost an hour to learn that.
+
+triage.py decodes every differing word pair and says which BITS
+moved: OPCODE (different instructions -- a source-level cause),
+SWAP (same registers permuted -- operand order, semantic and
+reachable), REG (different registers named -- allocation), IMM (a
+displacement, a mask field, or a pooled-string offset).
+
+SWAP is why it is not a one-line bitmask test. iCylinderIsectVec's
+two words are `fsubs f2,f2,f0` against `fsubs f2,f0,f2` -- a source
+operand order, not allocation, yet confined to register fields.
+Parking those would be absence of evidence rendered as evidence of
+absence. The module refuses to report unless it first reproduces all
+eight known answers in its SELFTEST.
+
+It found GetPhysicsShape, which is how the pool bug above was found:
+two words, IMM only, and an IMM that is not a struct displacement is
+a pool offset.
+
+A verdict of `parked (allocation)` is a RANKING, not a conclusion.
+It says where to look last.
+
+
+## SPELLINGS EXCLUDED, AND THE TWO CONTROLS THAT REPRODUCED
+
+Twenty more spellings measured and rejected, so they are not redone:
+
+  * iCylinderIsectVec, six: the point read into the same local then
+    subtracted from the centre (6 words), the same one coordinate at
+    a time (6), centre-minus-point with x first (7), centre minus
+    point (6), the point in its own local (6), compound `-=` (8).
+    The baseline of 2 stands. The open question is unchanged: load
+    the point first and still subtract from the centre.
+
+  * CreateBuilderData, three: geomParams/rendParams declared after
+    the info store (8, unchanged), rendParams hoisted beside
+    geomParams (21), both hoisted to the top (156).
+
+  * StartLoad, eleven: chained `langs[0] = langs[1] = 0` in four
+    placements, the zeros reversed, a store to another address
+    between the dead store and its killer, an aliasing store through
+    `this` between them, and an initialiser naming langID. Every one
+    is either dead-store eliminated back to the halfword (1 of 70,
+    the baseline) or costs three words. The zero initialiser really
+    does produce the word store and really does cost 8 bytes.
+
+Two of these were CONTROLS re-measuring a figure already in the
+file: iCylinderIsectVec's centre-minus-point came back at 6 words
+and StartLoad's initialiser at 288 bytes and 42 of 70, both exactly
+as recorded. A measuring rig that cannot reproduce the numbers
+already written down is not evidence about the ones that are not.
+
+
+## THE FIVE zVar NEAR-MISSES ARE THE UNITY POOL, NOT THE FUNCTIONS
+
+All five differ in one word of the form `addi r4,r4,K`: ours reaches
+a string at pool offset 0 or 6, retail at 0x825, 0x2722 or 0x2725.
+In `var_text_CurrentScene` our offset is ZERO, so mwcc emits no
+`addi` at all and the function comes out 92 bytes against retail's
+96 -- the only one of the five whose size is wrong, and for the same
+reason as the other four.
+
+That is the whole unity blob's pool, not these five functions: 416
+bytes that land when zVar's translation unit is complete, and not
+before. No spelling reaches it.

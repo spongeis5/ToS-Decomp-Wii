@@ -8,12 +8,19 @@
 // before this file's own, in that order, so that compiled alone
 // it gets the same offsets. This is data read from the image;
 // retail has no such table, it has the files in front.
+//
+// They are emitted as 13 literals, not 14: a literal that
+// repeats one already emitted folds onto it under -str
+// reuse, which would pull every later string one byte
+// down. A repeat is therefore written as part of its
+// predecessor with an explicit NUL between; adjacent C
+// literals concatenate, so the bytes are unchanged.
 
 static const char* const kUnityPoolPrefix[] = {
     "PSL",  // +0
     "",  // +4
-    ", ",  // +5
-    "",  // +8
+    ", " "\0" "",  // +5, 2 literals: the repeat(s)
+        // would fold onto the first copy under -str reuse
     "FirstDomain",  // +9
     "quaternion",  // +21
     "shape",  // +32

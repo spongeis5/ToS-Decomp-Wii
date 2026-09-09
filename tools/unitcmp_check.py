@@ -249,7 +249,7 @@ EXPECT = {
     # The animation tables merged by gen_animtables.py. The five
     # that DIFFER are AddActionTransitions bodies with many calls,
     # merged and not yet examined; the pin has to see them.
-    "SB/GM/Engine/Game/zCommonPlayerActions": (139, 142),
+    "SB/GM/Engine/Game/zCommonPlayerActions": (143, 146),
     "SB/GM/Engine/Game/zFXParticleLocator": (1, 1),
     "SB/GM/Engine/Game/zFloatingCollectible": (3, 3),
     "SB/GM/Engine/Game/zHitButton": (5, 5),

@@ -7,18 +7,18 @@ numbers here, which move.
 ## State at time of writing
 
 ```
-Game Code:  67 of 777 files complete  372,308 / 2,116,616 bytes  3,171 / 10,697 fn
-            17.5898% of game code
+Game Code:  67 of 777 files complete  372,804 / 2,116,616 bytes  3,175 / 10,697 fn
+            17.6132% of game code
 
-Of those 3,171 functions, 856 are GENERATED -- machine-recognised
+Of those 3,175 functions, 856 are GENERATED -- machine-recognised
 shapes, not one of which is decompiling. They are real matched
 functions and the offsets and constants are recovered fact, but a
 count of them is not a count of decompiled code. HAND-WRITTEN IS
-2,315, across 265 units and 338,008 bytes, and that is the figure to
+2,319, across 265 units and 338,504 bytes, and that is the figure to
 compare against earlier ones.
 
 Data:       4 unit(s) carry their own, 412 bytes; 134 more could
-All:        7.33% matched              main.dol reproduces byte for byte
+All:        7.34% matched              main.dol reproduces byte for byte
 ```
 
 Every number above is written by `python tools/notes_state.py`,
@@ -4833,3 +4833,35 @@ the storage byte and the position within it. zPlayerLedge::Begin was
 
 zCommonPlayerActions 134 of 137 -> 139 of 142. Game Code 17.56% ->
 17.59%, 371,732 -> 372,308 bytes of 2,116,616.
+
+## FOUR CALLBACKS THAT WANT r29 AND r30 THE OTHER WAY ROUND
+
+zPlayerIdle's anInactive2Check through anInactive5Check are 148
+bytes each and come out 148 bytes each, with EIGHT of thirty-seven
+words differing and all eight a register number.
+
+Retail saves a0 to r31, a1 to r30 and zeroes the result into r29,
+then reuses r30 for the owner and r31 for the flag. Every spelling
+tried saves a1 to r29 and the result to r30 -- the same instructions
+in the same order, two registers exchanged.
+
+Three were measured, and the count is words differing of 37:
+
+  * `zPlayerIdle* p` then `bool ok`, both inside the `if` -- 8
+  * `bool ok` then `zPlayerIdle* p` -- 14
+  * no `p` at all, the owner re-derived at each use -- 26, and the
+    function grows to 152 bytes
+
+So declaration order moves the allocation and the first spelling is
+closest, but none is right. What has NOT been tried is a shape with
+only two locals visible to the allocator -- retail's r31 flag could
+be an inlined helper's return rather than a named `ok`, which would
+leave {result, p} and let a1 keep r30. That is the next thing to
+measure, and it is 592 bytes across the four.
+
+The `bl` inside them is to InactiveCheck, which this unit does not
+define, so the ordering lever does not apply and the diff really is
+about register assignment and nothing else.
+
+zCommonPlayerActions 139 of 142 -> 143 of 146. Game Code 17.59% ->
+17.61%, 372,308 -> 372,804 bytes of 2,116,616.

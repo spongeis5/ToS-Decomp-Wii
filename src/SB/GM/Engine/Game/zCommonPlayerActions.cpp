@@ -644,7 +644,8 @@ public:
     float f1C;
     float f20;
     unsigned char _pad1[0x34 - 0x24];
-    int f34;
+    // `cmplwi r0,1` in LoopToTran1Check, so unsigned.
+    unsigned int f34;
     // `cmplwi r0,1` in TranToLoop1DefCheck, so unsigned.
     unsigned int f38;
 
@@ -1897,6 +1898,65 @@ void zPlayerCustomAnim::End() {
     zEntEvent(0, 0, (xBase*)player, 0x4F53236B, 0, (ForceEvent)1);
 }
 
+bool zPlayerCustomAnim::TranToLoop1Check(xAnimTransition* a0,
+                                         xAnimSingle* a1) {
+    if (IsLastEntry()) {
+        return false;
+    }
+
+    if (f18 && f1A && f38 == 1) {
+        SetBlend(a0);
+
+        return true;
+    }
+
+    return false;
+}
+
+bool zPlayerCustomAnim::TranToLoop2Check(xAnimTransition* a0,
+                                         xAnimSingle* a1) {
+    if (IsLastEntry()) {
+        return false;
+    }
+
+    if (f18 && f1A && f38 == 0) {
+        SetBlend(a0);
+
+        return true;
+    }
+
+    return false;
+}
+
+bool zPlayerCustomAnim::LoopToTran1Check(xAnimTransition* a0,
+                                         xAnimSingle* a1) {
+    if (IsLastEntry()) {
+        return false;
+    }
+
+    if (f18 && !f1A && f34 == 1) {
+        SetBlend(a0);
+
+        return true;
+    }
+
+    return false;
+}
+
+bool zPlayerCustomAnim::LoopToTran2Check(xAnimTransition* a0,
+                                         xAnimSingle* a1) {
+    if (IsLastEntry()) {
+        return false;
+    }
+
+    if (f18 && !f1A && f34 == 0) {
+        SetBlend(a0);
+
+        return true;
+    }
+
+    return false;
+}
 // The three below are called by the bodies above and retail leaves
 // all three as a `bl`, so they are defined LAST.
 

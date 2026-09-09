@@ -72,7 +72,13 @@ struct xOGModel_m4C_C {
     float f08;
     float f0C;
 };
-struct xOGModel_m4C { unsigned char _pad0[0xC]; xOGModel_m4C_C* f0C; };
+struct xOGModel_m4C {
+    unsigned char _pad0[0xC];
+    // xAnimPlaySetState takes this as an xAnimSingle*.
+    xOGModel_m4C_C* f0C;
+    unsigned char _pad1[0x14 - 0x10];
+    xAnimTable* f14;
+};
 
 class xOGModel {
 public:
@@ -91,6 +97,7 @@ public:
     // zPlayerHitLaunch::End zeroes all three; LandCheck reads the y.
     xVec3 f88;
     unsigned int flags;
+    void zeroVel();
     xVec3 pos;
 };
 
@@ -104,6 +111,12 @@ public:
 void v3add(xVec3* d, xVec3* a, xVec3* b);
 int xrand_RandomRange(int a0, int a1);
 void zSceneReset();
+class xSurfaceInfo;
+xAnimState* xAnimTableGetState(xAnimTable* table, const char* name);
+void xAnimPlaySetState(xAnimSingle* a0, xAnimState* a1, float a2);
+
+// What the player's slot 75 returns: only the float at +4 is read.
+struct zPlayer_v75 { unsigned char _pad0[0x4]; float f04; };
 
 // `10ForceEvent`, not `Q24Sext11ForceEvent`, so the enum is global
 // and only the EventAny is qualified. Every call here passes a null
@@ -224,7 +237,7 @@ public:
     virtual void _v72();
     virtual void _v73();
     virtual void _v74();
-    virtual void _v75();
+    virtual zPlayer_v75* _v75();
     virtual void _v76();
     virtual void _v77();
     virtual void _v78();
@@ -284,13 +297,17 @@ public:
     xOGModelHandle ogModel;
     unsigned char _pad1[0x58 - 0x3C];
     xEntFrame* frame;
-    unsigned char _pad2[0x14C - 0x5C];
+    unsigned char _pad2[0x6C - 0x5C];
+    xSurfaceInfo* surface;
+    unsigned char _pad2a[0x14C - 0x70];
     int f14C;
     unsigned char _pad2b[0x1C4 - 0x150];
     int zPlayerFlags;
     unsigned char _pad3[0x1F0 - 0x1C8];
     int f1F0;
-    unsigned char _pad3b[0x2F4 - 0x1F4];
+    unsigned char _pad3b[0x2E8 - 0x1F4];
+    xAnimTable* animTable;
+    unsigned char _pad3c[0x2F4 - 0x2EC];
     float fallingTime;
     unsigned char _pad4[0x4A0 - 0x2F8];
     int f4A0;
@@ -388,6 +405,7 @@ public:
     unsigned int f0C;
     unsigned int f10;
     void AddStandardTransitionsTo(unsigned int, xAnimTable*, const char*);
+    void SetCurrentAction(zPlayerAction* a0);
     void AddTransitionsTo(unsigned int, xAnimTable*, const char*, unsigned int (*)(xAnimTransition*, xAnimSingle*, void*), unsigned int (*)(xAnimTransition*, xAnimSingle*, void*), unsigned short, float, unsigned int, unsigned int, zPlayerAction::SpecialActions);
 };
 
@@ -483,6 +501,9 @@ public:
     int f14;
 
     void End();
+
+    void ApplyGust(xVec3& v);
+    void Reset();
 };
 
 
@@ -662,7 +683,10 @@ public:
     unsigned char _pad0[0x1C - 0x1B];
     float f1C;
     float f20;
-    unsigned char _pad1[0x34 - 0x24];
+    xAnimState* f24;
+    xAnimState* f28;
+    xAnimState* f2C;
+    xAnimState* f30;
     // `cmplwi r0,1` in LoopToTran1Check, so unsigned.
     unsigned int f34;
     // `cmplwi r0,1` in TranToLoop1DefCheck, so unsigned.
@@ -675,6 +699,11 @@ public:
     void PlayNext();
 
     void End();
+
+    void Setup();
+    void Begin();
+
+    unsigned char f3C;
 };
 
 
@@ -2078,6 +2107,47 @@ void zPlayerDoubleJump::Begin() {
         (zPlayerFall*)((Graphics::ModelPrototype*)manager)->GetBuilder(6);
 
     fall->f14 = 0;
+}
+
+void zPlayerIdle::ApplyGust(xVec3& v) {
+    if ((player->zPlayerFlags & 2) && player->surface) {
+        Math::Vector gust(v.x, v.y, v.z);
+
+        gust.y = 0.0f;
+
+        v3add(&player->frame->pos, &player->frame->pos,
+              (xVec3*)&gust);
+    }
+}
+
+void zPlayerIdle::Reset() {
+    xOGModel* model = player->ogModel.model;
+
+    xAnimPlaySetState((xAnimSingle*)model->f4C->f0C,
+                      xAnimTableGetState(model->f4C->f14, "Idle01"),
+                      0.0f);
+
+    manager->SetCurrentAction(this);
+
+    f14 = xrand_RandomRange(2, 5);
+}
+
+void zPlayerCustomAnim::Begin() {
+    f3C = player->_v105();
+
+    player->zPlayerFlags &= ~0x8;
+    player->zPlayerFlags |= 0x10;
+
+    player->frame->zeroVel();
+
+    SetNextState();
+}
+
+void zPlayerCustomAnim::Setup() {
+    f24 = xAnimTableGetState(player->animTable, "CustomTran01");
+    f28 = xAnimTableGetState(player->animTable, "CustomTran02");
+    f2C = xAnimTableGetState(player->animTable, "CustomLoop01");
+    f30 = xAnimTableGetState(player->animTable, "CustomLoop02");
 }
 
 // The three below are called by the bodies above and retail leaves

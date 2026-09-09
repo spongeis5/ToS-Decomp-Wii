@@ -134,7 +134,26 @@ void zEntEventAllOfType(xBase* from, unsigned int fromEvent,
                         unsigned int toEvent, Sext::EventAny* param,
                         unsigned int type, ForceEvent force);
 
-class xOGModel { public: unsigned char _pad0[0x30]; xVec3 pos; };
+class hkVector4 {
+public:
+    float dot3(const hkVector4& o) const;
+
+    float x;
+    float y;
+    float z;
+    float w;
+};
+
+namespace Sext { enum eHitSource { eHitSource_ = 0x7FFFFFFF }; }
+
+int zCombatGetBaseAttackSB(Sext::eHitSource source);
+
+class xOGModel {
+public:
+    unsigned char _pad0[0x20];
+    hkVector4 f20;
+    xVec3 pos;
+};
 class xOGModelHandle { public: xOGModel* model; int f4; };
 
 // The board player's own layout, at the offsets its callers read.
@@ -371,7 +390,11 @@ public:
 // Nothing in the image NAMES either type, so both are
 // spelled as the offsets that were measured. Neither
 // struct emits a symbol.
-struct AnimCBSlot { unsigned char _pad[0x90]; void* owner; };
+struct AnimCBSlot {
+    unsigned char _pad[0x90];
+    void* owner;
+    int f94;
+};
 struct AnimCBHolder { unsigned char _pad[0x4]; AnimCBSlot* slot; };
 
 
@@ -484,6 +507,7 @@ public:
 
 class zPlayerHit : public zCommonPlayerAction {
 public:
+    bool HitCheck(xAnimTransition* a0, xAnimSingle* a1);
     virtual void __vtable_anchor();
     zPlayerHit();
 
@@ -550,6 +574,7 @@ public:
     void SetGooState(SBGooFilledState state);
     void SetPowerupTimerToMax(BoardPowerupState state);
     void SetCapsuleSize(float radius, float height);
+    bool IsOnSlipperySurface(float f) const;
     void UpdateCharacterProxy(float dt);
     unsigned int GetBehaviorSetRefHash() const;
     float GetCharacterProxyYOffset();
@@ -635,7 +660,7 @@ public:
     virtual void _v79() const;
     virtual void _v80() const;
     virtual void _v81() const;
-    virtual void _v82() const;
+    virtual float _v82() const;
     virtual void _v83() const;
     virtual void _v84() const;
     virtual void _v85() const;
@@ -732,7 +757,9 @@ public:
     // bytes shorter than the member's offset: fAA4 is at 0xAA4
     // (halfExtents.y in the DWARF), and 0xAA4 of padding read it at
     // 0xAA8 -- the one accessor of this unit that did not match.
-    unsigned char _pad0[0x54];
+    unsigned char _pad0[0x30];
+    xOGModel* ogModel;
+    unsigned char _pad0a[0x58 - 0x38];
     xEntFrame* frame;
     unsigned char _pad1[0x168];
     int zPlayerFlags;
@@ -744,7 +771,8 @@ public:
     int lastDamageType;
     unsigned char _pad5[0xD8];
     int currentHitType;
-    unsigned char _pad6[0x340];
+    hkVector4 hitDir;
+    unsigned char _pad6[0x330];
     SBGooFilledState gooState;
     unsigned char _pad7[0x10];
     BoardPowerupState powerupState;
@@ -753,9 +781,13 @@ public:
     unsigned char _pad8[0xB];
     int f8C0;
     float f8C4;
-    unsigned char _pad9[0x34];
+    unsigned char _pad9[0xC];
+    int f8D4;
+    unsigned char _pad10[0x24];
     bool f8FC;
-    unsigned char _pad10[0x1A7];
+    unsigned char _pad11[0x17B];
+    float fA78;
+    unsigned char _pad12[0x28];
     float fAA4;
 };
 
@@ -811,6 +843,14 @@ public:
     bool IdleLowHealthCheck(xAnimTransition* a0, xAnimSingle* a1);
     bool IdleRegularCheck(xAnimTransition* a0, xAnimSingle* a1);
     bool IdleSlipperyCheck(xAnimTransition* a0, xAnimSingle* a1);
+
+    bool IdleCheck(xAnimTransition* a0, xAnimSingle* a1);
+    bool DefaultIdleCheck(xAnimTransition* a0, xAnimSingle* a1);
+
+    // noRepeats1 ends at 0x9D, so three bytes of padding put the
+    // extra-idle timer where `lfs f1,160(r30)` reads it.
+    unsigned char _padA[0xA0 - 0x9D];
+    float extraIdleTimer;
 };
 
 
@@ -952,7 +992,7 @@ public:
     static unsigned int anHitGooFrontCheck(xAnimTransition* a0, xAnimSingle* a1, void* a2);
     bool HitGooFrontCheck(xAnimTransition* a0, xAnimSingle* a1);
     static unsigned int anHitHammerCheck(xAnimTransition* a0, xAnimSingle* a1, void* a2);
-    bool HitHammerCheck(xAnimTransition* a0, xAnimSingle* a1);
+    unsigned int HitHammerCheck(xAnimTransition* a0, xAnimSingle* a1);
     static unsigned int anHitPowerupCheck(xAnimTransition* a0, xAnimSingle* a1, void* a2);
     bool HitPowerupCheck(xAnimTransition* a0, xAnimSingle* a1);
     static unsigned int anHitPuckBackCheck(xAnimTransition*, xAnimSingle*, void*);
@@ -962,6 +1002,15 @@ public:
     void AddTransitionsFrom(xAnimTable* table, const char* name, unsigned int (*c)(xAnimTransition*, xAnimSingle*, void*), unsigned int (*d)(xAnimTransition*, xAnimSingle*, void*), unsigned short e, float f, unsigned int g, unsigned int h, zPlayerAction::SpecialActions i);
 
     void Begin();
+
+
+    // Four members with no symbol of their own: each is inlined
+    // into the one callback that names it, and the flag it
+    // materialises is how the bytes say it was there.
+    bool HitSpinFrontCheck(xAnimTransition* a0, xAnimSingle* a1);
+    bool HitSpinBackCheck(xAnimTransition* a0, xAnimSingle* a1);
+    bool HitPuckFrontCheck(xAnimTransition* a0, xAnimSingle* a1);
+    bool HitPuckBackCheck(xAnimTransition* a0, xAnimSingle* a1);
 };
 
 
@@ -1125,6 +1174,8 @@ public:
     bool RunRegularCheck(xAnimTransition* a0, xAnimSingle* a1);
     bool RunSlipperyCheck(xAnimTransition* a0, xAnimSingle* a1);
     bool RunSuccessCheck(xAnimTransition* a0, xAnimSingle* a1);
+
+    bool RunCheck(xAnimTransition* a0, xAnimSingle* a1);
 };
 
 class zBoardPlayerCandy : public zPlayerAction {
@@ -1164,6 +1215,8 @@ public:
     void AddStates(xAnimTable* table);
     bool WalkRegularCheck(xAnimTransition* a0, xAnimSingle* a1);
     bool WalkSlipperyCheck(xAnimTransition* a0, xAnimSingle* a1);
+
+    bool WalkCheck(xAnimTransition* a0, xAnimSingle* a1);
 };
 
 class zBoardPlayerGainPowerup : public zPlayerAction {
@@ -4589,4 +4642,331 @@ void zBoardPlayerGainPowerup::End() {
     if (p->powerupState == 2) {
         p->SetCapsuleSize(p->_v171(), 0.4f + p->_v140());
     }
+}
+
+bool zPlayerIdleBoard::IdleLowHealthCheck(xAnimTransition* a0,
+                                          xAnimSingle* a1) {
+    bool result = false;
+    bool notSlippery = false;
+    bool idle = false;
+
+    if (((zBoardPlayerAction*)this)->DefaultStateCheck(a0, a1) &&
+        IdleCheck(a0, a1)) {
+        idle = true;
+    }
+
+    if (idle && !((zBoardPlayer*)player)->IsOnSlipperySurface(0.13f)) {
+        notSlippery = true;
+    }
+
+    if (notSlippery && ((zBoardPlayer*)player)->_v82() <= 1.0f) {
+        result = true;
+    }
+
+    return result;
+}
+
+bool zPlayerIdleBoard::DefaultIdleCheck(xAnimTransition* a0,
+                                        xAnimSingle* a1) {
+    if (!((zBoardPlayerAction*)this)->DefaultStateCheck(a0, a1)) {
+        return true;
+    }
+
+    // The transition's own slot, four bytes past the owner, and bit
+    // 14 counted from the top is 0x20000.
+    if (0.0f < extraIdleTimer &&
+        (((AnimCBHolder*)a0)->slot->f94 & 0x20000)) {
+        return true;
+    }
+
+    return false;
+}
+
+bool zPlayerIdleBoard::IdleCheck(xAnimTransition* a0, xAnimSingle* a1) {
+    zBoardPlayer* p = (zBoardPlayer*)player;
+    zPlayerInput* input = p->playerInput;
+
+    return input->_v27(0, 2) < p->GetWalkStartMag();
+}
+
+inline bool zPlayerHitBoard::HitSpinFrontCheck(xAnimTransition* a0,
+                                                 xAnimSingle* a1) {
+    bool result = false;
+
+    if (HitFrontCheck(a0, a1) &&
+        ((zBoardPlayer*)player)->lastDamageType == 27) {
+        result = true;
+    }
+
+    return result;
+}
+
+inline bool zPlayerHitBoard::HitSpinBackCheck(xAnimTransition* a0,
+                                                xAnimSingle* a1) {
+    bool result = false;
+
+    if (HitBackCheck(a0, a1) &&
+        ((zBoardPlayer*)player)->lastDamageType == 27) {
+        result = true;
+    }
+
+    return result;
+}
+
+inline bool zPlayerHitBoard::HitPuckFrontCheck(xAnimTransition* a0,
+                                                 xAnimSingle* a1) {
+    bool result = false;
+
+    if (HitFrontCheck(a0, a1) &&
+        ((zBoardPlayer*)player)->lastDamageType == 31) {
+        result = true;
+    }
+
+    return result;
+}
+
+inline bool zPlayerHitBoard::HitPuckBackCheck(xAnimTransition* a0,
+                                                xAnimSingle* a1) {
+    bool result = false;
+
+    if (HitBackCheck(a0, a1) &&
+        ((zBoardPlayer*)player)->lastDamageType == 31) {
+        result = true;
+    }
+
+    return result;
+}
+
+#pragma always_inline on
+
+unsigned int zPlayerHitBoard::anHitSpinFrontCheck(xAnimTransition* a0,
+                                                     xAnimSingle* a1,
+                                                     void* a2) {
+    unsigned int result = 0;
+
+    if (((zPlayerHitBoard*)((AnimCBHolder*)a0)->slot->owner)->_v5()) {
+        if (((zPlayerHitBoard*)((AnimCBHolder*)a0)->slot->owner)->HitSpinFrontCheck(a0, a1)) {
+            result = 1;
+        }
+    }
+
+    return result;
+}
+
+unsigned int zPlayerHitBoard::anHitSpinBackCheck(xAnimTransition* a0,
+                                                    xAnimSingle* a1,
+                                                    void* a2) {
+    unsigned int result = 0;
+
+    if (((zPlayerHitBoard*)((AnimCBHolder*)a0)->slot->owner)->_v5()) {
+        if (((zPlayerHitBoard*)((AnimCBHolder*)a0)->slot->owner)->HitSpinBackCheck(a0, a1)) {
+            result = 1;
+        }
+    }
+
+    return result;
+}
+
+unsigned int zPlayerHitBoard::anHitPuckFrontCheck(xAnimTransition* a0,
+                                                     xAnimSingle* a1,
+                                                     void* a2) {
+    unsigned int result = 0;
+
+    if (((zPlayerHitBoard*)((AnimCBHolder*)a0)->slot->owner)->_v5()) {
+        if (((zPlayerHitBoard*)((AnimCBHolder*)a0)->slot->owner)->HitPuckFrontCheck(a0, a1)) {
+            result = 1;
+        }
+    }
+
+    return result;
+}
+
+unsigned int zPlayerHitBoard::anHitPuckBackCheck(xAnimTransition* a0,
+                                                    xAnimSingle* a1,
+                                                    void* a2) {
+    unsigned int result = 0;
+
+    if (((zPlayerHitBoard*)((AnimCBHolder*)a0)->slot->owner)->_v5()) {
+        if (((zPlayerHitBoard*)((AnimCBHolder*)a0)->slot->owner)->HitPuckBackCheck(a0, a1)) {
+            result = 1;
+        }
+    }
+
+    return result;
+}
+#pragma always_inline off
+
+bool zPlayerHitBoard::HitGooFrontCheck(xAnimTransition* a0,
+                                        xAnimSingle* a1) {
+    bool result = false;
+
+    if (((zBoardPlayer*)player)->gooState == 2 &&
+        HitFrontCheck(a0, a1)) {
+        result = true;
+    }
+
+    return result;
+}
+
+bool zPlayerHitBoard::HitGooBackCheck(xAnimTransition* a0,
+                                       xAnimSingle* a1) {
+    bool result = false;
+
+    if (((zBoardPlayer*)player)->gooState == 2 &&
+        HitBackCheck(a0, a1)) {
+        result = true;
+    }
+
+    return result;
+}
+
+unsigned int zPlayerHitBoard::HitHammerCheck(xAnimTransition* a0,
+                                             xAnimSingle* a1) {
+    zBoardPlayer* p = (zBoardPlayer*)player;
+
+    if (p->currentHitType != -1 &&
+        zCombatGetBaseAttackSB((Sext::eHitSource)p->lastDamageType) == 29 &&
+        p->gooState != 2) {
+        return ((AnimCBHolder*)a0)->slot->f94 & 0x20000;
+    }
+
+    return 0;
+}
+
+bool zPlayerHitBoard::HitPowerupCheck(xAnimTransition* a0,
+                                      xAnimSingle* a1) {
+    zBoardPlayer* p = (zBoardPlayer*)player;
+
+    return p->currentHitType != -1 && p->powerupState != 0;
+}
+
+bool zPlayerHitBoard::HitElectricArcCheck(xAnimTransition* a0,
+                                          xAnimSingle* a1) {
+    bool result = false;
+    zBoardPlayer* p = (zBoardPlayer*)player;
+
+    // The fourth test reads the player again rather than through p:
+    // retail has a second `lwz r3,4(r29)` and one local would not.
+    if (p->powerupState == 0 && p->powerupModelState == 0 &&
+        !p->IsInAnyGooState() &&
+        ((zBoardPlayer*)player)->currentHitType != -1 &&
+        p->lastDamageType == 54) {
+        result = true;
+    }
+
+    return result;
+}
+
+unsigned int zPlayerHitBoard::anHammerTimerDone(xAnimTransition* a0,
+                                                xAnimSingle* a1,
+                                                void* a2) {
+    // The holder is a1 here, and +0x10 through the offset: this class
+    // opens with a four-byte pad before its variant array.
+    return *(float*)((char*)((AnimCBHolder*)a1)->slot->owner + 0x10) <=
+           0.0f;
+}
+
+bool zPlayerHitBoard::HitFrontCheck(xAnimTransition* a0,
+                                    xAnimSingle* a1) {
+    if (((zPlayerHit*)this)->HitCheck(a0, a1) &&
+        ((zBoardPlayer*)player)->hitDir.dot3(
+            ((zBoardPlayer*)player)->ogModel->f20) <= 0.0f) {
+        return true;
+    }
+
+    return false;
+}
+
+bool zPlayerHitBoard::HitBackCheck(xAnimTransition* a0,
+                                   xAnimSingle* a1) {
+    if (((zPlayerHit*)this)->HitCheck(a0, a1) &&
+        ((zBoardPlayer*)player)->hitDir.dot3(
+            ((zBoardPlayer*)player)->ogModel->f20) > 0.0f) {
+        return true;
+    }
+
+    return false;
+}
+
+bool zPlayerRunBoard::RunBraveCheck(xAnimTransition* a0,
+                                     xAnimSingle* a1) {
+    bool result = false;
+    bool notSlippery = false;
+    zBoardPlayer* p = (zBoardPlayer*)player;
+    bool run = false;
+
+    if (((zBoardPlayerAction*)this)->DefaultStateCheck(a0, a1) && RunCheck(a0, a1)) {
+        run = true;
+    }
+
+    if (run && !((zBoardPlayer*)player)->IsOnSlipperySurface(0.13f)) {
+        notSlippery = true;
+    }
+
+    if (notSlippery && p->f8D4 == 1) {
+        result = true;
+    }
+
+    return result;
+}
+
+bool zPlayerRunBoard::RunSuccessCheck(xAnimTransition* a0,
+                                       xAnimSingle* a1) {
+    bool result = false;
+    bool notSlippery = false;
+    zBoardPlayer* p = (zBoardPlayer*)player;
+    bool run = false;
+
+    if (((zBoardPlayerAction*)this)->DefaultStateCheck(a0, a1) && RunCheck(a0, a1)) {
+        run = true;
+    }
+
+    if (run && !((zBoardPlayer*)player)->IsOnSlipperySurface(0.13f)) {
+        notSlippery = true;
+    }
+
+    if (notSlippery && p->f8D4 == 2) {
+        result = true;
+    }
+
+    return result;
+}
+
+bool zPlayerWalkBoard::WalkCheck(xAnimTransition* a0,
+                                 xAnimSingle* a1) {
+    zBoardPlayer* p = (zBoardPlayer*)player;
+
+    if (p->gooState == 2) {
+        zPlayerInput* input = p->playerInput;
+        float mag = p->fA78;
+
+        if (input->_v27(0, 2) >= mag) {
+            return true;
+        }
+    } else {
+        zPlayerInput* input = p->playerInput;
+
+        if (input->_v27(0, 2) >= p->GetWalkStartMag()) {
+            zBoardPlayer* p2 = (zBoardPlayer*)player;
+            zPlayerInput* input2 = p2->playerInput;
+
+            if (input2->_v27(0, 2) < p2->GetRunStartMag()) {
+                return true;
+            }
+        }
+    }
+
+    return false;
+}
+
+bool zPlayerRunBoard::RunCheck(xAnimTransition* a0, xAnimSingle* a1) {
+    zBoardPlayer* p = (zBoardPlayer*)player;
+
+    if (p->gooState == 2) {
+        return false;
+    }
+
+    zPlayerInput* input = p->playerInput;
+
+    return input->_v27(0, 2) >= p->GetRunStartMag();
 }

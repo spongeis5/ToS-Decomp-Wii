@@ -7,18 +7,18 @@ numbers here, which move.
 ## State at time of writing
 
 ```
-Game Code:  67 of 777 files complete  354,532 / 2,116,616 bytes  2,953 / 10,697 fn
-            16.7499% of game code
+Game Code:  67 of 777 files complete  356,952 / 2,116,616 bytes  2,972 / 10,697 fn
+            16.8643% of game code
 
-Of those 2,953 functions, 856 are GENERATED -- machine-recognised
+Of those 2,972 functions, 856 are GENERATED -- machine-recognised
 shapes, not one of which is decompiling. They are real matched
 functions and the offsets and constants are recovered fact, but a
 count of them is not a count of decompiled code. HAND-WRITTEN IS
-2,097, across 265 units and 320,232 bytes, and that is the figure to
+2,116, across 265 units and 322,652 bytes, and that is the figure to
 compare against earlier ones.
 
 Data:       4 unit(s) carry their own, 412 bytes; 134 more could
-All:        7.06% matched              main.dol reproduces byte for byte
+All:        7.10% matched              main.dol reproduces byte for byte
 ```
 
 Every number above is written by `python tools/notes_state.py`,
@@ -4414,3 +4414,57 @@ worth two functions and not one.
 
 Twenty-five of twenty-six, 2,332 bytes. WAD01_28 309 of 310. Game Code
 16.6403% -> 16.75%.
+
+## THE LAST LOCAL DECLARED TAKES r31, and three other orderings
+
+Nineteen more of the board player's predicates -- the whole
+zPlayerHitBoard family, the run and walk checks, three of the idle
+ones.  Most went in first time on the levers the previous section
+found.  Four did not, and each was a question about ORDER rather than
+about shape.
+
+**The last local declared takes r31; the rest take r30 downward in
+declaration order.** HitElectricArcCheck was eight words out of 31 and
+every one of them was a register number: `p` in r31 where retail has
+r30, `result` in r30 where retail has r31.  Moving `bool result` above
+`zBoardPlayer* p` fixed it exactly. The same move fixed RunBraveCheck
+and RunSuccessCheck, which want result, notSlippery, p, run -- p third
+of four, which is not where anyone would write it, and is what the
+bytes say.
+
+**A threshold read from memory wants its own local.** WalkCheck's goo
+branch is `input->GetMag(0, 2) >= p->fA78`, and retail loads fA78 into
+f31 BEFORE the virtual call.  Written as a member read it lands after:
+the player is still live, so mwcc keeps it in a callee-saved register
+and defers the load, which costs a fifth saved register and eight
+bytes of frame. `float mag = p->fA78;` on its own line puts the load
+where retail has it and lets the player die into r5.
+
+**`bool ok = A && B;` keeps the flag; `if (A && B) ok = true;` folds
+it.** The two are the same program and mwcc treats them differently:
+the assignment materialises the 0/1 the way retail does, and the `if`
+lets mwcc prove the flag dead and thread the branches straight into
+the next test.  That is worth 16 bytes and four words on a 144-byte
+predicate, and it is the difference the previous session's three-flag
+chains hid -- with three the fold does not fire, so the `if` form
+happened to be right there.
+
+**And the pragma is a region, not a call.** `#pragma always_inline on`
+around IdleSlipperyCheck took the invented helper AND DefaultStateCheck,
+whose definition was already above it.  Moving DefaultStateCheck to the
+end of the file puts it out of every inliner's reach and leaves the
+pragma one thing it can take.
+
+STILL UNREACHED, and one step short: Run- and WalkSlipperyCheck
+(144 B each).  With `bool ok = A && B;` they are retail's size with
+the right instruction in every slot; what is left is the COLOURING.
+`ok` dies at its test, so mwcc puts `result` back into r31 and saves
+four registers, where retail saves five and holds `result` in r30 from
+the top.  Six spellings of the second half were measured: every one
+that keeps the size reuses the register, and every one that splits
+them folds the flag.  zPlayerIdleBoard's IdleSlipperyCheck is the same
+function again, and IdleRegularCheck (304 B) inlines it, so the answer
+is worth four functions and 736 bytes rather than one.
+
+Nineteen functions, 2,420 bytes.  WAD01_28 328 of 329. Game Code
+16.75% -> 16.86%.

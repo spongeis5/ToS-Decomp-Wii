@@ -5369,3 +5369,59 @@ for the same reason, so the idiom was already in the tree.
 Worth checking wherever a near miss is SHORT of retail: a function
 that is missing from the object entirely is invisible to nearmiss.py,
 which only ranks what the object defines.
+
+## INLINED AWAY DOES NOT MEAN ABSENT FROM THE OBJECT
+
+After VoidList::Erase paid 136 bytes, the obvious next move was a
+detector: compile each unit twice, once as configured and once with
+`-inline off`, and treat any symbol that appears only in the second
+as a function mwcc inlines away. Intersect with report.json to keep
+only the ones retail actually has, and every hit is free bytes.
+
+**It failed its known-good and was discarded.** Removing the
+`#pragma dont_inline` from MaterialDepot should have made Erase
+appear; the detector reported `none` both with the pragma and
+without.
+
+The premise was wrong, and the evidence against it was already
+written down one entry earlier: the pin went (6,9) to (8,9) with the
+TOTAL unchanged, which is what proved Erase had been in the object
+all along. **mwcc emits the out-of-line body of a non-inline member
+whether or not it also inlines it at every call site.** So the symbol
+is present either way and a symbol-set diff can never see this class.
+
+What the Erase case actually looked like was a CALLER of the wrong
+shape: no `this` set for a non-static member, and a branch to the
+callee's own callee. That is the signal -- in the caller, not in the
+symbol table. A caller SHORTER than retail is the cheap first filter.
+
+The lesson is not about inlining. A tool built on a conclusion should
+be checked against the measurements that produced it, and this one
+contradicted a correction made twenty minutes earlier in the same
+session.
+
+
+## MORE SPELLINGS MEASURED AND REJECTED
+
+**Effect::FindFeature**, 92 bytes against retail's 96, one
+instruction short: retail evaluates `lod->features + lod->count`
+TWICE, once per loop, and we compute it once and reuse it. Four more
+spellings, none reaching it -- the addend on the left in the second
+bound (20 of 23, unchanged), a second induction variable so the loops
+share nothing (20, unchanged), the count in its own local (104 bytes,
+19 of 24) and the first bound in a local with the second left inline
+(104 bytes, 22 of 24). Both spellings that introduce a local GROW the
+function past retail, so the answer is not a local; the two
+expressions have to stay textually identical and still not fold.
+
+**UI::RenderText**, 2 of 95 words: retail emits `rlwinm r4,r0,0,0,27`
+-- the size mask -- BEFORE `addi r3,r31,lo(updateFrameAllocator)`,
+and we emit the this-pointer first. Two independent instructions
+either side of the same bl. Four spellings, all still 2 words: the
+mask inline at the call, built in two statements, spelled as an
+explicit hex mask, and the local declared up front. A fifth, taking
+the allocator by reference first, FAILED TO COMPILE and is recorded
+as unmeasured rather than as a result.
+
+The function's second Alloc call matches, because its argument is a
+constant and there is nothing to order against.

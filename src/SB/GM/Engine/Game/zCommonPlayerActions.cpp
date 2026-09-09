@@ -111,6 +111,8 @@ public:
 void v3add(xVec3* d, xVec3* a, xVec3* b);
 int xrand_RandomRange(int a0, int a1);
 void zSceneReset();
+class xEnt;
+unsigned int xEntGetAnimFlags(const xEnt* e);
 class xSurfaceInfo;
 xAnimState* xAnimTableGetState(xAnimTable* table, const char* name);
 void xAnimPlaySetState(xAnimSingle* a0, xAnimState* a1, float a2);
@@ -290,7 +292,7 @@ public:
     virtual void _v125();
     virtual void _v126();
     virtual void _v127();
-    virtual void _v128();
+    virtual void _v128(xScene* a0, float a1, xEntFrame* a2);
     virtual void _v129();
 
     unsigned char _pad0[0x34 - 0x4];
@@ -406,6 +408,7 @@ public:
     unsigned int f10;
     void AddStandardTransitionsTo(unsigned int, xAnimTable*, const char*);
     void SetCurrentAction(zPlayerAction* a0);
+    unsigned int GetCurrentActionID() const;
     void AddTransitionsTo(unsigned int, xAnimTable*, const char*, unsigned int (*)(xAnimTransition*, xAnimSingle*, void*), unsigned int (*)(xAnimTransition*, xAnimSingle*, void*), unsigned short, float, unsigned int, unsigned int, zPlayerAction::SpecialActions);
 };
 
@@ -557,6 +560,8 @@ public:
     float f1C;
 
     void ApplyGust(xVec3& v);
+
+    void Move(xScene* a0, float a1, xEntFrame* a2);
 };
 
 
@@ -615,6 +620,8 @@ public:
     void End();
 
     void Begin();
+
+    void Update(float dt);
 };
 
 
@@ -706,6 +713,22 @@ public:
     unsigned char f3C;
 };
 
+
+// Defined HERE, above the generated accessor definitions, because
+// it calls zPlayerWalk::Update and retail leaves that a `bl`. The
+// generated part must not be hand-edited, so the caller moves
+// rather than the callee.
+void zPlayerLedge::Update(float dt) {
+    ((zPlayerWalk*)this)->Update(dt);
+
+    if (xEntGetAnimFlags((const xEnt*)player) & 0x4000) {
+        if (player->ogModel.model->f4C->f0C->f08 /
+            player->ogModel.model->f4C->f0C->f04->f20->f10 >= 0.85f) {
+            player->zPlayerFlags |= 8;
+            player->zPlayerFlags &= ~0x10;
+        }
+    }
+}
 
 void zPlayerIdle::Move(xScene* a0, float a1, xEntFrame* a2) { zPlayerAction::Move(a0, a1, a2); }
 unsigned int zPlayerIdle::anInactiveIdleCB(xAnimTransition* a0, xAnimSingle* a1, void* a2) { return ((zPlayerIdle*)((AnimCBHolder*)a1)->slot->owner)->InactiveIdleCB(a0, a1); }
@@ -839,6 +862,8 @@ public:
 
     unsigned char f10;
     float f14;
+
+    void Timestep(float dt);
 };
 
 // zPlayerDoubleJump::AddActionTransitions: 2 call(s)
@@ -2148,6 +2173,45 @@ void zPlayerCustomAnim::Setup() {
     f28 = xAnimTableGetState(player->animTable, "CustomTran02");
     f2C = xAnimTableGetState(player->animTable, "CustomLoop01");
     f30 = xAnimTableGetState(player->animTable, "CustomLoop02");
+}
+
+bool zPlayerFallToDeath::StartCheck(xAnimTransition* a0,
+                                    xAnimSingle* a1) {
+    bool result = true;
+    zPlayer* p = player;
+
+    if (p->currentHitType != 3) {
+        xOGModel* model = p->ogModel.model;
+        bool ok = p->_v75()->f04 - 200.0f >= model->pos.y;
+
+        if (!ok) {
+            result = false;
+        }
+    }
+
+    return result;
+}
+
+void zPlayerDoubleJump::Timestep(float dt) {
+    if (f10 && manager->GetCurrentActionID() != 6) {
+        f10 = 0;
+    }
+
+    if (f14 > 0.0f) {
+        f14 -= dt;
+
+        if (f14 < 0.0f) {
+            f14 = 0.0f;
+        }
+    }
+}
+
+void zPlayerJump::Move(xScene* a0, float a1, xEntFrame* a2) {
+    player->_v127();
+
+    f14 += a1;
+
+    player->_v128(a0, a1, a2);
 }
 
 // The three below are called by the bodies above and retail leaves

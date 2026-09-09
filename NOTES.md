@@ -7,18 +7,18 @@ numbers here, which move.
 ## State at time of writing
 
 ```
-Game Code:  67 of 777 files complete  373,976 / 2,116,616 bytes  3,184 / 10,697 fn
-            17.6686% of game code
+Game Code:  67 of 777 files complete  374,528 / 2,116,616 bytes  3,188 / 10,697 fn
+            17.6947% of game code
 
-Of those 3,184 functions, 856 are GENERATED -- machine-recognised
+Of those 3,188 functions, 856 are GENERATED -- machine-recognised
 shapes, not one of which is decompiling. They are real matched
 functions and the offsets and constants are recovered fact, but a
 count of them is not a count of decompiled code. HAND-WRITTEN IS
-2,328, across 265 units and 339,676 bytes, and that is the figure to
+2,332, across 265 units and 340,228 bytes, and that is the figure to
 compare against earlier ones.
 
 Data:       4 unit(s) carry their own, 412 bytes; 134 more could
-All:        7.35% matched              main.dol reproduces byte for byte
+All:        7.36% matched              main.dol reproduces byte for byte
 ```
 
 Every number above is written by `python tools/notes_state.py`,
@@ -4896,3 +4896,47 @@ assignment-versus-fold lever as `bool ok = A && B`, now measured on
 
 zCommonPlayerActions 144 of 147 -> 148 of 151. Game Code 17.62% ->
 17.64%, 372,860 -> 373,476 bytes of 2,116,616.
+
+## HOIST WHAT MUST SURVIVE THE CALL, NOT WHAT PRODUCES IT
+
+zPlayerFallToDeath::StartCheck was recorded last commit as a
+near-miss at 136 bytes against 132, with the note that reading the
+player into a local had already taken it from 144. It matches now,
+and the last four bytes were one more local.
+
+The function compares something the virtual call RETURNS against
+`player->ogModel.model->pos.y`. Written as that expression, mwcc
+keeps the PLAYER alive across the call and derives the model
+afterwards. Retail keeps the MODEL alive across the call and lets
+the player die: `lwz r30,52(r3)` sits between the vptr load and the
+`bctrl`. Hoisting `xOGModel* model = p->ogModel.model;` above the
+compare is what puts it there.
+
+**The rule: what has to survive a call is whatever the source names
+before it.** A chain written whole across a call keeps its BASE
+alive, which is one pointer too many; naming the end of the chain
+in a local first keeps the end and drops the base. Both spellings
+compute the same value and one of them is four bytes shorter.
+
+That is the third recorded near-miss to fall this session, and the
+count of recorded mechanisms that turned out to be reachable is
+still every one of them.
+
+**The idle four still do not fall.** Three more spellings were
+measured, words differing of 37:
+
+  * the flag assigned rather than tested (`result = ok;`) -- 14,
+    and the function shrinks to 136
+  * the outer variable a `bool` rather than an `unsigned int` -- 8
+  * the flag an `unsigned int` rather than a `bool` -- 8
+  * the two conditions nested rather than joined by `&&` -- 14
+
+Six spellings now, three of them landing on exactly 8. So the flag's
+TYPE and the outer variable's type are not the lever, and neither is
+the assignment form: 8 is a floor for this whole family of shapes,
+and whatever exchanges a1 and the result between r29 and r30 is
+structural. Still 592 bytes, and still worth a fresh look rather
+than another spelling.
+
+zCommonPlayerActions 152 of 155 -> 156 of 159. Game Code 17.67% ->
+17.69%, 373,976 -> 374,528 bytes of 2,116,616.

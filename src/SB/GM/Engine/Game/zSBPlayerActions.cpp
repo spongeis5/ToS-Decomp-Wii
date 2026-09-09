@@ -44,6 +44,11 @@ namespace Sext { enum eHitSource { eHitSource_ = 0x7FFFFFFF }; }
 
 class zPlayer { public: static void KillAllPlayers(Sext::eHitSource); };
 class zPlayerActionManager;
+class zPlayerHit {
+public:
+    bool HitCheck(xAnimTransition* a0, xAnimSingle* a1);
+};
+
 class zPlayerAction {
 public:
     zPlayerActionManager* manager;
@@ -196,6 +201,12 @@ public:
     int f5C;
 };
 
+class zBungeeBall {
+public:
+    bool IsPerformingFling();
+    bool IsReturning();
+};
+
 class zProjectileSBBombNPC {
 public:
     unsigned char _pad0[0x1BC];
@@ -234,7 +245,22 @@ class xVec3 { public: float x; float y; float z; };
 // is the model's own +0x34.
 class xOGModelHandle { public: xOGModel* model; int f4; };
 
-class xOGModel { public: unsigned char _pad0[0x30]; xVec3 pos; };
+class hkVector4 {
+public:
+    float dot3(const hkVector4& o) const;
+
+    float x;
+    float y;
+    float z;
+    float w;
+};
+
+class xOGModel {
+public:
+    unsigned char _pad0[0x20];
+    hkVector4 f20;
+    xVec3 pos;
+};
 
 class xEntFrame {
 public:
@@ -303,7 +329,7 @@ public:
     virtual void _v45();
     virtual void _v46();
     virtual void _v47();
-    virtual void _v48();
+    virtual unsigned int _v48();
     virtual void _v49();
     virtual void _v50();
     virtual void _v51();
@@ -434,6 +460,7 @@ public:
 
     void StopSBB3SmokeTrailFX();
     void SetGooState(SBGooFilledState state);
+    int IsInAnyGooState();
     void SetPowerupState(SBPowerupState state);
     void PlayLosePowerupFX();
     void SetPowerupTimerToMax(SBPowerupState state);
@@ -454,7 +481,8 @@ public:
     int lastDamageType;
     unsigned char _pad6[0xD8];
     int currentHitType;
-    unsigned char _pad7[0x340];
+    hkVector4 hitDir;
+    unsigned char _pad7[0x330];
     SBGooFilledState gooState;
     unsigned char _pad8[0x14];
     SBPowerupState powerupState;
@@ -486,7 +514,9 @@ public:
     zProjectileSBBombNPC* bombLink;
     unsigned char _pad19[0x24];
     float quicksandSinkDistance;
-    unsigned char _pad20[0x18];
+    unsigned char _pad20[0x8];
+    zBungeeBall* bungeeBallActiveLink;
+    unsigned char _pad20a[0xC];
     zPlantTrap* kelpTrapLink;
     bool performCelebration;
 };
@@ -675,6 +705,8 @@ public:
     float f2C;
 
     void End();
+
+    bool IsAiming();
 };
 
 
@@ -725,6 +757,9 @@ public:
     void AddTransitionsFrom(xAnimTable* table, const char* name, unsigned int (*c)(xAnimTransition*, xAnimSingle*, void*), unsigned int (*d)(xAnimTransition*, xAnimSingle*, void*), unsigned short e, float f, unsigned int g, unsigned int h, zPlayerAction::SpecialActions i);
 
     void Begin();
+
+    bool AnyHitCheck(xAnimTransition* a0, xAnimSingle* a1);
+    bool AnyHitBackCheck(xAnimTransition* a0, xAnimSingle* a1);
 };
 
 
@@ -746,6 +781,8 @@ public:
     void AddTransitionsFrom(xAnimTable* table, const char* name, unsigned int (*c)(xAnimTransition*, xAnimSingle*, void*), unsigned int (*d)(xAnimTransition*, xAnimSingle*, void*), unsigned short e, float f, unsigned int g, unsigned int h, zPlayerAction::SpecialActions i);
 
     void Begin();
+
+    bool HammerPowerupCheck(xAnimTransition* a0, xAnimSingle* a1);
 };
 
 
@@ -765,6 +802,8 @@ public:
     void AddTransitionsFrom(xAnimTable* table, const char* name, unsigned int (*c)(xAnimTransition*, xAnimSingle*, void*), unsigned int (*d)(xAnimTransition*, xAnimSingle*, void*), unsigned short e, float f, unsigned int g, unsigned int h, zPlayerAction::SpecialActions i);
 
     void Begin();
+
+    bool PuckPowerupCheck(xAnimTransition* a0, xAnimSingle* a1);
 };
 
 
@@ -5008,4 +5047,218 @@ bool zPlayerIdleSB::IdleLowHealthCheck(xAnimTransition* a0,
     }
 
     return result;
+}
+
+
+bool zSBPlayerSpinPowerupAttack::SpinPowerupCheck(
+    xAnimTransition* a0, xAnimSingle* a1) {
+    zSBPlayer* p = (zSBPlayer*)player;
+
+    return p->powerupState == 2 &&
+           p->powerupModelState == p->powerupState;
+}
+
+bool zSBPlayerHammerPowerupAttack::HammerPowerupCheck(
+    xAnimTransition* a0, xAnimSingle* a1) {
+    zSBPlayer* p = (zSBPlayer*)player;
+
+    return p->powerupState == 3 &&
+           p->powerupModelState == p->powerupState;
+}
+
+bool zSBPlayerPuckPowerupAttack::PuckPowerupCheck(
+    xAnimTransition* a0, xAnimSingle* a1) {
+    zSBPlayer* p = (zSBPlayer*)player;
+
+    return p->powerupState == 4 &&
+           p->powerupModelState == p->powerupState;
+}
+
+bool zSBPlayerGainPowerup::GainSpinPowerupCheck(xAnimTransition* a0,
+                                                 xAnimSingle* a1) {
+    zSBPlayer* p = (zSBPlayer*)player;
+
+    if (p->powerupState == 9) {
+        p->attackState = (eRPSAttackTypes)2;
+
+        return true;
+    }
+
+    return false;
+}
+
+bool zSBPlayerGainPowerup::GainPuckPowerupCheck(xAnimTransition* a0,
+                                                 xAnimSingle* a1) {
+    zSBPlayer* p = (zSBPlayer*)player;
+
+    if (p->powerupState == 11) {
+        p->attackState = (eRPSAttackTypes)3;
+
+        return true;
+    }
+
+    return false;
+}
+
+void zRestoreFromHitByHammerBE(xAnimPlay* a0, xAnimState* a1, void* a2) {
+    ((zSBPlayer*)a2)->powerupModelState = (SBPowerupState)0;
+
+    zSBAnimPackageBE(a0, a1, a2);
+
+    ((zSBPlayer*)a2)->powerupPerformDeferredModelSwap = true;
+}
+
+void zGainPowerupPropBE(xAnimPlay* a0, xAnimState* a1, void* a2) {
+    ((zSBPlayer*)a2)->powerupModelState = ((zSBPlayer*)a2)->powerupState;
+
+    zSBAnimPackageBE(a0, a1, a2);
+
+    ((zSBPlayer*)a2)->powerupPerformDeferredModelSwap = true;
+}
+
+void zDefeatedFrozenBE(xAnimPlay* a0, xAnimState* a1, void* a2) {
+    ((zSBPlayer*)a2)->powerupModelState = (SBPowerupState)6;
+
+    zSBAnimPackageBE(a0, a1, a2);
+
+    ((zSBPlayer*)a2)->powerupPerformDeferredModelSwap = true;
+}
+
+void zDefeatedFragBobBE(xAnimPlay* a0, xAnimState* a1, void* a2) {
+    ((zSBPlayer*)a2)->powerupModelState = (SBPowerupState)13;
+
+    zSBAnimPackageBE(a0, a1, a2);
+
+    ((zSBPlayer*)a2)->powerupPerformDeferredModelSwap = true;
+}
+
+void zDefeatedDeathBonesBE(xAnimPlay* a0, xAnimState* a1, void* a2) {
+    ((zSBPlayer*)a2)->powerupModelState = (SBPowerupState)12;
+
+    zSBAnimPackageBE(a0, a1, a2);
+
+    ((zSBPlayer*)a2)->powerupPerformDeferredModelSwap = true;
+}
+
+bool zSBPlayerSpinAttack::SpongebuffIdleSpinCheck(
+    xAnimTransition* a0, xAnimSingle* a1) {
+    bool result = false;
+
+    if (((zSBPlayer*)player)->powerupState == 1 && ((zSBPlayerAction*)this)->SBStopCheck(a0, a1)) {
+        result = true;
+    }
+
+    return result;
+}
+
+bool zSBPlayerHammerAttack::StartHammerSpongebuffCheck(
+    xAnimTransition* a0, xAnimSingle* a1) {
+    bool result = false;
+
+    if (((zSBPlayer*)player)->powerupState == 1 && StartHammerAttackCheck(a0, a1)) {
+        result = true;
+    }
+
+    return result;
+}
+
+bool zSBPlayerBungeeBall::SBBungeeBallFlingCheck(xAnimTransition* a0,
+                                                 xAnimSingle* a1) {
+    bool result = false;
+    zSBPlayer* p = (zSBPlayer*)player;
+
+    if (p->bungeeBallActiveLink->IsPerformingFling() &&
+        !p->bungeeBallActiveLink->IsReturning() &&
+        p->powerupState != 1) {
+        result = true;
+    }
+
+    return result;
+}
+
+bool zSBPlayerBungeeBall::SBBungeeBallBuffFlingCheck(xAnimTransition* a0,
+                                                     xAnimSingle* a1) {
+    bool result = false;
+    zSBPlayer* p = (zSBPlayer*)player;
+
+    if (p->bungeeBallActiveLink->IsPerformingFling() &&
+        !p->bungeeBallActiveLink->IsReturning() &&
+        p->powerupState == 1) {
+        result = true;
+    }
+
+    return result;
+}
+
+
+bool zPlayerHitSB::HitFrontCheck(xAnimTransition* a0, xAnimSingle* a1) {
+    if (((zPlayerHit*)this)->HitCheck(a0, a1) &&
+        ((zSBPlayer*)player)->hitDir.dot3(
+            ((zSBPlayer*)player)->ogModel.model->f20) <= 0.0f) {
+        return true;
+    }
+
+    return false;
+}
+
+bool zPlayerHitSB::HitBackCheck(xAnimTransition* a0, xAnimSingle* a1) {
+    if (((zPlayerHit*)this)->HitCheck(a0, a1) &&
+        ((zSBPlayer*)player)->hitDir.dot3(
+            ((zSBPlayer*)player)->ogModel.model->f20) > 0.0f) {
+        return true;
+    }
+
+    return false;
+}
+
+bool zPlayerHitSB::AnyHitCheck(xAnimTransition* a0, xAnimSingle* a1) {
+    if (((zSBPlayer*)player)->_v48()) {
+        return false;
+    }
+
+    return ((zSBPlayer*)player)->currentHitType != -1;
+}
+
+bool zPlayerHitSB::AnyHitBackCheck(xAnimTransition* a0,
+                                   xAnimSingle* a1) {
+    bool result = false;
+
+    if (AnyHitCheck(a0, a1) && ((zSBPlayer*)player)->hitDir.dot3(
+            ((zSBPlayer*)player)->ogModel.model->f20) > 0.0f) {
+        result = true;
+    }
+
+    return result;
+}
+
+bool zSBPlayerAction::DefaultStateCheck(xAnimTransition* a0,
+                                        xAnimSingle* a1) {
+    bool result = false;
+
+    if (((zSBPlayer*)player)->powerupState == 0 &&
+        ((zSBPlayer*)player)->powerupModelState == 0 &&
+        !((zSBPlayer*)player)->IsInAnyGooState()) {
+        result = true;
+    }
+
+    return result;
+}
+
+bool zSBPlayerAction::SBCandyBuffCheck(xAnimTransition* a0,
+                                       xAnimSingle* a1) {
+    bool result = false;
+
+    if (SBCandyCheck(a0, a1) && ((zSBPlayer*)player)->powerupState == 1) {
+        result = true;
+    }
+
+    return result;
+}
+
+bool zSBPlayerPuckAttack::IsAiming() {
+    if ((xEntGetAnimFlags((const xEnt*)player) & 0x4000) && f20 == 2) {
+        return true;
+    }
+
+    return false;
 }

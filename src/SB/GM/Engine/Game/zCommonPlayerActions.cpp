@@ -118,6 +118,8 @@ void zEntEvent(xBase* a0, unsigned int a1, xBase* a2, unsigned int a3,
 // and reads back only the y. The frame is 32 bytes, which is what a
 // SIXTEEN-byte local costs here, not a twelve-byte one.
 namespace Math {
+float rsqrt(float x);
+
 class Vector {
 public:
     Vector(float x, float y, float z);
@@ -252,7 +254,7 @@ public:
     virtual void _v102();
     virtual void _v103();
     virtual void _v104();
-    virtual void _v105();
+    virtual bool _v105();
     virtual void _v106();
     virtual void _v107();
     virtual void _v108();
@@ -286,7 +288,9 @@ public:
     int f14C;
     unsigned char _pad2b[0x1C4 - 0x150];
     int zPlayerFlags;
-    unsigned char _pad3[0x2F4 - 0x1C8];
+    unsigned char _pad3[0x1F0 - 0x1C8];
+    int f1F0;
+    unsigned char _pad3b[0x2F4 - 0x1F4];
     float fallingTime;
     unsigned char _pad4[0x4A0 - 0x2F8];
     int f4A0;
@@ -549,6 +553,8 @@ public:
     void Begin();
 
     float f10;
+
+    int f14;
 };
 
 
@@ -705,6 +711,10 @@ public:
 
     bool LandCheck(xAnimTransition* a0, xAnimSingle* a1);
     bool JumpLandCheck(xAnimTransition* a0, xAnimSingle* a1);
+
+    bool WalkCheck(xAnimTransition* a0, xAnimSingle* a1);
+    bool RunCheck(xAnimTransition* a0, xAnimSingle* a1);
+    bool MoveCheck(xAnimTransition* a0, xAnimSingle* a1);
 };
 
 class zPlayerFallToDeath : public zPlayerAction {
@@ -795,6 +805,11 @@ class zPlayerDoubleJump : public zPlayerAction {
 public:
     static const char* GetTransitionString() { return "DoubleJump*"; }
     void AddActionTransitions(xAnimTable* table);
+
+    void Begin();
+
+    unsigned char f10;
+    float f14;
 };
 
 // zPlayerDoubleJump::AddActionTransitions: 2 call(s)
@@ -1975,6 +1990,94 @@ void zPlayerIdle::End() {
         (zPlayerFall*)((Graphics::ModelPrototype*)manager)->GetBuilder(6);
 
     fall->f10 = fall->player->ogModel.model->pos.y;
+}
+
+// Written above WalkCheck and RunCheck so both stay a `bl`.
+bool zCommonPlayerAction::MoveCheck(xAnimTransition* a0,
+                                    xAnimSingle* a1) {
+    bool ok = false;
+
+    if (!player->f1F0 || player->_v105()) {
+        ok = true;
+    }
+
+    bool result;
+
+    if (ok) {
+        result = WalkCheck(a0, a1) || RunCheck(a0, a1);
+    } else {
+        result = false;
+    }
+
+    return result;
+}
+
+bool zCommonPlayerAction::WalkCheck(xAnimTransition* a0,
+                                    xAnimSingle* a1) {
+    bool ok = false;
+
+    if (!player->f1F0 || player->_v105()) {
+        ok = true;
+    }
+
+    if (!ok) {
+        return false;
+    }
+
+    bool result = false;
+
+    if (player->f5EC == 1) {
+        // The action at index 4, through the manager the player
+        // holds at +0xC0. Only its +0x10 is read, as an int.
+        zPlayerAction* act =
+            ((Graphics::ModelPrototype*)((char*)player + 0xC0))->GetBuilder(4);
+
+        if (!*(int*)((char*)act + 0x10)) {
+            result = true;
+        }
+    }
+
+    return result;
+}
+
+bool zCommonPlayerAction::RunCheck(xAnimTransition* a0,
+                                   xAnimSingle* a1) {
+    bool ok = false;
+
+    if (!player->f1F0 || player->_v105()) {
+        ok = true;
+    }
+
+    if (!ok) {
+        return false;
+    }
+
+    bool result = false;
+
+    if (player->f5EC == 2) {
+        // The action at index 4, through the manager the player
+        // holds at +0xC0. Only its +0x10 is read, as an int.
+        zPlayerAction* act =
+            ((Graphics::ModelPrototype*)((char*)player + 0xC0))->GetBuilder(4);
+
+        if (!*(int*)((char*)act + 0x10)) {
+            result = true;
+        }
+    }
+
+    return result;
+}
+
+void zPlayerDoubleJump::Begin() {
+    f10 = 1;
+    f14 = 0.62f;
+
+    player->frame->f88.y = 228.8f * Math::rsqrt(228.8f);
+
+    zPlayerFall* fall =
+        (zPlayerFall*)((Graphics::ModelPrototype*)manager)->GetBuilder(6);
+
+    fall->f14 = 0;
 }
 
 // The three below are called by the bodies above and retail leaves

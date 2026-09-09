@@ -7,18 +7,18 @@ numbers here, which move.
 ## State at time of writing
 
 ```
-Game Code:  67 of 777 files complete  372,860 / 2,116,616 bytes  3,176 / 10,697 fn
-            17.6159% of game code
+Game Code:  67 of 777 files complete  373,476 / 2,116,616 bytes  3,180 / 10,697 fn
+            17.6450% of game code
 
-Of those 3,176 functions, 856 are GENERATED -- machine-recognised
+Of those 3,180 functions, 856 are GENERATED -- machine-recognised
 shapes, not one of which is decompiling. They are real matched
 functions and the offsets and constants are recovered fact, but a
 count of them is not a count of decompiled code. HAND-WRITTEN IS
-2,320, across 265 units and 338,560 bytes, and that is the figure to
+2,324, across 265 units and 339,176 bytes, and that is the figure to
 compare against earlier ones.
 
 Data:       4 unit(s) carry their own, 412 bytes; 134 more could
-All:        7.34% matched              main.dol reproduces byte for byte
+All:        7.35% matched              main.dol reproduces byte for byte
 ```
 
 Every number above is written by `python tools/notes_state.py`,
@@ -4865,3 +4865,34 @@ about register assignment and nothing else.
 
 zCommonPlayerActions 139 of 142 -> 143 of 146. Game Code 17.59% ->
 17.61%, 372,308 -> 372,804 bytes of 2,116,616.
+
+## `extsb` IS ABOUT THE OPERATOR, NOT THE TYPE
+
+The player's byte at +0x5EC is read by six matched functions in
+zCommonPlayerActions, and four of them sign-extend it while two do
+not. That looks like a contradiction and is not one.
+
+  * `extsb` present: `>= 1`, `> 0`, `< 2`, `!= 0`
+  * `extsb` absent:  `== 1`, `== 2`
+
+A sign-extended byte EQUALS a constant in 0..127 exactly when the
+zero-extended byte does, so mwcc drops the extension for `==` and
+keeps it wherever the answer could differ. **The relational uses are
+what say the member is signed; the equality uses say nothing.**
+
+Reading it the other way -- taking the bare `lbz ; cmpwi r0,1` as
+evidence of an unsigned member -- would have made the four
+relational functions unreachable, and they were matched first.
+The rule generalises: an instruction that is ABSENT because the
+compiler proved it redundant is not evidence about the type.
+
+**And `result = A || B;` keeps the flag where `if (A || B) result =
+true;` hoists its initialiser.** MoveCheck came out 168 bytes
+against 176 because the `if` form let mwcc zero the flag once,
+before the branch; retail zeroes it inside the `if` and again on the
+else path, which is what the assignment form emits. This is the same
+assignment-versus-fold lever as `bool ok = A && B`, now measured on
+`||` and on the initialiser rather than the test.
+
+zCommonPlayerActions 144 of 147 -> 148 of 151. Game Code 17.62% ->
+17.64%, 372,860 -> 373,476 bytes of 2,116,616.

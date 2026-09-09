@@ -205,7 +205,18 @@ class zBungeeBall {
 public:
     bool IsPerformingFling();
     bool IsReturning();
+    bool IsReadyForFling();
+    bool IsFlattened();
+    void BallReturn();
 };
+
+// The board player's own class: anSBNotCandyCheck names its
+// IsOnCandy, not zSBPlayer's.
+class zBoardPlayer { public: int IsOnCandy(); };
+
+namespace World { class xOGModel { public: void Show(); }; }
+
+extern unsigned char gGameCheats;
 
 class zProjectileSBBombNPC {
 public:
@@ -461,6 +472,8 @@ public:
     void StopSBB3SmokeTrailFX();
     void SetGooState(SBGooFilledState state);
     int IsInAnyGooState();
+    int IsOnQuicksand();
+    void PlayerDiedSceneReset();
     void SetPowerupState(SBPowerupState state);
     void PlayLosePowerupFX();
     void SetPowerupTimerToMax(SBPowerupState state);
@@ -515,7 +528,8 @@ public:
     zProjectileSBBombNPC* bombLink;
     unsigned char _pad19[0x24];
     float quicksandSinkDistance;
-    unsigned char _pad20[0x8];
+    unsigned char _pad20[0x4];
+    zBungeeBall* bungeeBallLink;
     zBungeeBall* bungeeBallActiveLink;
     unsigned char _pad20a[0xC];
     zPlantTrap* kelpTrapLink;
@@ -621,6 +635,9 @@ public:
     bool LandWalkCheck(xAnimTransition* a0, xAnimSingle* a1);
     static unsigned int anFallIdleCheck(xAnimTransition*, xAnimSingle*, void*);
     void AddTransitionsFrom(xAnimTable* table, const char* name, unsigned int (*c)(xAnimTransition*, xAnimSingle*, void*), unsigned int (*d)(xAnimTransition*, xAnimSingle*, void*), unsigned short e, float f, unsigned int g, unsigned int h, zPlayerAction::SpecialActions i);
+
+
+    float f10;
 };
 
 
@@ -763,6 +780,11 @@ public:
 
     bool AnyHitCheck(xAnimTransition* a0, xAnimSingle* a1);
     bool AnyHitBackCheck(xAnimTransition* a0, xAnimSingle* a1);
+
+    bool AnyHitFrontCheck(xAnimTransition* a0, xAnimSingle* a1);
+
+    unsigned char _padA[0x14 - 0x10];
+    float f14;
 };
 
 
@@ -1033,6 +1055,9 @@ public:
     bool SBBungeeBallFlingCheck(xAnimTransition* a0, xAnimSingle* a1);
     bool SBBungeeBallHitCheck(xAnimTransition* a0, xAnimSingle* a1);
     bool SBBungeeBallHitExitCheck(xAnimTransition* a0, xAnimSingle* a1);
+
+    unsigned char _padA[0x1C - 0x10];
+    unsigned char f1C;
 };
 
 class zBoardPlayerBungeeBall {
@@ -1471,6 +1496,9 @@ public:
     bool FinishedQueueCheck(xAnimTransition* a0, xAnimSingle* a1);
 
     void End();
+
+    unsigned char _padA[0x1C - 0x10];
+    unsigned char f1C;
 };
 
 class zBoardPlayerHammerAttack {
@@ -5398,4 +5426,261 @@ bool zPlayerDefeatedSB::PowerupStateCheck(xAnimTransition* a0,
     }
 
     return false;
+}
+
+unsigned int zSBPlayerAction::anSBNotCandyCheck(xAnimTransition* a0,
+                                               xAnimSingle* a1,
+                                               void* a2) {
+    unsigned int result = 0;
+
+    if (((zSBPlayerAction*)((AnimCBHolder*)a0)->slot->owner)->_v5()) {
+        bool notCandy =
+            !((zBoardPlayer*)((zSBPlayerAction*)((AnimCBHolder*)a0)->slot->owner)->player)->IsOnCandy();
+
+        if (notCandy) {
+            result = 1;
+        }
+    }
+
+    return result;
+}
+
+unsigned int zSBPlayerAction::anSBNotQuicksandCheck(xAnimTransition* a0,
+                                                   xAnimSingle* a1,
+                                                   void* a2) {
+    unsigned int result = 0;
+
+    if (((zSBPlayerAction*)((AnimCBHolder*)a0)->slot->owner)->_v5()) {
+        bool notQuicksand =
+            !((zSBPlayer*)((zSBPlayerAction*)((AnimCBHolder*)a0)->slot->owner)->player)->IsOnQuicksand();
+
+        if (notQuicksand) {
+            result = 1;
+        }
+    }
+
+    return result;
+}
+
+unsigned int zPlayerLandSB::anNotFluidCheck(xAnimTransition* a0,
+                                           xAnimSingle* a1,
+                                           void* a2) {
+    unsigned int result = 0;
+
+    if (((zPlayerLandSB*)((AnimCBHolder*)a1)->slot->owner)->_v5()) {
+        bool notFluid =
+            !((zSBPlayer*)((zPlayerLandSB*)((AnimCBHolder*)a1)->slot->owner)->player)->IsInAnyGooState();
+
+        if (notFluid) {
+            result = 1;
+        }
+    }
+
+    return result;
+}
+
+unsigned int zSBPlayerBungeeBall::anSBBungeeBallIdleCheck(xAnimTransition* a0,
+                                                         xAnimSingle* a1,
+                                                         void* a2) {
+    unsigned int result = 0;
+
+    if (((zSBPlayerBungeeBall*)((AnimCBHolder*)a1)->slot->owner)->_v5() &&
+        ((zSBPlayer*)((zSBPlayerBungeeBall*)((AnimCBHolder*)a1)->slot->owner)->player)->bungeeBallActiveLink->IsReadyForFling()) {
+        result = 1;
+    }
+
+    return result;
+}
+
+unsigned int zSBPlayerBungeeBall::anSBBungeeBallReturnCheck(xAnimTransition* a0,
+                                                           xAnimSingle* a1,
+                                                           void* a2) {
+    unsigned int result = 0;
+
+    if (((zSBPlayerBungeeBall*)((AnimCBHolder*)a1)->slot->owner)->_v5() &&
+        ((zSBPlayer*)((zSBPlayerBungeeBall*)((AnimCBHolder*)a1)->slot->owner)->player)->bungeeBallActiveLink->IsReturning()) {
+        result = 1;
+    }
+
+    return result;
+}
+
+unsigned int zPlayerFluidSpraySB::anSprayEndCheck(xAnimTransition* a0,
+                                                 xAnimSingle* a1,
+                                                 void* a2) {
+    unsigned int result = 0;
+
+    if (((zPlayerFluidSpraySB*)((AnimCBHolder*)a1)->slot->owner)->_v5() &&
+        !((zSBPlayer*)((zPlayerFluidSpraySB*)((AnimCBHolder*)a1)->slot->owner)->player)->isSquirting) {
+        result = 1;
+    }
+
+    return result;
+}
+
+unsigned int zSBPlayerBungeeBall::anSBBungeeBallTransferCheck(xAnimTransition* a0,
+                                                             xAnimSingle* a1,
+                                                             void* a2) {
+    unsigned int result = 0;
+
+    if (((zSBPlayerBungeeBall*)((AnimCBHolder*)a1)->slot->owner)->_v5() &&
+        ((zSBPlayerBungeeBall*)((AnimCBHolder*)a1)->slot->owner)->f1C == 1) {
+        result = 1;
+    }
+
+    return result;
+}
+
+unsigned int zSBPlayerSpinAttack::anNULLAttackCheck(xAnimTransition* a0,
+                                                   xAnimSingle* a1,
+                                                   void* a2) {
+    unsigned int result = 0;
+
+    if (((zSBPlayerSpinAttack*)((AnimCBHolder*)a1)->slot->owner)->_v5() &&
+        ((zSBPlayerSpinAttack*)((AnimCBHolder*)a1)->slot->owner)->f1C) {
+        result = 1;
+    }
+
+    return result;
+}
+
+unsigned int zSBPlayerBombRoll::anSBBombRollCheck(xAnimTransition* a0,
+                                                 xAnimSingle* a1,
+                                                 void* a2) {
+    unsigned int result = 0;
+
+    if (((zSBPlayerBombRoll*)((AnimCBHolder*)a0)->slot->owner)->_v5() &&
+        ((zSBPlayer*)((zSBPlayerBombRoll*)((AnimCBHolder*)a0)->slot->owner)->player)->bombLink != 0) {
+        result = 1;
+    }
+
+    return result;
+}
+
+unsigned int zSBPlayerBungeeBall::anSBBungeeBallTransferCB(
+    xAnimTransition* a0, xAnimSingle* a1, void* a2) {
+    unsigned int result = 0;
+
+    if (((zSBPlayerBungeeBall*)((AnimCBHolder*)a1)->slot->owner)->_v5()) {
+        ((zSBPlayerBungeeBall*)((AnimCBHolder*)a1)->slot->owner)->f1C = 0;
+
+        result = 1;
+    }
+
+    return result;
+}
+
+unsigned int zSBPlayerBungeeBall::anSBBungeeBallDeathEndCB(
+    xAnimTransition* a0, xAnimSingle* a1, void* a2) {
+    unsigned int result = 0;
+
+    if (((zSBPlayerBungeeBall*)((AnimCBHolder*)a1)->slot->owner)->_v5()) {
+        ((zSBPlayer*)((zSBPlayerBungeeBall*)((AnimCBHolder*)a1)->slot->owner)->player)->PlayerDiedSceneReset();
+
+        result = 1;
+    }
+
+    return result;
+}
+
+unsigned int zSBPlayerBungeeBall::anSBBungeeBallHitCB(
+    xAnimTransition* a0, xAnimSingle* a1, void* a2) {
+    unsigned int result = 0;
+
+    if (((zSBPlayerBungeeBall*)((AnimCBHolder*)a1)->slot->owner)->_v5()) {
+        ((zSBPlayer*)((zSBPlayerBungeeBall*)((AnimCBHolder*)a1)->slot->owner)->player)->bungeeBallActiveLink
+            ->BallReturn();
+
+        result = 1;
+    }
+
+    return result;
+}
+
+
+bool zSBPlayerBungeeBall::SBBungeeBallFlattenedCheck(
+    xAnimTransition* a0, xAnimSingle* a1) {
+    zSBPlayer* p = (zSBPlayer*)player;
+
+    if (p->bungeeBallActiveLink->IsFlattened()) {
+        // This range DOES fold, and retail folded it.
+        if (p->currentHitType >= 1 && p->currentHitType <= 2) {
+            p->currentHitType = 0;
+        }
+
+        return true;
+    }
+
+    return false;
+}
+
+bool zSBPlayerBungeeBall::SBBungeeBallCheck(xAnimTransition* a0,
+                                            xAnimSingle* a1) {
+    bool result = false;
+
+    if (((zSBPlayer*)player)->bungeeBallLink != 0) {
+        bool inner = true;
+
+        if (!((zSBPlayerAction*)this)->DefaultStateCheck(a0, a1) &&
+            ((zSBPlayer*)player)->powerupState != 1) {
+            inner = false;
+        }
+
+        if (inner) {
+            result = true;
+        }
+    }
+
+    return result;
+}
+
+bool zPlayerHitSB::AnyHitFrontCheck(xAnimTransition* a0,
+                                    xAnimSingle* a1) {
+    bool result = false;
+
+    if (AnyHitCheck(a0, a1) && ((zSBPlayer*)player)->hitDir.dot3(
+            ((zSBPlayer*)player)->ogModel.model->f20) <= 0.0f) {
+        result = true;
+    }
+
+    return result;
+}
+
+bool zPlayerHitSB::CanExitCheck(xAnimTransition* a0, xAnimSingle* a1) {
+    if (xEntGetAnimFlags((const xEnt*)player) & 0x10000) {
+        // +0x14 through the offset: this class already has
+        // members, and one appended lands past where the load
+        // reads.
+        if (*(float*)((char*)this + 0x14) <= 0.0f) {
+            ((World::xOGModel*)((zSBPlayer*)player)->ogModel.model)->Show();
+
+            return true;
+        }
+
+        return false;
+    }
+
+    return true;
+}
+
+bool zPlayerCelebrationSB::CelebrationCheck(xAnimTransition* a0,
+                                            xAnimSingle* a1) {
+    if (((zSBPlayerAction*)this)->DefaultStateCheck(a0, a1) && ((zSBPlayer*)player)->_v74() &&
+        ((zSBPlayer*)player)->performCelebration) {
+        return true;
+    }
+
+    return false;
+}
+
+bool zPlayerFallSB::FallHighCheck(xAnimTransition* a0,
+                                  xAnimSingle* a1) {
+    bool result = false;
+
+    if (f10 - ((zSBPlayer*)player)->ogModel.model->pos.y > 10.0f &&
+        ((zSBPlayerAction*)this)->DefaultStateCheck(a0, a1)) {
+        result = true;
+    }
+
+    return result;
 }

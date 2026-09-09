@@ -270,7 +270,7 @@ EXPECT = {
     "SB/GM/Engine/Game/zPlayerConstrainer": (3, 3),
     "SB/GM/Engine/Game/zPlayerInventory": (1, 1),
     "SB/GM/Engine/Game/zProjectileHavok": (2, 2),
-    "SB/GM/Engine/Game/zSBPlayerActions": (351, 353),
+    "SB/GM/Engine/Game/zSBPlayerActions": (369, 371),
     "SB/GM/Engine/Game/zSearchMapCreatorNavMesh": (2, 2),
     "SB/GM/Engine/Game/zSearchStrategyAStar": (1, 1),
     "SB/GM/Engine/Game/zSpinner": (4, 4),

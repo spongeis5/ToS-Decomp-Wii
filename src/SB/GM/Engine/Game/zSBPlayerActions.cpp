@@ -484,7 +484,8 @@ public:
     hkVector4 hitDir;
     unsigned char _pad7[0x330];
     SBGooFilledState gooState;
-    unsigned char _pad8[0x14];
+    SBGooFilledState lastGooState;
+    unsigned char _pad8[0x10];
     SBPowerupState powerupState;
     SBPowerupState powerupModelState;
     unsigned char _pad9[0x1];
@@ -519,6 +520,8 @@ public:
     unsigned char _pad20a[0xC];
     zPlantTrap* kelpTrapLink;
     bool performCelebration;
+    unsigned char _pad21[0xA44 - 0xA3D];
+    unsigned int surfaceDefeatedByType;
 };
 
 
@@ -880,6 +883,8 @@ public:
     bool AcidDeathCheck(xAnimTransition* a0, xAnimSingle* a1);
     bool GooDeathCheck(xAnimTransition* a0, xAnimSingle* a1);
     bool LavaDeathCheck(xAnimTransition* a0, xAnimSingle* a1);
+
+    bool PowerupStateCheck(xAnimTransition* a0, xAnimSingle* a1);
 };
 
 
@@ -1681,6 +1686,8 @@ public:
     bool FillWithGooFrom50Check(xAnimTransition* a0, xAnimSingle* a1);
     static unsigned int anFillWithGooFrom75Check(xAnimTransition* a0, xAnimSingle* a1, void* a2);
     bool FillWithGooFrom75Check(xAnimTransition* a0, xAnimSingle* a1);
+
+    bool StartFillWithGooCheck(xAnimTransition* a0, xAnimSingle* a1);
 };
 
 
@@ -5257,6 +5264,136 @@ bool zSBPlayerAction::SBCandyBuffCheck(xAnimTransition* a0,
 
 bool zSBPlayerPuckAttack::IsAiming() {
     if ((xEntGetAnimFlags((const xEnt*)player) & 0x4000) && f20 == 2) {
+        return true;
+    }
+
+    return false;
+}
+
+
+bool zPlayerFluidSpraySB::Spray25Check(xAnimTransition* a0,
+                                       xAnimSingle* a1) {
+    zSBPlayer* p = (zSBPlayer*)player;
+
+    return p->isSquirting && p->gooState == 5;
+}
+
+bool zPlayerFluidSpraySB::Spray50Check(xAnimTransition* a0,
+                                       xAnimSingle* a1) {
+    zSBPlayer* p = (zSBPlayer*)player;
+
+    return p->isSquirting && p->gooState == 4;
+}
+
+bool zPlayerFluidSpraySB::Spray75Check(xAnimTransition* a0,
+                                       xAnimSingle* a1) {
+    zSBPlayer* p = (zSBPlayer*)player;
+
+    return p->isSquirting && p->gooState == 3;
+}
+
+bool zSBPlayerFillWithGoo::FillWithGooFrom25Check(xAnimTransition* a0,
+                                                    xAnimSingle* a1) {
+    zSBPlayer* p = (zSBPlayer*)player;
+
+    if (StartFillWithGooCheck(a0, a1) && p->lastGooState == 5) {
+        p->SetGooState((SBGooFilledState)2);
+
+        return true;
+    }
+
+    return false;
+}
+
+bool zSBPlayerFillWithGoo::FillWithGooFrom50Check(xAnimTransition* a0,
+                                                    xAnimSingle* a1) {
+    zSBPlayer* p = (zSBPlayer*)player;
+
+    if (StartFillWithGooCheck(a0, a1) && p->lastGooState == 4) {
+        p->SetGooState((SBGooFilledState)2);
+
+        return true;
+    }
+
+    return false;
+}
+
+bool zSBPlayerFillWithGoo::FillWithGooFrom75Check(xAnimTransition* a0,
+                                                    xAnimSingle* a1) {
+    zSBPlayer* p = (zSBPlayer*)player;
+
+    if (StartFillWithGooCheck(a0, a1) && p->lastGooState == 3) {
+        p->SetGooState((SBGooFilledState)2);
+
+        return true;
+    }
+
+    return false;
+}
+
+bool zPlayerDefeatedSB::AcidDeathCheck(xAnimTransition* a0,
+                                         xAnimSingle* a1) {
+    if (PowerupStateCheck(a0, a1)) {
+        return false;
+    }
+
+    return ((zSBPlayer*)player)->surfaceDefeatedByType == 11;
+}
+
+bool zPlayerDefeatedSB::GooDeathCheck(xAnimTransition* a0,
+                                        xAnimSingle* a1) {
+    if (PowerupStateCheck(a0, a1)) {
+        return false;
+    }
+
+    return ((zSBPlayer*)player)->surfaceDefeatedByType == 9;
+}
+
+bool zPlayerDefeatedSB::LavaDeathCheck(xAnimTransition* a0,
+                                         xAnimSingle* a1) {
+    if (PowerupStateCheck(a0, a1)) {
+        return false;
+    }
+
+    return ((zSBPlayer*)player)->surfaceDefeatedByType == 10;
+}
+
+bool zSBPlayerFillWithGoo::FillWithGooFrom100Check(xAnimTransition* a0,
+                                                   xAnimSingle* a1) {
+    zSBPlayer* p = (zSBPlayer*)player;
+
+    if (StartFillWithGooCheck(a0, a1) &&
+        (3 > p->lastGooState || 5 < p->lastGooState)) {
+        p->SetGooState((SBGooFilledState)2);
+
+        return true;
+    }
+
+    return false;
+}
+
+bool zSBPlayerFillWithGoo::StartFillWithGooCheck(xAnimTransition* a0,
+                                                 xAnimSingle* a1) {
+    zSBPlayer* p = (zSBPlayer*)player;
+
+    if (p->gooState == 1) {
+        bool busy = p->powerupState != 0 || p->powerupModelState != 0;
+
+        if (!busy) {
+            return true;
+        }
+    }
+
+    return false;
+}
+
+// A switch, not a range: `>= 2 && <= 4` folds to an unsigned
+// subtract and retail keeps two signed compares.
+bool zPlayerDefeatedSB::PowerupStateCheck(xAnimTransition* a0,
+                                          xAnimSingle* a1) {
+    zSBPlayer* p = (zSBPlayer*)player;
+
+    if (2 <= p->powerupState && p->powerupState <= 4) {
         return true;
     }
 

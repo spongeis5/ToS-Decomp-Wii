@@ -4891,13 +4891,11 @@ bool zBoardPlayerGainPowerup::GainSidekickPowerupCheck(xAnimTransition* a0,
                                                        xAnimSingle* a1) {
     zBoardPlayer* p = (zBoardPlayer*)player;
 
-    // Three equalities, not a range: a range spelled as one folds
-    // to `addi -9 ; cmplwi 2` (chained or nested, both tried), and
-    // retail keeps the two signed compares mwcc leaves when it
-    // builds the range itself.
-    if (p->powerupModelState == 0 &&
-        (p->powerupState == 9 || p->powerupState == 10 ||
-         p->powerupState == 11)) {
+    // The constant on the LEFT is what stops the fold: written
+    // `p->powerupState >= 9` the pair becomes `addi -9 ;
+    // cmplwi 2`, and retail keeps two signed compares.
+    if (p->powerupModelState == 0 && 9 <= p->powerupState &&
+        p->powerupState <= 11) {
         return true;
     }
 

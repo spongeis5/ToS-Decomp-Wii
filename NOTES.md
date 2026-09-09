@@ -7,18 +7,18 @@ numbers here, which move.
 ## State at time of writing
 
 ```
-Game Code:  67 of 777 files complete  365,220 / 2,116,616 bytes  3,080 / 10,697 fn
-            17.2549% of game code
+Game Code:  67 of 777 files complete  366,104 / 2,116,616 bytes  3,093 / 10,697 fn
+            17.2967% of game code
 
-Of those 3,080 functions, 856 are GENERATED -- machine-recognised
+Of those 3,093 functions, 856 are GENERATED -- machine-recognised
 shapes, not one of which is decompiling. They are real matched
 functions and the offsets and constants are recovered fact, but a
 count of them is not a count of decompiled code. HAND-WRITTEN IS
-2,224, across 265 units and 330,920 bytes, and that is the figure to
+2,237, across 265 units and 331,804 bytes, and that is the figure to
 compare against earlier ones.
 
 Data:       4 unit(s) carry their own, 412 bytes; 134 more could
-All:        7.22% matched              main.dol reproduces byte for byte
+All:        7.23% matched              main.dol reproduces byte for byte
 ```
 
 Every number above is written by `python tools/notes_state.py`,
@@ -4625,3 +4625,39 @@ player: `mr r31,r5` and every offset off r5.
 
 Fourteen functions, 1,308 bytes.  WAD01_28 400 of 401. Game Code
 17.08% -> 17.14%.
+
+## THE CONSTANT ON THE LEFT: a range that does not fold
+
+`x >= 2 && x <= 4` compiles to `addi r0,x,-2 ; cmplwi r0,2 ; bgt` --
+one unsigned compare instead of two signed ones -- and retail has the
+two.  That fold has stood since the previous session and has been the
+recorded reason for three separate near-misses.
+
+**`2 <= x && x <= 4` does not fold.** The constant on the LEFT of the
+first comparison, and mwcc emits `cmpwi r0,2 ; blt ; cmpwi r0,4 ;
+bgt` -- exactly retail.  It is not a commutation: `2 <= x` and
+`x >= 2` are the same predicate written with the operator reversed,
+and mwcc's range recogniser only fires on one of the two spellings.
+
+The same move works on the negated form: `3 > x || 5 < x` keeps the
+two compares where `x < 3 || x > 5` folds.
+
+Everything else had been measured first and none of it worked:
+chained `&&`, three nested `if`s, three equalities joined by `||`, a
+switch over the three contiguous cases, and the whole thing on one
+line or on three.  Nine spellings across two sessions, and the tenth
+was two characters.
+
+That closed zPlayerDefeatedSB::PowerupStateCheck (40 B),
+zSBPlayerFillWithGoo::FillWithGooFrom100Check (96 B) and --
+reapplied across the file -- zBoardPlayerGainPowerup::
+GainSidekickPowerupCheck (52 B), which had been the last unmatched
+function of WAD01_28's 416.
+
+**WAD01_28 is now 416 of 416**, and zSBPlayerActions 351 of 353.  The
+note in `Traps worth knowing` that operand order in a commutative
+expression is not a lever still holds -- a comparison reversed is not
+a commutation, and this is the case that shows the difference.
+
+Thirty-three functions across the two files, 2,384 bytes.  Game Code
+17.25% -> 17.30%.

@@ -365,6 +365,17 @@ public:
     void AddStandardTransitionsFrom(xAnimTable* table, const char* name);
 };
 
+// The manager's indexed accessor, under the name the image kept.
+// zPlayerActionManager::GetAction(int) compiles to the same four
+// instructions given `zPlayerAction** actions` at 0, the linker
+// folded the two, and only this symbol survives to be branched to.
+namespace Graphics {
+class ModelPrototype {
+public:
+    zPlayerAction* GetBuilder(int i);
+};
+}
+
 class zPlayerActionManager {
 public:
     zPlayerAction** actions;
@@ -466,6 +477,8 @@ public:
 
     int f10;
     int f14;
+
+    void End();
 };
 
 
@@ -1957,6 +1970,13 @@ bool zPlayerCustomAnim::LoopToTran2Check(xAnimTransition* a0,
 
     return false;
 }
+void zPlayerIdle::End() {
+    zPlayerFall* fall =
+        (zPlayerFall*)((Graphics::ModelPrototype*)manager)->GetBuilder(6);
+
+    fall->f10 = fall->player->ogModel.model->pos.y;
+}
+
 // The three below are called by the bodies above and retail leaves
 // all three as a `bl`, so they are defined LAST.
 

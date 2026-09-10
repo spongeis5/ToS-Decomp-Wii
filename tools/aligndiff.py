@@ -129,14 +129,39 @@ def main():
                 print("    We are %d instruction(s) SHORT at word %d."
                       % (k, start))
                 want = [b for i, _a, b, _m in rows if start <= i < start + k]
+                extra = []
                 print("    Retail has %s there and we do not."
                       % " ".join(want))
             else:
                 print("    We have %d instruction(s) TOO MANY at word %d."
                       % (-k, start))
                 extra = [a for i, a, _b, _m in rows if start <= i < start - k]
+                want = []
                 print("    We emit %s there and retail does not."
                       % " ".join(extra))
+            # A shift whose missing words are `lis` is the float-base
+            # blocker wearing a shift's clothes: retail spells a `lis`
+            # per float literal and we reach them all off one base, so
+            # we come out N instructions short with everything after
+            # aligned. NOTES.md's float-base section owns that, and no
+            # source spelling has ever moved it. zDecal::init looked
+            # like 3 missing statements and was this.
+            # `lis` is 3c/3d, `lfs` is c0/c4, `lfd` is c8/cc.
+            floaty = [w for w in (want if k > 0 else extra)
+                      if w[:2] in ("3c", "3d", "c0", "c4", "c8", "cc")]
+            if floaty:
+                print("    %d of the %d word(s) are a `lis` or a float load "
+                      "(%s)." % (len(floaty), abs(k), " ".join(floaty)))
+                print("    A shift made of those is usually the FLOAT-BASE "
+                      "blocker wearing a shift's clothes, NOT a missing "
+                      "statement: retail spells a `lis` per float literal "
+                      "and we reach them all off one base, so we come out "
+                      "N instructions short with everything after aligned. "
+                      "Check the surrounding words for `lfs fN,off(rBASE)` "
+                      "against retail's `lis`+`lfs` pairs before writing "
+                      "any source. See NOTES.md, 'THE FLOAT BASE IS "
+                      "SHARED'. zDecal::init looked like 3 missing "
+                      "statements and was exactly this.")
             if frac >= 50.0:
                 print("    So this is ONE place to look, not %d. The word "
                       "count measures alignment, not distance." % len(real))

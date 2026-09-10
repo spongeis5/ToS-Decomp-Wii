@@ -39,7 +39,10 @@ class Geometry;
 class RefModelInstanceChildXform;
 class Renderable3D;
 class LightKit;
-class LightKitData;
+class LightKitData {
+public:
+    unsigned char _pad0[0x80];
+};
 class CollisionMeshBlobEntity;
 class PerInstanceData;
 class Builder;
@@ -131,6 +134,7 @@ public:
                                            unsigned short& refIndex);
     void HidePart(Scene* scene, unsigned int part);
     void ShowPart(Scene* scene, unsigned int part);
+    void Hide(Scene* scene);
 
     Matrix43 rootTransform;
     unsigned short visibleCount;
@@ -233,6 +237,11 @@ public:
     CollisionMeshBlobEntity* collmeshBlob;
 };
 
+class LightKit : public Node {
+public:
+    LightKitData data;
+};
+
 class Renderable3D {
 public:
     void SetLightKit(const Graphics::LightKitData* value);
@@ -327,8 +336,11 @@ public:
     EmbeddedListNode* prev;
 };
 
+template <class T, int OFFSET>
 class EmbeddedList {
 public:
+    void Remove(T* item);
+
     EmbeddedListNode head;
     unsigned long size;
 };
@@ -344,6 +356,9 @@ public:
 
 class ModelInstanceArticle {
 public:
+    void Detach();
+    void Deactivate();
+
     unsigned int projectShadowCache;
     Graphics::ShadowSimpleCache* simpleShadowCachePtr;
     Graphics::Renderable3DLink simpleShadowCastOn;
@@ -362,13 +377,15 @@ class xOGModelUpdater {
 public:
     virtual void DoUpdate();
 
-    EmbeddedList updList;
+    EmbeddedList<xOGModel, 356> updList;
 };
 
 class xOGModel : public xModelInstance {
 public:
     void UpdateRender();
     void SwapXModel(xOGModel& src);
+    void DeferDestroy();
+    void Destroy();
     int AllocAnimationInstances();
     void DeallocAnimationInstances();
     RefInstanceAnimation* GetRefAnimation(unsigned long long refId,
@@ -427,6 +444,7 @@ public:
 
 void* xMemPoolAlloc(xMemPool* pool, unsigned int count);
 void xMemPoolFree(xMemPool* pool, void* data);
+void xAnimPoolFree(xAnimPlay* play);
 
 extern "C" void* memset(void* dst, int val, unsigned long len);
 
@@ -1026,6 +1044,81 @@ void xModelUpdatePartsVis(World::xOGModel* modelInst) {
     }
 }
 
+
+
+// NEAR MISS, exact size, 8 of 35 words. What is left is the SCHEDULE
+// inside the loop: retail loads `renderables` first and interleaves the
+// three constant words with it, taking r6/r5/r0; ours completes the
+// twelve-byte copy first and so has r3 still free, taking r5/r3/r0.
+// Two spellings are excluded -- the declaration inside the loop and the
+// declaration outside with the assignment inside -- and both give the
+// same eight words.
+//
+// The pointer-to-member call: mwcc puts a twelve-byte constant in
+// .rodata, copies it to the stack and branches to __ptmf_scall. The
+// constant in the image reads delta 0, vtable offset -1 and
+// Renderable3D::SetLightKit, so that is what is taken here. NOTES.md
+// records that the declaration has to be its OWN statement.
+void xModelSetLightKit(World::xOGModel* minst,
+                       const Graphics::LightKit* lightKit) {
+    if (&minst->mModelArt != 0) {
+        void (Graphics::Renderable3D::*fn)(const Graphics::LightKitData*);
+
+        // Retail re-copies the twelve bytes at every call and hoists
+        // only the ADDRESS of the constant, so the ASSIGNMENT is
+        // per-iteration even though the declaration is not.
+        for (int i = 0; i < minst->mModelArt.model.renderableCount; i++) {
+            fn = &Graphics::Renderable3D::SetLightKit;
+
+            (minst->mModelArt.model.renderables[i]->*fn)(&lightKit->data);
+        }
+    }
+}
+
+// Everything the model holds is given back and then the object destroys
+// itself through a pointer to its own member -- the constant in the
+// image names xOGModel::Destroy, delta 0 and not virtual.
+void World::xOGModel::DeferDestroy() {
+    mModelArt.model.Hide(World::WorldPrivate::primaryScene);
+    mModelArt.Detach();
+    mModelArt.Deactivate();
+
+    if (updateNode.prev != 0) {
+        updater->updList.Remove(this);
+        updateNode.prev = 0;
+    }
+
+    if (Anim != 0) {
+        xAnimPoolFree(Anim);
+        Anim = 0;
+    }
+
+    RefInstanceAnimation* animInst = referenceAnimations;
+
+    while (animInst != 0) {
+        RefUniqueAnimation* uniqueAnimEntry =
+            GetRefAnimationEntry(animInst->animFile);
+
+        if (uniqueAnimEntry != 0) {
+            RemoveRefAnimation(uniqueAnimEntry, 1);
+        }
+
+        xMemPoolFree(&refAnimPool, animInst);
+        animInst = animInst->next;
+    }
+
+    numAnimationsEnabled = 0;
+    enabledReferenceAnimations = 0;
+    disabledReferenceAnimations = 0;
+    nextReferenceAnimationLODUpdate = 0;
+    referenceAnimations = 0;
+
+    void (World::xOGModel::*fn)();
+
+    fn = &World::xOGModel::Destroy;
+
+    (this->*fn)();
+}
 
 // -- generated accessor part (gen_accessors.py) --------------------
 

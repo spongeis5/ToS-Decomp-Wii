@@ -1017,7 +1017,17 @@ int World::xOGModel::AllocAnimationInstances() {
 // Every reference model before this one contributes its instances to
 // the offset, and the answer is that many links down the chain.
 xModelInstance::RefInstanceAnimation* World::xOGModel::GetRefAnimation(
-    unsigned long long refId, unsigned short refInstanceOffset) {
+    unsigned long long refId, unsigned short refInstanceIndex) {
+    // THE OFFSET IS A LOCAL, NOT THE PARAMETER. The debug info has
+    // `local line 642 refInstanceOffset r31` and no parameter of that
+    // name, and retail copies r7 into r31 in the prologue. Used
+    // directly, the parameter's live range begins where it is first
+    // READ -- inside the loop, below modelProto -- and the three
+    // callee-saved registers come out rotated: modelProto r31,
+    // refModelIndexCount r30, the offset r29 against retail's r31, r30,
+    // r29. tools/regdiff.py named the three; the word diff could only
+    // say which words moved.
+    unsigned short refInstanceOffset = refInstanceIndex;
     unsigned short refModelIndex = 0;
 
     // The entry is a NAMED local in the debug info, between
@@ -1043,14 +1053,17 @@ xModelInstance::RefInstanceAnimation* World::xOGModel::GetRefAnimation(
 
     RefInstanceAnimation* animInst = referenceAnimations;
 
-    // A `while` with both conditions, not a `for` with a `break`: the
-    // break form lets mwcc count the loop with `mtctr`/`bdnz`, where
-    // retail keeps a real counter and tests it with `cmpw`.
-    int c = 0;
+    // A `for` whose header holds the init, BOTH conditions and the
+    // increment -- not a `for` with a `break`, which lets mwcc count
+    // the loop with `mtctr`/`bdnz`. The line table is what says so:
+    // line 659 owns `li r4,0`, `addi r4,r4,1` and both tests, and line
+    // 660 owns only `animInst = animInst->next`. The `while` with a
+    // separate `c++` compiles to the same bytes, measured; the line
+    // table is the only thing that separates them.
+    int c;
 
-    while (c < refInstanceOffset && animInst != 0) {
+    for (c = 0; c < refInstanceOffset && animInst != 0; c++) {
         animInst = animInst->next;
-        c++;
     }
 
     return animInst;

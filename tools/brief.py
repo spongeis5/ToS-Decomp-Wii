@@ -74,8 +74,9 @@ def base_name(name):
 
 
 class Var(object):
-    def __init__(self, kind, name, typename, line, loc, lo, hi):
+    def __init__(self, kind, name, typename, line, loc, lo, hi, die=-1):
         self.kind = kind            # "param" or "local"
+        self.die = die              # which DECLARATION this range is of
         self.name = name
         self.typename = typename
         self.line = line
@@ -189,12 +190,14 @@ class Brief(object):
                 ref = self.ty.ref(die)
                 tn = self.ty.type_name(ref) + self.ty.array_suffix(ref)
                 dl = die.attributes.get("DW_AT_decl_line")
+                fn["ndie"] = fn.get("ndie", 0) + 1
+                which = fn["ndie"]
                 for lo_, hi_, loc in self._locs(die, cu_base, fn):
                     v = Var("param" if die.tag == "DW_TAG_formal_parameter"
                             else "local",
                             T.name_of(die) or "?", tn,
                             dl.value if dl else None, loc,
-                            max(lo_, slo), min(hi_, shi))
+                            max(lo_, slo), min(hi_, shi), which)
                     v.depth = len(stack)
                     fn["vars"].append(v)
 

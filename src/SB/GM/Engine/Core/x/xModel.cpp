@@ -1203,9 +1203,12 @@ void xModelSetLightKit(World::xOGModel* minst,
         // only the ADDRESS of the constant, so the ASSIGNMENT is
         // per-iteration even though the declaration is not.
         for (int i = 0; i < minst->mModelArt.model.renderableCount; i++) {
+            Graphics::Renderable3D* r =
+                minst->mModelArt.model.renderables[i];
+
             fn = &Graphics::Renderable3D::SetLightKit;
 
-            (minst->mModelArt.model.renderables[i]->*fn)(&lightKit->data);
+            (r->*fn)(&lightKit->data);
         }
     }
 }

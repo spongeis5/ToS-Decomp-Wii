@@ -485,10 +485,19 @@ void World::GeometryEntity::ReserveBuilderData(BuilderInfo& info,
     info.materialEnt = (MaterialEntity*)materialHandle->entity;
 
     const Graphics::Effect* effect = info.materialEnt->material.effect;
-    // ReserveBuilderData is 9 of 49 words, down from 16: retail reads
-    // `effect->params` ONCE into a register and indexes it twice, and
-    // spelling it twice reloads it. Not finished -- what is left was
-    // not diagnosed before the agent working it was cut off.
+    // NEAR MISS -- ReserveBuilderData, 9 of 49 words: two differences that
+    // eighteen spellings did not move. (1) `materialHandle` is r29 here and
+    // r30 in retail, where r30 is then reused for `effect` and for
+    // rendParamDataSize; ours gives the handle the lowest free register.
+    // Declaring the handle early and assigning it late (the lever that
+    // landed CreateBuilderData below), declaring `effect` early or not at
+    // all, and renaming are all inert. (2) The sum below: retail computes
+    // `(lod + stream) * 20 + geom` and then adds `rend` to it; ours adds
+    // `rend + geom` first. Every operand order, splitting it across
+    // statements, the operands in locals, `unsigned int`, and `20` for the
+    // unsigned sizeof() are byte-identical to what stands here, so mwcc
+    // canonicalises the tree and the source order is not what decides it.
+    // The `params` local IS right: without it the table is reloaded.
     const Graphics::Effect::ParamFormatTable* params = effect->params;
 
     int geomParamDataSize =
@@ -511,12 +520,26 @@ void World::GeometryEntity::ReserveBuilderData(BuilderInfo& info,
     info.size = Align(size, 16) + rendParamDataSize;
 }
 
+// CreateBuilderData MATCHES. The two MaterialParam* locals are DECLARED at
+// the top and ASSIGNED where they were, and that alone moved them from r19
+// to retail's r20: the live range is identical, but a variable's place in
+// the allocator's list follows its declaration, and the tail's pointer
+// then takes the highest free register instead of the lowest. Declared
+// where they are assigned it was 8 of 166 words (the r19/r20 swap and
+// nothing else); declared early WITH their initialisers it is 156 of 166,
+// because the loads move up and live across both loops. Renaming them,
+// and dropping them for `asset.geomParams` at each use (39 of 166: mwcc
+// reloads), are the controls. One shared `params` local matches too.
+// Retail's DWARF names ilods, istreams, i and blober in the same
+// registers as ours and does not name these two.
 void World::GeometryEntity::CreateBuilderData(Memory::StackAllocator& allocator,
                                               BuilderData& data,
                                               BuilderInfo& info,
                                               const GeometryAsset& asset,
                                               EntityHandleBase* handle) {
     const Graphics::Effect* effect = info.materialEnt->material.effect;
+    const MaterialParam* geomParams;
+    const MaterialParam* rendParams;
 
     data.streamBlobs =
         NewArray<BlobRef>(allocator, (eMemMgrTag)65, asset.streamCount);
@@ -582,7 +605,7 @@ void World::GeometryEntity::CreateBuilderData(Memory::StackAllocator& allocator,
     allocator.PushAlign(16);
     void* rendParamDataBuffer = allocator.Alloc(rendParamDataSize);
 
-    const MaterialParam* geomParams = asset.geomParams;
+    geomParams = asset.geomParams;
     info.geomParamData = (Graphics::Effect::ParamData*)geomParamDataBuffer;
     data.geomParamCargo.Create(geomParamCargoBuffer, info.geomParamCreateInfo,
                                geomParams, asset.geomParamCount);
@@ -591,7 +614,7 @@ void World::GeometryEntity::CreateBuilderData(Memory::StackAllocator& allocator,
         info.geomParamData, geomParams, asset.geomParamCount,
         effect->params[Graphics::Effect::PARAM_GEOM].formats);
 
-    const MaterialParam* rendParams = asset.rendParams;
+    rendParams = asset.rendParams;
     info.rendParamData = (Graphics::Effect::ParamData*)rendParamDataBuffer;
     data.rendParamCargo.Create(rendParamCargoBuffer, info.rendParamCreateInfo,
                                rendParams, asset.rendParamCount);

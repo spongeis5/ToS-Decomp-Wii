@@ -462,7 +462,7 @@ EXPECT = {
     "SB/GM/Engine/Game/zCamTargetSpline": (6, 6),
     "SB/GM/Engine/Game/zNPCTemplate": (3, 5),
     "SB/NG/Source/Engine/Entities/Blobs/CMeshBlobEntity": (6, 7),
-    "SB/NG/Source/Engine/Entities/GeometryEntity": (4, 6),
+    "SB/NG/Source/Engine/Entities/GeometryEntity": (5, 6),
     "SB/NG/Source/Engine/Entities/ImmediateInstanceArticle": (5, 7),
     "SB/NG/Source/Engine/Entities/LightKitSceneEntity": (8, 8),
     "SB/NG/Source/Engine/Memory/PoolManager": (7, 7),

@@ -23,7 +23,26 @@
 // relocations line up with retail's.
 
 class xAnimPlay;
-class xAnimFile;
+
+class xAnimFile {
+public:
+    xAnimFile* Next;
+    char* Name;
+    unsigned int ID;
+    unsigned int FileFlags;
+    float Duration;
+    float TimeOffset;
+    float TexMergeStartTime;
+    float TexMergeEndTime;
+    unsigned long long TexMergeTexture;
+    unsigned long long TexMergeSpecularTexture;
+    unsigned short BoneCount;
+    unsigned char MorphCount;
+    unsigned char pad1[1];
+    unsigned char NumAnims[3];
+    unsigned char pad2[1];
+    void** RawData;
+};
 
 namespace Math {
 
@@ -322,7 +341,7 @@ public:
 
     class RefUniqueAnimation {
     public:
-        unsigned char animFile[0x40];
+        xAnimFile animFile;
         void* animFileRawDataPtr;
         unsigned char _pad0[0x48 - 0x44];
         unsigned long long animID;
@@ -367,6 +386,16 @@ public:
     unsigned int numAnimationsEnabled;
 };
 
+class xRefModelAnimationData {
+public:
+    unsigned long long animationID;
+    unsigned long long referenceID;
+    unsigned int firstBoundInstance;
+    int numBoundInstances;
+    bool looping;
+    bool randomizeStartTime;
+};
+
 class EmbeddedListNode {
 public:
     EmbeddedListNode* next;
@@ -390,6 +419,17 @@ class WorldPrivate {
 public:
     static Graphics::Scene* primaryScene;
 };
+
+class EntityManager {
+public:
+    // STATIC: retail calls GetEntityManager(), then overwrites r3 with
+    // the id before the call, so the object expression is evaluated and
+    // thrown away -- which is what calling a static member through one
+    // does.
+    static void* FindAsset(unsigned long long id);
+};
+
+EntityManager* GetEntityManager();
 
 class ModelInstanceArticle {
 public:
@@ -421,6 +461,8 @@ class xOGModel : public xModelInstance {
 public:
     void UpdateRender();
     void SwapXModel(xOGModel& src);
+    unsigned short BindRefModelAnimation(
+        const xRefModelAnimationData& animBindData);
     unsigned short UnbindRefModelAnimation(unsigned long long refId,
                                            unsigned short firstInstanceIndex,
                                            int numInstances);
@@ -495,6 +537,14 @@ extern "C" void PSMTXConcat(const Math::Matrix43* a,
 
 extern "C" void* memset(void* dst, int val, unsigned long len);
 extern "C" double ceil(double x);
+
+unsigned int xStrHash(const char* s);
+unsigned int xrand_GenRandInt32();
+void xAnimFileNewBilinearPrealloc(xAnimFile* file, void** buf,
+                                  const char* name, unsigned int hash,
+                                  unsigned int a, xAnimFile** b,
+                                  unsigned int c, unsigned int d,
+                                  unsigned int e, const char* f);
 
 void xAnimPlayEval(xAnimPlay* play, xModelInstance::ModelVisibility* vis);
 void xAnimPlayEvalRefModels(World::xOGModel* modelInst);
@@ -1415,6 +1465,139 @@ void xModelInstance::UpdateReferenceAnimationLODFPS(float timeDelta) {
 
         refAnimLimitRefreshTimeElapsed = 0.0f;
     }
+}
+
+
+// NEAR MISS, 744 against 748, 69 of 186 words. Every differing word is
+// the same one-register shift: retail runs on r25..r31 and ours on
+// r26..r31, so retail keeps one more value live and pays one extra
+// instruction for it. Three findings got it from 118 differing words
+// to 69 and are worth keeping:
+//
+//   * EntityManager::FindAsset is STATIC. Retail calls
+//     GetEntityManager() and then overwrites r3 with the id before the
+//     call, which is what calling a static member through an object
+//     expression does -- the expression is evaluated and discarded.
+//   * The animation name is a LOCAL. Retail keeps the pooled string in
+//     a callee-saved register across xStrHash and uses it on both
+//     sides; spelled twice, mwcc materialises it twice.
+//   * That local is declared AFTER the asset lookup, not before it.
+//
+// Bind one animation across a run of reference-model instances. The
+// count that comes back is how many instances were actually reached,
+// which is short of the run only if the chain ran out.
+//
+// The random start time is a uint32 scaled by 1/2^32 -- the 0x4330
+// store and the 2^52 subtract are mwcc's unsigned-to-double, not data.
+unsigned short World::xOGModel::BindRefModelAnimation(
+    const xRefModelAnimationData& animBindData) {
+    unsigned int totalNumInstancesBoundToUniqueAnim = 0;
+    unsigned short modelProtoRefModelIndex = 0;
+    Graphics::ReferenceModelEntry* refModelEntry =
+        mModelArt.model.GetReferenceModel(animBindData.referenceID,
+                                          modelProtoRefModelIndex);
+
+    if (refModelEntry == 0) {
+        return 0;
+    }
+
+    if (boundRefModelInstanceAnimationCount == 0) {
+        AllocAnimationInstances();
+    }
+
+    RefInstanceAnimation* firstRefInstAnim =
+        GetRefAnimation(animBindData.referenceID,
+                        animBindData.firstBoundInstance);
+    int numToBind = animBindData.numBoundInstances;
+
+    if (numToBind < 0) {
+        numToBind = refModelEntry->numInstances
+                    - (unsigned short)animBindData.firstBoundInstance;
+    }
+
+    unsigned short numInstancesToBind = numToBind;
+    RefUniqueAnimation* uniqueAnimEntry =
+        GetRefAnimationEntry(animBindData.animationID);
+    xAnimFile* uniqueRefAnimation =
+        uniqueAnimEntry != 0 ? &uniqueAnimEntry->animFile : 0;
+
+    if (uniqueRefAnimation != 0) {
+        unsigned short numInstancesWithoutThisAnimation = 0;
+        RefInstanceAnimation* refInstAnim = firstRefInstAnim;
+        unsigned short refInstCount = animBindData.firstBoundInstance;
+
+        while (refInstCount < numInstancesToBind && refInstAnim != 0) {
+            if (refInstAnim->animFile != uniqueRefAnimation) {
+                numInstancesWithoutThisAnimation++;
+            }
+
+            refInstAnim = refInstAnim->next;
+            refInstCount++;
+        }
+
+        AddRefAnimation(animBindData.animationID,
+                        numInstancesWithoutThisAnimation,
+                        totalNumInstancesBoundToUniqueAnim);
+    } else {
+        uniqueRefAnimation = (xAnimFile*)AddRefAnimation(
+            animBindData.animationID, numInstancesToBind,
+            totalNumInstancesBoundToUniqueAnim);
+    }
+
+    if (uniqueRefAnimation == 0) {
+        return 0;
+    }
+
+    if (totalNumInstancesBoundToUniqueAnim == numInstancesToBind) {
+        // The name is a LOCAL: retail keeps the pooled string address
+        // in a callee-saved register across the xStrHash call and uses
+        // it on both sides. Spelled twice, mwcc materialises it twice
+        // and needs one register fewer.
+        void* buf =
+            World::GetEntityManager()->FindAsset(animBindData.animationID);
+        const char* animName = "";
+
+        xAnimFileNewBilinearPrealloc(uniqueRefAnimation, &buf, animName,
+                                     xStrHash(animName), 0, 0, 1, 1, 1, 0);
+    }
+
+    unsigned short instance = animBindData.firstBoundInstance;
+    RefInstanceAnimation* refInstAnimation = firstRefInstAnim;
+
+    while (instance
+           < animBindData.firstBoundInstance + numInstancesToBind) {
+        if (refInstAnimation == 0) {
+            return instance - animBindData.firstBoundInstance;
+        }
+
+        if (refInstAnimation->animFile != 0
+            && refInstAnimation->animFile != uniqueRefAnimation) {
+            RefUniqueAnimation* bound =
+                GetRefAnimationEntry(refInstAnimation->animFile);
+
+            if (bound != 0) {
+                RemoveRefAnimation(bound, 1);
+            }
+        } else if (refInstAnimation->animFile == 0) {
+            boundRefModelInstanceAnimationCount++;
+        }
+
+        refInstAnimation->animFile = uniqueRefAnimation;
+        refInstAnimation->looping = animBindData.looping;
+
+        if (animBindData.randomizeStartTime) {
+            refInstAnimation->time =
+                uniqueRefAnimation->Duration
+                * (xrand_GenRandInt32() * 2.3283064e-10f);
+        } else {
+            refInstAnimation->time = 0.0f;
+        }
+
+        refInstAnimation = refInstAnimation->next;
+        instance++;
+    }
+
+    return instance - animBindData.firstBoundInstance;
 }
 
 // -- generated accessor part (gen_accessors.py) --------------------

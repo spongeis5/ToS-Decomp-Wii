@@ -1509,6 +1509,7 @@ void xModelInstance::UpdateReferenceAnimationLODFPS(float timeDelta) {
 // store and the 2^52 subtract are mwcc's unsigned-to-double, not data.
 unsigned short World::xOGModel::BindRefModelAnimation(
     const xRefModelAnimationData& animBindData) {
+    unsigned short instance;
     unsigned int totalNumInstancesBoundToUniqueAnim = 0;
     unsigned short modelProtoRefModelIndex = 0;
     Graphics::ReferenceModelEntry* refModelEntry =
@@ -1566,6 +1567,30 @@ unsigned short World::xOGModel::BindRefModelAnimation(
         return 0;
     }
 
+    // ASSIGNED HERE, ABOVE THE PREALLOC BLOCK, and declared at the top.
+    // Assigned below it -- beside its own use -- `instance` SHARES r25
+    // with the pooled string, because the string is dead by then; our
+    // object then uses six callee-saved values where retail uses seven
+    // and skips r26 entirely. Moving it up puts `this` in r26,
+    // animBindData r27, refInstAnimation r28 and the string r25 -- all
+    // four as retail has them -- and 69 differing words become 63.
+    // tools/regdiff.py named every one of those; the word diff could
+    // only say WHICH words moved.
+    //
+    // WHAT IS LEFT is a rotation in r29/r30/r31: retail has
+    // numInstancesToBind r31, uniqueRefAnimation r30, instance r29; we
+    // have instance r31, numInstancesToBind r30, uniqueRefAnimation
+    // r29. Retail also keeps the string POOL BASE in r25 and spells
+    // `addi r3,r25,79` twice where we keep pool+79 and `mr` it twice.
+    //
+    // Measured and no better, so do not redo: the loop as a `for` with
+    // one or both steps in its header, the bound hoisted into a local,
+    // instance and refInstAnimation declared either way round, instance
+    // assigned at four other points, the null arm as a `break`, and
+    // eight spellings of the string and its hash -- 96 combinations, of
+    // which only the assignment point moves anything at all.
+    instance = animBindData.firstBoundInstance;
+
     if (totalNumInstancesBoundToUniqueAnim == numInstancesToBind) {
         // The name is a LOCAL: retail keeps the pooled string address
         // in a callee-saved register across the xStrHash call and uses
@@ -1579,7 +1604,6 @@ unsigned short World::xOGModel::BindRefModelAnimation(
                                      xStrHash(animName), 0, 0, 1, 1, 1, 0);
     }
 
-    unsigned short instance = animBindData.firstBoundInstance;
     RefInstanceAnimation* refInstAnimation = firstRefInstAnim;
 
     while (instance

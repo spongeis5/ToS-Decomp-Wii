@@ -805,7 +805,7 @@ public:
 class zSBPlayerPuckAttack : public zPlayerAction {
 public:
     static unsigned int anAimPuckCheck(xAnimTransition* a0, xAnimSingle* a1, void* a2);
-    bool AimPuckCheck(xAnimTransition* a0, xAnimSingle* a1);
+    unsigned int AimPuckCheck(xAnimTransition* a0, xAnimSingle* a1);
     static unsigned int anFirePuckCB(xAnimTransition* a0, xAnimSingle* a1, void* a2);
     bool FirePuckCB(xAnimTransition* a0, xAnimSingle* a1);
     static unsigned int anShootPuckCheck(xAnimTransition* a0, xAnimSingle* a1, void* a2);
@@ -828,7 +828,7 @@ public:
 
     unsigned char _pad0[0x18 - 0x10];
     float f18;
-    unsigned char f1C;
+    bool charging;
     unsigned char _pad1[0x20 - 0x1D];
     int f20;
     float f24;
@@ -867,7 +867,7 @@ public:
     static unsigned int anHitBuffBackCheck(xAnimTransition* a0, xAnimSingle* a1, void* a2);
     bool HitBuffBackCheck(xAnimTransition* a0, xAnimSingle* a1);
     static unsigned int anHitBuffFrontCheck(xAnimTransition* a0, xAnimSingle* a1, void* a2);
-    bool HitBuffFrontCheck(xAnimTransition* a0, xAnimSingle* a1);
+    unsigned int HitBuffFrontCheck(xAnimTransition* a0, xAnimSingle* a1);
     static unsigned int anHitByDOTCheck(xAnimTransition* a0, xAnimSingle* a1, void* a2);
     bool HitByDOTCheck(xAnimTransition* a0, xAnimSingle* a1);
     static unsigned int anHitElectricArcCheck(xAnimTransition* a0, xAnimSingle* a1, void* a2);
@@ -883,6 +883,7 @@ public:
     static unsigned int anHitGooFrontCheck(xAnimTransition*, xAnimSingle*, void*);
     static unsigned int anHitPuckBackCheck(xAnimTransition*, xAnimSingle*, void*);
     static unsigned int anHitPuckFrontCheck(xAnimTransition*, xAnimSingle*, void*);
+    bool HitPuckFrontCheck(xAnimTransition* a0, xAnimSingle* a1);
     static unsigned int anHitSpinBackCheck(xAnimTransition*, xAnimSingle*, void*);
     static unsigned int anHitSpinFrontCheck(xAnimTransition*, xAnimSingle*, void*);
     void AddTransitionsFrom(xAnimTable* table, const char* name, unsigned int (*c)(xAnimTransition*, xAnimSingle*, void*), unsigned int (*d)(xAnimTransition*, xAnimSingle*, void*), unsigned short e, float f, unsigned int g, unsigned int h, zPlayerAction::SpecialActions i);
@@ -2028,11 +2029,18 @@ void zPlayerSingleCustomAnimSB::AddActionTransitions(xAnimTable* table) {
 }
 
 // zPlayerDoubleJumpSB::AddInternalTransitions: 2 call(s)
+// DoubleJumpStartCheck MATCHES. `hit` is declared and tested INSIDE the
+// canDoubleJump block with `return false` outside: retail's first `beq`
+// goes straight to the final `li r3,0`, skipping the `cmpwi r31,0`, and
+// the `li r31,0` sits after the block's first load (line 2837 in the
+// line table, between the `if` on 2835 and the call on 2839). Declared
+// at the top and tested at the bottom it was 16 of 70 words, the tail
+// spelled `addic/subfe` because the return had become a conversion.
 bool zPlayerDoubleJumpSB::DoubleJumpStartCheck(xAnimTransition* a0,
                                                xAnimSingle* a1) {
-    unsigned int hit = 0;
-
     if (((zSBPlayer*)player)->canDoubleJump) {
+        unsigned int hit = 0;
+
         if (((zSBPlayer*)player)->playerInput->_v44()) {
             if (((zSBPlayer*)player)->playerInput->_v19(95, 0, 1)) {
                 hit = 1;
@@ -2044,10 +2052,10 @@ bool zPlayerDoubleJumpSB::DoubleJumpStartCheck(xAnimTransition* a0,
         } else if (((zSBPlayer*)player)->playerInput->_v19(8, 0, 1)) {
             hit = 1;
         }
-    }
 
-    if (hit) {
-        return true;
+        if (hit) {
+            return true;
+        }
     }
 
     return false;
@@ -2932,19 +2940,22 @@ void zSBPlayerKelpTrap::AddTransitionsFrom(xAnimTable* table, const char* name,
                                        a, b, e, f, g, h);
 }
 
+// SBBungeeBallHitExitCheck MATCHES. Retail shares ONE `li r3,0` between
+// all three false exits, and that is a single compound condition, not
+// two early returns: spelled `if (a == -1) return false; if (b) return
+// false;` each guard costs its own `li r3,0 / b epilogue`, four words too
+// many with everything after them aligned. Four spellings of the compound
+// form are byte-identical (if/return, nested ifs, a local for the player,
+// if/else); the control is the `||`-merged guard at 18 of 29 words --
+// exactly the two-word shift one remaining early return predicts -- and
+// `return a && b && c;` is longer and worse. The line table agrees:
+// `type` on 7148, the whole condition on 7149, `return true` on 7154.
 bool zSBPlayerBungeeBall::SBBungeeBallHitExitCheck(xAnimTransition* a0,
                                                    xAnimSingle* a1) {
     int type = ((zSBPlayer*)player)->lastDamageType;
 
-    if (((zSBPlayer*)player)->currentHitType == -1) {
-        return false;
-    }
-
-    if (((zSBPlayer*)player)->_v48()) {
-        return false;
-    }
-
-    if (type == 27 || type == 29 || type == 31) {
+    if (((zSBPlayer*)player)->currentHitType != -1 && !((zSBPlayer*)player)->_v48() &&
+        (type == 27 || type == 29 || type == 31)) {
         return true;
     }
 
@@ -3612,27 +3623,46 @@ unsigned int zSBPlayerHammerPowerupAttack::anHammerPowerupMovingCheck(xAnimTrans
     return result;
 }
 
+// anHitPuckFrontCheck MATCHES with the inner predicate an inline member
+// under `#pragma always_inline`, exactly as WAD01_28.cpp spells the Board
+// twin. Retail has no standalone HitPuckFrontCheck (the symbol table has
+// only anHitPuckFrontCheck and HitBuffFrontCheck), and mwcc's `-inline
+// auto` DECLINES an inline member that itself calls (HitFrontCheck): with
+// no pragma the callback calls it out of line, 26 of 29 words, plus an
+// EXTRA 80-byte copy -- the same for a static inline free function or a
+// body written in the class. Written longhand, the callback holding the
+// predicate's body, it is 8 of 38 words: `result` and `anim` swap
+// r29/r30, and copying either parameter to a local changes nothing. The
+// DWARF names the callback's parameters `tran` (r31) and `anim` (r30),
+// declared on ONE line of zSBPlayerActions.h -- a macro.
+inline bool zPlayerHitSB::HitPuckFrontCheck(xAnimTransition* a0,
+                                            xAnimSingle* a1) {
+    bool result = false;
+
+    if (HitFrontCheck(a0, a1) &&
+        ((zSBPlayer*)player)->lastDamageType == 31) {
+        result = true;
+    }
+
+    return result;
+}
+
+#pragma always_inline on
+
 unsigned int zPlayerHitSB::anHitPuckFrontCheck(xAnimTransition* a0,
                                                xAnimSingle* a1, void* a2) {
     unsigned int result = 0;
 
     if (((zPlayerHitSB*)((AnimCBHolder*)a0)->slot->owner)->_v5()) {
-        zPlayerHitSB* owner =
-            (zPlayerHitSB*)((AnimCBHolder*)a0)->slot->owner;
-        bool hit = false;
-
-        if (owner->HitFrontCheck(a0, a1) &&
-            ((zSBPlayer*)owner->player)->lastDamageType == 31) {
-            hit = true;
-        }
-
-        if (hit) {
+        if (((zPlayerHitSB*)((AnimCBHolder*)a0)->slot->owner)->HitPuckFrontCheck(a0, a1)) {
             result = 1;
         }
     }
 
     return result;
 }
+
+#pragma always_inline off
 
 unsigned int zPlayerHitSB::anHitBackCheck(xAnimTransition* a0, xAnimSingle* a1,
                                           void* a2) {
@@ -4914,7 +4944,7 @@ void zPlayerLedgeSB::Begin() {
 }
 
 void zSBPlayerPuckAttack::Begin() {
-    f1C = 1;
+    charging = 1;
     f18 = 0.0f;
     ((zSBPlayer*)player)->attackState = (eRPSAttackTypes)3;
     ((zSBPlayer*)player)->zPlayerFlags &= ~0x10;
@@ -4992,11 +5022,21 @@ void zPlayerSpringboardSB::End() {
     ((zSBPlayer*)player)->trampolineLink = 0;
 }
 
-bool zSBPlayerPuckAttack::AimPuckCheck(xAnimTransition* a0,
-                                       xAnimSingle* a1) {
+// NEAR MISS -- AimPuckCheck. Retail is seven words: `lbz; cmpwi r0,0;
+// bne; li r3,0; blr; li r3,1; blr` -- an early `return 0` and a final
+// `return 1`, each with its own blr, lines 4693-4696. The DWARF says the
+// member is `bool charging` and the return type `unsigned int` (both
+// adopted here; both byte-inert). Twelve spellings all FOLD: every
+// two-return form is branchless (four words as `unsigned char`, two as
+// `bool`), `switch`, if/else, ternary and an inlined accessor included;
+// a result variable is six words with `beqlr`. tools/idiom_scan.py aim:
+// image-wide only the two AimPuckCheck twins (Board and SB) have this
+// shape, so there is no matched exemplar to read.
+unsigned int zSBPlayerPuckAttack::AimPuckCheck(xAnimTransition* a0,
+                                               xAnimSingle* a1) {
     bool result = false;
 
-    if (f1C) {
+    if (charging) {
         result = true;
     }
 
@@ -5005,7 +5045,7 @@ bool zSBPlayerPuckAttack::AimPuckCheck(xAnimTransition* a0,
 
 bool zSBPlayerPuckAttack::ShootPuckCheck(xAnimTransition* a0,
                                         xAnimSingle* a1) {
-    return f1C == 0;
+    return charging == 0;
 }
 
 bool zSBPlayerKelpTrap::KelpTrapCheck(xAnimTransition* a0,
@@ -5940,8 +5980,26 @@ bool zSBPlayerBungeeBall::SBBungeeBallCheck(xAnimTransition* a0,
     return result;
 }
 
-bool zPlayerHitSB::HitBuffFrontCheck(xAnimTransition* a0,
-                                     xAnimSingle* a1) {
+// NEAR MISS -- HitBuffFrontCheck, 7 of 27 words; its twin HitBuffBackCheck
+// (0x8014C720, not yet written) is the same shape byte for byte. Retail
+// materialises `buffHits && powerupState == 1` into r0 -- `li r0,0`
+// BETWEEN the bitfield's `rlwinm.` and its `beq`, then `li r0,1 / cmpwi
+// r0,0` before the call -- and reads the field into r6. Ours initialises
+// the temp before the bitfield load (`mr r7,r31`) and reads the field
+// into r0. Twenty-one spellings measured: every plain `&&` chain, a bool
+// temp, a `(unsigned int)` cast, a temp of the comparison alone and an
+// inlined helper of it all FOLD the temp away (23 words); a ternary
+// condition or `? 1 : 0` keeps it but hoists its init above the load
+// into r7 (10 of 27); the DWARF's `unsigned int` return type, an init
+// instead of an assignment, and an inline member holding the whole `&&`
+// under always_inline are inert (7 of 27). The line table puts the whole
+// body in ONE statement, lines 5394-5396. The one matched function in
+// the image with the same idiom (tools/idiom_scan.py temp) is
+// zWallNetGroup::GetWallNet, `return a >= 0 && a < n ? p[a] : 0;` -- a
+// ternary whose condition is an `&&` chain -- but with a call in the
+// true arm that form tail-calls (15 words).
+unsigned int zPlayerHitSB::HitBuffFrontCheck(xAnimTransition* a0,
+                                             xAnimSingle* a1) {
     bool result = false;
     unsigned int buff;
 

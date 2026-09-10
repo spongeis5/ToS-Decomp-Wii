@@ -25,6 +25,49 @@
 class xAnimPlay;
 class xAnimFile;
 
+namespace Math {
+
+class DataType {
+public:
+    float x;
+    float y;
+    float z;
+    float w;
+};
+
+class Vector4 {
+public:
+    DataType data;
+};
+
+class Matrix33 {
+public:
+    Matrix33();
+
+    Vector4 v[3];
+};
+
+class Matrix43 : public Matrix33 {
+public:
+    Matrix43& operator=(const Matrix43& other);
+};
+
+class Vector {
+public:
+    Vector(float x, float y, float z);
+
+    float x;
+    float y;
+    float z;
+};
+
+enum HintInvertibleEnum { HintInvertibleEnum_ = 0x7FFFFFFF };
+
+void Invert(Matrix43& out, const Matrix43& in, HintInvertibleEnum hint);
+
+}  // namespace Math
+
+
 namespace Graphics {
 class TextureResourceEntity;
 class ShadowSimpleCache;
@@ -32,7 +75,16 @@ class ModelPrototypeEntity;
 class LightKitEntity;
 class RenderCustomizerInfo;
 class ModelXformBuffer;
-class ModelJointBuffer;
+class ModelJointBuffer {
+public:
+    Math::Matrix43* joints;
+};
+
+class SkinCluster {
+public:
+    unsigned char _pad0[0x8];
+    Math::Matrix43* skinToBone;
+};
 class ModelMorphWeightBuffer;
 class ModelPrototype;
 class Geometry;
@@ -51,31 +103,6 @@ class ModelPartDefinition;
 class SkeletonBlobEntity;
 class Scene;
 }  // namespace Graphics
-
-namespace Math {
-
-class DataType {
-public:
-    float x;
-    float y;
-    float z;
-    float w;
-};
-
-class Vector4 {
-public:
-    DataType data;
-};
-
-class Matrix33 {
-public:
-    Vector4 v[3];
-};
-
-class Matrix43 : public Matrix33 {
-};
-
-}  // namespace Math
 
 class xVec3 {
 public:
@@ -210,7 +237,7 @@ public:
     int totalTransformCount;
     void* groups;
     int groupCount;
-    void* skins;
+    SkinCluster* skins;
     int skinCount;
     int skinJointTotal;
     int morphWeightTotal;
@@ -317,6 +344,9 @@ public:
     void RefAnimationEnable(RefInstanceAnimation* animInst);
     void RefAnimationDisable(RefInstanceAnimation* animInst);
 
+    static float referenceAnimationLODCurrentFPS;
+    static float referenceAnimationLODMinFPS;
+    static unsigned int referenceAnimationLimit;
     static RefUniqueAnimation uniqueRefAnimations[50];
     static RefUniqueAnimation* uniqueRefAnimationsUsed;
     static RefUniqueAnimation* uniqueRefAnimationsAvailable;
@@ -455,8 +485,16 @@ public:
 void* xMemPoolAlloc(xMemPool* pool, unsigned int count);
 void xMemPoolFree(xMemPool* pool, void* data);
 void xAnimPoolFree(xAnimPlay* play);
+void xMat4x3FromNGMatrix(xMat4x3* out, const Math::Matrix43* in);
+void xMat3x3Mul(xMat3x3* o, const xMat3x3* a, const xMat3x3* b);
+void v3add(xVec3* o, xVec3* a, xVec3* b);
+
+extern "C" void PSMTXConcat(const Math::Matrix43* a,
+                            const Math::Matrix43* b,
+                            Math::Matrix43* ab);
 
 extern "C" void* memset(void* dst, int val, unsigned long len);
+extern "C" double ceil(double x);
 
 void xAnimPlayEval(xAnimPlay* play, xModelInstance::ModelVisibility* vis);
 void xAnimPlayEvalRefModels(World::xOGModel* modelInst);
@@ -471,6 +509,15 @@ void xModelGetBoneMatNoScale(xMat4x3& mat, const World::xOGModel& model,
 void xMat3x3RMulVec(xVec3* o, const xMat3x3* m, const xVec3* v);
 void xMat3x3MulScaleC(xMat3x3* o, const xMat3x3* m, float x, float y,
                       float z);
+
+// The three class statics get real definitions so each is its own
+// symbol: the image has the two initialised ones in .data at 806B4024
+// and 806B4028 and the running average in .bss, and addresses them
+// with a `lis` apiece. Declared only, mwcc reaches all three off one
+// base with offsets 0, 4 and 8.
+float xModelInstance::referenceAnimationLODCurrentFPS;
+float xModelInstance::referenceAnimationLODMinFPS = 30.0f;
+unsigned int xModelInstance::referenceAnimationLimit = 0xFFFFFFFF;
 
 // A file static: CodeWarrior leaves its name unmangled, which is how
 // it reads in the image.
@@ -912,13 +959,24 @@ int World::xOGModel::AllocAnimationInstances() {
     return 1;
 }
 
+// NEAR MISS, exact size, 9 of 44 words: refInstanceOffset, modelProto
+// and refModelIndexCount are a three-way rotation of retail's r31, r30
+// and r29. Naming the entry local as the debug info does changes
+// nothing, and neither does the walk's shape -- that part is right now.
+//
 // Every reference model before this one contributes its instances to
 // the offset, and the answer is that many links down the chain.
 xModelInstance::RefInstanceAnimation* World::xOGModel::GetRefAnimation(
     unsigned long long refId, unsigned short refInstanceOffset) {
     unsigned short refModelIndex = 0;
 
-    if (mModelArt.model.GetReferenceModel(refId, refModelIndex) == 0) {
+    // The entry is a NAMED local in the debug info, between
+    // refModelIndex and modelProto; inlined into the test the three
+    // callee-saved registers come out rotated.
+    Graphics::ReferenceModelEntry* refModelEntry =
+        mModelArt.model.GetReferenceModel(refId, refModelIndex);
+
+    if (refModelEntry == 0) {
         return 0;
     }
 
@@ -935,12 +993,14 @@ xModelInstance::RefInstanceAnimation* World::xOGModel::GetRefAnimation(
 
     RefInstanceAnimation* animInst = referenceAnimations;
 
-    for (int c = 0; c < refInstanceOffset; c++) {
-        if (animInst == 0) {
-            break;
-        }
+    // A `while` with both conditions, not a `for` with a `break`: the
+    // break form lets mwcc count the loop with `mtctr`/`bdnz`, where
+    // retail keeps a real counter and tests it with `cmpw`.
+    int c = 0;
 
+    while (c < refInstanceOffset && animInst != 0) {
         animInst = animInst->next;
+        c++;
     }
 
     return animInst;
@@ -1203,6 +1263,158 @@ unsigned short World::xOGModel::UnbindRefModelAnimation(
     }
 
     return numSuccessfullyUnbound;
+}
+
+
+// The bone matrix is the joint transform composed with the inverse of
+// the skin's bind pose, brought back into xMat4x3 and then moved into
+// the root's frame. An index past the bone count just hands back the
+// root.
+void xModelGetBoneMatNoScale(xMat4x3& mat, const World::xOGModel& model,
+                             unsigned long index) {
+    const xMat4x3& root_mat = model.Mat;
+
+    if (index >= (unsigned long)xModelGetBoneCount(&model)) {
+        mat = root_mat;
+    } else {
+        // NEAR MISS, exact size, 4 of 56 words: r29 and r31 are the
+        // wrong way round. Retail puts the byte offset in r29 --
+        // overwriting the index, which is dead -- and the element
+        // address in r31; ours keeps the index and uses r31 for the
+        // product. Two orderings are excluded: declaring skinToBone
+        // first costs 5 more words, and dropping both locals costs 44.
+        //
+        // The ELEMENT address is a local and the joint base is not:
+        // retail computes the element address before the matrix is
+        // constructed and keeps it across that call.
+        Math::Matrix43* jointMatrices =
+            model.mModelArt.model.joints->joints;
+        Math::Matrix43* skinToBone =
+            &model.mModelArt.protoEnt->skelBlob->skel.skins
+                 ->skinToBone[index];
+        Math::Matrix43 m;
+
+        m = *skinToBone;
+        Math::Invert(m, m, (Math::HintInvertibleEnum)0);
+        PSMTXConcat(&jointMatrices[index], &m, &m);
+        xMat4x3FromNGMatrix(&mat, &m);
+
+        xVec3 offset;
+
+        xMat3x3RMulVec(&offset, &root_mat, &mat.pos);
+        v3add(&mat.pos, &offset, (xVec3*)&root_mat.pos);
+        xMat3x3Mul(&mat, &mat, &root_mat);
+    }
+}
+
+// The same body with the root supplied rather than taken from the
+// model's own matrix.
+void xModelGetBoneMatNoScale(xMat4x3& mat, const World::xOGModel& model,
+                             unsigned long index, const xMat4x3& root) {
+    if (index >= (unsigned long)xModelGetBoneCount(&model)) {
+        mat = root;
+    } else {
+        // NEAR MISS, exact size, 4 of 56 words: r29 and r31 are the
+        // wrong way round. Retail puts the byte offset in r29 --
+        // overwriting the index, which is dead -- and the element
+        // address in r31; ours keeps the index and uses r31 for the
+        // product. Two orderings are excluded: declaring skinToBone
+        // first costs 5 more words, and dropping both locals costs 44.
+        //
+        // The ELEMENT address is a local and the joint base is not:
+        // retail computes the element address before the matrix is
+        // constructed and keeps it across that call.
+        Math::Matrix43* jointMatrices =
+            model.mModelArt.model.joints->joints;
+        Math::Matrix43* skinToBone =
+            &model.mModelArt.protoEnt->skelBlob->skel.skins
+                 ->skinToBone[index];
+        Math::Matrix43 m;
+
+        m = *skinToBone;
+        Math::Invert(m, m, (Math::HintInvertibleEnum)0);
+        PSMTXConcat(&jointMatrices[index], &m, &m);
+        xMat4x3FromNGMatrix(&mat, &m);
+
+        xVec3 offset;
+
+        xMat3x3RMulVec(&offset, &root, &mat.pos);
+        v3add(&mat.pos, &offset, (xVec3*)&root.pos);
+        xMat3x3Mul(&mat, &mat, &root);
+    }
+}
+
+// NOT MATCHING, 228 against 188. Retail calls Math::Vector's
+// three-float constructor ON THE DESTINATION three times; every
+// spelling here builds a temporary on the stack and copies it, which
+// is ten instructions and a 96-byte frame instead of 48. Tried: the
+// rows typed as Math::Vector so the assignment is Vector-to-Vector,
+// and the same through a cast on the address. What is missing is
+// whatever makes mwcc elide the temporary into the member.
+//
+// Each row of the result is the matching row of `m` scaled by one
+// component, constructed in place -- the image calls Math::Vector's
+// three-float constructor on the destination three times.
+void xMat3x3MulScaleC(xMat3x3* o, const xMat3x3* m, float x, float y,
+                      float z) {
+    *(Math::Vector*)&o->left =
+        Math::Vector(m->left.x * x, m->left.y * x, m->left.z * x);
+    *(Math::Vector*)&o->up =
+        Math::Vector(m->up.x * y, m->up.y * y, m->up.z * y);
+    *(Math::Vector*)&o->at =
+        Math::Vector(m->at.x * z, m->at.y * z, m->at.z * z);
+}
+
+
+// NOT MATCHING, 260 against 288 -- 28 bytes, seven instructions.
+// Retail spells a `lis` for EVERY access to these four statics, even
+// for the two that sit four bytes apart at 806B4024 and 806B4028;
+// ours reaches three of them off one base with offsets 0, 4 and 8.
+// Giving them real definitions, with the initialised pair in .data
+// where the image has them, changes nothing. This is the same shared-
+// base blocker WAD01_1_1.cpp records against its constructors.
+//
+// The FPS estimate is a one-pole filter -- fps = fps * (1 - dt) + 1 --
+// which settles at the real frame rate. Every quarter second it either
+// raises the reference-animation budget by one or cuts it by the
+// fraction the frame rate is short by.
+//
+// `referenceAnimationLimit` is UNSIGNED: retail tests it against
+// 0xFFFFFFFF with `addis r0,r3,1` / `cmplwi r0,0xFFFF`, which is what
+// mwcc spells when a 32-bit constant will not fit `cmplwi`, and the
+// image holds -1 there.
+void xModelInstance::UpdateReferenceAnimationLODFPS(float timeDelta) {
+    static float refAnimLimitRefreshTimeElapsed;
+
+    referenceAnimationLODCurrentFPS =
+        referenceAnimationLODCurrentFPS * (1.0f - timeDelta) + 1.0f;
+    refAnimLimitRefreshTimeElapsed += timeDelta;
+
+    if (refAnimLimitRefreshTimeElapsed > 0.25f) {
+        if (referenceAnimationLODCurrentFPS >= referenceAnimationLODMinFPS) {
+            if (referenceAnimationLimit != 0xFFFFFFFF) {
+                referenceAnimationLimit++;
+            }
+        } else if (referenceAnimationLimit != 0) {
+            float percentOverFPSLimit =
+                referenceAnimationLODMinFPS - referenceAnimationLODCurrentFPS;
+
+            if (referenceAnimationLODMinFPS > 0.0f) {
+                percentOverFPSLimit /= referenceAnimationLODMinFPS;
+            }
+
+            unsigned int animationDecrementAmnt = (unsigned int)ceil(
+                referenceAnimationLimit * percentOverFPSLimit);
+
+            if (animationDecrementAmnt < referenceAnimationLimit) {
+                referenceAnimationLimit -= animationDecrementAmnt;
+            } else {
+                referenceAnimationLimit = 0;
+            }
+        }
+
+        refAnimLimitRefreshTimeElapsed = 0.0f;
+    }
 }
 
 // -- generated accessor part (gen_accessors.py) --------------------

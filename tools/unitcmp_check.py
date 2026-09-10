@@ -229,7 +229,7 @@ EXPECT = {
     "SB/GM/Engine/Core/x/xFX": (1, 1),
     "SB/GM/Engine/Core/x/xLight": (3, 3),
     "SB/GM/Engine/Core/x/xLightEffect": (2, 2),
-    "SB/GM/Engine/Core/x/xModel": (22, 29),
+    "SB/GM/Engine/Core/x/xModel": (22, 34),
     "SB/GM/Engine/Core/x/xRumbleEmitter": (4, 4),
     "SB/GM/Engine/Core/x/xRumbleManager": (1, 1),
     "SB/GM/Engine/Core/x/xTRC": (2, 2),

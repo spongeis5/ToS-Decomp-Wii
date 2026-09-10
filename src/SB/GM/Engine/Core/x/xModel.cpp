@@ -1137,42 +1137,44 @@ void World::xOGModel::SwapXModel(World::xOGModel& src) {
 void xModelUpdatePartsVis(World::xOGModel* modelInst) {
     xModelInstance::ModelVisibility* visModel = &modelInst->visModel;
 
-    if (visModel->visCount != 0 && !visModel->disableVisibilityAnim) {
-        for (unsigned char j = 0; j < visModel->visCount; j++) {
-            if ((visModel->visParts[j].stateMask & 0x24) && !(visModel->visParts[j].stateMask & 0x10)) {
-                if (!(visModel->visParts[j].stateMask & 0x08)) {
-                modelInst->mModelArt.model.HidePart(
-                    World::WorldPrivate::primaryScene, visModel->visParts[j].partIndex);
-                }
+    if (visModel->visCount == 0 || visModel->disableVisibilityAnim) {
+        return;
+    }
 
-                visModel->visParts[j].stateMask = (visModel->visParts[j].stateMask & 0xF8) | 0x08;
-            } else if (visModel->visParts[j].stateMask & 0x11) {
-                if (!(visModel->visParts[j].stateMask & 0x02)) {
-                modelInst->mModelArt.model.ShowPart(
-                    World::WorldPrivate::primaryScene, visModel->visParts[j].partIndex);
-                }
-
-                visModel->visParts[j].stateMask = (visModel->visParts[j].stateMask & 0xF2) | 0x02;
-            } else if (visModel->visParts[j].stateMask & 0x08) {
-                modelInst->mModelArt.model.ShowPart(
-                    World::WorldPrivate::primaryScene, visModel->visParts[j].partIndex);
-                visModel->visParts[j].stateMask = 0;
-            } else if (visModel->visParts[j].stateMask & 0x02) {
-                visModel->visParts[j].stateMask = 0;
+    for (unsigned char j = 0; j < visModel->visCount; j++) {
+        if ((visModel->visParts[j].stateMask & 0x24) && !(visModel->visParts[j].stateMask & 0x10)) {
+            if (!(visModel->visParts[j].stateMask & 0x08)) {
+            modelInst->mModelArt.model.HidePart(
+                World::WorldPrivate::primaryScene, visModel->visParts[j].partIndex);
             }
 
-            if (visModel->visParts[j].stateMask == 0) {
-                // Field by field, off ONE address: assigning the struct
-            // makes mwcc call a copy helper, and spelling the subscript
-            // twice makes it recompute the index twice.
-            xModelInstance::PartsVisibility* last =
-                &visModel->visParts[visModel->visCount - 1];
-
-            visModel->visParts[j].partIndex = last->partIndex;
-            visModel->visParts[j].stateMask = last->stateMask;
-                visModel->visCount--;
-                j--;
+            visModel->visParts[j].stateMask = (visModel->visParts[j].stateMask & 0xF8) | 0x08;
+        } else if (visModel->visParts[j].stateMask & 0x11) {
+            if (!(visModel->visParts[j].stateMask & 0x02)) {
+            modelInst->mModelArt.model.ShowPart(
+                World::WorldPrivate::primaryScene, visModel->visParts[j].partIndex);
             }
+
+            visModel->visParts[j].stateMask = (visModel->visParts[j].stateMask & 0xF2) | 0x02;
+        } else if (visModel->visParts[j].stateMask & 0x08) {
+            modelInst->mModelArt.model.ShowPart(
+                World::WorldPrivate::primaryScene, visModel->visParts[j].partIndex);
+            visModel->visParts[j].stateMask = 0;
+        } else if (visModel->visParts[j].stateMask & 0x02) {
+            visModel->visParts[j].stateMask = 0;
+        }
+
+        if (visModel->visParts[j].stateMask == 0) {
+            // Field by field, off ONE address: assigning the struct
+        // makes mwcc call a copy helper, and spelling the subscript
+        // twice makes it recompute the index twice.
+        xModelInstance::PartsVisibility* last =
+            &visModel->visParts[visModel->visCount - 1];
+
+        visModel->visParts[j].partIndex = last->partIndex;
+        visModel->visParts[j].stateMask = last->stateMask;
+            visModel->visCount--;
+            j--;
         }
     }
 }

@@ -46,6 +46,7 @@ class Builder;
 class ModelInstanceParamData;
 class ModelPartDefinition;
 class SkeletonBlobEntity;
+class Scene;
 }  // namespace Graphics
 
 class xVec3 {
@@ -128,6 +129,8 @@ class Model {
 public:
     ReferenceModelEntry* GetReferenceModel(unsigned long long uid,
                                            unsigned short& refIndex);
+    void HidePart(Scene* scene, unsigned int part);
+    void ShowPart(Scene* scene, unsigned int part);
 
     Matrix43 rootTransform;
     unsigned short visibleCount;
@@ -333,6 +336,11 @@ public:
 namespace World {
 
 class xOGModel;
+
+class WorldPrivate {
+public:
+    static Graphics::Scene* primaryScene;
+};
 
 class ModelInstanceArticle {
 public:
@@ -947,6 +955,77 @@ void World::xOGModel::SwapXModel(World::xOGModel& src) {
     src.nextReferenceAnimationLODUpdate = 0;
     src.referenceAnimations = 0;
 }
+
+
+// NEAR MISS, 332 against 336: ONE instruction short, and it is the
+// second guard. Retail spells it `beq +8` into the body followed by an
+// unconditional branch out; every spelling here collapses to a single
+// inverted `bne`. Four are already excluded, do not redo them:
+//     if (disable) return;
+//     if (disable) return; else { loop }
+//     if (disable == 0) { loop }
+//     if (visCount != 0 && !disable) { loop }
+// Everything after that one word is identical, so the 74 differing
+// words are the shift it causes and not 74 differences.
+//
+// AND TWO THINGS THAT WERE WRONG AND ARE NOW RIGHT. Assigning the
+// struct -- visParts[j] = visParts[n] -- makes mwcc call an
+// out-of-line copy helper for a two-byte POD, and spelling the
+// subscript twice makes it recompute the index twice; retail reads one
+// address and spells two lbz/stb pairs off it.
+//
+// Four states, and the two masks say which: 0x24 with 0x10 clear means
+// hide, 0x11 means show, and the bare 0x08 / 0x02 cases only settle the
+// flags. A part whose flags come out zero is finished with, so the last
+// one is swapped into its slot and the count drops.
+//
+// NO `part` OR `state` LOCAL. The debug info names only visModel and j,
+// and writing the subscript out each time is what puts the address in
+// r30 and the byte in r3 the way retail has them; hoisting either into
+// a variable of its own shifts every callee-saved register one slot.
+void xModelUpdatePartsVis(World::xOGModel* modelInst) {
+    xModelInstance::ModelVisibility* visModel = &modelInst->visModel;
+
+    if (visModel->visCount != 0 && !visModel->disableVisibilityAnim) {
+        for (unsigned char j = 0; j < visModel->visCount; j++) {
+            if ((visModel->visParts[j].stateMask & 0x24) && !(visModel->visParts[j].stateMask & 0x10)) {
+                if (!(visModel->visParts[j].stateMask & 0x08)) {
+                modelInst->mModelArt.model.HidePart(
+                    World::WorldPrivate::primaryScene, visModel->visParts[j].partIndex);
+                }
+
+                visModel->visParts[j].stateMask = (visModel->visParts[j].stateMask & 0xF8) | 0x08;
+            } else if (visModel->visParts[j].stateMask & 0x11) {
+                if (!(visModel->visParts[j].stateMask & 0x02)) {
+                modelInst->mModelArt.model.ShowPart(
+                    World::WorldPrivate::primaryScene, visModel->visParts[j].partIndex);
+                }
+
+                visModel->visParts[j].stateMask = (visModel->visParts[j].stateMask & 0xF2) | 0x02;
+            } else if (visModel->visParts[j].stateMask & 0x08) {
+                modelInst->mModelArt.model.ShowPart(
+                    World::WorldPrivate::primaryScene, visModel->visParts[j].partIndex);
+                visModel->visParts[j].stateMask = 0;
+            } else if (visModel->visParts[j].stateMask & 0x02) {
+                visModel->visParts[j].stateMask = 0;
+            }
+
+            if (visModel->visParts[j].stateMask == 0) {
+                // Field by field, off ONE address: assigning the struct
+            // makes mwcc call a copy helper, and spelling the subscript
+            // twice makes it recompute the index twice.
+            xModelInstance::PartsVisibility* last =
+                &visModel->visParts[visModel->visCount - 1];
+
+            visModel->visParts[j].partIndex = last->partIndex;
+            visModel->visParts[j].stateMask = last->stateMask;
+                visModel->visCount--;
+                j--;
+            }
+        }
+    }
+}
+
 
 // -- generated accessor part (gen_accessors.py) --------------------
 

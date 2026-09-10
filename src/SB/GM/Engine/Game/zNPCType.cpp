@@ -67,7 +67,7 @@ public:
 void zNPCType::Setup(eNPCType type, Sext::AnimationSet::eAnimSetType animSet,
                      const char* name, zNPCAllocateFunction allocate,
                      unsigned int tid) {
-    int off = 0;
+    unsigned int i = 0;
 
     npcTypeEnum = type;
     animSetType = animSet;
@@ -80,7 +80,15 @@ void zNPCType::Setup(eNPCType type, Sext::AnimationSet::eAnimSetType animSet,
     perceptionCreator = 0;
     fxCreator = 0;
 
-    for (; off < 8; off += 4) {
-        *(CreatorI**)((char*)extraModelCreator + off) = 0;
+    // NEAR MISS, 7 of 19 words, exact size. Retail materialises the
+    // zero once and copies it into the index with `mr`, and puts the
+    // index in r9 with the zero in r10; ours emits two `li 0` and has
+    // them the other way round. Three spellings tie or lose: `int off`
+    // (7), `unsigned int i` declared in the for (12), and assigning i
+    // in the for with the declaration above it (12). The debug info
+    // names it `i` and types it unsigned int, which is why it is
+    // spelled that way even though the type alone changes nothing.
+    for (; i < 8; i += 4) {
+        *(CreatorI**)((char*)extraModelCreator + i) = 0;
     }
 }

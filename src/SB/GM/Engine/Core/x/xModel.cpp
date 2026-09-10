@@ -52,6 +52,31 @@ class SkeletonBlobEntity;
 class Scene;
 }  // namespace Graphics
 
+namespace Math {
+
+class DataType {
+public:
+    float x;
+    float y;
+    float z;
+    float w;
+};
+
+class Vector4 {
+public:
+    DataType data;
+};
+
+class Matrix33 {
+public:
+    Vector4 v[3];
+};
+
+class Matrix43 : public Matrix33 {
+};
+
+}  // namespace Math
+
 class xVec3 {
 public:
     xVec3& operator=(const xVec3& other);
@@ -82,26 +107,6 @@ public:
 
 namespace Graphics {
 
-class DataType {
-public:
-    float x;
-    float y;
-    float z;
-    float w;
-};
-
-class Vector4 {
-public:
-    DataType data;
-};
-
-class Matrix33 {
-public:
-    Vector4 v[3];
-};
-
-class Matrix43 : public Matrix33 {
-};
 
 class Renderable3DLink {
 public:
@@ -135,8 +140,10 @@ public:
     void HidePart(Scene* scene, unsigned int part);
     void ShowPart(Scene* scene, unsigned int part);
     void Hide(Scene* scene);
+    void SetChildTransform(int index, const Math::Matrix43& xform);
+    void CommitWorldTransformAttached();
 
-    Matrix43 rootTransform;
+    Math::Matrix43 rootTransform;
     unsigned short visibleCount;
     unsigned short childTransformCount;
     unsigned short renderableCount;
@@ -147,7 +154,7 @@ public:
     ModelMorphWeightBuffer* morphWeights;
     ModelPrototype* modelProto;
     Geometry** geoms;
-    Matrix43* childTransforms;
+    Math::Matrix43* childTransforms;
     unsigned short* childTransformParents;
     unsigned short* renderableTransformMap;
     RefModelInstanceChildXform* refModelInstanceChildXforms;
@@ -162,7 +169,7 @@ public:
 
     Builder** builders;
     unsigned short* renderableGeomMap;
-    Matrix43* childTransforms;
+    Math::Matrix43* childTransforms;
     unsigned short* childTransformParents;
     unsigned short* renderableTransformMap;
     unsigned int instanceParamCount;
@@ -210,7 +217,7 @@ public:
     signed char* transformToGroupMap;
     bool userScale;
     unsigned char _pad0[0x3C - 0x39];
-    Matrix43* hackEvalResults;
+    Math::Matrix43* hackEvalResults;
 };
 
 class BlobEntity {
@@ -384,6 +391,9 @@ class xOGModel : public xModelInstance {
 public:
     void UpdateRender();
     void SwapXModel(xOGModel& src);
+    unsigned short UnbindRefModelAnimation(unsigned long long refId,
+                                           unsigned short firstInstanceIndex,
+                                           int numInstances);
     void DeferDestroy();
     void Destroy();
     int AllocAnimationInstances();
@@ -399,7 +409,7 @@ public:
     void* morphOverride;
     float morphTime;
     float currentMorphTime;
-    Graphics::Vector4 colorMultiplier;
+    Math::Vector4 colorMultiplier;
     ModelInstanceArticle mModelArt;
     xOGModelUpdater* updater;
     void* updateParent;
@@ -1118,6 +1128,81 @@ void World::xOGModel::DeferDestroy() {
     fn = &World::xOGModel::Destroy;
 
     (this->*fn)();
+}
+
+
+// A negative count means `all the instances from here on`. Each
+// instance that still holds an animation gives its reference back, has
+// its child transforms reset from the prototype, and is counted; when
+// the model is holding none at all the instances themselves go too.
+// The count comes back UNMASKED in retail -- `mr r3,r28`, not a
+// `rlwinm` -- so the return type is the counter's own unsigned short
+// and not an int it would have to be widened into.
+unsigned short World::xOGModel::UnbindRefModelAnimation(
+    unsigned long long refId, unsigned short firstInstanceIndex,
+    int numInstances) {
+    unsigned short refModelIndex = 0;
+    Graphics::ReferenceModelEntry* refModelEntry =
+        mModelArt.model.GetReferenceModel(refId, refModelIndex);
+
+    // Read BEFORE the null check: retail's `lhz` sits above the branch,
+    // so the assignment is above it in source too.
+    int numRefChildTransforms = refModelEntry->numChildTransforms;
+
+    if (refModelEntry == 0) {
+        return 0;
+    }
+
+    if (numInstances < 0) {
+        numInstances = refModelEntry->numInstances - firstInstanceIndex;
+    }
+
+    RefInstanceAnimation* refInstanceAnimation =
+        GetRefAnimation(refId, firstInstanceIndex);
+    unsigned short numSuccessfullyUnbound = 0;
+
+    for (unsigned short instance = firstInstanceIndex;
+         instance < firstInstanceIndex + (unsigned short)numInstances;
+         instance++) {
+        xAnimFile* animFile = refInstanceAnimation->animFile;
+
+        if (animFile != 0) {
+            RemoveRefAnimation(GetRefAnimationEntry(animFile), 1);
+            boundRefModelInstanceAnimationCount--;
+            numSuccessfullyUnbound++;
+            refInstanceAnimation->animFile = 0;
+
+            Math::Matrix43* modelProtoChildTransforms =
+                mModelArt.model.modelProto->childTransforms;
+            int refInstanceChildTransformOffset =
+                refModelEntry->childTransformOffset
+                + refModelEntry->numChildTransforms * instance;
+
+            // The explicit guard is retail's: it spells `cmpwi`/`ble`
+            // AND the loop's own bottom test, which a bare `for` does
+            // not.
+            int i = 0;
+
+            if (numRefChildTransforms > 0) {
+                for (; i < numRefChildTransforms; i++) {
+                    mModelArt.model.SetChildTransform(
+                        refInstanceChildTransformOffset + i,
+                        modelProtoChildTransforms[
+                            refInstanceChildTransformOffset + i]);
+                }
+            }
+        }
+
+        refInstanceAnimation = refInstanceAnimation->next;
+    }
+
+    mModelArt.model.CommitWorldTransformAttached();
+
+    if (boundRefModelInstanceAnimationCount == 0) {
+        DeallocAnimationInstances();
+    }
+
+    return numSuccessfullyUnbound;
 }
 
 // -- generated accessor part (gen_accessors.py) --------------------

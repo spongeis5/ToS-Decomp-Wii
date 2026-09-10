@@ -38,17 +38,48 @@
 // value and costs six words, because retail's fill increments the
 // register the count was loaded into.
 //
-// NEAR MISS, InitJumpParams at 24 of 26 words. Retail loads the
-// height, stores it, loads the air time and stores that, using one
-// register twice; ours loads both before storing either, which is
-// three words in a different order and nothing else. Tried and no
-// better: one reused float local, a const float* over the pair, a
-// JumpData copied whole (23), two separate ifs (23), two conditional
-// expressions (18), the null case first (20), a volatile view on the
-// second read, and a volatile view on both stores. What is left to
-// find is what stops the compiler hoisting the second load above the
-// first store, since both are floats and it has decided they cannot
-// alias.
+// InitJumpParams was a near miss at 3 of 26 words for as long as the two
+// assignments were the thing being rewritten. Retail loads the height,
+// stores it, loads the air time and stores that, reusing one register;
+// every spelling of those two statements loads both before storing
+// either. The lever is not in the statements: it is the TYPE. mwcc
+// hoists a load through `asset` above a store through `this` while the
+// class it reads is a POD, and stops when that class is not one. The
+// declared JumpData constructor below -- never called, so nothing is
+// emitted for it -- is the whole difference, and the function is
+// byte-identical with the two assignments written the obvious way.
+//
+// What that cost, so nobody measures it again. A constructor, a
+// destructor, a copy constructor or a copy assignment operator on
+// Sext::JumpData each match. A plain member function, a static member
+// function, static data, a typedef or an enum in the same class each
+// leave the same three words wrong -- so the lever is POD-ness, not
+// "the class has members". The same constructor on Sext::PlayerTemplate
+// matches too and keeps the other two functions: the bytes do not say
+// WHICH of the two classes on the access path is the non-POD one, only
+// that one of them is. On Sext::NPC_Combat it costs 94 of
+// InitAttackTable's 105 words, so that class IS a POD in retail's
+// source. The store side does not matter at all: a constructor on
+// zJumpParams, zCombatParams, zCombatAttack, hitBoneInfo or xVec3
+// changes nothing. Neither do 28 spellings of the two assignments --
+// temporaries, local pointers and references over either side, const
+// and char* casts, separate blocks, a comma expression -- nor nine
+// #pragma settings; `scheduling off` (11 of 26) and `optimization_level
+// 2` (14) are worse, and an inlined copy helper is worse by 31 words
+// and is not inlined at all. A volatile cast on the first store AND the
+// second read matches as well; on either alone it does not, which is
+// the same ordering fact spelled in a way that is not the source.
+//
+// The DWARF cannot say which of the two classes carries the
+// constructor. Across every composite DIE in the image its class
+// children are 15,229 members and 1,534 inheritances and ZERO member
+// functions, so a constructor is not something this debug info records.
+// It does record inheritance, so "neither class has a base" IS a fact.
+//
+// The three float constants are masked by relocation, so the match does
+// not compare them: read straight out of .rodata they are 2.0999999046
+// at 0x8068D4B0, 0.7749999762 at 0x8068D4B4 and 0.5 at 0x8068D2E0, all
+// three of three, which is what the source says.
 
 #include "SB/GM/Engine/Game/zPlayerTemplate.pool.h"
 
@@ -115,6 +146,8 @@ public:
 
 class JumpData {
 public:
+    JumpData();
+
     float Height;
     float AirTime;
 };

@@ -53,15 +53,30 @@
 // a value mwcc must materialise. The materialised temporary is a
 // consequence of the call existing, not its cause.
 //
-// NEAR MISS -- Effect::FindFeature, 20 of 23 words and ONE instruction
-// short. Retail computes `lod->features + lod->count` TWICE, once into
-// r8 for the first loop's bound and again into r4 for the second;
-// ours computes it once and reuses it. Every other word, both loops and
-// the mask fold between them, is the same. So the two loops do not
-// share the expression in the original, and the question is what makes
-// mwcc keep them apart -- the same common-subexpression question that
-// zSoundWiimoteSpeaker's Init turned out to hinge on, though the lever
-// there was a third local and there is no allocation here to hold one.
+// Effect::FindFeature MATCHES. The note that stood here had the
+// diagnosis the wrong way round -- it said retail computed the bound
+// twice and we computed it once -- and the truth is the reverse: OURS
+// respelled `lod->features + lod->count` in both loop conditions, and
+// retail forms an `end` cursor FROM `it`.
+//
+// EACH LOOP DECLARES BOTH CURSORS IN ITS OWN BLOCK, which the debug
+// info states outright:
+//
+//   local line 768  end  Feature*  r8     local line 776  end  Feature*  r4
+//   local line 768  it   Feature*  r7     local line 776  it   Feature*  r3
+//
+// The prologue loads `lod->features` into r3 and `lod->count * 12` into
+// r4 once, so the second loop's whole setup is `add r4,r3,r4` -- the
+// one instruction we were short. tools/aligndiff.py found it: 20 of 23
+// words differed and every one after word 13 was retail's shifted by
+// one, so it was never twenty problems.
+//
+// Measured over twelve spellings: `end` written as
+// `lod->features + lod->count` instead of `it + lod->count` costs 14
+// words, and `it < end` instead of `it != end` costs 32. `featureMask`
+// as `int` rather than the `unsigned int` the DWARF names is INERT,
+// and so is a `while` in an explicit block instead of the `for` --
+// six of the twelve are byte-identical.
 
 typedef unsigned long long uid;
 
@@ -221,19 +236,18 @@ void Graphics::MaterialDepot::RemoveEffect(Effect* effect) {
 }
 
 const Graphics::Effect::Feature* Graphics::Effect::FindFeature(const LOD* lod,
-                                                               int mask) const {
-    const Feature* f;
-    int all = 0;
+                                                               int featureSet) const {
+    unsigned int featureMask = 0;
 
-    for (f = lod->features; f != lod->features + lod->count; f++) {
-        all |= f->flags;
+    for (const Feature* it = lod->features, *end = it + lod->count; it != end; it++) {
+        featureMask |= it->flags;
     }
 
-    mask &= all;
+    featureSet &= featureMask;
 
-    for (f = lod->features; f != lod->features + lod->count; f++) {
-        if ((mask & f->flags) == mask) {
-            return f;
+    for (const Feature* it = lod->features, *end = it + lod->count; it != end; it++) {
+        if ((featureSet & it->flags) == featureSet) {
+            return it;
         }
     }
 

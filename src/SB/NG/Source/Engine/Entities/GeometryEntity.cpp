@@ -331,10 +331,18 @@ public:
         void LoadParam(void* data, int* dataOffset, const MaterialParam& param,
                        int offset, int size);
 
+        // A PARAMETER RETAIL'S DWARF LISTS AS A `local` IS A LOCAL
+        // COPY. Used directly, a parameter's live range begins where
+        // it is first READ, which ranks it below the locals; copied
+        // at the top its range starts at entry. That one line took
+        // this from 10 of 32 words to byte-identical -- the same
+        // lever that landed xOGModel::GetRefAnimation.
         template <class F>
-        void LoadParamData(Graphics::Effect::ParamData* data,
+        void LoadParamData(Graphics::Effect::ParamData* idata,
                            const MaterialParam* iparams, int paramCount,
                            const F* formats) {
+            Graphics::Effect::ParamData* data = idata;
+
             int dataOffset = 0;
 
             for (int i = 0; i < paramCount; i++) {
@@ -477,15 +485,20 @@ void World::GeometryEntity::ReserveBuilderData(BuilderInfo& info,
     info.materialEnt = (MaterialEntity*)materialHandle->entity;
 
     const Graphics::Effect* effect = info.materialEnt->material.effect;
+    // ReserveBuilderData is 9 of 49 words, down from 16: retail reads
+    // `effect->params` ONCE into a register and indexes it twice, and
+    // spelling it twice reloads it. Not finished -- what is left was
+    // not diagnosed before the agent working it was cut off.
+    const Graphics::Effect::ParamFormatTable* params = effect->params;
 
     int geomParamDataSize =
-        Align(effect->params[Graphics::Effect::PARAM_GEOM].dataSize, 16);
+        Align(params[Graphics::Effect::PARAM_GEOM].dataSize, 16);
     ShaderEntity::ParamCargo::GetCreateInfo(info.geomParamCreateInfo,
                                             asset.geomParams,
                                             asset.geomParamCount);
 
     int rendParamDataSize =
-        Align(effect->params[Graphics::Effect::PARAM_REND].dataSize, 16);
+        Align(params[Graphics::Effect::PARAM_REND].dataSize, 16);
     ShaderEntity::ParamCargo::GetCreateInfo(info.rendParamCreateInfo,
                                             asset.rendParams,
                                             asset.rendParamCount);

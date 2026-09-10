@@ -62,21 +62,82 @@
 // comes first, which is mwcc allocating locals in reverse declaration
 // order -- declaring them in source order is what puts them there.
 //
+// Not a sixth shape -- none of what follows moves a byte -- but
+// recovered and worth keeping. The DWARF names both temporaries and
+// both scopes. `tagswapstorage` is declared at line 450 and `deptswapstorage` at 462, each between its
+// loop's zeroing store (449, 461) and its `while` (451, 463) -- so they
+// are in the FOR body, not the while body, and each takes its whole for
+// statement as its range. The counters are i, j and k at 447, 459 and
+// 471, three declarations as the register pair already said. Retail's
+// line numbers also skeleton the file: 447 for, 448 brace, 449 store,
+// 450 declaration, 451 while, 452 brace, 453-455 the swap, 456-457 the
+// braces, 458 blank, and the same again at 459 and at 471. That is
+// Allman, which is what .clang-format asks for and what this tree does
+// not do -- 107 of its 112 game-code files brace K&R -- so it is
+// recorded here and not adopted.
+//
 // NEAR MISS -- _Init, three words of 83, and all three are the same
-// thing: a branch to the 12-byte operator=. tools/fndiff.py aligns 83
-// of retail's 83 instruction words, 100%, so no instruction differs;
-// what unitcmp counts is the NAME the relocation carries. mwld folded
-// that weak body onto the identical one for Graphics::Sampler, and the
-// only name the image has at 0x80012F90 is
-// `__as__Q28Graphics7SamplerFRCQ28Graphics7Sampler` where ours is
-// `__as__Q26Memory9TagLookupFRCQ26Memory9TagLookup`. The 16-byte
-// operator= for DeptLookup was NOT folded -- retail keeps it at
-// 0x801EBD70, in the chunk right after this split, and it comes out
-// byte-identical here -- so the three calls that check out and the
-// three that do not differ by exactly one thing, the fold. No spelling
-// renames a folded symbol; the same object also carries our own weak
-// TagLookup instance, which unitcmp reports as EXTRA for the same
-// reason.
+// thing: the NAME on a relocation, not an instruction. `tools/unitcmp.py
+// <unit> -v` prints ours beside retail's and 83 of 83 words are equal
+// once the 12 relocated fields are masked; what unitcmp still counts is
+// that three of the six masked REL24s carry a symbol retail's resolved
+// displacement does not land on. Ours say
+// `__as__Q26Memory9TagLookupFRCQ26Memory9TagLookup`; retail's three
+// reach 0x80012F90, and the only name the image has there is
+// `__as__Q28Graphics7SamplerFRCQ28Graphics7Sampler`. Graphics::Sampler
+// is 0xC bytes like TagLookup, so their implicit operator= bodies are
+// the same seven words and mwld kept one.
+//
+// This is reloc_audit.py's SECOND reading -- a folded body, not a wrong
+// target -- and it was measured rather than assumed, three ways:
+//
+//   * `__as__Q26Memory9TagLookupFRCQ26Memory9TagLookup` occurs 0 times
+//     among the image's 40,616 named symbols, while DeptLookup's
+//     occurs once. A wrong target would have the name somewhere else.
+//   * 0x80012F90 is the ONLY function in the image with that body, and
+//     48 call sites reach it -- from zScheduler, Domains::ActUnloadAll,
+//     zQueue<AnimSetup::AnimSoundEntry,1024>, hkSimplexSolverSolve,
+//     GHashSetBase<...> and this function. Those classes share nothing
+//     but a twelve-byte memberwise copy.
+//   * The folding is confined to WEAK bodies: 95 groups of identical
+//     bodies of 64 bytes or less survive under more than one name, and
+//     0 of the 95 share an address; no address in the image carries two
+//     sized function names.
+//
+// DeptLookup's operator= was NOT folded -- 0x10 bytes make a nine-word
+// body no earlier unit had emitted -- so retail keeps it at 0x801EBD70,
+// right after this function, and it comes out byte-identical here. The
+// three calls that check out and the three that do not differ by
+// exactly one thing, the fold.
+//
+// Our own TagLookup instance is byte-identical to 0x80012F90 and
+// STB_WEAK, so mwld folds ours onto the same copy; that is why unitcmp
+// reports it EXTRA, and why the EXTRA is correct rather than a defect.
+// No spelling reaches it: the mangled name follows from the type, the
+// type follows from the table, and the DWARF names that table's element
+// type TagLookup. Naming the survivor instead would be a lie for the
+// link, which is the answer NOTES.md already gives for zPlayerRun and
+// zPlayerFall.
+//
+// 27 spellings measured with tools/sweep_src.py, all 27 compiled: 16
+// tie at three words -- byte-identical output -- and 11 cost words.
+// None of the 16 is a lever here. Four are the temporary's placement,
+// inside the `while`, in the `for` body before or after the zeroing
+// store, or at the top of the function; three are the condition, as
+// `!(== )`, with the load cast to int, or with the counter cast to
+// eMemMgrTag; three are constants, the loop bounds as 103 and 5 rather
+// than the enumerators, the stack depth as an enumerator rather than 8,
+// and the stack's fill as 103 rather than eMemMgrTag_NumTags; two are
+// the counters named i/j/k rather than i/i/i, with and without the
+// declaration move; three are the type, TagLookup as a struct, with int
+// fields instead of enum fields, and with a hand-written operator=
+// whose body matches the implicit one; the sixteenth is the spelling on
+// disk. The 11 that cost are recorded so they are not retried: `do {}
+// while` +70 and `for (;;)` with a `break` +30, each at all four
+// placements, the swap index hoisted into a local +65, the entry
+// reached through a reference +76, and the department temporary
+// declared before the tag temporary +4 -- which is the reverse-order
+// allocation two paragraphs up, measured from the other side.
 
 namespace IO {
 
@@ -217,29 +278,27 @@ void Memory::MemTracker::_SetDeptMaxMem(int deptID, int maxMem) {
 void Memory::MemTracker::_Init() {
     for (int i = 0; i < eMemMgrTag_NumTags; i++) {
         sizePerTag[i] = 0;
+        TagLookup tagswapstorage;
 
         while (TagLookupTable[i].tagID != i) {
-            TagLookup tagTemp;
-
-            tagTemp = TagLookupTable[TagLookupTable[i].tagID];
+            tagswapstorage = TagLookupTable[TagLookupTable[i].tagID];
             TagLookupTable[TagLookupTable[i].tagID] = TagLookupTable[i];
-            TagLookupTable[i] = tagTemp;
+            TagLookupTable[i] = tagswapstorage;
         }
     }
 
-    for (int i = 0; i < DeptTag_NumDepts; i++) {
-        sizePerDept[i] = 0;
+    for (int j = 0; j < DeptTag_NumDepts; j++) {
+        sizePerDept[j] = 0;
+        DeptLookup deptswapstorage;
 
-        while (TagLookupTable[i].tagID != i) {
-            DeptLookup deptTemp;
-
-            deptTemp = DeptLookupTable[DeptLookupTable[i].deptID];
-            DeptLookupTable[DeptLookupTable[i].deptID] = DeptLookupTable[i];
-            DeptLookupTable[i] = deptTemp;
+        while (TagLookupTable[j].tagID != j) {
+            deptswapstorage = DeptLookupTable[DeptLookupTable[j].deptID];
+            DeptLookupTable[DeptLookupTable[j].deptID] = DeptLookupTable[j];
+            DeptLookupTable[j] = deptswapstorage;
         }
     }
 
-    for (int i = 0; i < 8; i++) {
-        tagStack[i] = eMemMgrTag_NumTags;
+    for (int k = 0; k < 8; k++) {
+        tagStack[k] = eMemMgrTag_NumTags;
     }
 }

@@ -16,7 +16,7 @@
 // The ActionScript names are the translation unit's pool, hence the
 // generated header first.
 //
-// MEASURED: 15 of the 19 functions this object defines are
+// MEASURED: 18 of the 19 functions this object defines are
 // byte-identical. Nine of the twenty-eight the unit holds are not
 // written yet -- HandleEvent (1,808 bytes), Setup, Update, SetPowerup,
 // SetPowerupTimer, HappinessPointsChanged, ShowTimer, UpdateTimer and
@@ -32,17 +32,31 @@
 // wants --whole; the tool says so in its own help and it is easy to
 // read past.
 //
-// NEAR MISS -- SetHealth, 19 of 20 words and one instruction short, and
-// SetPlanktonShakeEnergy and SetPlanktonStunEnergy, 20 of 23 each and
-// also one short. All three are the same missing instruction: retail
-// narrows the incoming float parameter with an explicit `frsp` before
-// using it -- storing the rounded value to the member and the raw f1 to
-// the argument slot, and in the Plankton pair comparing the rounded
-// one. Ours uses f1 for both and never narrows. Swapping the order of
-// the two stores changes nothing but the length, and routing the value
-// through a named float local does not survive either -- mwcc folds it.
-// So something else makes the compiler treat the parameter as needing a
-// narrowing, and that is what to find.
+// LEVER -- TAKING A FLOAT PARAMETER'S ADDRESS MAKES EVERY READ OF IT
+// `frsp`. SetHealth and the Plankton pair were each one instruction
+// short of retail and the instruction was the same narrowing: `frsp
+// f0,f1` before the member store, `frsp f1,f1` before the compare. It
+// is not a double anywhere -- the mangled names end in `Ff`, so the
+// parameter is a float, and no constant, cast or intermediate local
+// produces it. What produces it is `&param`. Retail passes the address
+// of the PARAMETER as the float* argument (`addi r6,r1,8`, and the
+// DWARF puts the parameter itself at frame +8, homed by an `stfs
+// f1,8(r1)` the line table attributes to the opening brace, i.e. the
+// prologue). Once a float parameter is addressable, mwcc keeps the
+// incoming f1 rather than reloading the slot, but still narrows it to
+// what the slot holds -- a redundant `frsp` on every later read.
+//
+// SetBossMeter is the control and it is why this was invisible: same
+// shape, float parameter compared and stored, but it passes
+// `&bossMeter`, the MEMBER's address. No address is taken of the
+// parameter, so it is never homed, the DWARF names no frame slot for
+// it, there is no `frsp`, and the function has matched all along.
+//
+// So a `float args[1]` scratch array is the wrong shape whenever the
+// one value in it is a float parameter: retail passed the parameter.
+// The array survives where the value is CONVERTED (SetMaxHealth,
+// SetPuckAmmo, ShowCounter -- all int parameters) because there the
+// float has to live somewhere.
 //
 // NEAR MISS -- ShowHud, 25 of 37 words. Retail tests the scene's game
 // mode against a constant, then the player, then a byte at +0x120 in
@@ -326,13 +340,11 @@ void zHudSB::SetAllHudInvisible() {
     }
 }
 
-void zHudSB::SetHealth(float h) {
-    float args[1];
+// The parameter shadows the member: the DWARF names both `health`.
+void zHudSB::SetHealth(float health) {
+    this->health = health;
 
-    args[0] = h;
-    health = h;
-
-    Scaleform::SFWrap_InvokeASFunc(hudPlayer, "SetHealth", 1, args);
+    Scaleform::SFWrap_InvokeASFunc(hudPlayer, "SetHealth", 1, &health);
 }
 
 void zHudSB::SetMaxHealth(int max) {
@@ -352,28 +364,29 @@ void zHudSB::SetPuckAmmo(int ammo) {
     Scaleform::SFWrap_InvokeASFunc(hudPlayer, "SetPuckAmmo", 1, args);
 }
 
-void zHudSB::SetPlanktonShakeEnergy(float energy) {
-    float args[1];
-
-    args[0] = energy;
-
-    if (energy != shakeEnergy) {
-        shakeEnergy = energy;
-
-        Scaleform::SFWrap_InvokeASFunc(hudPlayer, "H", 1, args);
+// The guard is byte-identical written as the wrapper `if (n !=
+// shakeEnergy) { ... }`, so the bytes do not say which was written.
+// Retail's line table does: the compare is line 497, the member store
+// 499 and the call 500, which leaves 498 blank and only fits a guard
+// that ended on 497.
+void zHudSB::SetPlanktonShakeEnergy(float n) {
+    if (n == shakeEnergy) {
+        return;
     }
+
+    shakeEnergy = n;
+
+    Scaleform::SFWrap_InvokeASFunc(hudPlayer, "H", 1, &n);
 }
 
-void zHudSB::SetPlanktonStunEnergy(float energy) {
-    float args[1];
-
-    args[0] = energy;
-
-    if (energy != stunEnergy) {
-        stunEnergy = energy;
-
-        Scaleform::SFWrap_InvokeASFunc(hudPlayer, "T", 1, args);
+void zHudSB::SetPlanktonStunEnergy(float n) {
+    if (n == stunEnergy) {
+        return;
     }
+
+    stunEnergy = n;
+
+    Scaleform::SFWrap_InvokeASFunc(hudPlayer, "T", 1, &n);
 }
 
 void zHudSB::SetPlanktonAmmo(int ammo) {

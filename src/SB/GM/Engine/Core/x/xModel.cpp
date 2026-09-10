@@ -434,6 +434,7 @@ EntityManager* GetEntityManager();
 class ModelInstanceArticle {
 public:
     void Detach();
+    void Destroy();
     void Deactivate();
 
     unsigned int projectShadowCache;
@@ -1216,6 +1217,86 @@ void xModelSetLightKit(World::xOGModel* minst,
 // Everything the model holds is given back and then the object destroys
 // itself through a pointer to its own member -- the constant in the
 // image names xOGModel::Destroy, delta 0 and not virtual.
+// TRIAGE, tools/aligndiff.py: NONE of this unit's remaining near misses
+// is a shift. Every one of them has its longest aligned run at any
+// offset from -6 to +6 covering 0 or 1 unmasked words, so the word
+// counts mean what they look like and there is no single missing
+// instruction hiding behind a large number. What is left here is
+// register allocation and, for SwapXModel, a different shape entirely
+// -- retail is 260 bytes to our 220 and uses mtctr/bdnz to copy a run
+// of fields that we store one at a time.
+//
+// STILL UNWRITTEN: UpdateReferenceAnimationLOD (1,268 bytes, the
+// largest in the unit) and xModelPoolInit (120). PoolInit is BLOCKED:
+// it calls PushMemory and reads memWatermark, both in WAD00.cpp's
+// anonymous namespace, and CodeWarrior mangles those with the
+// TRANSLATION UNIT's basename -- from xModel.cpp they would come out
+// @unnamed@xModel_cpp@ and name symbols the image does not have.
+// UpdateReferenceAnimationLOD is not blocked: its debug info carries
+// twenty named locals with registers and declaration lines, and
+// `python tools/brief.py 0x80039730 --map` prints its 92-line
+// statement skeleton. It is a linked-list stitch across four lexical
+// blocks and wants a session of its own.
+
+class hkBaseObject {
+public:
+    ~hkBaseObject();
+};
+
+namespace Memory {
+
+enum GlobalHeapEnum {
+    GlobalHeapCached = 0,
+    GlobalHeapUncached = 1,
+    GlobalHeapDefault = 2
+};
+
+void FreeGlobalHeap(void* block, GlobalHeapEnum heap);
+
+}  // namespace Memory
+
+// const H& and the copy into a local are what WAD00_1.cpp measured:
+// the heap is read where the reference BINDS, above the null test.
+template <class H>
+inline void Free(const H& heap, void* p) {
+    H h = heap;
+
+    if (p != 0) {
+        Memory::FreeGlobalHeap(p, h);
+    }
+}
+
+// Written from the line table and the bytes rather than guessed at, and
+// byte-identical on the first attempt. Retail's 22 instructions fall on
+// source lines 736..743, and the two null tests are BOTH on `this`:
+//
+//   739  addi r3,r3,196 ; bl ModelInstanceArticle::Destroy
+//   741  cmpwi r31,0 ; beq ; addi r3,r31,196 ; li r4,-1 ; bl ~hkBaseObject
+//   742  cmpwi r31,0 ; beq ; mr r3,r31 ; li r4,0 ; bl FreeGlobalHeap
+//
+// which is exactly what WAD00_1.cpp's pair of templates gives -- Delete
+// guards the destructor and Free guards the free -- so the shape was
+// known before a line was written. The destructor called is
+// hkBaseObject's at `this+196`, the MEMBER's, not the object's, so it is
+// spelled out through a cast: reaching it from `this->~xOGModel()` would
+// need a destructor on ModelInstanceArticle, and giving that class a
+// base moves every field the other matched functions in this unit read.
+//
+// Four other spellings all come out at 11 differing words: the free
+// through the Free template with the heap named or cast, the pair of
+// templates together, and the member reached as `this->mModelArt`.
+void World::xOGModel::Destroy() {
+    mModelArt.Destroy();
+
+    if (this != 0) {
+        ((hkBaseObject*)&mModelArt)->~hkBaseObject();
+    }
+
+    if (this != 0) {
+        Memory::FreeGlobalHeap(this, (Memory::GlobalHeapEnum)0);
+    }
+}
+
 void World::xOGModel::DeferDestroy() {
     mModelArt.model.Hide(World::WorldPrivate::primaryScene);
     mModelArt.Detach();

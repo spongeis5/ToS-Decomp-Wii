@@ -7,18 +7,18 @@ numbers here, which move.
 ## State at time of writing
 
 ```
-Game Code:  80 of 777 files complete  382,968 / 2,116,616 bytes  3,250 / 10,697 fn
-            18.0934% of game code
+Game Code:  80 of 777 files complete  384,560 / 2,116,616 bytes  3,261 / 10,697 fn
+            18.1686% of game code
 
-Of those 3,250 functions, 855 are GENERATED -- machine-recognised
+Of those 3,261 functions, 855 are GENERATED -- machine-recognised
 shapes, not one of which is decompiling. They are real matched
 functions and the offsets and constants are recovered fact, but a
 count of them is not a count of decompiled code. HAND-WRITTEN IS
-2,395, across 266 units and 348,676 bytes, and that is the figure to
+2,406, across 266 units and 350,268 bytes, and that is the figure to
 compare against earlier ones.
 
 Data:       4 unit(s) carry their own, 412 bytes; 134 more could
-All:        7.49% matched              main.dol reproduces byte for byte
+All:        7.51% matched              main.dol reproduces byte for byte
 ```
 
 Every number above is written by `python tools/notes_state.py`,
@@ -147,6 +147,7 @@ written so far.
 | `brief_check.py` | validates brief.py against dwarf_lines and dwarf_locals on every function they have an answer for: 10,064 of 10,064, 0 disagreements. It has NO axis against disasm, because brief CALLS disasm and such a check could never fail |
 | `sweep_src.py` | put N spellings of one source file in place, score each with `unitcmp`, restore the original in a `finally` and verify the bytes came back. A 32-variant factorial runs in under a minute; `--extra` passes per-unit cflags |
 | `regdiff.py` | OUR register for every variable against RETAIL's, by name: compiles the unit with and without `-sym dwarf-2`, refuses to print unless the two `.text` sections are identical, and names the case where a parameter here is a LOCAL in retail. `--check` confirms each location against the instructions in its own range and reports the name-agreement rate |
+| `aligndiff.py` | is a near miss a SHIFT or a scatter? finds the k where our word[n] equals retail's word[n+k], reports the fraction it covers, and names the missing or extra instruction. 74 differing words became one missing instruction; 9 functions image-wide are shifts |
 
 `pip install pyelftools` is required for all of them.
 
@@ -5724,3 +5725,107 @@ and `zNPCCombat::Render`'s 16-byte tail call resolves to
 constructor. Only those two were opened; the rest of the tier is
 unexamined, and it should be assumed to hold more of the same until
 someone looks.
+
+## A BIG WORD COUNT IS NOT A BIG DIFFERENCE, AND FOUR NEW LEVERS
+
+Nine functions matched in one session, 1,116 bytes, and eight of the
+nine came from the same realisation: **the number of differing words
+measures ALIGNMENT, not distance.**
+
+`xModelUpdatePartsVis` differed by 74 of 83 words and the whole of it
+was ONE missing instruction at word 11, with every word after it
+correct but offset by one. A rule of thumb like "more than ten words
+means the control flow is wrong" would have thrown 336 bytes away.
+
+`tools/aligndiff.py` asks the question the count cannot: is there a `k`
+such that our word `n` equals retail's word `n+k` over a long run?
+
+    ALIGNED AFTER A SHIFT: our word[n] == retail's word[n+1] over 70
+    word(s) from 12, 84% of the function (14 masked)
+    We are 1 instruction(s) SHORT at word 12.
+    Retail has 4800010c there and we do not.
+
+It reports the FRACTION the run covers and says `PARTIALLY ALIGNED` and
+"this is a shift AND something else" below half, because a 24-of-88 run
+is a weak signal and `FindHitReaction` proved it -- four spellings of
+the arm the shift pointed at all came out worse. Validated on a
+positive control (temporarily reverting a guard that had just been
+fixed) and on negatives.
+
+Run over every unit with a source: **396 scanned, 210 unmeasurable, and
+9 functions are a SHIFT** -- the cheapest near miss there is, because it
+names one place.
+
+### The levers, each with a control
+
+**A PARAMETER RETAIL'S DWARF LISTS AS A `local` IS A LOCAL COPY.** Used
+directly, a parameter's live range begins where it is first READ, which
+ranks it below the locals and rotates the callee-saved registers.
+Copied at the top, its range starts at entry. `GetRefAnimation` 9 of 44
+words to 0; `ShaderEntity::ParamCargo::LoadParamData` 10 of 32 to 0.
+
+**A GUARD IS AN EARLY RETURN, NOT A WRAPPER.** `if (!c) { return; }`
+then the body -- not `if (c) { ...whole body... }`. The wrapper lets
+mwcc invert the test into one branch; the early return gives retail's
+`beq +8` / `b epilogue` pair. `xModelUpdatePartsVis`, 336 bytes. Ten
+spellings of the compound condition and twelve shapes of the if-chain
+inside it are all inert -- the chain was never the problem.
+
+**THE OBJECT OF A CALL IS EVALUATED BEFORE THE CALLEE.** Putting the
+renderable in a local ABOVE a member-pointer assignment forces it.
+`xModelSetLightKit`, 140 bytes; the local BELOW the assignment is the
+8-word near miss it had been sitting at.
+
+**POD-NESS OF THE CLASS YOU READ THROUGH.** mwcc hoists a load through
+one object above a store through another while the class it reads is a
+POD, and stops when it is not. A user-declared constructor -- declared,
+never defined, never called -- is enough, and adds nothing to the link
+(the object's undefined list is unchanged and no symbol names the
+class). `zPlayerTemplate::InitJumpParams`, and 28 spellings of the two
+assignments themselves are all identical. Note the DWARF cannot settle
+which class on the path is non-POD: across every composite DIE in the
+image there are 15,229 members, 1,534 inheritances and **zero** member
+functions, so a constructor is not something this debug info records.
+
+**AN INLINED FUNCTION RETURNING AN AGGREGATE BY VALUE SPLITS THE FRAME
+INTO TWO POOLS.** This is the answer to the 8-word stack-slot shape
+that had been recorded as stuck twice. mwcc hands out frame slots in
+reverse declaration order from ONE pool, so four named locals come out
+grouped BY BRANCH; retail's are grouped BY ROLE, which one pool cannot
+produce in any declaration order. The inlined body's own local lands in
+the low pool and the unnamed RETURN-VALUE TEMPORARY in the high one.
+`zGameStateSwitchEvent`, 256 bytes.
+
+**A BOOLEAN IN r3 IS AN INLINED PREDICATE'S RETURN REGISTER**, with the
+object it was called on left in r4. `TransitioningMode_PauseToGame`,
+168 bytes. The note that had kept that one alive said "none inlines; a
+call appears" -- **that was wrong**: a static inline predicate inlines
+fine under `-inline auto`, with or without `static`, with or without
+`inline`.
+
+**TAKING `&param` ON A FLOAT PARAMETER FORCES `frsp` ON EVERY LATER
+READ.** Not a float/double difference at all: once its address is
+taken, mwcc homes the parameter to its frame slot and then narrows each
+read to what the slot holds, so a redundant `frsp` appears before the
+store and before the compare. Three `zHudSB` setters, 276 bytes. The
+control is in the same file: `SetBossMeter` has the identical shape but
+passes the MEMBER's address, so no homing and no `frsp`. Diagnostic
+rule: `addi rN,r1,off` feeding a `float*` argument plus a DWARF param
+at `frame +off` means retail passed the parameter itself; a `float
+args[1]` scratch array is the wrong shape there, and is still RIGHT
+where the value is converted from an `int`.
+
+### And one thing that cannot be reached
+
+`Memory::MemTracker::_Init` is **byte-identical in all 83 words** and
+still reports 3 differing, because `unitcmp` checks a masked REL24 BY
+NAME: ours name `TagLookup::operator=` and retail's target carries only
+`Graphics::Sampler::operator=`. Both bodies are the same seven words
+and **mwld folded them**. Measured rather than assumed: the mangled
+name occurs 0 times among retail's 40,616 named symbols, 48 call sites
+reach that one body from classes sharing nothing but a 12-byte
+memberwise copy, and of 95 groups of identical short bodies surviving
+under more than one name, 0 share an address. There is no spelling that
+reaches it -- the name follows from the type and the type from the
+table -- so the function cannot report MATCH under this check. Worth
+knowing before anyone spends a day on it.

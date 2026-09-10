@@ -24,30 +24,86 @@
 //
 // Three shapes the bytes fixed: the mode mapping is a switch over all
 // eleven states (the clusters are tested from the top and the title
-// pair last, which no if-chain gives); each timer branch keeps its time
-// in a one-member struct, copied once, because retail stores the time
-// to two stack slots per branch, one lo-first as a call result and one
-// hi-first as a variable, the memory-resident shape of an aggregate.
+// pair last, which no if-chain gives); each timer branch reads the time
+// through zGameTickNow, an INLINED helper returning the one-member
+// struct BY VALUE; and the portal test is an inlined predicate whose
+// result is a value rather than a branch.
 //
-// NEAR MISS, zGameStateSwitchEvent 8 of 64 words, all four stack slots:
-// retail keeps each branch's two eight-byte locals with the copy above
-// the time (0x20 over 0x10, 0x18 over 0x8) and ours the time above the
-// copy, the stores and everything else identical. Tried and no better:
-// the copy declared first and assigned (the copy becomes loads, 38),
-// all four at the function's top (38), the copies at the function's
-// top assigned member-wise or whole (38), a converting constructor
-// with copy- or direct-initialisation (38), and the copy as a
-// function-style cast temporary or a by-value inline helper's
-// argument (the same 8, the temporary below the time).
+// The by-value return is what places the four stack slots, and it took
+// the layout to settle rather than a score. mwcc hands out ascending
+// frame slots in REVERSE declaration order out of ONE pool, so two
+// named locals per branch give now1@0x20 cur1@0x18 now2@0x10 cur2@0x08
+// -- grouped by branch. Retail groups by ROLE: now1@0x10 now2@0x08 and
+// cur1@0x20 cur2@0x18, which one pool cannot produce in any declaration
+// order, so retail has two. An inlined function returning the aggregate
+// splits them: its own body local lands in the low pool and the unnamed
+// RETURN-VALUE temporary in the high one. Of 26 spellings swept, TEN
+// match: the helper writing its member or aggregate-initialised, and
+// its result taken into a named local, a const reference, an
+// assignment, a further copy, a by-value or by-reference inline
+// argument, or straight into the expression. The one written is also a
+// single statement per branch, which is what retail's line table says:
+// line 116 owns the whole of the first branch and 120 the whole of the
+// second.
 //
-// NEAR MISS, TransitioningMode_PauseToGame 34 of 42 words: the portal
-// flag and the scene pointer are r3 and r4 in retail and r4 and r3 here,
-// the same twelve instructions otherwise. Tried and no better: the flag
-// as the `||` expression's value, set in an `if`, in both branches of
-// an if/else, by two ifs, typed int, declared at the function's top
-// with and without its initialiser, the scene in a local before or
-// after it, and the test as a static inline or member predicate with
-// and without the always-inline pragma (none inlines; a call appears).
+// The sixteen that miss, and how -- the counts matter, because two of
+// these groups fail in opposite directions. FOUR leave the same 8 of 64
+// with all four objects still named locals in the one pool: the two
+// branches written the other way round, the copy in an inner block,
+// aggregate initialisation from the call, and a by-value inline
+// helper's ARGUMENT taking the named local rather than the return
+// (that one does move two of the four slots, just not into retail's
+// grouping). TEN are WORSE
+// at 41 of 56 -- the whole function is eight words shorter, because a
+// user-declared constructor of any kind (converting, direct-init,
+// copy-init, a default one calling OSGetTime, an explicit inline copy
+// constructor) or an assignment to a copy declared first stops the
+// aggregate being memory-resident and the four stack objects vanish
+// entirely; a by-reference argument on a named local does the same. A
+// function-style cast was only ever measured alongside that copy
+// constructor, so it is not isolated. The last two land the LAYOUT
+// exactly right and miss elsewhere: calling the helper twice in a
+// branch is 40 of 64 on scheduling alone, and folding the subtraction
+// into a second helper is 13 of 64 on the callee-saved rotation.
+//
+// Ten compiler flags were recorded by an earlier pass and NOT
+// re-measured here: -opt nolifetimes, nodeadstore, noprop, nostrength
+// and noloop, -common on and -align mac68k left the eight words exactly
+// where they were, and -opt nocse and -pool off were worse.
+//
+// The portal test is the same lever in miniature, and its old note here
+// was stale twice over: 8 of 42 words, not 34, and a predicate DOES
+// inline. Retail puts the materialised boolean in r3 and the scene
+// pointer in r4; a plain `bool portalPending = false;` local gets them
+// the other way round, and that alone was all eight words. An inlined
+// predicate returns its result in r3 because r3 is the return register,
+// and the object it was called on stays in r4 -- which is also why
+// retail's line table gives every one of those instructions to the
+// single line 199 while the call sits on 203, and why its DWARF names
+// no local in this function at all. Of 20 spellings swept, THREE
+// match: zPortalPending::IsPending (written), a free predicate over
+// zPortalPending*, and no helper at all with the scene in a named local
+// and the || as the flag's initialiser. What they share is that the
+// scene pointer is already a value in a register before the test --
+// a named local, or the address the inlined predicate was handed.
+// THIRTEEN come out SHORTER, short-circuited straight to branches with
+// no value ever materialised: the bare `if (A || B)` with no helper at
+// all, and every predicate handed `globals.sceneCur` read inline or no
+// argument at all. THREE leave the same 8 of 42 -- the flag typed
+// unsigned char or int with the scene read inline, and the scene in a
+// local declared after the flag -- and a ternary is 10. Note for the
+// next reader: a static inline predicate DOES inline here, whether or
+// not it is marked inline or static; the old note's "none inlines; a
+// call appears" is not what -inline auto does with any of these.
+//
+// Retail's DWARF names, now carried by the source so regdiff pairs all
+// seven: zGameStateSwitchEvent's parameter is newState and its locals
+// prevMode, prevState and newMode, all in
+// registers, with no stack local named. zGameStateSwitch's are newState
+// and newMode plus a block-scoped `params` at frame +8 whose type is
+// EventNotifyDispatcher_Combined..., not the Sext::EventAny spelled
+// below -- that name feeds zEntEventAllOfType's mangling and is still
+// unrecovered.
 
 #include "SB/GM/Engine/Game/zGameState.pool.h"
 
@@ -137,6 +193,10 @@ class zPortalPending {
 public:
     zPortal* assetPortal;
     char manualPortal[64];
+
+    bool IsPending() const {
+        return assetPortal != 0 || manualPortal[0] != 0;
+    }
 };
 
 class zScene {
@@ -164,13 +224,21 @@ extern eGameMode gGameMode;
 extern Sext::eGameStateCombined gGameState;
 extern _GameOstrich gGameOstrich;
 
+static inline zGameTick zGameTickNow() {
+    zGameTick tick;
+
+    tick.ticks = OSGetTime();
+
+    return tick;
+}
+
 eGameMode GameModeFromGameState(Sext::eGameStateCombined state);
 Sext::eGameStateCombined zGameStateGet();
 eGameMode zGameModeGet();
 _GameOstrich zGameGetOstrich();
 void zGameSetOstrich(_GameOstrich ostrich);
-void zGameStateSwitchEvent(Sext::eGameStateCombined state);
-void zGameStateSwitch(Sext::eGameStateCombined state);
+void zGameStateSwitchEvent(Sext::eGameStateCombined newState);
+void zGameStateSwitch(Sext::eGameStateCombined newState);
 void TransitioningMode_GameToPause();
 void TransitioningMode_PauseToGame();
 
@@ -211,19 +279,19 @@ void zGameSetOstrich(_GameOstrich ostrich) {
     gGameOstrich = ostrich;
 }
 
-void zGameStateSwitchEvent(Sext::eGameStateCombined state) {
-    eGameMode oldMode = gGameMode;
-    Sext::eGameStateCombined oldState = gGameState;
+void zGameStateSwitchEvent(Sext::eGameStateCombined newState) {
+    eGameMode prevMode = gGameMode;
+    Sext::eGameStateCombined prevState = gGameState;
 
-    zGameStateSwitch(state);
+    zGameStateSwitch(newState);
 
-    eGameMode mode = GameModeFromGameState(state);
+    eGameMode newMode = GameModeFromGameState(newState);
 
-    if (state == oldState) {
+    if (newState == prevState) {
         return;
     }
 
-    if (state == Sext::eState_Game_Exit) {
+    if (newState == Sext::eState_Game_Exit) {
         xSerialWipeMainBuffer();
         zPlayerResourcesSetNextScene(0x4D4E5553);
         return;
@@ -233,46 +301,34 @@ void zGameStateSwitchEvent(Sext::eGameStateCombined state) {
         return;
     }
 
-    if (mode == eGameMode_Pause && oldMode == eGameMode_Game) {
-        zGameTick now;
-
-        now.ticks = OSGetTime();
-
-        zGameTick current = now;
-
-        globals.gameTimer += current.ticks - globals.lastGameTick;
-    } else if (mode == eGameMode_Game && oldMode == eGameMode_Pause) {
-        zGameTick now;
-
-        now.ticks = OSGetTime();
-
-        zGameTick current = now;
-
-        globals.lastGameTick = current.ticks;
+    if (newMode == eGameMode_Pause && prevMode == eGameMode_Game) {
+        globals.gameTimer += zGameTickNow().ticks - globals.lastGameTick;
+    } else if (newMode == eGameMode_Game && prevMode == eGameMode_Pause) {
+        globals.lastGameTick = zGameTickNow().ticks;
     }
 }
 
-void zGameStateSwitch(Sext::eGameStateCombined state) {
-    eGameMode mode = GameModeFromGameState(state);
+void zGameStateSwitch(Sext::eGameStateCombined newState) {
+    eGameMode newMode = GameModeFromGameState(newState);
 
-    if (mode != gGameMode) {
-        if (gGameMode == eGameMode_Game && mode == eGameMode_Pause) {
+    if (newMode != gGameMode) {
+        if (gGameMode == eGameMode_Game && newMode == eGameMode_Pause) {
             TransitioningMode_GameToPause();
-        } else if (gGameMode == eGameMode_Pause && mode == eGameMode_Game) {
+        } else if (gGameMode == eGameMode_Pause && newMode == eGameMode_Game) {
             TransitioningMode_PauseToGame();
         }
 
-        gGameMode = mode;
+        gGameMode = newMode;
     }
 
-    if (state != gGameState) {
-        gGameState = state;
+    if (newState != gGameState) {
+        gGameState = newState;
 
-        Sext::EventAny any;
+        Sext::EventAny params;
 
-        any.state = state;
+        params.state = newState;
 
-        zEntEventAllOfType(0, 0, 0xB32A134C, &any, 78, (ForceEvent)1);
+        zEntEventAllOfType(0, 0, 0xB32A134C, &params, 78, (ForceEvent)1);
     }
 }
 
@@ -293,14 +349,7 @@ void TransitioningMode_PauseToGame() {
         globals.runningCinematic->Unpause();
     }
 
-    bool portalPending = false;
-
-    if (globals.sceneCur->pendingPortal.assetPortal != 0 ||
-        globals.sceneCur->pendingPortal.manualPortal[0] != 0) {
-        portalPending = true;
-    }
-
-    if (portalPending) {
+    if (globals.sceneCur->pendingPortal.IsPending()) {
         zSoundModule::SoundCategorySetMute("master", true);
     }
 }

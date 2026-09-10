@@ -144,6 +144,22 @@
 // and theirs does not, which is also why it is 648 bytes and they
 // are 732. That is where to look next, not at the declarations.
 //
+// It is not the functor either. Moving `compare` into the macro so
+// it is declared first, last, or after the array is BYTE-IDENTICAL
+// in all three -- the object is frame-resident and the allocator
+// does not rank it -- and so is making it const. `operator()` over
+// char* instead of void* costs 159.
+//
+// The whole difference, decoded: retail keeps the insertion sort's
+// p and q in CALLEE-SAVED r30/r29 and the swap's own cursors sa/se
+// in VOLATILE r12/r11; ours has p and q in r11/r12 and sa/se in
+// r29/r31. sb and st agree, and every instruction is the same
+// shape, so it is purely which pair the allocator ranks higher.
+// Hoisting the swap's four locals out of their nested block to
+// function scope is worse at either end of the list (Int 34 -> 71,
+// the twins 67 -> 86) and scoping `st` to the loop that uses it
+// costs 136. The nested block is right.
+//
 // RelativeSortRecur and RelativeSort are not written yet, which is the
 // unit's other reason for being NonMatching.
 

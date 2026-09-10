@@ -1844,6 +1844,12 @@ public:
     bool FillWithGooFrom75Check(xAnimTransition* a0, xAnimSingle* a1);
 
     bool StartFillWithGooCheck(xAnimTransition* a0, xAnimSingle* a1);
+    void AddTransitionsFrom(xAnimTable* table, const char* name,
+                            unsigned int (*a)(xAnimTransition*, xAnimSingle*, void*),
+                            unsigned int (*b)(xAnimTransition*, xAnimSingle*, void*),
+                            unsigned short e, float f, unsigned int g,
+                            unsigned int h,
+                            zPlayerAction::SpecialActions i);
 };
 
 
@@ -3112,6 +3118,36 @@ void zSBPlayerQuicksandStuck::AddStates(xAnimTable* table) {
 void zPlayerSpringboardSB::AddStates(xAnimTable* table) {
     NewState(table, "SprBoStartIdle01", 32, 4, 1.0f, 0, 0, 0.0f, 0, zSBAnimPackageBE, 0, 0, 0, 0);
     NewState(table, "SprBoStartMoving01", 32, 4, 1.0f, 0, 0, 0.0f, 0, zSBAnimPackageBE, 0, 0, 0, 0);
+}
+
+// NEWLY WRITTEN, 360 against retail's 368 and 57 of 90 unmasked words.
+// The shape is right: one AddActionTransition passing the caller's own
+// arguments through, then THREE direct xAnimTableNewTransition calls.
+// They cannot be the inline -- it hardcodes 0.0f as the second float and
+// these pass 0.3, 0.36666670 and 0.4, read out of the image at 8068D384,
+// 8068DEEC and 8068D438 along with the shared 0.0f and 0.13333334f. The
+// line table puts one call on each of 5702, 5704, 5705, 5706, and the
+// destination strings are FillWithGooTurn01 then FillWithGooIn01 three
+// times.
+//
+// What stops it is the FLOAT BASE, the blocker NOTES.md records: we reach
+// all five literals off one register (`lfs f1,0x6bc(r27)`) and retail
+// spells a `lis` per literal (`lis r3,0x8069` then `lfs f2,-11388(r3)`),
+// so the two never line up however the calls are scheduled. Every other
+// function in this file that survives with float literals uses one or
+// two; this one wants five.
+void zSBPlayerFillWithGoo::AddTransitionsFrom(xAnimTable* table, const char* name,
+                            unsigned int (*a)(xAnimTransition*, xAnimSingle*, void*),
+                            unsigned int (*b)(xAnimTransition*, xAnimSingle*, void*),
+                            unsigned short e, float f, unsigned int g,
+                            unsigned int h,
+                            zPlayerAction::SpecialActions i) {
+    zPlayerAction::AddActionTransition(table, name, "FillWithGooTurn01",
+                                       zSBPlayerFillWithGoo::anFillWithGooFrom100Check,
+                                       a, b, e, f, g, h);
+    xAnimTableNewTransition(table, name, "FillWithGooIn01", zSBPlayerFillWithGoo::anFillWithGooFrom25Check, 0, zPlayerAction::ActionChange, 0, 0, 0.0f, 0.3f, 1000, 0, 0.13333334f, 0);
+    xAnimTableNewTransition(table, name, "FillWithGooIn01", zSBPlayerFillWithGoo::anFillWithGooFrom50Check, 0, zPlayerAction::ActionChange, 0, 0, 0.0f, 0.36666670f, 1000, 0, 0.13333334f, 0);
+    xAnimTableNewTransition(table, name, "FillWithGooIn01", zSBPlayerFillWithGoo::anFillWithGooFrom75Check, 0, zPlayerAction::ActionChange, 0, 0, 0.0f, 0.4f, 1000, 0, 0.13333334f, 0);
 }
 
 // zSBPlayerFillWithGoo::AddStates: 2 call(s)

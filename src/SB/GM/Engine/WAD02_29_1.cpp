@@ -1239,10 +1239,35 @@ bool zNPCPerceptionTarget::zPerceptionType::
 }
 bool zNPCPerceptionTarget::zPerceptionType::
     CheckAngularSpherePerceptionWithTargetBounds(const Node* node) {
-    // 3 OF 137 WORDS, size exact. The ternary's temporary takes f30
-    // where retail takes f31, and the squared distance is compared out
-    // of f1 where retail compares a copy in f28. Four declaration orders
-    // of the three float locals measure the same.
+    // 3 OF 137 WORDS, size exact, and all three are an FP register
+    // number. The ternary's call-crossing temporary takes f30 where
+    // retail takes f31, and the `dist2 > sumRadius2` compare reads f1
+    // where retail reads a copy already in f28.
+    //
+    // regdiff pairs retail's TWELVE named locals onto ours
+    // register-for-register, which is why the diagnosis is this
+    // narrow: targRadius/targetRadius f0, hTheta/tanHAngle f29,
+    // coneD/radius f31, adjustConeD2/sumRadius2 f31,
+    // distance2/dist2 f28, perceivedObjectTheta2/tan2 f0,
+    // incTheta/tanBound f2, npcCPos +32, targetCPos +20. Retail
+    // reuses f31 for the temporary AND for coneD; ours has f31
+    // already committed to radius and takes f30.
+    //
+    // Eighteen spellings measured, none moving a word: the ternary as
+    // an if/else, with the operands swapped either way (+3 and +4),
+    // the compare reversed (+1), the sum in one operand or computed
+    // after the distance (+9); the two differences the DWARF names --
+    // retail has NO `distance` local and DOES name the square
+    // (`hTheta2`), plus two more tail locals (`adjusthTheta`,
+    // `coneRatio`) -- are both inert, together and apart. So is every
+    // declaration order, including the DWARF's own, which puts three
+    // floats BEFORE the two vectors: the FP allocator does not rank
+    // by declaration the way the integer one does.
+    //
+    // The statement ORDER is what is load-bearing and it is already
+    // right: moving the two plain loads above the ternary costs 17,
+    // the ternary after the hysteresis block 21, before the sum 29,
+    // and after the npc call 118.
     xVec3 npcCenter;
     xVec3 targetCenter;
     xVec3 delta;

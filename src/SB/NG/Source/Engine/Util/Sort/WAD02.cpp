@@ -55,6 +55,52 @@
 //     The first argument is the one whose end bounds the loop, so the
 //     other way round makes the bound `lo + size` -- foldable again.
 //
+// THE ORIGINAL'S NAMES ARE KNOWN, from a second instantiation.
+// `Util::QuickSort<T>(void*, int, int, const T&)` is declared in Sort.h
+// line 232 and WADSpeed emits two of it OUT OF LINE, 1,672 and 1,464
+// bytes, with full debug info. The three sorts here have none, so every
+// name, type and scope below is read from 0x8020E760:
+//
+//     239  thresh      int
+//     242  stack       unsigned char*[40]      -- this file says [42]
+//     242  sp          unsigned char**
+//     243  pivot       unsigned char*          -- this file calls it lo
+//     243  tail        unsigned char*          -- hi
+//     250  next, v     unsigned char*          -- q, p
+//     276  half        int
+//     279  left, right unsigned char*          -- i, j
+//     255  _b0, _b1, _endb0  unsigned char*    } the swap, at each of
+//     255  _temp       unsigned int            } its SEVEN sites
+//
+// The underscore prefixes are macro hygiene, so SORT_SWAP IS a macro and
+// its locals sit at the invocation line -- 255, 278, 281, 283, 285, 296,
+// 298, which is this file's swap order exactly. `_temp` is in a lexical
+// block NESTED inside the other three, so in the original it is declared
+// inside the while loop.
+//
+// TWO THINGS THE BANNER ABOVE GETS WRONG, both measured:
+//
+//   * The body is a TEMPLATE in the original, not a macro. QuickSortInt
+//     is five source lines, 106..110, with 624 of its 648 bytes on line
+//     109. But mwcc 1.1 will not reproduce that: written as a template,
+//     the object gains three out-of-line `QuickSort<...>` symbols and
+//     each sort collapses to a ten-word call, with `-opt full` as well
+//     as without. So the macro stays -- it is the only spelling this
+//     compiler will emit -- and the banner's REASON is wrong even where
+//     its conclusion is right.
+//
+//   * `_temp` inside the while loop, which the debug info is
+//     unambiguous about, is +136 words. It is not reachable from here.
+//
+// AND THE FACTORIAL IS EXHAUSTED. sweep_src.py ran all 32 combinations
+// of five spellings; 32 of 32 compiled. Only ONE dimension moves
+// anything: declaring i and j where they are used costs +44. Dropping
+// `mid`, declaring `half` at its use, typing the temporary
+// `unsigned int`, and stack[40] against stack[42] change NOTHING AT ALL
+// -- all sixteen with i hoisted score 168 differing words and all
+// sixteen without score 212. Four of the five dimensions earlier sweeps
+// spent their time on cannot reach it.
+
 // NEAR MISS. All three sorts come out at exactly the retail SIZE (648,
 // 732, 732) with every instruction identical in shape. QuickSortInt has
 // 34 of 162 words differing and the other two 67 of 183, and every one

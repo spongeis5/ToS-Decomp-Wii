@@ -414,14 +414,33 @@ def main():
         print(__doc__)
         return 2
     unit = sys.argv[1]
-    verbose = "-v" in sys.argv[2:]
+    rest = sys.argv[2:]
+    verbose = "-v" in rest
 
-    res = compare(unit)
+    # configure.py can already give one object its own flags -- two units
+    # use extra_cflags today -- and there was no way to ASK what that
+    # would do without editing configure.py and running the whole build.
+    # The flags are echoed on every run that uses them, because a score
+    # measured under different flags is not this project's score.
+    extra = []
+    if "--extra" in rest:
+        i = rest.index("--extra")
+        if i + 1 >= len(rest):
+            print("unitcmp: --extra needs the flags after it, quoted")
+            return 2
+        extra = rest[i + 1].split()
+
+    if extra:
+        print("  EXTRA CFLAGS IN USE: %s" % " ".join(extra))
+        print("  This is NOT the project's flag set. A result below counts")
+        print("  only if configure.py gives this unit the same extra_cflags.")
+
+    res = compare(unit, extra)
     if isinstance(res, str):
         print(res)
         return 2
 
-    obj, err = compile_unit(unit)
+    obj, err = compile_unit(unit, extra)
     mine, want = load(obj, True), retail()
 
     total = ok = unmeas = 0

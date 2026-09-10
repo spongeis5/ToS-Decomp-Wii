@@ -143,6 +143,9 @@ written so far.
 | `compiler_sweep.py` | rebuild every unit with source under each Wii compiler and count exact functions; `--lib PREFIX` |
 | `twin_census.py` | which unmatched functions are BYTE-TWINS of ones already written; `--unsolved` names every member |
 | `transplant.py` | the fill sheet: every field that differs between a solved function and its twin, and source when a template fits; `--emit --out` |
+| `brief.py` | ONE function, everything at once: the source LINE of every instruction, the VARIABLE in every register the DWARF named (scoped, and BOTH when two are in scope), loop marks taken from the branches rather than from line steps, `--map` for the statement skeleton, `--around`/`--from`/`--to` to window a large one |
+| `brief_check.py` | validates brief.py against dwarf_lines and dwarf_locals on every function they have an answer for: 10,064 of 10,064, 0 disagreements. It has NO axis against disasm, because brief CALLS disasm and such a check could never fail |
+| `sweep_src.py` | put N spellings of one source file in place, score each with `unitcmp`, restore the original in a `finally` and verify the bytes came back. A 32-variant factorial runs in under a minute; `--extra` passes per-unit cflags |
 
 `pip install pyelftools` is required for all of them.
 
@@ -5425,3 +5428,167 @@ as unmeasured rather than as a result.
 
 The function's second Alloc call matches, because its argument is a
 constant and there is nothing to order against.
+
+## THE DWARF'S ABSENCES ARE NOT EVIDENCE, AND TWO DAYS COULD HAVE GONE
+
+Two separate investigations in one session both ended at the same
+sentence -- "the debug info records no local variable for this
+function" -- and both were about to be built on. They were measured
+against the population instead, and the population says the sentence
+means nothing:
+
+| what was absent | how often it is absent image-wide |
+|---|---|
+| any local at all | **6,329 of 10,064 functions (62.9%)** |
+| a parameter the mangled name demands | **5,008 of 6,145** whose name the parser would read (81.5%); 3,919 names refused and excluded rather than guessed |
+| a variable inside a lexical block | **1,771 of 7,211 blocks (24.6%)** |
+
+So a function with no locals, four empty blocks and one parameter
+fewer than its own symbol says is an ORDINARY function in this image,
+not a function whose source declared nothing. **Only PRESENCE is
+evidence here.** `Util::QuickSort<T>` at 0x8020E760 carries every
+local with its type, declaration line and register, and that is worth
+more than the whole of `Sext::FixWmlType`'s silence.
+
+The two that nearly went wrong, both recorded so they are not redone:
+
+  * **FixWmlType has no locals, so its walking loops declare none.**
+    It has two parameters where its mangled name says three, which is
+    what put the question. The debug info for it is otherwise NORMAL
+    -- 751 line rows over 11,944 bytes, one per 15.9, against one per
+    10.2 image-wide, and nowhere near the coarsest (CreateAnimTable
+    is one per 70.8 and MATCHES). Its neighbours in the image have up
+    to twenty locals each. None of that rescues the inference: 62.9%
+    is 62.9%.
+
+  * **The WAD02 blob's debug info is degraded.** Both functions that
+    lost their locals are in WAD02, which looked like a cause. It is
+    not: WAD02 records a local for 34.2% of its 1,131 functions,
+    against 37.1% image-wide, and ABOVE WAD01 (23.9% of 1,169) and
+    WAD00 (26.5% of 1,008). Every one of the 10,064 landed in a split
+    range, so nothing was dropped from the denominator.
+
+## INLINING IS NOT WHY ANY OF THESE NEAR MISSES ARE STUCK
+
+`dwarf_lines.py` offers to tell a near miss from an impossible one: a
+line row naming a file other than the function's own is code expanded
+from a header, and no correct source for that function will produce
+it. Asked of the whole image, the answer is that it almost never
+happens -- **11 of 10,064 functions, 10,636 bytes of 2,081,372
+(0.5%)** -- and **eight of the eleven are `__sinit_` blobs**, which
+are stitched from every static initialiser in a unity blob and are
+inlining by construction.
+
+The caveat, which matters more than the figure: `Util::QuickSortInt`
+is 648 bytes spanning source lines 106..110 of Sort.cpp, with 624 of
+them on line 109 alone, and shows NO foreign row. Whatever produced
+those 624 bytes -- an inlined template or a macro -- the line table
+attributed all of it to the call site. So 0.5% is a floor on what was
+inlined, not a measurement of it, and a clean line table is not proof
+that a function is reachable. What it does mean is that "those bytes
+came from a header" is not an available excuse: it is not what the
+table shows for any of the near misses being worked.
+
+## Sort.cpp: THE ORIGINAL'S NAMES, READ OFF A SECOND INSTANTIATION
+
+The three WAD02 sorts (648 + 732 + 732 = 2,112 bytes, all at retail's
+exact size) record nothing. **`Util::QuickSort<T>(void*, int, int,
+const T&)` records everything** -- it is declared in `Sort.h` line
+232, WADSpeed emits two instantiations of it out of line at 1,672 and
+1,464 bytes, and its DWARF names every local of the original with its
+type, declaration line and lexical block:
+
+    239  thresh      int
+    242  stack       unsigned char*[40]        <- the file says [42]
+    242  sp          unsigned char**
+    243  pivot       unsigned char*            <- the file calls it lo
+    243  tail        unsigned char*            <- hi
+    250  next, v     unsigned char*            <- q, p
+    276  half        int
+    279  left, right unsigned char*            <- i, j
+    255  _b0, _b1, _endb0  unsigned char*      } the swap, at each of
+    255  _temp       unsigned int              } its SEVEN call sites
+
+The underscore prefixes are macro hygiene, so **SORT_SWAP is a
+macro** and its four locals appear at the invocation's line -- 255,
+278, 281, 283, 285, 296, 298, which is the file's own swap order.
+`_temp` sits in a lexical block NESTED inside the other three, so it
+is declared inside the while loop.
+
+**The body is not a macro, though, and that is what the file's banner
+gets wrong.** QuickSortInt is five source lines, 106..110. But mwcc
+1.1 will not produce it from a template here: written as one, the
+object gains three out-of-line `QuickSort<...>` symbols and each sort
+collapses to a ten-word call. `-opt full` does not change that.
+
+**Then all 32 combinations of five spellings, and four of the five
+are inert.** `sweep_src.py` ran the full factorial in under a minute;
+32 of 32 compiled:
+
+  * declaring `i` and `j` where they are used costs **+44 words**
+  * dropping `mid`, declaring `half` at its use, typing the swap's
+    temporary `unsigned int`, and `stack[40]` against `stack[42]`
+    change **NOTHING AT ALL** -- all sixteen with i hoisted score
+    168, all sixteen without score 212
+
+So the four dimensions the earlier sweeps spent their time on cannot
+reach it, and `_temp` inside the loop -- the one thing the DWARF is
+unambiguous about -- is **+136**. Whatever the last 34 words are,
+they are not in this factorial.
+
+## EIGHT WORDS FIVE TIMES IS A COINCIDENCE, AND TEN FLAGS THAT MOVE NONE OF IT
+
+Five functions in four unrelated units differ from retail by exactly
+eight words. That LOOKED like one cause with five faces, and the whole
+of the next paragraph was written on the assumption before it was
+checked. It is not one cause: **`zNPCTemplate::Setup` holds no stack
+argument store at all** -- its entire frame traffic is `stwu
+r1,-32(r1)`, the return address at 36(r1) and the load back -- so
+whatever its eight words are, they are not slots. Eight is a common
+number. The counts below are measured; the SHAPE below it is measured
+for `zGameStateSwitchEvent` alone, and the other three have not been
+looked at.
+
+    zGameStateSwitchEvent          8 of  64  (14 masked)   256 B
+    TransitioningMode_PauseToGame  8 of  42  (14 masked)   168 B
+    Texture::SetImageFromFileInMemory 8 of 95 (11 masked)  380 B
+    zNPCTemplate::Setup            8 of 112  (14 masked)   448 B
+    GeometryEntity::CreateBuilderData 8 of 166 (18 masked) 664 B
+
+In zGameStateSwitchEvent, retail allocates each branch's two
+eight-byte objects from two separate pools -- 0x08/0x10 for one and 0x18/0x20 for the other, so
+the same-named object of both branches is adjacent -- and we allocate
+all four from one descending pool, grouped by branch. A flag was worth asking about anyway,
+since nothing source-level had reached it. It is not a flag: **ten
+leave all eight words exactly where they are** -- `-opt nolifetimes`, `-opt nodeadstore`,
+`-opt noprop`, `-opt nostrength`, `-opt noloop`, `-common on`,
+`-align mac68k` change nothing; `-opt nocse` breaks
+`zGameStateSwitch` as well (30 of 43) and `-pool off` makes
+`TransitioningMode_PauseToGame` worse (8 -> 10). `-opt nolifetimes`
+is the one worth naming: it is the only switch mwcc has for variable
+lifetime computation, it was not among the twelve alternatives swept
+earlier, and it does nothing here.
+
+1,916 bytes sit behind the five, but they are five problems and not
+one. What HAS been read is zGameStateSwitchEvent's, and its four slots
+sort exactly as (declaration index within scope ASCENDING, branch
+DESCENDING) where ours sort by branch. Grouping by index across
+branches is what a second scope LEVEL gives, and every spelling the
+file records moves the two declarations around inside ONE scope, which
+cannot change the grouping however it is ordered. So the copy was put
+a level down -- and **that is wrong too**. Four scope shapes, 4 of 4
+compiled, all eight words unmoved: the copy in a bare nested block,
+the copy's USE in a nested block below it, both in a nested block
+under the time, and the time in the inner block with the copy outside
+(that one is +33, the copy becoming loads). mwcc pools a function's
+block locals into one frame area regardless of depth, so scope level
+is not the lever and the (index, branch) grouping retail has comes
+from somewhere else.
+
+What that leaves: retail's two objects per branch are one named local
+and one compiler temporary -- the file's own note reads it off the
+store order, lo-first for a call result and hi-first for a variable --
+and OURS are the same two, in the same order, in the other two slots.
+Since neither declaration order, nor scope depth, nor ten flags moves
+them, the next thing to vary is what makes mwcc treat the second
+object as a temporary at all.

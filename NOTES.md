@@ -7,14 +7,14 @@ numbers here, which move.
 ## State at time of writing
 
 ```
-Game Code:  80 of 777 files complete  382,792 / 2,116,616 bytes  3,249 / 10,697 fn
-            18.0851% of game code
+Game Code:  80 of 777 files complete  382,968 / 2,116,616 bytes  3,250 / 10,697 fn
+            18.0934% of game code
 
-Of those 3,249 functions, 855 are GENERATED -- machine-recognised
+Of those 3,250 functions, 855 are GENERATED -- machine-recognised
 shapes, not one of which is decompiling. They are real matched
 functions and the offsets and constants are recovered fact, but a
 count of them is not a count of decompiled code. HAND-WRITTEN IS
-2,394, across 266 units and 348,500 bytes, and that is the figure to
+2,395, across 266 units and 348,676 bytes, and that is the figure to
 compare against earlier ones.
 
 Data:       4 unit(s) carry their own, 412 bytes; 134 more could
@@ -146,6 +146,7 @@ written so far.
 | `brief.py` | ONE function, everything at once: the source LINE of every instruction, the VARIABLE in every register the DWARF named (scoped, and BOTH when two are in scope), loop marks taken from the branches rather than from line steps, `--map` for the statement skeleton, `--around`/`--from`/`--to` to window a large one |
 | `brief_check.py` | validates brief.py against dwarf_lines and dwarf_locals on every function they have an answer for: 10,064 of 10,064, 0 disagreements. It has NO axis against disasm, because brief CALLS disasm and such a check could never fail |
 | `sweep_src.py` | put N spellings of one source file in place, score each with `unitcmp`, restore the original in a `finally` and verify the bytes came back. A 32-variant factorial runs in under a minute; `--extra` passes per-unit cflags |
+| `regdiff.py` | OUR register for every variable against RETAIL's, by name: compiles the unit with and without `-sym dwarf-2`, refuses to print unless the two `.text` sections are identical, and names the case where a parameter here is a LOCAL in retail. `--check` confirms each location against the instructions in its own range and reports the name-agreement rate |
 
 `pip install pyelftools` is required for all of them.
 
@@ -5592,3 +5593,134 @@ and OURS are the same two, in the same order, in the other two slots.
 Since neither declaration order, nor scope depth, nor ten flags moves
 them, the next thing to vary is what makes mwcc treat the second
 object as a temporary at all.
+
+## OUR OWN REGISTERS ARE READABLE TOO, AND THAT ENDS THE GUESSING
+
+Three sessions ended at the same wall: the shape right, the size right,
+and dozens of words differing because the callee-saved registers came
+out rotated. A word diff says WHICH WORDS moved. It cannot say which
+VALUE moved, because a register number is not a name, and every attempt
+to work back from the words to a source change was a guess.
+
+Retail's DWARF names every variable and its register. **Our object can
+be made to do the same.** `mwcceppc -sym dwarf-2` emits DWARF for our
+source, and `tools/regdiff.py` puts the two side by side:
+
+    retail                 ours                   variable
+    r31                    r29                    refInstanceOffset  MOVED
+    r30                    r31                    modelProto         MOVED
+    r29                    r30                    refModelIndexCount MOVED
+
+Same information the word diff carried, in the form a source change can
+be made from.
+
+**THE OBJECT IS COMPILED TWICE AND THE .text MUST BE IDENTICAL.** A
+debug flag is only safe to reason from if it changes nothing that
+matters, so regdiff builds the unit with and without `-sym dwarf-2` and
+compares `.text` byte for byte, refusing to print if they differ. Over
+318 units it held for all but twelve, and those twelve are reported as
+SKIPPED rather than measured.
+
+**Reading the location took three tries and two of them looked fine.**
+`DW_AT_location` in our object is `DW_FORM_data4` holding ZERO: the real
+value is written by a relocation in `.rela.debug_info` against a
+per-function symbol `.dwarf_loc.<mangled>`, and the offset is that
+symbol's own value PLUS the addend. Reading the attribute as written
+gives `00000000` for every variable, which is obviously broken. Reading
+the addend alone gives `r1` and `op 0x00` -- plausible rubbish, which is
+the worse failure and would have been believed. Only symbol value plus
+addend gives 124 of 124.
+
+### GetRefAnimation, 176 bytes, and the lever is general
+
+**A PARAMETER THE DWARF LISTS AS A `local` IS A LOCAL COPY IN THE
+SOURCE.** `GetRefAnimation`'s debug info has
+
+    local  line 642   refInstanceOffset   unsigned short   r31
+
+three lines below the signature, with NO parameter of that name and
+`mr r31,r7` in the prologue copying the argument into it. Used
+directly, a parameter's live range begins where it is first READ, which
+here is inside the loop and below both locals, so it ranks under them
+and the three callee-saved registers rotate. Copied into a local at the
+top, its range starts at entry and it takes r31. That one line took the
+function from 9 of 44 words to byte-identical.
+
+regdiff now NAMES this case: it compares the two sides' KINDS and says
+"a parameter here and a LOCAL in retail", because nothing could see our
+side's kinds before.
+
+The second half came from the LINE TABLE rather than the registers.
+Line 659 owns `li r4,0`, `addi r4,r4,1` and BOTH tests, and line 660
+owns only the pointer step, so the walking loop is a `for` whose header
+carries init, both conditions and increment -- not the `for` with a
+`break` that lets mwcc reach for `mtctr`/`bdnz`. It compiles to the same
+bytes as the `while` with a separate `c++`, measured, so the line table
+is the only thing that separates them.
+
+### The check found a defect, then killed its own premise
+
+`--check` began as "a byte-identical function cannot have a variable in
+a different register". Over every unit with a source it produced 26
+failures, of two kinds:
+
+  * **A defect.** `zBTBuilder::ParseAsset` declares `i` in eight
+    separate loops. regdiff merged all eight of retail's into one list
+    and compared each of ours against the merger, so seven could not
+    agree however right they were. Variables are now paired per
+    DECLARATION, in order, and that function went 8 -> 3.
+
+  * **The premise.** The rest are real and are not errors. `xStricmp`
+    is BYTE-IDENTICAL with retail's `result` in r9 and ours in r3,
+    because our source has an extra local called `atEnd` and gave the
+    name `result` to something else. Identical CODE says nothing about
+    what the source called the values in it.
+
+So the check is now two things it can be right or wrong about:
+
+  READABLE   every decoded register location, confirmed against the
+             instructions in the range it claims. A range OUTSIDE .text
+             is a hard failure. A register merely not referenced inside
+             its range is UNCONFIRMED, not failed -- `disasm` prints
+             some encodings as `.word`, and no register name appears in
+             those, so the check could never have passed there.
+             **5,273 confirmed, 0 outside .text, 10 unconfirmed** -- and
+             calling those ten failures would have trained the reader to
+             walk past the check. None of the ten holds an undecoded
+             word, so they are location lists mwcc kept past the last
+             use, or ranges this reader gets wrong; they are named in
+             full rather than explained away.
+  AGREEMENT  a RATE with its denominator: **2,896 of 2,915 byte-identical
+             functions (99.3%) have every variable in retail's register.**
+
+That 99.3% is what makes MOVED worth reading at all. Where our source
+was written from retail's DWARF names -- which is how most recent work
+here was written -- MOVED means what it says. Where the names were
+invented, it measures the naming.
+
+### The triage it buys, and the trap in it
+
+Over the 318 units it can read, regdiff sorts every near miss by how few
+variables moved:
+
+    120  near misses with a readable register map
+     90  differ with NO variable moved at all
+     13  have EXACTLY ONE variable in the wrong register
+     17  have more than one
+
+**Ninety of 120 are not allocation problems**, which is the single most
+useful thing on that list: those thirty-odd sessions' worth of staring
+at rotated registers would have been spent on the wrong ninety.
+
+regdiff can rank near misses by how FEW variables moved, and the top of
+that list is full of functions differing by ONE word with NOTHING moved.
+Two were opened and both are the same non-opportunity: retail's linker
+FOLDED identical code, so the branch target's symbol is not the name our
+source would give it. `Domains::DomainPriv::KillUIDArray` calls
+`Delete<..., BlockAllocatorArray<Ux>::Block>` where the image kept only
+the `<Pv>` instantiation -- already written in WAD00_1.cpp's own notes --
+and `zNPCCombat::Render`'s 16-byte tail call resolves to
+`Math::Matrix33::__ct`, which is folding and not a call to a
+constructor. Only those two were opened; the rest of the tier is
+unexamined, and it should be assumed to hold more of the same until
+someone looks.

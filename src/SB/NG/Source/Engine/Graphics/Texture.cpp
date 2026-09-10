@@ -92,7 +92,12 @@
 // header stored before the texture (10); the array assigned through a
 // chained `tex = texObjs = ...`; the descriptor count read into a local
 // (53); the element pointer declared after the palette call (16); and
-// compiler 1.3, which gives exactly the same eight.
+// compiler 1.3, which gives exactly the same eight. Nor does the lever
+// that landed GeometryEntity::CreateBuilderData (a local declared at
+// the top, assigned where it was): the counter declared at the top
+// and zeroed before the loop is 13, and `int i = 0;` at the top moves
+// the zeroing up and is 88 of 94. Retail's registers descend
+// counter, palette, array; ours array, palette, counter.
 
 extern "C" {
 

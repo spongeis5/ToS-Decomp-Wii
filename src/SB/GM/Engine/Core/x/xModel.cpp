@@ -1427,15 +1427,35 @@ void xModelGetBoneMatNoScale(xMat4x3& mat, const World::xOGModel& model,
         mat = root_mat;
     } else {
         // NEAR MISS, exact size, 4 of 56 words: r29 and r31 are the
-        // wrong way round. Retail puts the byte offset in r29 --
-        // overwriting the index, which is dead -- and the element
-        // address in r31; ours keeps the index and uses r31 for the
-        // product. Two orderings are excluded: declaring skinToBone
-        // first costs 5 more words, and dropping both locals costs 44.
+        // wrong way round. Retail puts the byte offset -- an UNNAMED
+        // temp -- in r29, overwriting the index, which is dead, and
+        // the element address in r31; ours gives the temp r31 and the
+        // element address r29. The joint base is r30 in both. So the
+        // allocator meets the temp FIRST in retail and LAST here.
         //
-        // The ELEMENT address is a local and the joint base is not:
-        // retail computes the element address before the matrix is
-        // constructed and keeps it across that call.
+        // `m` MUST be declared after skinToBone: moving it above
+        // costs 48 and 50 of the 56, and so does dropping skinToBone
+        // for the inline element expression, in every form (a plain
+        // assignment, a copy-initialiser, or both on one line). That
+        // is the whole difficulty, because the DWARF says retail HAS
+        // no such local: it names mat, model, index, the folded
+        // reference root_mat and `m` at frame +24, and nothing else,
+        // while the sibling xVec3 overload names a register local
+        // (`offset` in r31) -- so this family does record them. The
+        // line table agrees: the joint base is its own statement
+        // (line 1030) and the element address shares line 1036 with
+        // `m`'s construction and copy. Every spelling that follows
+        // the debug info is 12x worse than the one that contradicts
+        // it, and that contradiction is unresolved.
+        //
+        // Ruled out, none moving a word: declaring either or both
+        // pointers at the top of the block and assigning them where
+        // they are (the lever that landed CreateBuilderData), in all
+        // four orders; the element as a REFERENCE rather than a
+        // pointer (byte-identical); the joint base spelled inline
+        // (28 and 36); the joint ELEMENT as the local instead (49);
+        // the skin BASE as the local, indexed at the use (46); and
+        // declaring skinToBone first, which costs 5.
         Math::Matrix43* jointMatrices =
             model.mModelArt.model.joints->joints;
         Math::Matrix43* skinToBone =
@@ -1464,15 +1484,35 @@ void xModelGetBoneMatNoScale(xMat4x3& mat, const World::xOGModel& model,
         mat = root;
     } else {
         // NEAR MISS, exact size, 4 of 56 words: r29 and r31 are the
-        // wrong way round. Retail puts the byte offset in r29 --
-        // overwriting the index, which is dead -- and the element
-        // address in r31; ours keeps the index and uses r31 for the
-        // product. Two orderings are excluded: declaring skinToBone
-        // first costs 5 more words, and dropping both locals costs 44.
+        // wrong way round. Retail puts the byte offset -- an UNNAMED
+        // temp -- in r29, overwriting the index, which is dead, and
+        // the element address in r31; ours gives the temp r31 and the
+        // element address r29. The joint base is r30 in both. So the
+        // allocator meets the temp FIRST in retail and LAST here.
         //
-        // The ELEMENT address is a local and the joint base is not:
-        // retail computes the element address before the matrix is
-        // constructed and keeps it across that call.
+        // `m` MUST be declared after skinToBone: moving it above
+        // costs 48 and 50 of the 56, and so does dropping skinToBone
+        // for the inline element expression, in every form (a plain
+        // assignment, a copy-initialiser, or both on one line). That
+        // is the whole difficulty, because the DWARF says retail HAS
+        // no such local: it names mat, model, index, the folded
+        // reference root_mat and `m` at frame +24, and nothing else,
+        // while the sibling xVec3 overload names a register local
+        // (`offset` in r31) -- so this family does record them. The
+        // line table agrees: the joint base is its own statement
+        // (line 1030) and the element address shares line 1036 with
+        // `m`'s construction and copy. Every spelling that follows
+        // the debug info is 12x worse than the one that contradicts
+        // it, and that contradiction is unresolved.
+        //
+        // Ruled out, none moving a word: declaring either or both
+        // pointers at the top of the block and assigning them where
+        // they are (the lever that landed CreateBuilderData), in all
+        // four orders; the element as a REFERENCE rather than a
+        // pointer (byte-identical); the joint base spelled inline
+        // (28 and 36); the joint ELEMENT as the local instead (49);
+        // the skin BASE as the local, indexed at the use (46); and
+        // declaring skinToBone first, which costs 5.
         Math::Matrix43* jointMatrices =
             model.mModelArt.model.joints->joints;
         Math::Matrix43* skinToBone =

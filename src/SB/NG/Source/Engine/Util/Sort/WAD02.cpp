@@ -120,6 +120,30 @@
 //     `sa, sb, se` is 49, and computing `se` directly is 107.
 //   * 7 spellings of the bound itself and 6 shapes of the outer body.
 //
+// MEASURED SINCE, and it contradicts the paragraph above: tools/
+// regdiff.py pairs all three by DWARF name and reports 0 of our 41
+// named variables in retail's register. The permutation is the whole
+// callee-saved file, ours -> retail: r24->r30, r25->r29, r26->r31,
+// r27->r24, r28->r25, r29->r26, r30->r28, r31->r27. So `size` does
+// NOT map identically, and the DWARF pins that end of it: retail
+// names exactly ONE variable in these functions, `width`, a PARAM in
+// r24 live across the whole body, and its counterpart here is `size`
+// in r27. Ours gives the low registers to the FIRST-declared (i, j)
+// and retail to the last.
+//
+// That reading suggests reordering the declarations, and it is wrong:
+// four more orders on top of the eight above -- i and j moved last,
+// the list reversed as far as the initialisers allow, a PURE reverse
+// with every declaration bare and the four initialisers moved down
+// into statements, and i/j last with the array last -- leave
+// QuickSortUint and QuickSortUint64 sitting at 66 or 67 of 183 and
+// cost QuickSortInt 44 to 45 words (34 of 162 -> 78). The order in
+// the macro is already the right one; the twins diverge for a reason
+// the declarations do not carry, and the only thing that differs
+// between Int and the other two is the functor -- Int's inlines away
+// and theirs does not, which is also why it is 648 bytes and they
+// are 732. That is where to look next, not at the declarations.
+//
 // RelativeSortRecur and RelativeSort are not written yet, which is the
 // unit's other reason for being NonMatching.
 

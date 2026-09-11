@@ -62,6 +62,7 @@ public:
     void assign(float v);
     xVec3& operator=(const xVec3& o);
     xVec3& operator+=(const xVec3& o);
+    bool operator==(const xVec3& o) const;
 
     static const xVec3 m_Null;
 
@@ -88,6 +89,7 @@ public:
     void GetSafePos();
     bool CanSwitchPlayer();
     bool SkipCharacterProxyHavokUpdate();
+    void GetInteractionTestPos(unsigned int which, xVec3& pos);
 };
 
 class zPlayerInput {
@@ -101,7 +103,7 @@ public:
     virtual void _v4();
     virtual void _v5();
     virtual void _v6();
-    virtual void _v7();
+    virtual int _v7();
     virtual void _v8();
     virtual void _v9();
     virtual void _v10();
@@ -206,6 +208,7 @@ void zSceneReset();
 class hkVector4 {
 public:
     float dot3(const hkVector4& o) const;
+    void add4(const hkVector4& o);
 
     float x;
     float y;
@@ -633,6 +636,20 @@ public:
 
 
 
+// The player's interaction manager, at +0x4DC: its size and the
+// one call are all that is needed of it.
+class zInteractionManager {
+public:
+    void StopCurrentInteraction();
+
+    void* currentInteraction;
+    int state;
+    void* player;
+    bool moveDone;
+};
+
+class zEntSimpleObj;
+
 class zBoardPlayer {
 public:
     void DefaultMove(xScene* scene, float dt, xEntFrame* frame);
@@ -658,6 +675,8 @@ public:
     void UpdateCharacterProxy(float dt);
     unsigned int GetBehaviorSetRefHash() const;
     float GetCharacterProxyYOffset();
+    static zBoardPlayer* GetInstance();
+    void FindAndFixAnimPackageEffects(unsigned long long id);
     virtual void _v0() const;
     virtual void _v1() const;
     virtual void _v2() const;
@@ -796,7 +815,8 @@ public:
     virtual void _v135() const;
     virtual void _v136() const;
     virtual void _v137() const;
-    virtual void _v138() const;
+    virtual void _v138(xAnimPlay* a0, xQuat* a1, xVec3* a2, xVec3* a3,
+                       int a4) const;
     virtual void _v139() const;
     virtual float _v140() const;
     virtual void _v141() const;
@@ -853,11 +873,15 @@ public:
     zPlayerInput* playerInput;
     unsigned char _pad6[0x1C];
     bool f208;
-    unsigned char _pad7[0xEB];
+    unsigned char _pad7[0x2E8 - 0x209];
+    xAnimTable* playerAnimTable;
+    unsigned char _pad7b[0x2F4 - 0x2EC];
     float fallingTime;
     unsigned char _pad8[0x180];
     int lastDamageType;
-    unsigned char _pad9[0xD8];
+    unsigned char _pad9[0x4DC - 0x47C];
+    zInteractionManager interactionManager;
+    unsigned char _pad9b[0x554 - 0x4EC];
     int currentHitType;
     hkVector4 hitDir;
     unsigned char _pad10[0x330];
@@ -875,7 +899,9 @@ public:
     float f8CC;
     float f8D0;
     int f8D4;
-    unsigned char _pad15[0x14];
+    unsigned char _pad15[0x8E0 - 0x8D8];
+    zEntSimpleObj* aimer;
+    unsigned char _pad15b[0x8EC - 0x8E4];
     FX::zFXSpawn* f8EC;
     unsigned char _pad16[0x4];
     FX::zFXSpawn* f8F4;
@@ -915,10 +941,15 @@ public:
     void ImpartVelocity(const xVec3& v);
     void ImpartMomentumlessVelocity(const xVec3& v);
     void ClearMomentumlessVelocity();
+    bool IsAI() const;
 
     unsigned char _pad0[0x160];
     int f160;
-    unsigned char _padx[0x858];
+    unsigned char _padx[0x1E8 - 0x164];
+    zPlayerInput* playerInput;
+    unsigned char _pady[0x2EC - 0x1EC];
+    int eName;
+    unsigned char _padz[0x9BC - 0x2F0];
     unsigned int f9BC;
 };
 
@@ -1060,6 +1091,7 @@ public:
                                   xAnimSingle* a1);
 
     void Begin();
+    void End();
 };
 
 
@@ -1081,6 +1113,8 @@ public:
     void AddStates(xAnimTable* table);
     bool StartPuckAttackCheck(xAnimTransition* a0, xAnimSingle* a1);
 
+    void Begin();
+    void End();
 
     float f10;
     unsigned char f14;
@@ -1350,6 +1384,8 @@ public:
     bool SpongebuffMovingSpinCheck(xAnimTransition* a0, xAnimSingle* a1);
     bool StartSpinAttackCheck(xAnimTransition* a0, xAnimSingle* a1);
     bool FinishedQueueCheck(xAnimTransition* a0, xAnimSingle* a1);
+
+    void End();
 };
 
 class zPlayerWalkBoard : public zPlayerAction {
@@ -1503,10 +1539,16 @@ public:
     void End();
 
     float f10;
-    unsigned char _padA[0x20 - 0x14];
+    float y;
+    unsigned char _padA[0x20 - 0x18];
     float f20;
+    unsigned char _padB[0x30 - 0x24];
+    float Jump_Velocity;
+    float Jump_Decel;
+    float Jump_Time_Const;
 
     void UpdateFall(float dt);
+    float GetY(float t) const;
 };
 
 class zBoardPlayerFillWithGoo : public zPlayerAction {
@@ -1874,6 +1916,7 @@ public:
     bool SlamLandCheck(xAnimTransition* a0, xAnimSingle* a1);
 
     void Begin();
+    void Move(xScene* a0, float a1, xEntFrame* a2);
 };
 
 // zPlayerSlamFallBoard::AddActionTransitions: 1 call(s)
@@ -2009,6 +2052,11 @@ public:
     bool StartLedgeCheck(xAnimTransition* a0, xAnimSingle* a1);
 
     void UpdateFall(float dt);
+    void Move(xScene* a0, float a1, xEntFrame* a2);
+    void Begin();
+    void End();
+
+    void* theInteraction;
 };
 
 // zPlayerLedgeBoard::AddTransitionsFrom: 1 call(s)
@@ -6135,4 +6183,348 @@ void zBoardPlayerLosePowerup::Begin() {
     p->zPlayerFlags &= ~0x10;
     p->currentHitType = -1;
     p->powerupModelState = (BoardPowerupState)0;
+}
+
+// -- written from the image, one function at a time ------------
+//
+// Each function below was read from its own disassembly. The
+// classes declared here are stubs at the DWARF's offsets and hold
+// only what these functions touch. Everything sits below every
+// caller already in the file, so none of it can be inlined into a
+// function that matched before it was written.
+
+// Math::Vector's constructor, reached by its symbol: xVec3Copy
+// builds the destination in place, and the call is its whole body.
+extern "C" void __ct__Q24Math6VectorFfff(void* self, float x, float y,
+                                         float z);
+
+void xVec3Copy(xVec3* dst, const xVec3* src) {
+    __ct__Q24Math6VectorFfff(dst, src->x, src->y, src->z);
+}
+
+// The entity's model handle is at +0x34 and the position at +0x30
+// in the model.
+void zCommonPlayer::GetInteractionTestPos(unsigned int which,
+                                          xVec3& pos) {
+    pos = ((zBoardPlayerOffsets*)this)->ogModel.model->pos;
+}
+
+class xCam {
+public:
+    unsigned char _pad0[0x94];
+    int flags;
+};
+
+class xCamGroup {
+public:
+    int GetPrimaryCameraFlags() const;
+
+    unsigned char _pad0[0x134];
+    xCam* primary;
+};
+
+int xCamGroup::GetPrimaryCameraFlags() const {
+    if (primary != 0) {
+        return primary->flags;
+    }
+
+    return 0;
+}
+
+bool zBoardPlayerPuckAttack::AimPuckCheck(xAnimTransition* a0,
+                                          xAnimSingle* a1) {
+    if (f14 == 0) {
+        return false;
+    }
+
+    return true;
+}
+
+void zPlayerLedgeBoard::Move(xScene* a0, float a1, xEntFrame* a2) {
+    ((zBoardPlayer*)player)->zPlayerFlags |= 0x10;
+    ((zPlayerLandHighBoard_m4*)player)->_v128(a0, a1, a2);
+}
+
+void zBoardPlayerHammerAttack::End() {
+    zBoardPlayer* p = (zBoardPlayer*)player;
+
+    p->zPlayerFlags &= ~0x10;
+    p->f8C0 = 1;
+    p->f8C4 = 1.0f;
+}
+
+namespace World {
+class xOGModel;
+}
+
+// The updater's list is intrusive: the second argument is where the
+// node sits in the model, 0x164, and it is part of the symbol.
+template <class T, int NodeOffset>
+class EmbeddedList {
+public:
+    void PushBack(T* item);
+
+    unsigned char _pad0[0xC];
+};
+
+class EmbeddedListNode {
+public:
+    EmbeddedListNode* next;
+    EmbeddedListNode* prev;
+};
+
+class xOGModelUpdater {
+public:
+    unsigned char _pad0[0x4];
+    EmbeddedList<World::xOGModel, 356> updList;
+};
+
+namespace Graphics {
+class Model {
+public:
+    void AmendLODScale(float scale);
+
+    unsigned char _pad0[0x30];
+    unsigned short visibleCount;
+    unsigned char _pad1[0x68 - 0x32];
+};
+}
+
+namespace World {
+// mModelArt is at +0xC4 and its Model at +0x24 inside it, so the
+// model is at +0xE8 and its visible count at +0x118.
+class xOGModel {
+public:
+    void UpdaterCheckShow();
+    void SetLODScale(float scale);
+    void Hide();
+
+    unsigned char _pad0[0xE8];
+    Graphics::Model model;
+    unsigned char _pad1[0x15C - 0x150];
+    xOGModelUpdater* updater;
+    void* updateParent;
+    EmbeddedListNode updateNode;
+    float lodScale;
+};
+}
+
+void World::xOGModel::UpdaterCheckShow() {
+    if (updateNode.prev == 0 && model.visibleCount != 0) {
+        updater->updList.PushBack(this);
+    }
+}
+
+class hkpCharacterProxy {
+public:
+    unsigned char _pad0[0xA4];
+    float m_maxSlopeCosine;
+};
+
+class hkpCharacterRigidBody {
+public:
+    unsigned char _pad0[0x30];
+    float m_maxSlopeCosine;
+};
+
+class xHavokCharacterController {
+public:
+    void SetMaxSlopeCosine(float cosine);
+
+    union {
+        hkpCharacterProxy* characterProxy;
+        hkpCharacterRigidBody* characterRigidBody;
+    };
+    int controllerType;
+};
+
+void xHavokCharacterController::SetMaxSlopeCosine(float cosine) {
+    switch (controllerType) {
+    case 1:
+        characterProxy->m_maxSlopeCosine = cosine;
+        break;
+    case 2:
+        characterRigidBody->m_maxSlopeCosine = cosine;
+        break;
+    }
+}
+
+class zEntSimpleObj {
+public:
+    unsigned char _pad0[0x34];
+    World::xOGModel* model;
+};
+
+void zBoardPlayerPuckAttack::End() {
+    zBoardPlayer* p = (zBoardPlayer*)player;
+
+    p->f8C0 = 3;
+    p->f8C4 = -1.0f;
+    p->f8C4 = 1.0f;
+    p->aimer->model->Hide();
+}
+
+void zBoardPlayerSpinAttack::End() {
+    zBoardPlayer* p = (zBoardPlayer*)player;
+
+    p->zPlayerFlags &= ~0x10;
+    p->f8C0 = 2;
+    p->f8C4 = 1.0f;
+    p->f8CC = 0.2f;
+}
+
+// The play's object is the player, and slot 138 is its
+// BeforeAnimMatrices.
+struct AnimPlayObject {
+    unsigned char _pad0[0x10];
+    zBoardPlayer* object;
+};
+
+void BoardBeforeAnimMatricesWrapper(xAnimPlay* play, xQuat* q, xVec3* a,
+                                    xVec3* b, int i) {
+    ((AnimPlayObject*)play)->object->_v138(play, q, a, b, i);
+}
+
+bool zPlayerFluidBurstBoard::FluidBurstCheck(xAnimTransition* a0,
+                                             xAnimSingle* a1) {
+    zBoardPlayer* p = (zBoardPlayer*)player;
+
+    return p->gooState == 2 && !(p->f904 > 0.0f);
+}
+
+void World::xOGModel::SetLODScale(float scale) {
+    if (lodScale == 0.0f) {
+        lodScale = 1.0f;
+    }
+
+    if (lodScale != scale) {
+        lodScale = scale;
+        model.AmendLODScale(scale);
+    }
+}
+
+float xClampAngle0_2PI(float a) {
+    if (a < 0.0f) {
+        return 6.2831855f + a;
+    }
+
+    if (a >= 6.2831855f) {
+        return a - 6.2831855f;
+    }
+
+    return a;
+}
+
+class zPlayerContainer {
+public:
+    zPlayer* playerArray[4];
+    int numPlayers;
+};
+
+class xGlobals {
+public:
+    unsigned char _pad0[0x428];
+    zPlayerContainer players;
+};
+
+extern xGlobals* xglobals;
+
+zBoardPlayer* zBoardPlayer::GetInstance() {
+    for (int i = 0; i < xglobals->players.numPlayers; i++) {
+        zPlayer* p = xglobals->players.playerArray[i];
+
+        if (p->eName == 6) {
+            return (zBoardPlayer*)p;
+        }
+    }
+
+    return 0;
+}
+
+bool xVec3::operator==(const xVec3& o) const {
+    return x == o.x && y == o.y && z == o.z;
+}
+
+void hkVector4::add4(const hkVector4& o) {
+    x += o.x;
+    y += o.y;
+    z += o.z;
+    w += o.w;
+}
+
+class zAnimPackage {
+public:
+    void LoadDefaultAnimSetEffects(xAnimTable* table);
+};
+
+// The finder the image names is zGradientCurve's: the per-class
+// finders are one body, folded, and this is the symbol that
+// survived, so it is the one the call is spelled with.
+namespace GradientCurve {
+class zGradientCurve {
+public:
+    static void* Find(unsigned long long id);
+};
+}
+
+void zBoardPlayer::FindAndFixAnimPackageEffects(unsigned long long id) {
+    zAnimPackage* pkg =
+        (zAnimPackage*)GradientCurve::zGradientCurve::Find(id);
+
+    if (pkg != 0) {
+        pkg->LoadDefaultAnimSetEffects(playerAnimTable);
+    }
+}
+
+void zPlayerSlamFallBoard::Move(xScene* a0, float a1, xEntFrame* a2) {
+    xEntFrame* frame = ((zBoardPlayer*)player)->frame;
+
+    if (frame->f8C > -50.0f) {
+        frame->f8C -= 30.0f * a1;
+    } else {
+        frame->f8C = -50.0f;
+    }
+
+    ((zPlayerLandHighBoard_m4*)player)->_v128(a0, a1, a2);
+}
+
+bool zPlayer::IsAI() const {
+    if (playerInput != 0) {
+        return playerInput->_v7() == 1;
+    }
+
+    return false;
+}
+
+float zPlayerJumpBoard::GetY(float t) const {
+    float yVal;
+
+    if (t < Jump_Time_Const) {
+        yVal = t * Jump_Velocity + y;
+    } else {
+        float td = t - Jump_Time_Const;
+
+        yVal = Jump_Time_Const * Jump_Velocity + y + Jump_Velocity * td +
+               0.5f * Jump_Decel * td * td;
+    }
+
+    return yVal;
+}
+
+void zBoardPlayerPuckAttack::Begin() {
+    f14 = 1;
+    f10 = 0.0f;
+
+    zBoardPlayer* sbPlayer = (zBoardPlayer*)player;
+
+    sbPlayer->f8C0 = 3;
+    sbPlayer->f8C4 = -1.0f;
+    ((zBoardPlayer*)player)->zPlayerFlags &= ~0x10;
+    zSoundWiimoteSpeakerList::Play(1, (zPlayer*)player);
+}
+
+void zPlayerLedgeBoard::End() {
+    theInteraction = 0;
+    ((zBoardPlayer*)player)->interactionManager.StopCurrentInteraction();
+    ((zBoardPlayer*)player)->zPlayerFlags &= ~0x10;
 }

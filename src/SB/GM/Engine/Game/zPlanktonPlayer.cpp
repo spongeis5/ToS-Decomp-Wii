@@ -11,7 +11,7 @@
 // offsets baked into the code come out as retail has them.
 #include "SB/GM/Engine/Game/zPlanktonPlayer.pool.h"
 
-struct xBase_mBC_78_0 { unsigned char _pad0[0x3C]; unsigned char f3C; };
+struct xBase_mBC_78_0 { unsigned char _pad0[0x3C]; bool f3C; };
 struct xBase_mBC_78 { xBase_mBC_78_0* f00; };
 struct xBase_mBC { unsigned char _pad0[0x78]; xBase_mBC_78* f78; };
 struct xBase_mCC { unsigned char _pad0[0x1C]; unsigned int f1C; };
@@ -58,11 +58,63 @@ public:
     unsigned char _pad2[0xCC - 0xC0];
     xBase_mCC* fCC;
 };
-namespace Sext { class EventAny; }
+namespace Sext { class EventAny; class xEntAsset; }
 enum ForceEvent { ForceEvent_ = 0x7FFFFFFF };
 void zEntEvent(xBase* a0, unsigned int a1, xBase* a2,
                unsigned int a3, Sext::EventAny* a4,
                ForceEvent a5);
+void zEntEventAllOfType(xBase* from, unsigned int fromEvent,
+                        unsigned int toEvent, Sext::EventAny* param,
+                        unsigned int type, ForceEvent force);
+
+// Two floats, returned in r3:r4 by value. The assignment is out of
+// line in retail (Reset calls __as__5xVec2FRC5xVec2), so it is only
+// declared; the arithmetic operators this unit emits are defined at
+// the end of the file.
+class xVec2 {
+public:
+    xVec2& operator=(const xVec2& o);
+    xVec2& operator*=(float s);
+    xVec2& operator+=(const xVec2& o);
+    xVec2& operator-=(const xVec2& o);
+    xVec2 operator+(const xVec2& o) const;
+    xVec2 operator*(const xVec2& o) const;
+    void assign(float ax, float ay);
+    float length2() const;
+
+    static const xVec2 m_Null;
+
+    float x;
+    float y;
+};
+
+class xVec3 {
+public:
+    xVec3& operator=(const xVec3& o);
+
+    static const xVec3 m_Null;
+
+    float x;
+    float y;
+    float z;
+};
+
+struct RGBA_U8s { unsigned char r; unsigned char g; unsigned char b; unsigned char a; };
+class xColor {
+public:
+    union {
+        unsigned int rgbaU32;
+        RGBA_U8s rgbaU8s;
+    };
+};
+
+class zUI {
+public:
+    void SetColor(xColor c);
+
+    unsigned char _pad0[0x80];
+    xColor color;
+};
 
 // Five parts, each told to hide or show by the same event.
 class zPlanktonTargetIndicator {
@@ -70,12 +122,24 @@ public:
     void Hide();
     void Show();
     void UpdateColor();
+    void Reset();
+
+    static const unsigned int RED;
+    static const unsigned int WHITE;
+    static const unsigned int BLUE;
 
     xBase* parts[5];
-    unsigned char _pad0[0x3C - 0x14];
-    unsigned int colorFirst;
-    unsigned int colorRest;
+    bool foundAllImages;          // 0x14
+    xVec2 oldTargetPos;           // 0x18
+    xVec2 blendedTargetPos;       // 0x20
+    float targetPosBlend;         // 0x28
+    xVec2 oldTargetSize;          // 0x2C
+    xVec2 blendedTargetSize;      // 0x34
+    unsigned int colorFirst;      // 0x3C reticleColor
+    unsigned int colorRest;       // 0x40 targetColor
+    bool hasAmmo;                 // 0x44
 };
+typedef char zPlanktonTargetIndicator_size[sizeof(zPlanktonTargetIndicator) == 0x48 ? 1 : -1];
 
 class xAnimTable;
 class xAnimState;
@@ -110,13 +174,30 @@ unsigned int xAnimTableNewTransition(xAnimTable* table, const char* from, const 
 // action array through `manager`, its first word.
 class zPlayer;
 
+class xAnimPlay {
+public:
+    unsigned char _pad0[0xC];
+    xAnimSingle* Single;          // 0x0C
+    unsigned char _pad1[0x14 - 0x10];
+    xAnimTable* Table;            // 0x14
+};
+class xOGModel {
+public:
+    unsigned char _pad0[0x4C];
+    xAnimPlay* Anim;              // 0x4C
+};
+
 // Only the field the 108-byte animation callbacks read, at the
 // offset they read it from and the type their compare says --
 // cmpwi is signed, cmplwi is not. Nothing else about zPlayer is
 // known here.
 class zPlayer {
 public:
-    unsigned char _pad0[0x898];
+    unsigned char _pad0[0x34];
+    xOGModel* model;              // 0x34 ogModel.data
+    unsigned char _pad1[0x2EC - 0x38];
+    int eName;                    // 0x2EC
+    unsigned char _pad2[0x898 - 0x2F0];
     int f898;
 };
 class zPlayerActionManager;
@@ -128,6 +209,8 @@ struct AnimCBHolder { unsigned char _pad[0x4]; AnimCBSlot* slot; };
 
 class zPlayerAction {
 public:
+    zPlayerAction() : doneCB(0) {}
+
     zPlayerActionManager* manager;
     zPlayer* player;
     void (*doneCB)(zPlayerAction*);
@@ -179,6 +262,10 @@ public:
 class zPlayerActionManager {
 public:
     zPlayerAction** actions;
+
+    void Init(unsigned int count);
+    void Add(zPlayer* player, zPlayerAction* action);
+    void SetCurrentAction(zPlayerAction* action);
 
     void AddStandardTransitionsTo(unsigned int id, xAnimTable* table, const char* name);
     void AddDefaultTransitionsTo(unsigned int id, xAnimTable* table, const char* name);
@@ -239,6 +326,13 @@ inline unsigned int zPlayerAction::AddActionTransition(
 class hkpPhantom;
 class xEnt;
 
+// hkpWorldObject: the user data word at +0xC is all the listener reads.
+class hkpEntity {
+public:
+    unsigned char _pad0[0xC];
+    unsigned long m_userData;
+};
+
 
 class zPlanktonTargetListener {
 public:
@@ -255,9 +349,10 @@ public:
     virtual void _v10() const;
     virtual void _v11() const;
     virtual void _v12() const;
-    virtual void _v13() const;
+    virtual void _v13(xBase* a0) const;
     virtual void _v14(hkpPhantom* a0) const;
     void phantomDeletedCallback(hkpPhantom* a0);
+    void entityRemovedCallback(hkpEntity* a0);
 
 };
 
@@ -284,12 +379,41 @@ public:
     int f24;
 };
 
+class hkpShapeRayCastOutput {
+public:
+    hkpShapeRayCastOutput();
 
+    float m_normal[4];            // 0x00
+    float m_hitFraction;          // 0x10
+    int m_extraInfo;              // 0x14
+    int m_pad[2];                 // 0x18
+    unsigned int m_shapeKeys[8];  // 0x20
+    int m_shapeKeyIndex;          // 0x40
+    unsigned char _pad1[0xC];
+};
+
+// The one shake in progress, a static of the manager.
+struct zPlanktonShakeState {
+    xVec3 pos;                    // 0x00
+    xVec2 f0C;                    // 0x0C
+    xVec2 f14;                    // 0x14
+    float f1C;                    // 0x1C
+    float f20;                    // 0x20
+    int f24;                      // 0x24
+    int f28;                      // 0x28
+    bool f2C;                     // 0x2C
+    bool f2D;                     // 0x2D
+    float f30;                    // 0x30
+};
 
 class zPlanktonShakeManager {
 public:
-    static int currentShakeState;
-    int* GetShakeState(const xEnt* a0);
+    static xEnt* currentEnt;
+    static zPlanktonShakeState currentShakeState;
+    zPlanktonShakeState* GetShakeState(const xEnt* a0);
+    static void Reset();
+    static bool StartShake(xEnt* ent, const xVec3& pos);
+    static bool IsBeingShaken(const xEnt* ent);
 
 };
 
@@ -297,10 +421,16 @@ public:
 void zPlanktonTargetListener::phantomDeletedCallback(hkpPhantom* a0) { _v14(a0); }
 hkpWorldRayCastInput::hkpWorldRayCastInput() { f20 = 0; f24 = 0; }
 hkpShapeRayCastInput::hkpShapeRayCastInput() { f20 = 0; f24 = 0; }
-int* zPlanktonShakeManager::GetShakeState(const xEnt* a0) { return &zPlanktonShakeManager::currentShakeState; }
+zPlanktonShakeState* zPlanktonShakeManager::GetShakeState(const xEnt* a0) { return &zPlanktonShakeManager::currentShakeState; }
+
+class xAnimVFX_Effect;
+class xAnimSoundEffect;
+enum ePlayerName { ePlayerName_ = 0x7FFFFFFF };
 
 class zPlayerIdlePlankton : public zPlayerAction {
 public:
+    zPlayerIdlePlankton() {}
+
     void AddTransitionsFrom(xAnimTable* table, const char* name,
                             unsigned int (*a)(xAnimTransition*, xAnimSingle*, void*),
                             unsigned int (*b)(xAnimTransition*, xAnimSingle*, void*),
@@ -325,6 +455,329 @@ public:
     bool ShakeMissCheck(xAnimTransition* a0, xAnimSingle* a1);
     bool TalkCheck(xAnimTransition* a0, xAnimSingle* a1);
     bool ZapMissCheck(xAnimTransition* a0, xAnimSingle* a1);
+    void Reset();
+    void PlayTalkAnim(unsigned long long id);
+    void PlayTalkAnimFromAnimPackage(unsigned long long id, unsigned int index);
+};
+
+// -- the rest of the unit's stubs -------------------------------
+
+inline void* operator new(unsigned long, void* p) { return p; }
+
+namespace Memory { enum GlobalHeapEnum { GlobalHeapEnum_ = 0x7FFFFFFF }; }
+enum eMemMgrTag { eMemMgrTag_ = 0x7FFFFFFF };
+void* xMemAlloc(Memory::GlobalHeapEnum heap, unsigned int size, int align, eMemMgrTag tag);
+
+namespace Math { float sqrt(float x); }
+extern "C" double sin(double x);
+namespace std { float sin(float x); }
+float xinvsqrt(float x);
+
+unsigned int xStrHash(const char* s);
+unsigned long long xUIDMgrFindUID(unsigned int hash);
+xBase* zSceneFindEntity(unsigned long long id);
+void xEntHide(xEnt* ent);
+
+xAnimState* xAnimTableGetState(xAnimTable* table, const char* name);
+void xAnimPlaySetState(xAnimSingle* single, xAnimState* state, float t);
+void xAnimSetRawData(xAnimState* state, void* data, int a);
+void xAnimSetVFX(xAnimState* state, xAnimVFX_Effect* vfx, unsigned int count);
+void xAnimSetSound(xAnimState* state, xAnimSoundEffect* snd);
+
+namespace World {
+    class EntityManager {
+    public:
+        static void* FindAsset(unsigned long long id);
+    };
+    EntityManager* GetEntityManager();
+}
+
+// The anim-package lookup PlayTalkAnimFromAnimPackage calls is folded
+// in the image with GradientCurve::zGradientCurve::Find (the same
+// four instructions); the image names the address that way.
+namespace GradientCurve {
+    class zGradientCurve {
+    public:
+        static void* Find(unsigned long long id);
+    };
+}
+
+class zAnimPackage {
+public:
+    void* GetRawDataByIndex(ePlayerName name, unsigned int index, int a);
+    void GetVFXDataByIndex(ePlayerName name, unsigned int index, xAnimVFX_Effect** vfx, int* count);
+    void GetSoundDataByIndex(ePlayerName name, unsigned int index, xAnimSoundEffect** snd);
+};
+
+class zSoundWiimoteSpeakerList {
+public:
+    static void Play(int id, zPlayer* player);
+};
+
+class zFloatingCollectible {
+public:
+    static int unhappyNuggetsInProgress;
+};
+
+class zSBPlayer {
+public:
+    bool IsInAnyGooState();
+    bool IsGooFilled();
+
+    unsigned char _pad0[0x898];
+    int gooState;                 // 0x898
+};
+
+class zPlayerContainer {
+public:
+    zPlayer* operator[](int i);
+
+    zPlayer* playerArray[4];
+    int numPlayers;
+};
+
+class xGlobals {
+public:
+    unsigned char _pad0[0x428];
+    zPlayerContainer players;     // 0x428
+};
+extern xGlobals* xglobals;
+
+class zCombatAttack;
+class zCommonPlayer {
+public:
+    void Init(Sext::xEntAsset* asset);
+    void InitCombat(const zCombatAttack* attack, unsigned short n);
+    void Reset();
+    void HandleEvent(xBase* from, unsigned int event, Sext::EventAny* param);
+};
+
+class zPlayerInput {
+public:
+    virtual void _v0();
+    virtual void _v1();
+    virtual void _v2();
+    virtual void _v3();
+    virtual void _v4();
+    virtual void _v5();
+    virtual void _v6();
+    virtual void _v7();
+    virtual void _v8();
+    virtual void _v9();
+    virtual void _v10();
+    virtual void _v11();
+    virtual void _v12();
+    virtual void _v13();
+    virtual void _v14();
+    virtual void _v15();
+    virtual void _v16();
+    virtual void _v17();
+    virtual void _v18();
+    virtual void _v19();
+    virtual void _v20();
+    virtual void _v21();
+    virtual void _v22();
+    virtual void _v23();
+    virtual void _v24();
+    virtual void _v25();
+    virtual void _v26();
+    virtual void _v27();
+    virtual void _v28();
+    virtual void _v29();
+    virtual void _v30();
+    virtual void _v31();
+    virtual void _v32();
+    virtual void _v33();
+    virtual void _v34();
+    virtual void _v35();
+    virtual void _v36();
+    virtual void _v37();
+    virtual void _v38();
+    virtual void _v39();
+    virtual void _v40();
+    virtual void _v41();
+    virtual unsigned int _v42(int a0);                         // accel sample count
+    virtual void _v43(int a0, unsigned int a1, xVec3* out);    // accel sample
+};
+
+namespace System {
+    class Time {
+    public:
+        Time() : ticks(0) {}
+
+        long long ticks;
+    };
+}
+
+class ElectricArc;
+class zFXSpawn;
+class hkpCollidable;
+class hkpShapePhantom;
+
+class zPlanktonSwingGesture {
+public:
+    zPlanktonSwingGesture();
+    void Reset();
+    bool Update(zPlayerInput* input);
+    void Update(xVec3 acc);
+
+    xVec3 lastAcc;                // 0x00
+    xVec3 deltaAcc;               // 0x0C
+    xVec3 dirVec2;                // 0x18
+    float dirSpeedMax2;           // 0x24
+    xVec2 swing2D;                // 0x28
+    int swing2Stability;          // 0x30
+    bool firstUpdate;             // 0x34
+    float ACC_MAX;                // 0x38
+    float ACC_DAMP;               // 0x3C
+    float DIR_VEC_DAMP;           // 0x40
+    float DIR_SPEED_DAMP;         // 0x44
+    float DIR_SPEED_MIN;          // 0x48
+    float DIR_VEC_CLAMP;          // 0x4C
+};
+typedef char zPlanktonSwingGesture_size[sizeof(zPlanktonSwingGesture) == 0x50 ? 1 : -1];
+
+class zPlanktonShakeGesture {
+public:
+    zPlanktonShakeGesture();
+    void Reset();
+    void Update(zPlayerInput* input);
+    void AddShake(int i, const System::Time& t);
+    xVec2 GetShakeFreq();
+
+    float ShakeAccelFilter;               // 0x000 tweakParams
+    float ShakeThreshold;                 // 0x004
+    System::Time swingTimes[2][20];       // 0x008
+    unsigned int swingFirstIndex[2];      // 0x148
+    unsigned int swingCount[2];           // 0x150
+    float swingLastDir[2];                // 0x158
+    xVec3 filteredAcc;                    // 0x160
+};
+typedef char zPlanktonShakeGesture_size[sizeof(zPlanktonShakeGesture) == 0x170 ? 1 : -1];
+
+// TweakParams__E3EA7, 0x70 bytes.
+struct zPlanktonShakeTweak {
+    float GrabTimeLimit;
+    float GrabMinTime;
+    float GrabMaxDistFromPlayer;
+    float GrabOffscreenTimeLimit;
+    float GrabOutOfRangeTimeLimit;
+    float GrabCollectibleGrabTime;
+    unsigned int GrabSwingStability;
+    unsigned int GrabSlamStability;
+    float GrabSlamThreshold;
+    float EnergyShakeDrainRate;
+    float EnergyShakeRestoreDelay;
+    float EnergyShakeRestoreRate;
+    float EnergyStunRestoreDelay;
+    float EnergyStunRestoreRate;
+    float ZapDamageDelay;
+    int ZapDamageMaxAmmo;
+    float StunElectricArcTime;
+    float DamageElectricArcTime;
+    float StunDelayTime;
+    float DamageDelayTime;
+    float ZapIneffectiveArcRange;
+    float AimAssistCastDistanceFromCamera;
+    float AimAssistCastRadius;
+    float AimAssistMaxScreenSpaceDistance;
+    float AimAssistTrackingRate;
+    float StickSensitivity;
+    float StickSensitivityLeftMultiplier;
+    float StickSensitivityRightMultiplier;
+};
+
+// The ammo counter's event carries the count as a halfword.
+struct zPlanktonAmmoEvent { short count; short _pad[3]; };
+
+class zPlanktonPlayerShakeHelper {
+public:
+    void Reset(zPlayer* player);
+    void CollectedAmmo(unsigned int n);
+    void DecreaseShakeEnergy(float amount);
+    bool canDamage(xBase* target);
+
+    zPlanktonShakeTweak tweakParams;          // 0x000
+    xEnt* shakeEnt;                           // 0x070
+    hkpCollidable* shakeEntCollidable;        // 0x074
+    xVec3 targettedPosition;                  // 0x078
+    zFloatingCollectible* targettedCollectible; // 0x084
+    float collectibleGrabTimer;               // 0x088
+    bool hideReticle;                         // 0x08C
+    bool prevHideReticle;                     // 0x08D
+    bool reticleOffScreen;                    // 0x08E
+    xVec3 grabPos;                            // 0x090
+    float grabTime;                           // 0x09C
+    float grabOffscreenTime;                  // 0x0A0
+    float grabOutOfRangeTime;                 // 0x0A4
+    float energyShake;                        // 0x0A8
+    float energyShakeDelayTime;               // 0x0AC
+    float energyStun;                         // 0x0B0
+    float energyStunDelayTime;                // 0x0B4
+    int zapAmmo;                              // 0x0B8
+    float zapDelayTime;                       // 0x0BC
+    xVec2 reticleActualPos;                   // 0x0C0
+    xVec2 reticleAssistedPos;                 // 0x0C8
+    xVec2 reticleAssistedSize;                // 0x0D0
+    xBase* aimAssistTarget;                   // 0x0D8
+    ElectricArc* stunElectricArc;             // 0x0DC
+    float stunElectricArcTimer;               // 0x0E0
+    ElectricArc* damageElectricArc;           // 0x0E4
+    float damageElectricArcTimer;             // 0x0E8
+    ElectricArc* shakeElectricArc;            // 0x0EC
+    zFXSpawn* shakeEffectSpawnPt;             // 0x0F0
+    zFXSpawn* shakeEffectFXScript;            // 0x0F4
+    unsigned char targetSelector[0x34];       // 0x0F8
+    zPlanktonTargetIndicator targetIndicator; // 0x12C
+    unsigned char projectileManager[0x4C];    // 0x174
+    unsigned int raycastCycleCounter;         // 0x1C0
+    zPlanktonSwingGesture swingGesture;       // 0x1C4
+    zPlanktonShakeGesture shakeGesture;       // 0x218
+};
+typedef char zPlanktonPlayerShakeHelper_size[sizeof(zPlanktonPlayerShakeHelper) == 0x388 ? 1 : -1];
+
+class zPlanktonPlayer {
+public:
+    void CollectedAmmo(unsigned int n);
+    unsigned int GetBehaviorSetRefHash() const;
+    static zPlanktonPlayer* GetInstance();
+    void InitActions();
+    void Reset();
+    void HandleEvent(xBase* from, unsigned int event, Sext::EventAny* param);
+
+    unsigned char _pad0[0xC0];
+    zPlayerActionManager actionManager;       // 0x0C0
+    unsigned char _pad1[0x898 - 0xC4];
+    int currentState;                         // 0x898
+    hkpShapePhantom* phantomPlankton;         // 0x89C
+    float appearBlend;                        // 0x8A0
+    bool appearing;                           // 0x8A4
+    bool disappearing;                        // 0x8A5
+    bool talking;                             // 0x8A6
+    bool designerForceAppear;                 // 0x8A7
+    bool usingMirrorHoverPosition;            // 0x8A8
+    bool forceHoverPosition;                  // 0x8A9
+    float yOffsetFromPlayer;                  // 0x8AC
+    ElectricArc* stunElectricArc;             // 0x8B0
+    ElectricArc* damageElectricArc;           // 0x8B4
+    ElectricArc* shakeElectricArc;            // 0x8B8
+    int currentOwnerType;                     // 0x8BC
+    bool firstFrameUpdate;                    // 0x8C0
+    zPlanktonPlayerShakeHelper shakeHelper;   // 0x8C8
+    xVec3 emitterPos;                         // 0xC50
+    xVec3 lookAtPos;                          // 0xC5C
+    xVec3 emitterLookAtDir;                   // 0xC68
+    bool emitterAnimControlled;               // 0xC74
+    unsigned int prevPlayerPort;              // 0xC78
+};
+typedef char zPlanktonPlayer_size[sizeof(zPlanktonPlayer) == 0xC80 ? 1 : -1];
+
+// The talk event's parameter: EventActionSBPlayCustomAnim, a type tag
+// and then either the one anim's uid or a package uid and an index.
+struct zPlanktonTalkParam {
+    int type;                     // 0x00
+    unsigned long long uid;       // 0x08
+    unsigned int animIndex;       // 0x10
 };
 
 // -- the animation tables, read from the image ------------------
@@ -501,6 +954,30 @@ unsigned int zPlayerIdlePlankton::anZapStunCheck(xAnimTransition* a0, xAnimSingl
     return result;
 }
 
+// Reset calls Hide and UpdateColor, so it sits above both: the
+// image calls them, and a definition already read would inline.
+void zPlanktonTargetIndicator::Reset() {
+    parts[0] = zSceneFindEntity(xUIDMgrFindUID(xStrHash("PlanktonTargetCenter_UIDRef")));
+    parts[1] = zSceneFindEntity(xUIDMgrFindUID(xStrHash("PlanktonTargetTopLeft_UIDRef")));
+    parts[2] = zSceneFindEntity(xUIDMgrFindUID(xStrHash("PlanktonTargetTopRight_UIDRef")));
+    parts[3] = zSceneFindEntity(xUIDMgrFindUID(xStrHash("PlanktonTargetBottomLeft_UIDRef")));
+    parts[4] = zSceneFindEntity(xUIDMgrFindUID(xStrHash("PlanktonTargetBottomRight_UIDRef")));
+
+    foundAllImages = parts[0] && parts[1] && parts[2] && parts[3] && parts[4];
+
+    Hide();
+
+    oldTargetPos = blendedTargetPos = xVec2::m_Null;
+    targetPosBlend = 1.0f;
+    oldTargetSize = blendedTargetSize = xVec2::m_Null;
+
+    colorFirst = RED;
+    colorRest = BLUE;
+    hasAmmo = false;
+
+    UpdateColor();
+}
+
 void zPlanktonTargetIndicator::Hide() {
     zEntEvent(0, 0, parts[0], 0xAE72E9E5, 0, (ForceEvent)1);
     zEntEvent(0, 0, parts[1], 0xAE72E9E5, 0, (ForceEvent)1);
@@ -537,4 +1014,382 @@ void zPlanktonTargetIndicator::UpdateColor() {
     unsigned int c4 = colorRest;
 
     parts[4]->_v31(&c4);
+}
+
+// -- written by hand from the image, callers above callees ----------
+
+// The three members the 116-byte callbacks forward to sit below
+// them, so the callbacks keep calling rather than inlining.
+bool zPlayerIdlePlankton::ShakeMissCheck(xAnimTransition* a0, xAnimSingle* a1) {
+    if (player->f898 == 5) {
+        zSoundWiimoteSpeakerList::Play(2, player);
+        return true;
+    }
+
+    return false;
+}
+
+bool zPlayerIdlePlankton::ZapMissCheck(xAnimTransition* a0, xAnimSingle* a1) {
+    if (player->f898 == 8) {
+        zSoundWiimoteSpeakerList::Play(3, player);
+        return true;
+    }
+
+    return false;
+}
+
+bool zPlayerIdlePlankton::TalkCheck(xAnimTransition* a0, xAnimSingle* a1) {
+    zPlanktonPlayer* p = (zPlanktonPlayer*)player;
+
+    if (p->talking) {
+        p->talking = false;
+        return true;
+    }
+
+    return false;
+}
+
+unsigned int zPlayerIdlePlankton::anStopTalkAnimCB(xAnimTransition* a0, xAnimSingle* a1,
+                                                   void* a2) {
+    ((zPlayerIdlePlankton*)((AnimCBHolder*)a1)->slot->owner)->nextTalkState = 0;
+    return 0;
+}
+
+void zPlayerIdlePlankton::Reset() {
+    xOGModel* model = player->model;
+
+    xAnimPlaySetState(model->Anim->Single,
+                      xAnimTableGetState(model->Anim->Table, "Hidden01"), 0.0f);
+    manager->SetCurrentAction(this);
+    nextTalkState = 0;
+}
+
+void zPlanktonPlayer::HandleEvent(xBase* from, unsigned int event, Sext::EventAny* param) {
+    switch (event) {
+    case 0x1CC6C5B2:
+        designerForceAppear = true;
+        break;
+    case 0xB9B72644:
+        designerForceAppear = false;
+        break;
+    case 0xF488F399: {
+        zPlanktonTalkParam* p = (zPlanktonTalkParam*)param;
+        zPlayerIdlePlankton* idle = (zPlayerIdlePlankton*)actionManager.actions[0];
+
+        if (p->type == 0) {
+            idle->PlayTalkAnim(p->uid);
+        } else {
+            idle->PlayTalkAnimFromAnimPackage(p->uid, p->animIndex - 1);
+        }
+        break;
+    }
+    }
+
+    ((zCommonPlayer*)this)->HandleEvent(from, event, param);
+}
+
+void zPlayerIdlePlankton::PlayTalkAnim(unsigned long long id) {
+    void* asset = World::GetEntityManager()->FindAsset(id);
+
+    if (asset) {
+        xAnimSetRawData(talkState[nextTalkState], asset, 0);
+        xAnimSetVFX(talkState[nextTalkState], 0, 0);
+        xAnimSetSound(talkState[nextTalkState], 0);
+        nextTalkState = (nextTalkState + 1) & 1;
+        ((zPlanktonPlayer*)player)->talking = true;
+    }
+}
+
+void zPlayerIdlePlankton::PlayTalkAnimFromAnimPackage(unsigned long long id, unsigned int index) {
+    zAnimPackage* pkg = (zAnimPackage*)GradientCurve::zGradientCurve::Find(id);
+
+    if (pkg) {
+        void* raw = pkg->GetRawDataByIndex((ePlayerName)player->eName, index, -1);
+
+        if (raw) {
+            xAnimSetRawData(talkState[nextTalkState], raw, 0);
+        }
+
+        xAnimVFX_Effect* vfx = 0;
+        int vfxCount;
+        pkg->GetVFXDataByIndex((ePlayerName)player->eName, index, &vfx, &vfxCount);
+        xAnimSetVFX(talkState[nextTalkState], vfx, vfxCount);
+
+        xAnimSoundEffect* snd = 0;
+        pkg->GetSoundDataByIndex((ePlayerName)player->eName, index, &snd);
+        xAnimSetSound(talkState[nextTalkState], snd);
+
+        nextTalkState = (nextTalkState + 1) & 1;
+        ((zPlanktonPlayer*)player)->talking = true;
+    }
+}
+
+void zPlanktonPlayer::InitActions() {
+    actionManager.Init(1);
+    actionManager.Add((zPlayer*)this,
+                      new (xMemAlloc((Memory::GlobalHeapEnum)0, 28, 0, (eMemMgrTag)29)) zPlayerIdlePlankton);
+}
+
+unsigned int zPlanktonPlayer::GetBehaviorSetRefHash() const {
+    return xStrHash("Plankton_set_ref");
+}
+
+void zPlanktonPlayer::Reset() {
+    ((zCommonPlayer*)this)->Reset();
+    shakeHelper.Reset((zPlayer*)this);
+
+    currentOwnerType = 1;
+    firstFrameUpdate = true;
+    appearBlend = 0.0f;
+    appearing = disappearing = false;
+    talking = false;
+    designerForceAppear = false;
+
+    xEntHide((xEnt*)this);
+
+    yOffsetFromPlayer = 1.0f;
+    emitterPos.x = 0.0f;
+    emitterPos.y = 0.0f;
+    emitterPos.z = 0.0f;
+    lookAtPos.x = 0.0f;
+    lookAtPos.y = 0.0f;
+    lookAtPos.z = 0.0f;
+    emitterLookAtDir.x = 1.0f;
+    emitterLookAtDir.y = 0.0f;
+    emitterLookAtDir.z = 0.0f;
+    usingMirrorHoverPosition = forceHoverPosition = false;
+    emitterAnimControlled = false;
+    currentState = 0;
+    zFloatingCollectible::unhappyNuggetsInProgress = 0;
+}
+
+void zPlanktonPlayer::CollectedAmmo(unsigned int n) {
+    shakeHelper.CollectedAmmo(n);
+}
+
+// Retail inlines the container's index into GetInstance and emits
+// the operator as well; defined first so the auto-inliner has it.
+zPlayer* zPlayerContainer::operator[](int i) {
+    return playerArray[i];
+}
+
+zPlanktonPlayer* zPlanktonPlayer::GetInstance() {
+    for (int i = 0; i < xglobals->players.numPlayers; i++) {
+        zPlayer* p = xglobals->players[i];
+
+        if (p->eName == 8) {
+            return (zPlanktonPlayer*)p;
+        }
+    }
+
+    return 0;
+}
+
+bool zSBPlayer::IsInAnyGooState() {
+    return IsGooFilled() || gooState == 1 || gooState == 6;
+}
+
+bool zSBPlayer::IsGooFilled() {
+    return gooState >= 2 && gooState <= 5;
+}
+
+void zPlanktonPlayerShakeHelper::CollectedAmmo(unsigned int n) {
+    zapAmmo += n;
+
+    if (zapAmmo > tweakParams.ZapDamageMaxAmmo) {
+        zapAmmo = tweakParams.ZapDamageMaxAmmo;
+    }
+
+    zPlanktonAmmoEvent ev;
+    ev.count = zapAmmo;
+    zEntEventAllOfType(0, 0, 0x517A61D9, (Sext::EventAny*)&ev, 219, (ForceEvent)1);
+
+    targetIndicator.hasAmmo = zapAmmo != 0;
+}
+
+void zPlanktonPlayerShakeHelper::DecreaseShakeEnergy(float amount) {
+    energyShake -= amount;
+
+    if (energyShake < 0.0f) {
+        energyShake = 0.0f;
+    }
+
+    energyShakeDelayTime = 0.0f;
+
+    float ev = energyShake;
+    zEntEventAllOfType(0, 0, 0xB1EB7C0F, (Sext::EventAny*)&ev, 219, (ForceEvent)1);
+}
+
+bool zPlanktonPlayerShakeHelper::canDamage(xBase* target) {
+    switch (target->typeID) {
+    case 0x38:
+        return target->fBC->f78->f00->f3C;
+    case 0xA1:
+        return true;
+    case 0x6D:
+        return false;
+    case 0x5A:
+        if (target->fCC != 0 && (target->fCC->f1C & 2)) {
+            return true;
+        }
+        break;
+    }
+
+    return false;
+}
+
+void zPlanktonShakeManager::Reset() {
+    currentEnt = 0;
+}
+
+bool zPlanktonShakeManager::StartShake(xEnt* ent, const xVec3& pos) {
+    currentEnt = ent;
+    currentShakeState.pos = pos;
+    currentShakeState.f0C.x = 0.0f;
+    currentShakeState.f0C.y = 0.0f;
+    currentShakeState.f14.x = 0.0f;
+    currentShakeState.f14.y = 0.0f;
+    currentShakeState.f1C = currentShakeState.f20 = 0.0f;
+    currentShakeState.f24 = currentShakeState.f28 = 0;
+    currentShakeState.f2C = false;
+    currentShakeState.f2D = false;
+    currentShakeState.f30 = 0.0f;
+    return true;
+}
+
+bool zPlanktonShakeManager::IsBeingShaken(const xEnt* ent) {
+    return currentEnt == ent;
+}
+
+zPlanktonSwingGesture::zPlanktonSwingGesture() {
+    ACC_MAX = 3.39989805f;
+    ACC_DAMP = 0.6f;
+    DIR_VEC_DAMP = 0.93f;
+    DIR_SPEED_DAMP = 0.98f;
+    DIR_SPEED_MIN = 1.0f;
+    DIR_VEC_CLAMP = 2.0f;
+}
+
+bool zPlanktonSwingGesture::Update(zPlayerInput* input) {
+    bool swung = false;
+    unsigned int n = input->_v42(0);
+
+    for (unsigned int i = 0; i < n; i++) {
+        xVec3 acc;
+        input->_v43(0, i, &acc);
+        Update(acc);
+
+        if (swing2Stability == 0) {
+            swung = true;
+        }
+    }
+
+    return swung;
+}
+
+void zPlanktonSwingGesture::Reset() {
+    lastAcc = deltaAcc = xVec3::m_Null;
+    dirVec2 = xVec3::m_Null;
+    dirSpeedMax2 = 0.0f;
+    swing2Stability = -1;
+    firstUpdate = true;
+}
+
+zPlanktonShakeGesture::zPlanktonShakeGesture() {
+    ShakeAccelFilter = 0.01f;
+    ShakeThreshold = 1.0f;
+}
+
+void zPlanktonShakeGesture::Reset() {
+    for (int i = 0; i < 2; i++) {
+        swingCount[i] = 0;
+        swingFirstIndex[i] = 0;
+        swingLastDir[i] = 0.0f;
+        filteredAcc.x = 0.0f;
+        filteredAcc.y = 0.0f;
+        filteredAcc.z = 0.0f;
+    }
+}
+
+void zPlanktonShakeGesture::AddShake(int i, const System::Time& t) {
+    unsigned int idx;
+
+    if (swingCount[i] < 20) {
+        idx = (swingFirstIndex[i] + swingCount[i]) % 20;
+        swingCount[i]++;
+    } else {
+        idx = swingFirstIndex[i];
+        swingFirstIndex[i] = (idx + 1) % 20;
+    }
+
+    swingTimes[i][idx] = t;
+}
+
+xVec2 zPlanktonShakeGesture::GetShakeFreq() {
+    xVec2 freq;
+    freq.assign((float)swingCount[0], (float)swingCount[1]);
+
+    if (freq.x > 1.0f) {
+        freq.x -= 1.0f;
+    }
+
+    if (freq.y > 1.0f) {
+        freq.y -= 1.0f;
+    }
+
+    return freq;
+}
+
+void zUI::SetColor(xColor c) {
+    color = c;
+}
+
+void zPlanktonTargetListener::entityRemovedCallback(hkpEntity* a0) {
+    _v13((xBase*)a0->m_userData);
+}
+
+xVec2& xVec2::operator*=(float s) {
+    x *= s;
+    y *= s;
+    return *this;
+}
+
+xVec2& xVec2::operator+=(const xVec2& o) {
+    x += o.x;
+    y += o.y;
+    return *this;
+}
+
+xVec2& xVec2::operator-=(const xVec2& o) {
+    x -= o.x;
+    y -= o.y;
+    return *this;
+}
+
+xVec2 xVec2::operator+(const xVec2& o) const {
+    xVec2 r = *this;
+    r += o;
+    return r;
+}
+
+xVec2 xVec2::operator*(const xVec2& o) const {
+    xVec2 r = *this;
+    r.x *= o.x;
+    r.y *= o.y;
+    return r;
+}
+
+float std::sin(float x) {
+    return ::sin(x);
+}
+
+float xinvsqrt(float x) {
+    return 1.0f / Math::sqrt(x);
+}
+
+hkpShapeRayCastOutput::hkpShapeRayCastOutput() {
+    m_hitFraction = 1.0f;
+    m_extraInfo = -1;
+    m_shapeKeyIndex = 0;
+    m_shapeKeys[0] = 0xFFFFFFFF;
 }

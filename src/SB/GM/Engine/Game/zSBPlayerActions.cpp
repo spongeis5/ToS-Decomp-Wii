@@ -97,6 +97,24 @@ public:
     virtual void _v11();
     virtual void _v12();
     virtual void _v13();
+    virtual void _v14();
+    virtual void _v15();
+    virtual void _v16();
+    virtual void _v17();
+    virtual void _v18();
+    virtual void _v19();
+    virtual void _v20();
+    virtual void _v21();
+    virtual void _v22();
+    virtual void _v23();
+    virtual void _v24();
+    virtual void _v25();
+    virtual void _v26();
+    virtual void _v27();
+    virtual void _v28();
+    // The interaction type an action answers to (zPlayerLedgeSB's
+    // StartLedgeCheck compares it, cmplw, with the manager's current).
+    virtual unsigned int _v29();
 
     unsigned int NewState(xAnimTable* table, const char* name,
                           unsigned int a, unsigned int b, float c,
@@ -432,6 +450,11 @@ void sphere_damage(xBase* from, const xVec3& center, float a, float b,
                    float c, float d, Sext::eHitSource source,
                    zHitTarget target, unsigned int flags, const xVec3* dir);
 unsigned int xrand_GenRandInt32();
+int xrand_RandomRange(int lo, int hi);
+void xEntTurnToFace(xEnt* ent, const xVec3* target, float speed, float dt);
+void zSceneFadeOut(void (*cb)(), bool b);
+int zCombatGetBaseAttackSB(Sext::eHitSource source);
+void _PlayerDeadSceneResetCB();
 
 class zPlayerSlamFallBoard {
 public:
@@ -480,6 +503,24 @@ enum SBGooFilledState { SBGooFilledState_ = 0x7FFFFFFF };
 enum SBPowerupState { SBPowerupState_ = 0x7FFFFFFF };
 enum eRPSAttackTypes { eRPSAttackTypes_ = 0x7FFFFFFF };
 
+// zCommonPlayer+0x4DC in the DWARF, 0x10 bytes.
+class zInteractionManager {
+public:
+    unsigned int GetCurrentInteractionType();
+
+    unsigned char _pad0[0x10];
+};
+
+// Both take the player in r3: statics, not members of the manager the
+// player holds at +0x9E0.
+class zPlayer;
+class zSBProjectileManager {
+public:
+    static void GeneratePlayerPuckSalvo(zPlayer* player, int count, float a,
+                                        float b);
+    static void GeneratePlayerPuck(zPlayer* player);
+};
+
 // The player, at the offsets its callers read and with the names
 // the DWARF gives them. The vtable pointer is at +0 and slot 74 is
 // the one zSBPlayerSpinAttack::Begin calls -- (304 - 8) / 4.
@@ -525,7 +566,7 @@ public:
     virtual void _v37();
     virtual void _v38();
     virtual void _v39();
-    virtual void _v40();
+    virtual void _v40(float dt); // DefaultUpdate
     virtual void _v41();
     virtual void _v42();
     virtual void _v43();
@@ -665,7 +706,7 @@ public:
     void StopSBB3SmokeTrailFX();
     void SetGooState(SBGooFilledState state);
     int IsInAnyGooState();
-    int IsOnQuicksand();
+    bool IsOnQuicksand();
     float GetRunStartMag();
     void PlayerDiedSceneReset();
     void SetPowerupState(SBPowerupState state);
@@ -675,6 +716,11 @@ public:
     bool IsOnSlipperySurface(float f) const;
     void StopBreathFX();
     int IsGooFilled();
+    float GetWalkStartMag();
+    void SetFaceCamera(float angle);
+    float GetPuckCooldownTimerPercent();
+    void ResetPuckCooldownTimer();
+    void DecrementPuckAmmo();
 
     unsigned char _pad0[0x30];
     xOGModelHandle ogModel;
@@ -690,7 +736,9 @@ public:
     float fallingTime;
     unsigned char _pad5[0x180];
     int lastDamageType;
-    unsigned char _pad6[0xD8];
+    unsigned char _pad6[0x4DC - 0x47C];
+    zInteractionManager interactionManager;
+    unsigned char _pad6b[0x554 - 0x4EC];
     int currentHitType;
     hkVector4 hitDir;
     unsigned char _pad7[0x330];
@@ -815,10 +863,11 @@ public:
     static const char* GetTransitionString() { return "Idle*"; }
     bool DefaultIdleCheck(xAnimTransition* a0, xAnimSingle* a1);
     bool ExtraIdleCheck(xAnimTransition* a0, xAnimSingle* a1);
-    bool IdleRegularCheck(xAnimTransition* a0, xAnimSingle* a1);
+    unsigned int IdleRegularCheck(xAnimTransition* a0, xAnimSingle* a1);
     void End();
+    void Move(xScene* scene, float dt, xEntFrame* frame);
     void AddActionTransitions(xAnimTable* table);
-    bool IdleColdCheck(xAnimTransition* a0, xAnimSingle* a1);
+    unsigned int IdleColdCheck(xAnimTransition* a0, xAnimSingle* a1);
     bool IdleExtraInterruptCheck(xAnimTransition* a0, xAnimSingle* a1);
     bool IdleHappierCheck(xAnimTransition* a0, xAnimSingle* a1);
     bool IdleHappyCheck(xAnimTransition* a0, xAnimSingle* a1);
@@ -896,7 +945,7 @@ public:
     void Move(xScene* scene, float dt, xEntFrame* frame);
 
     int f10;
-    unsigned char f14;
+    bool f14; // airHammer
 
     bool HasAlreadyRecoiled();
 
@@ -998,6 +1047,15 @@ public:
 
     bool AnyHitFrontCheck(xAnimTransition* a0, xAnimSingle* a1);
 
+    void Update(float dt);
+
+    // Inline under their callbacks; retail has no symbol for any.
+    bool HitGooFrontCheck(xAnimTransition* a0, xAnimSingle* a1);
+    bool HitGooBackCheck(xAnimTransition* a0, xAnimSingle* a1);
+    bool HitSpinFrontCheck(xAnimTransition* a0, xAnimSingle* a1);
+    bool HitSpinBackCheck(xAnimTransition* a0, xAnimSingle* a1);
+    bool HitPuckBackCheck(xAnimTransition* a0, xAnimSingle* a1);
+
     unsigned char _padA[0x14 - 0x10];
     float f14;
 };
@@ -1022,7 +1080,7 @@ public:
 
     void Begin();
 
-    bool HammerPowerupCheck(xAnimTransition* a0, xAnimSingle* a1);
+    unsigned int HammerPowerupCheck(xAnimTransition* a0, xAnimSingle* a1);
 };
 
 
@@ -1043,7 +1101,7 @@ public:
 
     void Begin();
 
-    bool PuckPowerupCheck(xAnimTransition* a0, xAnimSingle* a1);
+    unsigned int PuckPowerupCheck(xAnimTransition* a0, xAnimSingle* a1);
 };
 
 
@@ -1068,6 +1126,7 @@ public:
     bool KelpTrapCheck(xAnimTransition* a0, xAnimSingle* a1);
 
     void End();
+    void Begin();
 };
 
 
@@ -1201,19 +1260,37 @@ public:
     static unsigned int anSBNotQuicksandCheck(xAnimTransition*, xAnimSingle*, void*);
     bool SBCandyBuffCheck(xAnimTransition* a0, xAnimSingle* a1);
     bool SBCandyCheck(xAnimTransition* a0, xAnimSingle* a1);
-    bool SBLandCheck(xAnimTransition* a0, xAnimSingle* a1);
+    unsigned int SBLandCheck(xAnimTransition* a0, xAnimSingle* a1);
     static unsigned int anSBQuicksandMoveCheck(xAnimTransition* a0, xAnimSingle* a1, void* a2);
     bool SBQuicksandMoveCheck(xAnimTransition* a0, xAnimSingle* a1);
     static unsigned int anSBQuicksandStopCheck(xAnimTransition* a0, xAnimSingle* a1, void* a2);
     bool SBQuicksandStopCheck(xAnimTransition* a0, xAnimSingle* a1);
-    bool SBRunCheck(xAnimTransition* a0, xAnimSingle* a1);
+    unsigned int SBRunCheck(xAnimTransition* a0, xAnimSingle* a1);
     bool SBStopCheck(xAnimTransition* a0, xAnimSingle* a1);
-    bool SBWalkCheck(xAnimTransition* a0, xAnimSingle* a1);
+    unsigned int SBWalkCheck(xAnimTransition* a0, xAnimSingle* a1);
 
-    bool SBFallCheck(xAnimTransition* a0, xAnimSingle* a1);
+    unsigned int SBFallCheck(xAnimTransition* a0, xAnimSingle* a1);
 
     bool DefaultStateCheck(xAnimTransition* a0, xAnimSingle* a1);
+
+    bool SBMoveCheck(xAnimTransition* a0, xAnimSingle* a1);
 };
+
+// SBWalkCheck || SBRunCheck as the matched Board twin spells it
+// (zBoardPlayerAction::BoardMoveCheck): three addic/subfe pairs, the
+// two operands and the local on the way out. Retail has no symbol for
+// it, and -inline auto declines an inline that calls, so its callers
+// sit under `#pragma always_inline on`.
+inline bool zSBPlayerAction::SBMoveCheck(xAnimTransition* a0,
+                                         xAnimSingle* a1) {
+    unsigned int moved = SBWalkCheck(a0, a1) != 0;
+
+    if (!moved) {
+        moved = SBRunCheck(a0, a1) != 0;
+    }
+
+    return moved;
+}
 
 class zCommonPlayerAction {
 public:
@@ -1242,6 +1319,7 @@ public:
     void AddTransitionsFrom(xAnimTable* table, const char* name, unsigned int (*c)(xAnimTransition*, xAnimSingle*, void*), unsigned int (*d)(xAnimTransition*, xAnimSingle*, void*), unsigned short e, float f, unsigned int g, unsigned int h, zPlayerAction::SpecialActions i);
 
     bool RunRegularCheck(xAnimTransition* a0, xAnimSingle* a1);
+    bool RunCheck(xAnimTransition* a0, xAnimSingle* a1);
 };
 
 class zSBPlayerBungeeBall : public zPlayerAction {
@@ -1682,7 +1760,7 @@ public:
     void AddActionTransitions(xAnimTable* table);
     void AddStates(xAnimTable* table);
     static unsigned int anDoubleJumpStartCheck(xAnimTransition* a0, xAnimSingle* a1, void* a2);
-    bool DoubleJumpStartCheck(xAnimTransition* a0, xAnimSingle* a1);
+    unsigned int DoubleJumpStartCheck(xAnimTransition* a0, xAnimSingle* a1);
     static unsigned int anDoubleJumpStartMovingCheck(xAnimTransition* a0, xAnimSingle* a1, void* a2);
     bool DoubleJumpStartMovingCheck(xAnimTransition* a0, xAnimSingle* a1);
     bool TransToFallCheck(xAnimTransition* a0, xAnimSingle* a1);
@@ -1742,7 +1820,7 @@ public:
     void AddActionTransitions(xAnimTable* table);
     void AddStates(xAnimTable* table);
     static unsigned int anSBJumpCheck(xAnimTransition* a0, xAnimSingle* a1, void* a2);
-    bool SBJumpCheck(xAnimTransition* a0, xAnimSingle* a1);
+    unsigned int SBJumpCheck(xAnimTransition* a0, xAnimSingle* a1);
     static unsigned int anSBJumpMovingCheck(xAnimTransition* a0, xAnimSingle* a1, void* a2);
     bool SBJumpMovingCheck(xAnimTransition* a0, xAnimSingle* a1);
     void AddTransitionsFrom(xAnimTable* table, const char* name, unsigned int (*c)(xAnimTransition*, xAnimSingle*, void*), unsigned int (*d)(xAnimTransition*, xAnimSingle*, void*), unsigned short e, float f, unsigned int g, unsigned int h, zPlayerAction::SpecialActions i);
@@ -1815,6 +1893,14 @@ public:
     static unsigned int anLaunchGooFrontCheck(xAnimTransition*, xAnimSingle*, void*);
     static unsigned int anLaunchRubberBandBackCheck(xAnimTransition*, xAnimSingle*, void*);
     static unsigned int anLaunchRubberBandFrontCheck(xAnimTransition*, xAnimSingle*, void*);
+
+    // Inline under their callbacks; retail has no symbol for any.
+    bool LaunchGooFrontCheck(xAnimTransition* a0, xAnimSingle* a1);
+    bool LaunchGooBackCheck(xAnimTransition* a0, xAnimSingle* a1);
+    bool LaunchRubberBandFrontCheck(xAnimTransition* a0, xAnimSingle* a1);
+    bool LaunchRubberBandBackCheck(xAnimTransition* a0, xAnimSingle* a1);
+    bool KnockbackFrontCheck(xAnimTransition* a0, xAnimSingle* a1);
+    bool KnockbackBackCheck(xAnimTransition* a0, xAnimSingle* a1);
     void AddTransitionsFrom(xAnimTable* table, const char* name, unsigned int (*c)(xAnimTransition*, xAnimSingle*, void*), unsigned int (*d)(xAnimTransition*, xAnimSingle*, void*), unsigned short e, float f, unsigned int g, unsigned int h, zPlayerAction::SpecialActions i);
 };
 
@@ -1877,7 +1963,7 @@ public:
                             unsigned int h,
                             zPlayerAction::SpecialActions i);
     void AddStates(xAnimTable* table);
-    bool SBBombMoveCheck(xAnimTransition* a0, xAnimSingle* a1);
+    unsigned int SBBombMoveCheck(xAnimTransition* a0, xAnimSingle* a1);
     bool SBBombStopCheck(xAnimTransition* a0, xAnimSingle* a1);
     bool SBNoBombCheck(xAnimTransition* a0, xAnimSingle* a1);
 
@@ -2151,7 +2237,7 @@ void zPlayerSingleCustomAnimSB::AddActionTransitions(xAnimTable* table) {
 // line table, between the `if` on 2835 and the call on 2839). Declared
 // at the top and tested at the bottom it was 16 of 70 words, the tail
 // spelled `addic/subfe` because the return had become a conversion.
-bool zPlayerDoubleJumpSB::DoubleJumpStartCheck(xAnimTransition* a0,
+unsigned int zPlayerDoubleJumpSB::DoubleJumpStartCheck(xAnimTransition* a0,
                                                xAnimSingle* a1) {
     if (((zSBPlayer*)player)->canDoubleJump) {
         unsigned int hit = 0;
@@ -3811,6 +3897,290 @@ unsigned int zPlayerHitSB::anHitPuckFrontCheck(xAnimTransition* a0,
 
 #pragma always_inline off
 
+// The same shape as anHitPuckFrontCheck: each callback holds its
+// predicate inline (retail has no symbol for any of them), under
+// `#pragma always_inline` because -inline auto declines an inline that
+// calls. The callees are all defined below, so only the predicate
+// comes in.
+inline bool zPlayerHitSB::HitGooFrontCheck(xAnimTransition* a0,
+                                           xAnimSingle* a1) {
+    bool result = false;
+
+    if (((zSBPlayer*)player)->IsGooFilled() && AnyHitFrontCheck(a0, a1)) {
+        result = true;
+    }
+
+    return result;
+}
+
+inline bool zPlayerHitSB::HitGooBackCheck(xAnimTransition* a0,
+                                          xAnimSingle* a1) {
+    bool result = false;
+
+    if (((zSBPlayer*)player)->IsGooFilled() && AnyHitBackCheck(a0, a1)) {
+        result = true;
+    }
+
+    return result;
+}
+
+inline bool zPlayerHitSB::HitSpinFrontCheck(xAnimTransition* a0,
+                                            xAnimSingle* a1) {
+    bool result = false;
+
+    if (HitFrontCheck(a0, a1) &&
+        ((zSBPlayer*)player)->lastDamageType == 27) {
+        result = true;
+    }
+
+    return result;
+}
+
+inline bool zPlayerHitSB::HitSpinBackCheck(xAnimTransition* a0,
+                                           xAnimSingle* a1) {
+    bool result = false;
+
+    if (HitBackCheck(a0, a1) &&
+        ((zSBPlayer*)player)->lastDamageType == 27) {
+        result = true;
+    }
+
+    return result;
+}
+
+inline bool zPlayerHitSB::HitPuckBackCheck(xAnimTransition* a0,
+                                           xAnimSingle* a1) {
+    bool result = false;
+
+    if (HitBackCheck(a0, a1) &&
+        ((zSBPlayer*)player)->lastDamageType == 31) {
+        result = true;
+    }
+
+    return result;
+}
+
+inline bool zPlayerHitLaunchSB::LaunchGooFrontCheck(xAnimTransition* a0,
+                                                    xAnimSingle* a1) {
+    bool result = false;
+
+    if (((zSBPlayer*)player)->IsGooFilled() && LaunchFrontCheck(a0, a1)) {
+        result = true;
+    }
+
+    return result;
+}
+
+inline bool zPlayerHitLaunchSB::LaunchGooBackCheck(xAnimTransition* a0,
+                                                   xAnimSingle* a1) {
+    bool result = false;
+
+    if (((zSBPlayer*)player)->IsGooFilled() && LaunchBackCheck(a0, a1)) {
+        result = true;
+    }
+
+    return result;
+}
+
+inline bool zPlayerHitLaunchSB::LaunchRubberBandFrontCheck(
+    xAnimTransition* a0, xAnimSingle* a1) {
+    bool result = false;
+
+    if (((zSBPlayer*)player)->lastDamageType == 55 &&
+        LaunchFrontCheck(a0, a1)) {
+        result = true;
+    }
+
+    return result;
+}
+
+inline bool zPlayerHitLaunchSB::LaunchRubberBandBackCheck(
+    xAnimTransition* a0, xAnimSingle* a1) {
+    bool result = false;
+
+    if (((zSBPlayer*)player)->lastDamageType == 55 &&
+        LaunchBackCheck(a0, a1)) {
+        result = true;
+    }
+
+    return result;
+}
+
+inline bool zPlayerHitLaunchSB::KnockbackFrontCheck(xAnimTransition* a0,
+                                                    xAnimSingle* a1) {
+    bool result = false;
+
+    if (((zSBPlayer*)player)->lastDamageType == 9 &&
+        LaunchFrontCheck(a0, a1)) {
+        result = true;
+    }
+
+    return result;
+}
+
+inline bool zPlayerHitLaunchSB::KnockbackBackCheck(xAnimTransition* a0,
+                                                   xAnimSingle* a1) {
+    bool result = false;
+
+    if (((zSBPlayer*)player)->lastDamageType == 9 &&
+        LaunchBackCheck(a0, a1)) {
+        result = true;
+    }
+
+    return result;
+}
+
+#pragma always_inline on
+
+unsigned int zPlayerHitSB::anHitGooFrontCheck(xAnimTransition* a0,
+                                              xAnimSingle* a1, void* a2) {
+    unsigned int result = 0;
+
+    if (((zPlayerHitSB*)((AnimCBHolder*)a0)->slot->owner)->_v5()) {
+        if (((zPlayerHitSB*)((AnimCBHolder*)a0)->slot->owner)->HitGooFrontCheck(a0, a1)) {
+            result = 1;
+        }
+    }
+
+    return result;
+}
+
+unsigned int zPlayerHitSB::anHitGooBackCheck(xAnimTransition* a0,
+                                             xAnimSingle* a1, void* a2) {
+    unsigned int result = 0;
+
+    if (((zPlayerHitSB*)((AnimCBHolder*)a0)->slot->owner)->_v5()) {
+        if (((zPlayerHitSB*)((AnimCBHolder*)a0)->slot->owner)->HitGooBackCheck(a0, a1)) {
+            result = 1;
+        }
+    }
+
+    return result;
+}
+
+unsigned int zPlayerHitSB::anHitSpinFrontCheck(xAnimTransition* a0,
+                                               xAnimSingle* a1, void* a2) {
+    unsigned int result = 0;
+
+    if (((zPlayerHitSB*)((AnimCBHolder*)a0)->slot->owner)->_v5()) {
+        if (((zPlayerHitSB*)((AnimCBHolder*)a0)->slot->owner)->HitSpinFrontCheck(a0, a1)) {
+            result = 1;
+        }
+    }
+
+    return result;
+}
+
+unsigned int zPlayerHitSB::anHitSpinBackCheck(xAnimTransition* a0,
+                                              xAnimSingle* a1, void* a2) {
+    unsigned int result = 0;
+
+    if (((zPlayerHitSB*)((AnimCBHolder*)a0)->slot->owner)->_v5()) {
+        if (((zPlayerHitSB*)((AnimCBHolder*)a0)->slot->owner)->HitSpinBackCheck(a0, a1)) {
+            result = 1;
+        }
+    }
+
+    return result;
+}
+
+unsigned int zPlayerHitSB::anHitPuckBackCheck(xAnimTransition* a0,
+                                              xAnimSingle* a1, void* a2) {
+    unsigned int result = 0;
+
+    if (((zPlayerHitSB*)((AnimCBHolder*)a0)->slot->owner)->_v5()) {
+        if (((zPlayerHitSB*)((AnimCBHolder*)a0)->slot->owner)->HitPuckBackCheck(a0, a1)) {
+            result = 1;
+        }
+    }
+
+    return result;
+}
+
+unsigned int zPlayerHitLaunchSB::anLaunchGooFrontCheck(xAnimTransition* a0,
+                                                      xAnimSingle* a1,
+                                                      void* a2) {
+    unsigned int result = 0;
+
+    if (((zPlayerHitLaunchSB*)((AnimCBHolder*)a0)->slot->owner)->_v5()) {
+        if (((zPlayerHitLaunchSB*)((AnimCBHolder*)a0)->slot->owner)->LaunchGooFrontCheck(a0, a1)) {
+            result = 1;
+        }
+    }
+
+    return result;
+}
+
+unsigned int zPlayerHitLaunchSB::anLaunchGooBackCheck(xAnimTransition* a0,
+                                                     xAnimSingle* a1,
+                                                     void* a2) {
+    unsigned int result = 0;
+
+    if (((zPlayerHitLaunchSB*)((AnimCBHolder*)a0)->slot->owner)->_v5()) {
+        if (((zPlayerHitLaunchSB*)((AnimCBHolder*)a0)->slot->owner)->LaunchGooBackCheck(a0, a1)) {
+            result = 1;
+        }
+    }
+
+    return result;
+}
+
+unsigned int zPlayerHitLaunchSB::anLaunchRubberBandFrontCheck(
+    xAnimTransition* a0, xAnimSingle* a1, void* a2) {
+    unsigned int result = 0;
+
+    if (((zPlayerHitLaunchSB*)((AnimCBHolder*)a0)->slot->owner)->_v5()) {
+        if (((zPlayerHitLaunchSB*)((AnimCBHolder*)a0)->slot->owner)->LaunchRubberBandFrontCheck(a0, a1)) {
+            result = 1;
+        }
+    }
+
+    return result;
+}
+
+unsigned int zPlayerHitLaunchSB::anLaunchRubberBandBackCheck(
+    xAnimTransition* a0, xAnimSingle* a1, void* a2) {
+    unsigned int result = 0;
+
+    if (((zPlayerHitLaunchSB*)((AnimCBHolder*)a0)->slot->owner)->_v5()) {
+        if (((zPlayerHitLaunchSB*)((AnimCBHolder*)a0)->slot->owner)->LaunchRubberBandBackCheck(a0, a1)) {
+            result = 1;
+        }
+    }
+
+    return result;
+}
+
+unsigned int zPlayerHitLaunchSB::anKnockbackFrontCheck(xAnimTransition* a0,
+                                                      xAnimSingle* a1,
+                                                      void* a2) {
+    unsigned int result = 0;
+
+    if (((zPlayerHitLaunchSB*)((AnimCBHolder*)a0)->slot->owner)->_v5()) {
+        if (((zPlayerHitLaunchSB*)((AnimCBHolder*)a0)->slot->owner)->KnockbackFrontCheck(a0, a1)) {
+            result = 1;
+        }
+    }
+
+    return result;
+}
+
+unsigned int zPlayerHitLaunchSB::anKnockbackBackCheck(xAnimTransition* a0,
+                                                     xAnimSingle* a1,
+                                                     void* a2) {
+    unsigned int result = 0;
+
+    if (((zPlayerHitLaunchSB*)((AnimCBHolder*)a0)->slot->owner)->_v5()) {
+        if (((zPlayerHitLaunchSB*)((AnimCBHolder*)a0)->slot->owner)->KnockbackBackCheck(a0, a1)) {
+            result = 1;
+        }
+    }
+
+    return result;
+}
+
+#pragma always_inline off
+
 unsigned int zPlayerHitSB::anHitBackCheck(xAnimTransition* a0, xAnimSingle* a1,
                                           void* a2) {
     unsigned int result = 0;
@@ -5058,6 +5428,7 @@ void zPlayerSlamStartSB::Begin() {
 class zPlayerFallToDeathSB : public zPlayerAction {
 public:
     void Begin();
+    void Update(float dt);
 
     float f10;
 };
@@ -5343,7 +5714,201 @@ bool zSBPlayerGainPowerup::GainSpongebuffPowerupCheck(xAnimTransition* a0,
     return false;
 }
 
-bool zSBPlayerAction::SBFallCheck(xAnimTransition* a0, xAnimSingle* a1) {
+// -- the Moving family, and two more that inline a helper -----------
+//
+// Above SBFallCheck, HammerPowerupCheck, PuckPowerupCheck and
+// SBRunCheck: each is a single-expression body -inline auto would
+// take, and retail calls all four. The checks return unsigned int:
+// every call result in them is normalised (addic/subfe), _v5's (a
+// bool) is not.
+
+// Spelled as their matched Board twins in WAD01_28.cpp are: each `!= 0`
+// is one addic/subfe pair, a conversion of an int to a bool as a VALUE.
+// Written as `a || b` / `a && b` mwcc keeps a flag register set from
+// branches instead (ours was 26 of 30 words that way).
+bool zPlayerIdleSB::IdleAgingOutCheck(xAnimTransition* a0, xAnimSingle* a1) {
+    unsigned int moved = ((zSBPlayerAction*)this)->SBWalkCheck(a0, a1) != 0;
+
+    if (!moved) {
+        moved = ((zSBPlayerAction*)this)->SBRunCheck(a0, a1) != 0;
+    }
+
+    bool ok = moved != 0;
+
+    if (ok) {
+        ok = IdleRegularCheck(a0, a1) != 0;
+    }
+
+    return ok;
+}
+
+bool zPlayerIdleSB::IdleAgingOutColdCheck(xAnimTransition* a0,
+                                          xAnimSingle* a1) {
+    unsigned int moved = ((zSBPlayerAction*)this)->SBWalkCheck(a0, a1) != 0;
+
+    if (!moved) {
+        moved = ((zSBPlayerAction*)this)->SBRunCheck(a0, a1) != 0;
+    }
+
+    bool ok = moved != 0;
+
+    if (ok) {
+        ok = IdleColdCheck(a0, a1) != 0;
+    }
+
+    return ok;
+}
+
+bool zPlayerFallSB::FallMovingCheck(xAnimTransition* a0, xAnimSingle* a1) {
+    bool moved = ((zSBPlayerAction*)this)->SBFallCheck(a0, a1) != 0;
+
+    if (moved) {
+        unsigned int walk = ((zSBPlayerAction*)this)->SBWalkCheck(a0, a1) != 0;
+
+        if (!walk) {
+            walk = ((zSBPlayerAction*)this)->SBRunCheck(a0, a1) != 0;
+        }
+
+        moved = walk;
+    }
+
+    return moved;
+}
+
+bool zSBPlayerSpinAttack::SpongebuffMovingSpinCheck(xAnimTransition* a0,
+                                                    xAnimSingle* a1) {
+    bool spin = ((zSBPlayer*)player)->powerupState == 1;
+
+    if (spin) {
+        unsigned int moved = ((zSBPlayerAction*)this)->SBWalkCheck(a0, a1) != 0;
+
+        if (!moved) {
+            moved = ((zSBPlayerAction*)this)->SBRunCheck(a0, a1) != 0;
+        }
+
+        spin = moved;
+    }
+
+    return spin;
+}
+
+bool zSBPlayerHammerPowerupAttack::HammerPowerupMovingCheck(
+    xAnimTransition* a0, xAnimSingle* a1) {
+    unsigned int moved = ((zSBPlayerAction*)this)->SBWalkCheck(a0, a1) != 0;
+
+    if (!moved) {
+        moved = ((zSBPlayerAction*)this)->SBRunCheck(a0, a1) != 0;
+    }
+
+    bool ok = moved != 0;
+
+    if (ok) {
+        ok = HammerPowerupCheck(a0, a1) != 0;
+    }
+
+    return ok;
+}
+
+bool zSBPlayerPuckPowerupAttack::PuckPowerupMovingCheck(xAnimTransition* a0,
+                                                        xAnimSingle* a1) {
+    unsigned int moved = ((zSBPlayerAction*)this)->SBWalkCheck(a0, a1) != 0;
+
+    if (!moved) {
+        moved = ((zSBPlayerAction*)this)->SBRunCheck(a0, a1) != 0;
+    }
+
+    bool ok = moved != 0;
+
+    if (ok) {
+        ok = PuckPowerupCheck(a0, a1) != 0;
+    }
+
+    return ok;
+}
+
+bool zPlayerFallSB::LandWalkCheck(xAnimTransition* a0, xAnimSingle* a1) {
+    bool ok = ((zSBPlayerAction*)this)->SBLandCheck(a0, a1) != 0;
+
+    if (ok) {
+        zSBPlayer* p = (zSBPlayer*)player;
+        zPlayerInput* input = p->playerInput;
+
+        ok = input->_v27(0, 2) < p->GetRunStartMag();
+    }
+
+    return ok;
+}
+
+// K * rand, times 2, then plus 5: no fused multiply-add in the image,
+// which an inline's return value gives.
+inline float zIdleRandomRange(float range) {
+    return range * (2.3283064e-10f * xrand_GenRandInt32());
+}
+
+void zPlayerIdleSB::End() {
+    extraIdleTimer = 5.0f + zIdleRandomRange(2.0f);
+
+    ((zSBPlayer*)player)->StopBreathFX();
+}
+
+bool zPlayerIdleSB::ResetExtraIdleVarsCB(xAnimTransition* a0,
+                                         xAnimSingle* a1) {
+    extraIdleTimer = 5.0f + zIdleRandomRange(2.0f);
+    facing = 0;
+    numExtraIdlesUntilTurn = xrand_RandomRange(1, 3);
+
+    return true;
+}
+
+bool zPlayerIdleSB::ExtraIdleCheck(xAnimTransition* a0, xAnimSingle* a1) {
+    if (extraIdleTimer <= 0.0f &&
+        (((AnimCBHolder*)a0)->slot->f94 & 0x20000) && globals.f59E) {
+        extraIdleTimer = 5.0f + zIdleRandomRange(2.0f);
+
+        return true;
+    }
+
+    return false;
+}
+
+bool zPlayerIdleSB::IdleExtraInterruptCheck(xAnimTransition* a0,
+                                            xAnimSingle* a1) {
+    if (!globals.f59E) {
+        facing = 0;
+        extraIdleTimer = 5.0f + zIdleRandomRange(2.0f);
+
+        return true;
+    }
+
+    return false;
+}
+
+// 30 * urand - 15 degrees, in radians.
+bool zPlayerDefeatedSB::FaceCameraCB(xAnimTransition* a0, xAnimSingle* a1) {
+    ((zSBPlayer*)player)
+        ->SetFaceCamera(3.1415927f * (zIdleRandomRange(30.0f) - 15.0f) /
+                        180.0f);
+
+    return true;
+}
+
+// As WAD01_28 spells the Board twins: SBMoveCheck inline under the
+// pragma, above SBWalkCheck and SBRunCheck so both stay calls.
+#pragma always_inline on
+unsigned int zSBPlayerAction::anSBMoveCheck(xAnimTransition* a0,
+                                            xAnimSingle* a1, void* a2) {
+    return ((zSBPlayerAction*)((AnimCBHolder*)a0)->slot->owner)->_v5() &&
+           ((zSBPlayerAction*)((AnimCBHolder*)a0)->slot->owner)->SBMoveCheck(a0, a1);
+}
+
+bool zSBPlayerAction::SBQuicksandMoveCheck(xAnimTransition* a0,
+                                           xAnimSingle* a1) {
+    return ((zSBPlayer*)player)->IsOnQuicksand() && SBMoveCheck(a0, a1) &&
+           !((zSBPlayer*)player)->IsInAnyGooState();
+}
+#pragma always_inline off
+
+unsigned int zSBPlayerAction::SBFallCheck(xAnimTransition* a0, xAnimSingle* a1) {
     zSBPlayer* p = (zSBPlayer*)player;
 
     return !(p->zPlayerFlags & 0x4) && p->fallingTime > 0.13f;
@@ -5489,7 +6054,7 @@ void zSBPlayerGainPowerup::End() {
     }
 }
 
-bool zPlayerIdleSB::IdleColdCheck(xAnimTransition* a0,
+unsigned int zPlayerIdleSB::IdleColdCheck(xAnimTransition* a0,
                                   xAnimSingle* a1) {
     // +0x20C through the offset: this file's zPlayerIdleSB opens
     // with a 480-byte extra-idle table, so a member appended after
@@ -5542,7 +6107,7 @@ bool zSBPlayerSpinPowerupAttack::SpinPowerupCheck(
            p->powerupModelState == p->powerupState;
 }
 
-bool zSBPlayerHammerPowerupAttack::HammerPowerupCheck(
+unsigned int zSBPlayerHammerPowerupAttack::HammerPowerupCheck(
     xAnimTransition* a0, xAnimSingle* a1) {
     zSBPlayer* p = (zSBPlayer*)player;
 
@@ -5550,7 +6115,7 @@ bool zSBPlayerHammerPowerupAttack::HammerPowerupCheck(
            p->powerupModelState == p->powerupState;
 }
 
-bool zSBPlayerPuckPowerupAttack::PuckPowerupCheck(
+unsigned int zSBPlayerPuckPowerupAttack::PuckPowerupCheck(
     xAnimTransition* a0, xAnimSingle* a1) {
     zSBPlayer* p = (zSBPlayer*)player;
 
@@ -6239,7 +6804,7 @@ bool zPlayerWalkSB::WalkToRun2Check(xAnimTransition* a0,
     return result;
 }
 
-bool zSBPlayerAction::SBRunCheck(xAnimTransition* a0,
+unsigned int zSBPlayerAction::SBRunCheck(xAnimTransition* a0,
                                  xAnimSingle* a1) {
     zSBPlayer* p = (zSBPlayer*)player;
     zPlayerInput* input = p->playerInput;
@@ -6398,18 +6963,28 @@ void zSBAgingIdleBE(xAnimPlay* a0, xAnimState* a1, void* a2) {
 }
 
 void zSBPlayerBombRoll::Begin() {
+    // Declared before the player it is read from: retail keeps the
+    // model in r31 and the player in r30.
+    xOGModel* model;
     zSBPlayer* p = (zSBPlayer*)player;
 
-    p->bombRollOffset = p->ogModel.model->pos - p->bombLink->GetPlayerPosition();
+    model = p->ogModel.model;
+    p->bombRollOffset = model->pos - p->bombLink->GetPlayerPosition();
     p->canDoubleJump = true;
 }
 
 bool zPlayerIdleSB::ExtraIdleFaceCamBuffCheck(xAnimTransition* a0,
                                               xAnimSingle* a1) {
-    bool result = false;
+    bool result;
 
-    if (((zSBPlayer*)player)->powerupState == 1) {
-        result = facing == 4 && ExtraIdleCheck(a0, a1);
+    if (((zSBPlayer*)player)->powerupState != 1) {
+        result = false;
+    } else {
+        result = false;
+
+        if (facing == 4 && ExtraIdleCheck(a0, a1)) {
+            result = true;
+        }
     }
 
     return result;
@@ -6481,16 +7056,23 @@ bool zPlayerHitSB::HitBuffBackCheck(xAnimTransition* a0, xAnimSingle* a1) {
 }
 
 bool zPlayerHitSB::HitPowerupCheck(xAnimTransition* a0, xAnimSingle* a1) {
+    bool result;
     zSBPlayer* p = (zSBPlayer*)player;
 
     if (p->lastDamageType == 55) {
         return false;
     }
 
-    bool result = false;
+    // An else with its own `result = false`: retail spells the `== 7`
+    // arm as `li r31,0; b` ahead of the other arm's `li r31,0`.
+    if (p->lastDamageType == 7) {
+        result = false;
+    } else {
+        result = false;
 
-    if (p->lastDamageType != 7) {
-        result = AnyHitCheck(a0, a1) && p->powerupState != 0;
+        if (AnyHitCheck(a0, a1) && p->powerupState != 0) {
+            result = true;
+        }
     }
 
     return result;
@@ -6553,12 +7135,6 @@ void zSBPlayerKelpTrap::BeforeEnter(xAnimPlay* a0, xAnimState* a1, void* a2) {
     }
 }
 
-void zPlayerIdleSB::End() {
-    extraIdleTimer = 5.0f + 2.0f * (2.3283064e-10f * xrand_GenRandInt32());
-
-    ((zSBPlayer*)player)->StopBreathFX();
-}
-
 void zSBPlayerLosePowerup::Begin() {
     zSBPlayer* p = (zSBPlayer*)player;
 
@@ -6571,46 +7147,6 @@ void zSBPlayerLosePowerup::Begin() {
     }
 
     p->powerupModelState = (SBPowerupState)0;
-}
-
-bool zPlayerIdleSB::IdleAgingOutCheck(xAnimTransition* a0, xAnimSingle* a1) {
-    return (((zSBPlayerAction*)this)->SBWalkCheck(a0, a1) ||
-            ((zSBPlayerAction*)this)->SBRunCheck(a0, a1)) &&
-           IdleRegularCheck(a0, a1);
-}
-
-bool zPlayerIdleSB::IdleAgingOutColdCheck(xAnimTransition* a0,
-                                          xAnimSingle* a1) {
-    return (((zSBPlayerAction*)this)->SBWalkCheck(a0, a1) ||
-            ((zSBPlayerAction*)this)->SBRunCheck(a0, a1)) &&
-           IdleColdCheck(a0, a1);
-}
-
-bool zPlayerFallSB::FallMovingCheck(xAnimTransition* a0, xAnimSingle* a1) {
-    return ((zSBPlayerAction*)this)->SBFallCheck(a0, a1) &&
-           (((zSBPlayerAction*)this)->SBWalkCheck(a0, a1) ||
-            ((zSBPlayerAction*)this)->SBRunCheck(a0, a1));
-}
-
-bool zSBPlayerSpinAttack::SpongebuffMovingSpinCheck(xAnimTransition* a0,
-                                                    xAnimSingle* a1) {
-    return ((zSBPlayer*)player)->powerupState == 1 &&
-           (((zSBPlayerAction*)this)->SBWalkCheck(a0, a1) ||
-            ((zSBPlayerAction*)this)->SBRunCheck(a0, a1));
-}
-
-bool zSBPlayerHammerPowerupAttack::HammerPowerupMovingCheck(
-    xAnimTransition* a0, xAnimSingle* a1) {
-    return (((zSBPlayerAction*)this)->SBWalkCheck(a0, a1) ||
-            ((zSBPlayerAction*)this)->SBRunCheck(a0, a1)) &&
-           HammerPowerupCheck(a0, a1);
-}
-
-bool zSBPlayerPuckPowerupAttack::PuckPowerupMovingCheck(xAnimTransition* a0,
-                                                        xAnimSingle* a1) {
-    return (((zSBPlayerAction*)this)->SBWalkCheck(a0, a1) ||
-            ((zSBPlayerAction*)this)->SBRunCheck(a0, a1)) &&
-           PuckPowerupCheck(a0, a1);
 }
 
 bool zPlayerIdleSB::IdleNormalHappyCheck(xAnimTransition* a0,
@@ -6633,9 +7169,12 @@ bool zPlayerIdleSB::IdleNormalHappyCheck(xAnimTransition* a0,
     return result;
 }
 
+// `ok` declared first keeps it (r31) and its test, where with `result`
+// first mwcc folds the flag away (29 of 28 words; tools/sweep_src.py,
+// five spellings).
 bool zPlayerIdleSB::IdleHappyCheck(xAnimTransition* a0, xAnimSingle* a1) {
-    bool result = false;
     bool ok = false;
+    bool result = false;
 
     if (((zSBPlayerAction*)this)->DefaultStateCheck(a0, a1) &&
         IdleRegularCheck(a0, a1)) {
@@ -6650,8 +7189,8 @@ bool zPlayerIdleSB::IdleHappyCheck(xAnimTransition* a0, xAnimSingle* a1) {
 }
 
 bool zPlayerIdleSB::IdleHappierCheck(xAnimTransition* a0, xAnimSingle* a1) {
-    bool result = false;
     bool ok = false;
+    bool result = false;
 
     if (((zSBPlayerAction*)this)->DefaultStateCheck(a0, a1) &&
         IdleRegularCheck(a0, a1)) {
@@ -6667,8 +7206,8 @@ bool zPlayerIdleSB::IdleHappierCheck(xAnimTransition* a0, xAnimSingle* a1) {
 
 bool zPlayerRunSB::RunRegularHappyCheck(xAnimTransition* a0,
                                         xAnimSingle* a1) {
-    bool result = false;
     bool ok = false;
+    bool result = false;
 
     if (RunRegularCheck(a0, a1) &&
         ((zSBPlayerAction*)this)->DefaultStateCheck(a0, a1)) {
@@ -6684,8 +7223,8 @@ bool zPlayerRunSB::RunRegularHappyCheck(xAnimTransition* a0,
 
 bool zPlayerRunSB::RunRegularHappierCheck(xAnimTransition* a0,
                                           xAnimSingle* a1) {
-    bool result = false;
     bool ok = false;
+    bool result = false;
 
     if (RunRegularCheck(a0, a1) &&
         ((zSBPlayerAction*)this)->DefaultStateCheck(a0, a1)) {
@@ -6720,6 +7259,303 @@ float zPlayerDoubleJumpSB::GetY(float x) const {
             (0.2f * zSBPlayerActionsNS::DOUBLE_JUMP_VELOCITY + f14));
 }
 
+bool zSBPlayerAction::SBStopCheck(xAnimTransition* a0, xAnimSingle* a1) {
+    zSBPlayer* p = (zSBPlayer*)player;
+    zPlayerInput* input = p->playerInput;
+
+    if (input->_v27(0, 2) < p->GetWalkStartMag() ||
+        ((zSBPlayer*)player)->isSquirting) {
+        return true;
+    }
+
+    return false;
+}
+
+// As its matched Board twin: the same pair of locals twice, in their
+// own scopes, since retail reads the player and input again.
+unsigned int zSBPlayerAction::SBWalkCheck(xAnimTransition* a0,
+                                          xAnimSingle* a1) {
+    zSBPlayer* p = (zSBPlayer*)player;
+    zPlayerInput* input = p->playerInput;
+
+    if (input->_v27(0, 2) < p->GetRunStartMag()) {
+        zSBPlayer* p2 = (zSBPlayer*)player;
+        zPlayerInput* input2 = p2->playerInput;
+
+        if (input2->_v27(0, 2) >= p2->GetWalkStartMag() &&
+            !((zSBPlayer*)player)->isSquirting) {
+            return true;
+        }
+    }
+
+    return false;
+}
+
+bool zPlayerIdleSB::IdleCheck(xAnimTransition* a0, xAnimSingle* a1) {
+    zSBPlayer* p = (zSBPlayer*)player;
+
+    if (p->kelpTrapLink != 0 && p->kelpTrapLink->f5C == 6) {
+        return true;
+    }
+
+    zPlayerInput* input = p->playerInput;
+
+    return input->_v27(0, 2) < p->GetWalkStartMag();
+}
+
+unsigned int zPlayerIdleSB::IdleRegularCheck(xAnimTransition* a0,
+                                             xAnimSingle* a1) {
+    bool result = false;
+
+    if (IdleCheck(a0, a1) && DefaultIdleCheck(a0, a1) &&
+        !IdleSlipperyCheck(a0, a1) && !IdleLowHealthCheck(a0, a1) &&
+        !IdleColdCheck(a0, a1)) {
+        result = true;
+    }
+
+    return result;
+}
+
+bool zPlayerIdleSB::ExtraIdleDontFaceCamBuffCheck(xAnimTransition* a0,
+                                                  xAnimSingle* a1) {
+    if (((zSBPlayer*)player)->powerupState != 1) {
+        return false;
+    }
+
+    if (facing == 0 && ExtraIdleCheck(a0, a1)) {
+        if (--numExtraIdlesUntilTurn <= 0) {
+            facing = 1;
+        }
+
+        return true;
+    }
+
+    return false;
+}
+
+bool zPlayerIdleSB::ExtraIdleDontFaceCamCheck(xAnimTransition* a0,
+                                              xAnimSingle* a1) {
+    if (!((zSBPlayerAction*)this)->DefaultStateCheck(a0, a1)) {
+        return false;
+    }
+
+    if (facing == 0 && ExtraIdleCheck(a0, a1)) {
+        if (--numExtraIdlesUntilTurn <= 0) {
+            facing = 1;
+        }
+
+        return true;
+    }
+
+    return false;
+}
+
+bool zPlayerIdleSB::ExtraIdleFaceCamCheck(xAnimTransition* a0,
+                                          xAnimSingle* a1) {
+    if (!((zSBPlayerAction*)this)->DefaultStateCheck(a0, a1)) {
+        return false;
+    }
+
+    if (facing == 4 && ExtraIdleCheck(a0, a1)) {
+        if (--numExtraIdlesUntilAging <= 0) {
+            facing = 5;
+        }
+
+        return true;
+    }
+
+    return false;
+}
+
+void zPlayerIdleSB::Move(xScene* scene, float dt, xEntFrame* frame) {
+    if (xEntGetAnimFlags((const xEnt*)player) & 0x8000) {
+        xEntTurnToFace((xEnt*)player, &targetFacing, turnSpeed, dt);
+    }
+
+    ((zSBPlayer*)player)->_v128(scene, dt, frame);
+}
+
+bool zPlayerRunSB::RunCheck(xAnimTransition* a0, xAnimSingle* a1) {
+    if (((zSBPlayer*)player)->IsGooFilled()) {
+        return false;
+    }
+
+    zSBPlayer* p = (zSBPlayer*)player;
+    zPlayerInput* input = p->playerInput;
+
+    return input->_v27(0, 2) >= p->GetRunStartMag();
+}
+
+bool zPlayerRunSB::RunRegularCheck(xAnimTransition* a0, xAnimSingle* a1) {
+    bool result = false;
+
+    if (RunCheck(a0, a1) && !RunSlipperyCheck(a0, a1) &&
+        !RunBraveCheck(a0, a1) && !RunSuccessCheck(a0, a1)) {
+        result = true;
+    }
+
+    return result;
+}
+
+bool zSBPlayerHammerAttack::AirHammerAttackCheck(xAnimTransition* a0,
+                                                 xAnimSingle* a1) {
+    if (StartHammerAttackCheck(a0, a1) && !((zSBPlayer*)player)->_v74()) {
+        f14 = true;
+        ((zSBPlayer*)player)->frame->f8C = -7.0f;
+        ((zSBPlayer*)player)->attackState = (eRPSAttackTypes)1;
+    } else {
+        f14 = false;
+    }
+
+    return f14;
+}
+
+bool zSBPlayerPuckPowerupAttack::FirePuckCB(xAnimTransition* a0,
+                                            xAnimSingle* a1) {
+    zSBPlayer* p = (zSBPlayer*)player;
+
+    zSBProjectileManager::GeneratePlayerPuckSalvo((zPlayer*)p, 3, 15.0f, 0.0f);
+
+    xOGModel* model = p->ogModel.model;
+    Math::Vector push(model->f20.x, model->f20.y, model->f20.z);
+
+    push *= -0.0f;
+    p->_v113(push);
+
+    return true;
+}
+
+unsigned int zSBPlayerBombRoll::SBBombMoveCheck(xAnimTransition* a0,
+                                                xAnimSingle* a1) {
+    zProjectileSBBombNPC* bomb = ((zSBPlayer*)player)->bombLink;
+
+    if (bomb != 0 && bomb->f1BC == 1) {
+        return false;
+    }
+
+    unsigned int moved = ((zSBPlayerAction*)this)->SBWalkCheck(a0, a1) != 0;
+
+    if (!moved) {
+        moved = ((zSBPlayerAction*)this)->SBRunCheck(a0, a1) != 0;
+    }
+
+    return moved;
+}
+
+void zSBPlayerKelpTrap::Begin() {
+    xEntFrame* f = ((zSBPlayer*)player)->frame;
+
+    f->f88 = f->f90 = 0.0f;
+    ((zSBPlayer*)player)->zPlayerFlags |= 0x10;
+    ((zSBPlayer*)player)->zPlayerFlags &= ~0x8;
+
+    zSBPlayer* p = (zSBPlayer*)player;
+
+    p->SetPowerupState((SBPowerupState)0);
+    p->powerupModelState = (SBPowerupState)0;
+    p->SetGooState((SBGooFilledState)0);
+    p->powerupPerformDeferredModelSwap = true;
+}
+
+void zPlayerHitSB::Update(float dt) {
+    ((zSBPlayer*)player)->_v40(dt);
+
+    if (xEntGetAnimFlags((const xEnt*)player) & 0x8000) {
+        hitHammerTimer -= dt;
+    } else if (xEntGetAnimFlags((const xEnt*)player) & 0x10000) {
+        hitElectricityTimer -= dt;
+    }
+}
+
+bool zPlayerDefeatedSB::FragBobCheck(xAnimTransition* a0, xAnimSingle* a1) {
+    if (!((zSBPlayer*)player)->_v48()) {
+        return false;
+    }
+
+    if (PowerupStateCheck(a0, a1)) {
+        return false;
+    }
+
+    return zCombatGetBaseAttackSB(
+               (Sext::eHitSource)((zSBPlayer*)player)->lastDamageType) == 29;
+}
+
+bool zSBPlayerLosePowerup::LosePowerupCheck(xAnimTransition* a0,
+                                            xAnimSingle* a1) {
+    zSBPlayer* p = (zSBPlayer*)player;
+
+    if (p->powerupModelState != 0 &&
+        p->powerupModelState != p->powerupState) {
+        return true;
+    }
+
+    if (p->powerupState != 0 && p->_v48()) {
+        p->SetPowerupState((SBPowerupState)0);
+        p->currentHitType = -1;
+
+        return true;
+    }
+
+    return false;
+}
+
+void zPlayerFallToDeathSB::Update(float dt) {
+    if (f10 < 1.0f && f10 + dt >= 1.0f) {
+        zSceneFadeOut(_PlayerDeadSceneResetCB, true);
+    }
+
+    f10 += dt;
+    ((zSBPlayer*)player)->_v40(dt);
+}
+
+bool zSBPlayerPuckAttack::FirePuckCB(xAnimTransition* a0, xAnimSingle* a1) {
+    zSBPlayer* p = (zSBPlayer*)player;
+
+    if (f18 >= 0.0f &&
+        (float)__fabs(p->GetPuckCooldownTimerPercent() - 1.0f) <= 1e-5f) {
+        p->ResetPuckCooldownTimer();
+        zSBProjectileManager::GeneratePlayerPuck(player);
+        p->DecrementPuckAmmo();
+    }
+
+    return true;
+}
+
+bool zPlayerLedgeSB::StartLedgeCheck(xAnimTransition* a0, xAnimSingle* a1) {
+    zSBPlayer* p = (zSBPlayer*)player;
+    bool busy = p->powerupState != 0 || p->powerupModelState != 0;
+
+    if (!busy && !p->IsInAnyGooState() &&
+        ((zSBPlayer*)player)->interactionManager.GetCurrentInteractionType() ==
+            _v29()) {
+        return true;
+    }
+
+    return false;
+}
+
+void zGainPowerupSidekickBE(xAnimPlay* a0, xAnimState* a1, void* a2) {
+    zSBPlayer* p = (zSBPlayer*)a2;
+
+    switch (p->powerupModelState) {
+    case 9:
+        p->SetPowerupState((SBPowerupState)2);
+        break;
+    case 10:
+        p->SetPowerupState((SBPowerupState)3);
+        break;
+    case 11:
+        p->SetPowerupState((SBPowerupState)4);
+        break;
+    }
+
+    p->powerupModelState = p->powerupState;
+
+    zSBAnimPackageBE(a0, a1, a2);
+
+    p->powerupPerformDeferredModelSwap = true;
+}
+
 #pragma dont_inline off
 
 // -- these keep what retail inlined ---------------------------------
@@ -6729,28 +7565,41 @@ float zPlayerDoubleJumpSB::GetY(float x) const {
 // call to GetRunStartMag.
 
 bool zPlayerJumpSB::SBJumpMovingCheck(xAnimTransition* a0, xAnimSingle* a1) {
-    return SBJumpCheck(a0, a1) &&
-           ((zSBPlayerAction*)this)->SBRunCheck(a0, a1);
+    bool ok = SBJumpCheck(a0, a1) != 0;
+
+    if (ok) {
+        zSBPlayer* p = (zSBPlayer*)player;
+        zPlayerInput* input = p->playerInput;
+
+        ok = input->_v27(0, 2) >= p->GetRunStartMag();
+    }
+
+    return ok;
 }
 
 bool zPlayerDoubleJumpSB::DoubleJumpStartMovingCheck(xAnimTransition* a0,
                                                      xAnimSingle* a1) {
-    return DoubleJumpStartCheck(a0, a1) &&
-           ((zSBPlayerAction*)this)->SBRunCheck(a0, a1);
+    bool ok = DoubleJumpStartCheck(a0, a1) != 0;
+
+    if (ok) {
+        zSBPlayer* p = (zSBPlayer*)player;
+        zPlayerInput* input = p->playerInput;
+
+        ok = input->_v27(0, 2) >= p->GetRunStartMag();
+    }
+
+    return ok;
 }
 
 bool zPlayerFallSB::LandRunCheck(xAnimTransition* a0, xAnimSingle* a1) {
-    return ((zSBPlayerAction*)this)->SBLandCheck(a0, a1) &&
-           ((zSBPlayerAction*)this)->SBRunCheck(a0, a1);
-}
+    bool ok = ((zSBPlayerAction*)this)->SBLandCheck(a0, a1) != 0;
 
-bool zPlayerFallSB::LandWalkCheck(xAnimTransition* a0, xAnimSingle* a1) {
-    if (!((zSBPlayerAction*)this)->SBLandCheck(a0, a1)) {
-        return false;
+    if (ok) {
+        zSBPlayer* p = (zSBPlayer*)player;
+        zPlayerInput* input = p->playerInput;
+
+        ok = input->_v27(0, 2) >= p->GetRunStartMag();
     }
 
-    zSBPlayer* p = (zSBPlayer*)player;
-    zPlayerInput* input = p->playerInput;
-
-    return input->_v27(0, 2) < p->GetRunStartMag();
+    return ok;
 }

@@ -63,6 +63,8 @@ public:
     xVec3& operator=(const xVec3& o);
     xVec3& operator+=(const xVec3& o);
     bool operator==(const xVec3& o) const;
+    xVec3& operator*=(float s);
+    void AddScale(const xVec3& v, float s);
 
     static const xVec3 m_Null;
 
@@ -82,6 +84,8 @@ public:
 unsigned int xStrHash(const char* s);
 
 class xScene;
+class zCombatDamageInfo;
+namespace Math { class Matrix43; }
 
 class zCommonPlayer {
 public:
@@ -90,6 +94,10 @@ public:
     bool CanSwitchPlayer();
     bool SkipCharacterProxyHavokUpdate();
     void GetInteractionTestPos(unsigned int which, xVec3& pos);
+    bool Damage(const zCombatDamageInfo& info);
+    void AfterAnimMatrices(xAnimPlay* play, Math::Matrix43* skinMat,
+                           xQuat* quat, xVec3* scale, xVec3* tran,
+                           int boneCount);
 };
 
 class zPlayerInput {
@@ -115,7 +123,7 @@ public:
     virtual void _v16();
     virtual void _v17();
     virtual void _v18();
-    virtual void _v19();
+    virtual int _v19(int a0, int a1, int a2);
     virtual void _v20();
     virtual void _v21();
     virtual void _v22();
@@ -156,6 +164,9 @@ void zBoardAnimPackageBE(xAnimPlay* a0, xAnimState* a1, void* a2);
 
 class zPlantTrap {
 public:
+    enum plantState { plantState_ = 0x7FFFFFFF };
+    void ChangeState(plantState state);
+
     unsigned char _pad0[0x3C];
     int f3C;
     unsigned char _pad1[0x5C - 0x40];
@@ -209,6 +220,7 @@ class hkVector4 {
 public:
     float dot3(const hkVector4& o) const;
     void add4(const hkVector4& o);
+    hkVector4& operator=(const hkVector4& o);
 
     float x;
     float y;
@@ -313,6 +325,7 @@ public:
     void AddStandardTransitionsTo(unsigned int, xAnimTable*, const char*);
     void AddDefaultTransitionsTo(unsigned int, xAnimTable*, const char*);
     unsigned int GetCurrentActionID() const;
+    void Exit();
 };
 
 // A base only in the sense that r3 reaches it unchanged:
@@ -649,6 +662,23 @@ public:
 };
 
 class zEntSimpleObj;
+class hkpCharacterProxy;
+class hkpCharacterRigidBody;
+class zBoardPlayerCharacterProxyCollisionListener;
+
+class xHavokCharacterController {
+public:
+    void SetMaxSlopeCosine(float cosine);
+    void SetPosition(const hkVector4& pos);
+    void GetPosition(hkVector4& pos) const;
+    hkpCharacterProxy* GetCharacterProxy() const;
+
+    union {
+        hkpCharacterProxy* characterProxy;
+        hkpCharacterRigidBody* characterRigidBody;
+    };
+    int controllerType;
+};
 
 class zBoardPlayer {
 public:
@@ -677,6 +707,20 @@ public:
     float GetCharacterProxyYOffset();
     static zBoardPlayer* GetInstance();
     void FindAndFixAnimPackageEffects(unsigned long long id);
+    bool Damage(const zCombatDamageInfo& info);
+    void SetMaximumHitPoints(float hp);
+    void SetCurrentHitPoints(float hp);
+    void ResetHealth();
+    void Exit();
+    void GetInteractionTestPos(unsigned int which, xVec3& pos);
+    void AfterAnimMatrices(xAnimPlay* play, Math::Matrix43* skinMat,
+                           xQuat* quat, xVec3* scale, xVec3* tran,
+                           int boneCount);
+    void ApplySpinBoneModification(xAnimPlay* play,
+                                   Math::Matrix43* skinMat, xQuat* quat,
+                                   xVec3* scale, xVec3* tran,
+                                   int boneCount);
+    bool CheckForNearbyNPCs(float radius);
     virtual void _v0() const;
     virtual void _v1() const;
     virtual void _v2() const;
@@ -717,7 +761,7 @@ public:
     virtual void _v37() const;
     virtual void _v38() const;
     virtual void _v39() const;
-    virtual void _v40() const;
+    virtual void _v40(float dt) const;
     virtual void _v41() const;
     virtual void _v42() const;
     virtual void _v43() const;
@@ -761,9 +805,9 @@ public:
     virtual void _v81() const;
     virtual float _v82() const;
     virtual void _v83() const;
-    virtual void _v84() const;
-    virtual void _v85() const;
-    virtual void _v86() const;
+    virtual float _v84() const;
+    virtual void _v85(float hp) const;
+    virtual void _v86(float hp) const;
     virtual void _v87() const;
     virtual void _v88() const;
     virtual void _v89() const;
@@ -790,7 +834,7 @@ public:
     virtual void _v110() const;
     virtual void _v111() const;
     virtual void _v112() const;
-    virtual void _v113() const;
+    virtual void _v113(const xVec3& v) const;
     virtual void _v114() const;
     virtual void _v115() const;
     virtual void _v116() const;
@@ -804,7 +848,7 @@ public:
     virtual void _v124() const;
     virtual void _v125() const;
     virtual void _v126() const;
-    virtual void _v127() const;
+    virtual void _v127(float dt) const;
     virtual void _v128() const;
     virtual void _v129() const;
     virtual void _v130() const;
@@ -846,7 +890,7 @@ public:
     virtual void _v165() const;
     virtual void _v166() const;
     virtual void _v167() const;
-    virtual void _v168() const;
+    virtual bool _v168(const zCombatDamageInfo* info) const;
     virtual void _v169() const;
     virtual void _v170() const;
     virtual float _v171() const;
@@ -869,13 +913,17 @@ public:
     int f14C;
     unsigned char _pad4[0x74];
     int zPlayerFlags;
-    unsigned char _pad5[0x20];
+    unsigned char _pad5[0x1E4 - 0x1C8];
+    int ignoreInputThisFrame;
     zPlayerInput* playerInput;
     unsigned char _pad6[0x1C];
     bool f208;
-    unsigned char _pad7[0x2E8 - 0x209];
+    unsigned char _pad7[0x20C - 0x209];
+    xHavokCharacterController characterController;
+    unsigned char _pad7c[0x2E8 - 0x214];
     xAnimTable* playerAnimTable;
-    unsigned char _pad7b[0x2F4 - 0x2EC];
+    int eName;
+    unsigned char _pad7b[0x2F4 - 0x2F0];
     float fallingTime;
     unsigned char _pad8[0x180];
     int lastDamageType;
@@ -884,7 +932,9 @@ public:
     unsigned char _pad9b[0x554 - 0x4EC];
     int currentHitType;
     hkVector4 hitDir;
-    unsigned char _pad10[0x330];
+    unsigned char _pad10[0x570 - 0x568];
+    unsigned char soundSourcesPhysics[0x18];
+    unsigned char _pad10b[0x898 - 0x588];
     SBGooFilledState gooState;
     unsigned char _pad11[0x10];
     BoardPowerupState powerupState;
@@ -919,7 +969,10 @@ public:
     zPlantTrap* kelpTrapLink;
     unsigned char _pad22[0x8];
     int f9C0;
-    unsigned char _pad23[0x78];
+    float f9C4;
+    unsigned char _pad23[0x9E8 - 0x9C8];
+    float f9E8;
+    unsigned char _pad23b[0xA3C - 0x9EC];
     float fA3C;
     float fA40;
     unsigned char _pad24[0x4];
@@ -930,6 +983,8 @@ public:
     float fA78;
     unsigned char _pad26[0x28];
     float fAA4;
+    unsigned char _pad27[0xAB0 - 0xAA8];
+    zBoardPlayerCharacterProxyCollisionListener* pCharacterProxyListener;
 };
 
 
@@ -942,6 +997,9 @@ public:
     void ImpartMomentumlessVelocity(const xVec3& v);
     void ClearMomentumlessVelocity();
     bool IsAI() const;
+    void SetMaximumHitPoints(float hp);
+    void SetCurrentHitPoints(float hp);
+    void Exit();
 
     unsigned char _pad0[0x160];
     int f160;
@@ -997,6 +1055,8 @@ public:
     // extra-idle timer where `lfs f1,160(r30)` reads it.
     unsigned char _padA[0xA0 - 0x9D];
     float extraIdleTimer;
+
+    void Update(float dt);
 };
 
 
@@ -1005,7 +1065,7 @@ class zPlayerTurn180Board : public zPlayerAction {
 public:
     void Begin();
 
-    unsigned char _pad0[0xC];
+    xVec3 targetVector;
     unsigned char f1C;
     static unsigned int anTurn180Check(xAnimTransition*, xAnimSingle*, void*);
     void AddTransitionsFrom(xAnimTable* table, const char* name, unsigned int (*c)(xAnimTransition*, xAnimSingle*, void*), unsigned int (*d)(xAnimTransition*, xAnimSingle*, void*), unsigned short e, float f, unsigned int g, unsigned int h, zPlayerAction::SpecialActions i);
@@ -1084,6 +1144,7 @@ public:
 
 
     int f10;
+    bool airHammer;
 
     // No symbol of its own: inlined into the callback that names
     // it, and the flag it materialises says it was there.
@@ -1092,6 +1153,7 @@ public:
 
     void Begin();
     void End();
+    void Move(xScene* a0, float a1, xEntFrame* a2);
 };
 
 
@@ -1099,7 +1161,7 @@ public:
 class zBoardPlayerPuckAttack : public zPlayerAction {
 public:
     static unsigned int anAimPuckCheck(xAnimTransition* a0, xAnimSingle* a1, void* a2);
-    bool AimPuckCheck(xAnimTransition* a0, xAnimSingle* a1);
+    unsigned int AimPuckCheck(xAnimTransition* a0, xAnimSingle* a1);
     static unsigned int anFirePuckCB(xAnimTransition* a0, xAnimSingle* a1, void* a2);
     bool FirePuckCB(xAnimTransition* a0, xAnimSingle* a1);
     static unsigned int anShootPuckCheck(xAnimTransition* a0, xAnimSingle* a1, void* a2);
@@ -1172,6 +1234,8 @@ public:
     bool HitSpinBackCheck(xAnimTransition* a0, xAnimSingle* a1);
     bool HitPuckFrontCheck(xAnimTransition* a0, xAnimSingle* a1);
     bool HitPuckBackCheck(xAnimTransition* a0, xAnimSingle* a1);
+
+    void Update(float dt);
 };
 
 
@@ -1239,6 +1303,7 @@ public:
     bool KelpTrapCheck(xAnimTransition* a0, xAnimSingle* a1);
 
     void Begin();
+    void End();
 };
 
 
@@ -1263,10 +1328,25 @@ public:
     bool SlideExitCheck(xAnimTransition* a0, xAnimSingle* a1);
     bool SlideHitCheck(xAnimTransition* a0, xAnimSingle* a1);
 
-    unsigned char _padA[0x34 - 0x10];
+    float time;
+    float y;
+    float ForwardSpeed;
+    float LeftRightSpeed;
+    float ForwardAcceleration;
+    float LeftRightAcceleration;
+    float CurrentSpeedMult;
+    float SlowDownMeter;
+    float RestoreLeanValue;
     bool f34;
+    float WaitingButSlidingTimer;
+    int lastStickPos;
+    float actualLeftRightSpeed;
+    float pitch;
 
     void UpdateFall(float dt);
+    void Begin();
+    void End();
+    float GetY(float t) const;
 };
 
 
@@ -1336,6 +1416,7 @@ public:
     bool SBBungeeBallHitCheck(xAnimTransition* a0, xAnimSingle* a1);
     bool SBBungeeBallIdleCheck(xAnimTransition* a0, xAnimSingle* a1);
     bool SBBungeeBallReturnCheck(xAnimTransition* a0, xAnimSingle* a1);
+    bool SBBungeeBallHitCB(xAnimTransition* a0, xAnimSingle* a1);
 
     unsigned char _pad0[0x18 - 0x10];
     unsigned char f18;
@@ -1386,6 +1467,11 @@ public:
     bool FinishedQueueCheck(xAnimTransition* a0, xAnimSingle* a1);
 
     void End();
+    void Begin();
+
+    int numSpinsQueued;
+    int numSpinsExecuted;
+    float rotationOffset;
 };
 
 class zPlayerWalkBoard : public zPlayerAction {
@@ -1401,6 +1487,8 @@ public:
     bool WalkSlipperyCheck(xAnimTransition* a0, xAnimSingle* a1);
 
     bool WalkCheck(xAnimTransition* a0, xAnimSingle* a1);
+
+    void Begin();
 };
 
 class zBoardPlayerGainPowerup : public zPlayerAction {
@@ -1494,6 +1582,8 @@ public:
     void Begin();
 
     float f14;
+
+    float GetY(float t) const;
 };
 
 // The variant set the states are kept in -- fifteen of them, a
@@ -1518,6 +1608,8 @@ public:
     void AddTransitionsFrom(xAnimTable* table, const char* name, unsigned int (*c)(xAnimTransition*, xAnimSingle*, void*), unsigned int (*d)(xAnimTransition*, xAnimSingle*, void*), unsigned short e, float f, unsigned int g, unsigned int h, zPlayerAction::SpecialActions i);
 
     void End();
+    void Begin();
+    void Update(float dt);
 };
 
 class zPlayerJumpBoard : public zPlayerAction {
@@ -1930,6 +2022,7 @@ public:
     void AddStates(xAnimTable* table);
 
     void Begin();
+    void Move(xScene* a0, float a1, xEntFrame* a2);
 };
 
 // zPlayerSlamLandBoard::AddActionTransitions: 1 call(s)
@@ -1985,6 +2078,8 @@ public:
     void AddTransitionsFrom(xAnimTable* table, const char* name, unsigned int (*c)(xAnimTransition*, xAnimSingle*, void*), unsigned int (*d)(xAnimTransition*, xAnimSingle*, void*), unsigned short e, float f, unsigned int g, unsigned int h, zPlayerAction::SpecialActions i);
     void AddStates(xAnimTable* table);
     bool FluidBurstCheck(xAnimTransition* a0, xAnimSingle* a1);
+
+    void Begin();
 };
 
 // zPlayerFluidBurstBoard::AddInternalTransitions: 1 call(s)
@@ -6231,13 +6326,13 @@ int xCamGroup::GetPrimaryCameraFlags() const {
     return 0;
 }
 
-bool zBoardPlayerPuckAttack::AimPuckCheck(xAnimTransition* a0,
-                                          xAnimSingle* a1) {
+unsigned int zBoardPlayerPuckAttack::AimPuckCheck(xAnimTransition* a0,
+                                                  xAnimSingle* a1) {
     if (f14 == 0) {
-        return false;
+        return 0;
     }
 
-    return true;
+    return 1;
 }
 
 void zPlayerLedgeBoard::Move(xScene* a0, float a1, xEntFrame* a2) {
@@ -6263,6 +6358,7 @@ template <class T, int NodeOffset>
 class EmbeddedList {
 public:
     void PushBack(T* item);
+    void Remove(T* item);
 
     unsigned char _pad0[0xC];
 };
@@ -6296,6 +6392,7 @@ namespace World {
 class xOGModel {
 public:
     void UpdaterCheckShow();
+    void UpdaterCheckHide();
     void SetLODScale(float scale);
     void Hide();
 
@@ -6315,27 +6412,24 @@ void World::xOGModel::UpdaterCheckShow() {
     }
 }
 
+class hkpCharacterProxyListener;
+
 class hkpCharacterProxy {
 public:
+    void setPosition(const hkVector4& pos);
+    const hkVector4& getPosition() const;
+    void removeCharacterProxyListener(hkpCharacterProxyListener* listener);
+
     unsigned char _pad0[0xA4];
     float m_maxSlopeCosine;
 };
 
 class hkpCharacterRigidBody {
 public:
+    const hkVector4& getPosition() const;
+
     unsigned char _pad0[0x30];
     float m_maxSlopeCosine;
-};
-
-class xHavokCharacterController {
-public:
-    void SetMaxSlopeCosine(float cosine);
-
-    union {
-        hkpCharacterProxy* characterProxy;
-        hkpCharacterRigidBody* characterRigidBody;
-    };
-    int controllerType;
 };
 
 void xHavokCharacterController::SetMaxSlopeCosine(float cosine) {
@@ -6385,15 +6479,21 @@ void BoardBeforeAnimMatricesWrapper(xAnimPlay* play, xQuat* q, xVec3* a,
     ((AnimPlayObject*)play)->object->_v138(play, q, a, b, i);
 }
 
+// The hose's fluid test is an inline of its own: retail tests the
+// flag it materialises (`mfcr ; rlwinm.`), not the compare.
+inline bool BoardHoseHasFluid(zBoardPlayer* p) {
+    return p->f904 > 0.0f;
+}
+
 bool zPlayerFluidBurstBoard::FluidBurstCheck(xAnimTransition* a0,
                                              xAnimSingle* a1) {
     zBoardPlayer* p = (zBoardPlayer*)player;
 
-    return p->gooState == 2 && !(p->f904 > 0.0f);
+    return p->gooState == 2 && !BoardHoseHasFluid(p);
 }
 
 void World::xOGModel::SetLODScale(float scale) {
-    if (lodScale == 0.0f) {
+    if (0.0f == lodScale) {
         lodScale = 1.0f;
     }
 
@@ -6452,9 +6552,12 @@ void hkVector4::add4(const hkVector4& o) {
     w += o.w;
 }
 
+enum ePlayerName { ePlayerName_ = 0x7FFFFFFF };
+
 class zAnimPackage {
 public:
     void LoadDefaultAnimSetEffects(xAnimTable* table);
+    void* GetRawData(ePlayerName name, unsigned int stateID, int variant);
 };
 
 // The finder the image names is zGradientCurve's: the per-class
@@ -6527,4 +6630,920 @@ void zPlayerLedgeBoard::End() {
     theInteraction = 0;
     ((zBoardPlayer*)player)->interactionManager.StopCurrentInteraction();
     ((zBoardPlayer*)player)->zPlayerFlags &= ~0x10;
+}
+
+// -- second batch ------------------------------------------------
+
+void zPlayerSlide::End() {
+    ((zBoardPlayer*)player)->currentHitType = -1;
+    ((zBoardPlayer*)player)->fallingTime = 0.0f;
+    ((zBoardPlayer*)player)->f9C4 = 3.0f;
+    ((zBoardPlayer*)player)->f9C0 = 0;
+    ((zBoardPlayer*)player)->f9E8 = RestoreLeanValue;
+    ((zBoardPlayer*)player)->interactionManager.StopCurrentInteraction();
+}
+
+// The manager's current-interaction getter folded onto Pointer32's
+// Get: that is the symbol the image keeps, so it is the one called.
+template <class T>
+class Pointer32 {
+public:
+    T Get() const;
+};
+
+void zPlayerLedgeBoard::Begin() {
+    theInteraction =
+        ((const Pointer32<Sext::EventAny*>*)&((zBoardPlayer*)player)
+             ->interactionManager)
+            ->Get();
+    ((zBoardPlayer*)player)->zPlayerFlags |= 0x10;
+    ((zBoardPlayer*)player)->frame->zeroVel();
+}
+
+void World::xOGModel::UpdaterCheckHide() {
+    if (updateNode.prev != 0 && model.visibleCount == 0) {
+        updater->updList.Remove(this);
+        updateNode.prev = 0;
+    }
+}
+
+bool zBoardPlayer::Damage(const zCombatDamageInfo& info) {
+    if (_v168(&info)) {
+        return ((zCommonPlayer*)this)->Damage(info);
+    }
+
+    return false;
+}
+
+class hkpRigidBody {
+public:
+    void setPosition(const hkVector4& pos);
+};
+
+// hkpCharacterRigidBody's rigid-body getter folded onto this symbol;
+// it takes nothing but the body, so it is declared by its name.
+extern "C" hkpRigidBody* Update__20zBTActionHandleEventFf(
+    hkpCharacterRigidBody* body);
+
+void xHavokCharacterController::SetPosition(const hkVector4& pos) {
+    switch (controllerType) {
+    case 1:
+        characterProxy->setPosition(pos);
+        break;
+    case 2:
+        Update__20zBTActionHandleEventFf(characterRigidBody)
+            ->setPosition(pos);
+        break;
+    }
+}
+
+void zPlayerIdleBoard::Update(float dt) {
+    ((zPlayerWalk*)this)->Update(dt);
+
+    unsigned int animFlags = xEntGetAnimFlags((const xEnt*)player);
+
+    if (animFlags & 0x4000) {
+        extraIdleTimer -= dt;
+    }
+}
+
+void zPlayerWalkBoard::Begin() {
+    if (((zBoardPlayer*)player)->_v74()) {
+        ((zBoardPlayerOffsets*)player)->canDoubleJump = false;
+        ((zBoardPlayerOffsets*)player)->canSpinGlide = true;
+    }
+}
+
+namespace zBoardPlayerActionsNS {
+extern float DOUBLE_JUMP_VELOCITY;
+extern float DOUBLE_JUMP_DECEL;
+extern float SLIDE_JUMP_VELOCITY;
+extern float SLIDE_JUMP_DECEL;
+}
+
+float zPlayerDoubleJumpBoard::GetY(float t) const {
+    float yVal;
+
+    if (t < 0.2f) {
+        yVal = t * zBoardPlayerActionsNS::DOUBLE_JUMP_VELOCITY + f14;
+    } else {
+        float td = t - 0.2f;
+
+        yVal = 0.2f * zBoardPlayerActionsNS::DOUBLE_JUMP_VELOCITY + f14 +
+               zBoardPlayerActionsNS::DOUBLE_JUMP_VELOCITY * td +
+               0.5f * zBoardPlayerActionsNS::DOUBLE_JUMP_DECEL * td * td;
+    }
+
+    return yVal;
+}
+
+void zPlayerHitBoard::Update(float dt) {
+    ((zPlayerWalk*)this)->Update(dt);
+
+    if (xEntGetAnimFlags((const xEnt*)player) & 0x8000) {
+        *(float*)((char*)this + 0x10) -= dt;
+    }
+}
+
+void zPlayerSlide::Begin() {
+    RestoreLeanValue = ((zBoardPlayer*)player)->f9E8;
+    ((zBoardPlayer*)player)->f9E8 = 4.0f;
+    ForwardAcceleration = 10.0f;
+    LeftRightAcceleration = 10.0f;
+    ForwardSpeed = 0.0f;
+    LeftRightSpeed = 0.0f;
+    actualLeftRightSpeed = 0.0f;
+    CurrentSpeedMult = 1.0f;
+    lastStickPos = 0;
+    SlowDownMeter = 0.0f;
+    f34 = false;
+}
+
+// The contact point's two vectors are copied by hkVector4's own
+// operator, which retail calls; the four words after it are copied
+// in place.
+class hkpRootCdPoint {
+public:
+    hkpRootCdPoint(const hkpRootCdPoint& o);
+
+    hkVector4 m_position;
+    hkVector4 m_separatingNormal;
+    void* m_rootCollidableA;
+    unsigned int m_shapeKeyA;
+    void* m_rootCollidableB;
+    unsigned int m_shapeKeyB;
+};
+
+hkpRootCdPoint::hkpRootCdPoint(const hkpRootCdPoint& o) {
+    m_position = o.m_position;
+    m_separatingNormal = o.m_separatingNormal;
+    m_rootCollidableA = o.m_rootCollidableA;
+    m_shapeKeyA = o.m_shapeKeyA;
+    m_rootCollidableB = o.m_rootCollidableB;
+    m_shapeKeyB = o.m_shapeKeyB;
+}
+
+// No symbol of its own: inlined into the callback, which returns the
+// slot test's zero itself when the test fails.
+inline bool zBoardPlayerBungeeBall::SBBungeeBallHitCB(xAnimTransition* a0,
+                                                      xAnimSingle* a1) {
+    ((zBoardPlayer*)player)->bungeeBall->BallReturn();
+
+    return true;
+}
+
+unsigned int zBoardPlayerBungeeBall::anSBBungeeBallHitCB(xAnimTransition* a0,
+                                                         xAnimSingle* a1,
+                                                         void* a2) {
+    // The slot test's own result is what a failure returns: there is
+    // no `li r3,0` on that path.
+    unsigned int result =
+        ((zBoardPlayerBungeeBall*)((AnimCBHolder*)a1)->slot->owner)->_v5();
+
+    if (result) {
+        ((zBoardPlayerBungeeBall*)((AnimCBHolder*)a1)->slot->owner)
+            ->SBBungeeBallHitCB(a0, a1);
+        result = 1;
+    }
+
+    return result;
+}
+
+void zBoardPlayerKelpTrap::End() {
+    ((zBoardPlayer*)player)->kelpTrapLink->ChangeState(
+        (zPlantTrap::plantState)6);
+    ((zBoardPlayer*)player)->kelpTrapLink = 0;
+    ((zBoardPlayer*)player)->zPlayerFlags &= ~0x10;
+    ((zBoardPlayer*)player)->currentHitType = -1;
+}
+
+class xModelInstance {
+public:
+    class PartsVisibility {
+    public:
+        unsigned char partIndex;
+        unsigned char stateMask;
+    };
+
+    class ModelVisibility {
+    public:
+        PartsVisibility& GetPartVisibility(unsigned char part);
+
+        PartsVisibility visParts[16];
+        unsigned char visCount;
+        bool disableVisibilityAnim;
+    };
+};
+
+xModelInstance::PartsVisibility&
+xModelInstance::ModelVisibility::GetPartVisibility(unsigned char part) {
+    int i;
+
+    for (i = 0; i < visCount; i++) {
+        if (visParts[i].partIndex == part) {
+            break;
+        }
+    }
+
+    if (i == visCount) {
+        visParts[i].partIndex = part;
+        visParts[i].stateMask = 0;
+        visCount++;
+    }
+
+    return visParts[i];
+}
+
+// An inline of its own: retail materialises the `||` into a flag
+// and tests that.
+inline bool BoardPowerupActive(zBoardPlayer* p) {
+    return p->powerupState != 0 || p->powerupModelState != 0;
+}
+
+bool zBoardPlayerFillWithGoo::StartFillWithGooCheck(xAnimTransition* a0,
+                                                    xAnimSingle* a1) {
+    zBoardPlayer* sbPlayer = (zBoardPlayer*)player;
+
+    if (sbPlayer->gooState == 1 && !BoardPowerupActive(sbPlayer)) {
+        sbPlayer->SetGooState((SBGooFilledState)2);
+
+        return true;
+    }
+
+    return false;
+}
+
+class zSoundModule {
+public:
+    static void SoundCategoryStopAllEvents(const char* category);
+};
+
+void zPlayerDefeatedBoard::Begin() {
+    zSoundModule::SoundCategoryStopAllEvents("dialog");
+    ((zBoardPlayer*)player)->f14C++;
+    ((zBoardPlayer*)player)->zPlayerFlags |= 0x8000;
+    ((zBoardPlayer*)player)->zPlayerFlags &= ~0x10;
+}
+
+void xHavokCharacterController::GetPosition(hkVector4& pos) const {
+    switch (controllerType) {
+    case 1:
+        pos = characterProxy->getPosition();
+        break;
+    case 2:
+        pos = characterRigidBody->getPosition();
+        break;
+    }
+}
+
+void zBoardPlayerHammerAttack::Move(xScene* a0, float a1, xEntFrame* a2) {
+    if (airHammer) {
+        ((zBoardPlayer*)player)->zPlayerFlags |= 0x10;
+
+        xEntFrame* frame = ((zBoardPlayer*)player)->frame;
+
+        if (frame->f8C > -30.0f) {
+            float vy = frame->f8C - 30.0f * a1;
+
+            frame->f8C = (vy > -30.0f) ? vy : -30.0f;
+        }
+    }
+
+    ((zPlayerLandHighBoard_m4*)player)->_v128(a0, a1, a2);
+}
+
+class zSBProjectileManager {
+public:
+    static void GeneratePlayerPuck(zPlayer* player);
+    static void GeneratePlayerPuckSalvo(zPlayer* player, int count,
+                                        float speed, float spread);
+};
+
+// An inline of its own: retail materialises the `<=` into a flag and
+// tests that.
+inline bool BoardPuckCooledDown(zBoardPlayer* p) {
+    return p->f8D0 <= 0.0f;
+}
+
+bool zBoardPlayerPuckAttack::FirePuckCB(xAnimTransition* a0,
+                                        xAnimSingle* a1) {
+    zBoardPlayer* sbPlayer = (zBoardPlayer*)player;
+
+    if (f10 >= 0.0f && BoardPuckCooledDown(sbPlayer)) {
+        sbPlayer->ResetPuckCooldownTimer();
+        zSBProjectileManager::GeneratePlayerPuck((zPlayer*)player);
+    }
+
+    return true;
+}
+
+bool zPlayerCelebrationBoard::CelebrationCheck(xAnimTransition* a0,
+                                               xAnimSingle* a1) {
+    if (((zBoardPlayerAction*)this)->DefaultStateCheck(a0, a1) &&
+        ((zBoardPlayer*)player)->_v74() &&
+        ((zBoardPlayerOffsets*)player)->performCelebration) {
+        return true;
+    }
+
+    return false;
+}
+
+float zPlayerSlide::GetY(float t) const {
+    float yVal;
+
+    // The image compares against 0.3 and branches on nothing: the
+    // body stored to yVal, which every path below overwrites.
+    if (t > 0.3f) {
+        yVal = 0.3f;
+    }
+
+    if (t < 0.1f) {
+        yVal = t * zBoardPlayerActionsNS::SLIDE_JUMP_VELOCITY + y;
+    } else {
+        float td = time - 0.1f;
+
+        yVal = 0.1f * zBoardPlayerActionsNS::SLIDE_JUMP_VELOCITY + y +
+               zBoardPlayerActionsNS::SLIDE_JUMP_VELOCITY * td +
+               0.5f * zBoardPlayerActionsNS::SLIDE_JUMP_DECEL * td * td;
+    }
+
+    return yVal;
+}
+
+// -- third batch ---------------------------------------------------
+
+class EventActionOneInt {
+public:
+    short param0;
+};
+
+class EventActionOneFloat {
+public:
+    float param0;
+};
+
+void zBoardPlayer::SetMaximumHitPoints(float hp) {
+    ((zPlayer*)this)->SetMaximumHitPoints(hp);
+
+    EventActionOneInt params;
+
+    params.param0 = _v84();
+    zEntEventAllOfType((xBase*)this, 0, 0x2E602B32, (Sext::EventAny*)&params,
+                       219, (ForceEvent)1);
+}
+
+void zBoardPlayer::SetCurrentHitPoints(float hp) {
+    ((zPlayer*)this)->SetCurrentHitPoints(hp);
+
+    EventActionOneFloat params;
+
+    params.param0 = _v82();
+
+    if (params.param0 < 1.0f && params.param0 > 0.0f) {
+        params.param0 = 1.0f;
+    }
+
+    zEntEventAllOfType((xBase*)this, 0, 0xA5FF7E37, (Sext::EventAny*)&params,
+                       219, (ForceEvent)1);
+}
+
+void zBoardPlayer::ResetHealth() {
+    _v85(_v84());
+    _v86(_v84());
+}
+
+bool zPlayerTurn180Board::Turn180DoneCheck(xAnimTransition* a0,
+                                           xAnimSingle* a1) {
+    return ((zBoardPlayerOffsets*)player)
+                   ->ogModel.model->f20.dot3(*(const hkVector4*)&targetVector) >=
+               0.99999f ||
+           f1C;
+}
+
+void zPlayerSlamLandBoard::Move(xScene* a0, float a1, xEntFrame* a2) {
+    ((zBoardPlayer*)player)->_v127(a1);
+    ((zPlayerLandHighBoard_m4*)player)->_v128(a0, a1, a2);
+}
+
+void zBoardPlayerSpinAttack::Begin() {
+    zBoardPlayer* sbPlayer = (zBoardPlayer*)player;
+
+    numSpinsQueued = -1;
+    numSpinsExecuted = 1;
+    sbPlayer->f8C0 = 2;
+    sbPlayer->f8C4 = -1.0f;
+
+    if (!sbPlayer->_v74()) {
+        ((zBoardPlayerOffsets*)sbPlayer)->canSpinGlide = false;
+    }
+}
+
+// The velocity is a Math::Vector built in place from the model's
+// forward row, then scaled and imparted.
+bool zBoardPlayerHammerPowerupAttack::AttackPushCB(xAnimTransition* a0,
+                                                   xAnimSingle* a1) {
+    xVec3 forwardVelocity;
+    xOGModel* model = ((zBoardPlayerOffsets*)player)->ogModel.model;
+
+    __ct__Q24Math6VectorFfff(&forwardVelocity, model->f20.x, model->f20.y,
+                             model->f20.z);
+    forwardVelocity *= 5.62f;
+    ((zBoardPlayer*)player)->_v113(forwardVelocity);
+
+    return true;
+}
+
+enum zHitTarget { zHitTarget_ = 0x7FFFFFFF };
+
+void sphere_damage(xBase* from, const xVec3& pos, float radius,
+                   float damage, float awayKnockback, float upKnockback,
+                   Sext::eHitSource source, zHitTarget target,
+                   unsigned int flags, const xVec3* dir);
+
+void zPlayerFluidBurstBoard::Begin() {
+    ((zBoardPlayer*)player)->SetGooState((SBGooFilledState)0);
+    ((zBoardPlayer*)player)->f904 = 0.0f;
+    sphere_damage((xBase*)player,
+                  ((zBoardPlayerOffsets*)player)->ogModel.model->pos, f10,
+                  f14, f18, f1C, (Sext::eHitSource)46, (zHitTarget)0, 0, 0);
+}
+
+// Slot 30 of the trap and slot 48 of the slope are each one's
+// GetAnimPackage.
+class zPlantTrapVirtuals {
+public:
+    virtual void _v0();
+    virtual void _v1();
+    virtual void _v2();
+    virtual void _v3();
+    virtual void _v4();
+    virtual void _v5();
+    virtual void _v6();
+    virtual void _v7();
+    virtual void _v8();
+    virtual void _v9();
+    virtual void _v10();
+    virtual void _v11();
+    virtual void _v12();
+    virtual void _v13();
+    virtual void _v14();
+    virtual void _v15();
+    virtual void _v16();
+    virtual void _v17();
+    virtual void _v18();
+    virtual void _v19();
+    virtual void _v20();
+    virtual void _v21();
+    virtual void _v22();
+    virtual void _v23();
+    virtual void _v24();
+    virtual void _v25();
+    virtual void _v26();
+    virtual void _v27();
+    virtual void _v28();
+    virtual void _v29();
+    virtual zAnimPackage* GetAnimPackage(ePlayerName name);
+};
+
+class zSlopeVirtuals {
+public:
+    virtual void _v0();
+    virtual void _v1();
+    virtual void _v2();
+    virtual void _v3();
+    virtual void _v4();
+    virtual void _v5();
+    virtual void _v6();
+    virtual void _v7();
+    virtual void _v8();
+    virtual void _v9();
+    virtual void _v10();
+    virtual void _v11();
+    virtual void _v12();
+    virtual void _v13();
+    virtual void _v14();
+    virtual void _v15();
+    virtual void _v16();
+    virtual void _v17();
+    virtual void _v18();
+    virtual void _v19();
+    virtual void _v20();
+    virtual void _v21();
+    virtual void _v22();
+    virtual void _v23();
+    virtual void _v24();
+    virtual void _v25();
+    virtual void _v26();
+    virtual void _v27();
+    virtual void _v28();
+    virtual void _v29();
+    virtual void _v30();
+    virtual void _v31();
+    virtual void _v32();
+    virtual void _v33();
+    virtual void _v34();
+    virtual void _v35();
+    virtual void _v36();
+    virtual void _v37();
+    virtual void _v38();
+    virtual void _v39();
+    virtual void _v40();
+    virtual void _v41();
+    virtual void _v42();
+    virtual void _v43();
+    virtual void _v44();
+    virtual void _v45();
+    virtual void _v46();
+    virtual void _v47();
+    virtual zAnimPackage* GetAnimPackage(ePlayerName name);
+};
+
+void xAnimSetRawData(xAnimState* state, void* data, int flags);
+
+class xAnimFile {
+public:
+    unsigned char _pad0[0x10];
+    float Duration;
+};
+
+class xAnimState {
+public:
+    unsigned char _pad0[0x10];
+    unsigned int ID;
+    unsigned char _pad1[0x20 - 0x14];
+    xAnimFile* Data;
+};
+
+class xAnimSingle {
+public:
+    unsigned int SingleFlags;
+    xAnimState* State;
+    float Time;
+};
+
+class xAnimPlay {
+public:
+    unsigned char _pad0[0xC];
+    xAnimSingle* Single;
+    void* Object;
+};
+
+void zBoardPlayerKelpTrap::BeforeEnter(xAnimPlay* play, xAnimState* state,
+                                       void* object) {
+    zBoardPlayer* boardPlayer = (zBoardPlayer*)object;
+
+    if (boardPlayer->kelpTrapLink != 0) {
+        zAnimPackage* currentPackage =
+            ((zPlantTrapVirtuals*)boardPlayer->kelpTrapLink)
+                ->GetAnimPackage((ePlayerName)boardPlayer->eName);
+
+        if (currentPackage != 0) {
+            xAnimSetRawData(state,
+                            currentPackage->GetRawData(
+                                (ePlayerName)boardPlayer->eName, state->ID, -1),
+                            0);
+        }
+    }
+}
+
+void zSlideBE(xAnimPlay* play, xAnimState* state, void* object) {
+    zBoardPlayer* boardPlayer = (zBoardPlayer*)object;
+
+    if (boardPlayer->f9C0 != 0) {
+        zAnimPackage* currentPackage =
+            ((zSlopeVirtuals*)boardPlayer->f9C0)
+                ->GetAnimPackage((ePlayerName)boardPlayer->eName);
+
+        if (currentPackage != 0) {
+            xAnimSetRawData(state,
+                            currentPackage->GetRawData(
+                                (ePlayerName)boardPlayer->eName, state->ID, 0),
+                            0);
+        }
+    }
+}
+
+// The model instance's animation player is at +0x4C.
+struct ModelAnimView {
+    unsigned char _pad0[0x4C];
+    xAnimPlay* Anim;
+};
+
+void zPlayerDefeatedBoard::Update(float dt) {
+    ((zBoardPlayer*)player)->_v40(dt);
+
+    xAnimSingle* single =
+        ((ModelAnimView*)((zBoardPlayerOffsets*)player)->ogModel.model)
+            ->Anim->Single;
+
+    if ((xEntGetAnimFlags((const xEnt*)player) & 0x4000) &&
+        single->Time >= single->State->Data->Duration) {
+        zSceneReset();
+    }
+}
+
+bool zBoardPlayerHammerAttack::AirHammerAttackCheck(xAnimTransition* a0,
+                                                    xAnimSingle* a1) {
+    if (StartHammerAttackCheck(a0, a1) &&
+        !((zBoardPlayer*)player)->_v74()) {
+        airHammer = true;
+        ((zBoardPlayer*)player)->frame->f8C = -7.0f;
+    } else {
+        airHammer = false;
+    }
+
+    return airHammer;
+}
+
+class xSphere {
+public:
+    xVec3 center;
+    float r;
+};
+
+class xHavokPhysicsObject {
+public:
+    hkpRigidBody* GetRigidBody(unsigned int index);
+    void GetBoundingSphere(xSphere* sphere) const;
+
+    unsigned char _pad0[0x20];
+};
+
+// The entity's model pointer is at +0x34 and its physics object at
+// +0x80.
+struct xEntView {
+    unsigned char _pad0[0x34];
+    xOGModel* model;
+    unsigned char _pad1[0x80 - 0x38];
+    xHavokPhysicsObject physicsObject;
+};
+
+xVec3 xEntGetCenter(const xEnt* ent) {
+    if (((xEntView*)ent)->physicsObject.GetRigidBody(0) != 0) {
+        xSphere sphere;
+
+        ((xEntView*)ent)->physicsObject.GetBoundingSphere(&sphere);
+
+        return sphere.center;
+    }
+
+    return ((xEntView*)ent)->model->pos;
+}
+
+bool zBoardPlayerPuckPowerupAttack::FirePuckCB(xAnimTransition* a0,
+                                               xAnimSingle* a1) {
+    zBoardPlayer* sbPlayer = (zBoardPlayer*)player;
+
+    zSBProjectileManager::GeneratePlayerPuckSalvo((zPlayer*)sbPlayer, 3,
+                                                  15.0f, 0.0f);
+
+    xVec3 backwardVelocity;
+    xOGModel* model = ((zBoardPlayerOffsets*)sbPlayer)->ogModel.model;
+
+    __ct__Q24Math6VectorFfff(&backwardVelocity, model->f20.x, model->f20.y,
+                             model->f20.z);
+    backwardVelocity *= -0.0f;
+    sbPlayer->_v113(backwardVelocity);
+
+    return true;
+}
+
+// The model's first four rows, as xMat4x3 lays them out: right, up,
+// at and position, each padded to sixteen bytes.
+struct ModelMatView {
+    xVec3 right;
+    float f0C;
+    xVec3 up;
+    float f1C;
+    xVec3 at;
+    float f2C;
+    xVec3 pos;
+    float f3C;
+};
+
+void zBoardPlayer::GetInteractionTestPos(unsigned int which, xVec3& pos) {
+    if (which == 1) {
+        pos = ((ModelMatView*)ogModel)->pos;
+        pos.AddScale(((ModelMatView*)ogModel)->up, 0.45f);
+        pos.AddScale(((ModelMatView*)ogModel)->at, 0.25f);
+    } else {
+        pos = ((ModelMatView*)ogModel)->pos;
+    }
+}
+
+void zBoardPlayer::AfterAnimMatrices(xAnimPlay* play,
+                                     Math::Matrix43* skinMat,
+                                     xQuat* quatresult, xVec3* scaleresult,
+                                     xVec3* tranresult, int boneCount) {
+    if (actionManager.GetCurrentActionID() == 0x14) {
+        ApplySpinBoneModification(play, skinMat, quatresult, scaleresult,
+                                  tranresult, boneCount);
+    }
+
+    ((zCommonPlayer*)this)
+        ->AfterAnimMatrices(play, skinMat, quatresult, scaleresult,
+                            tranresult, boneCount);
+}
+
+bool zPlayerIdleBoard::IdleSlipperyCheck(xAnimTransition* a0,
+                                         xAnimSingle* a1) {
+    bool result = false;
+    bool idle = false;
+
+    if (((zBoardPlayerAction*)this)->DefaultStateCheck(a0, a1) &&
+        IdleCheck(a0, a1)) {
+        idle = true;
+    }
+
+    if (idle && ((zBoardPlayer*)player)->IsOnSlipperySurface(0.13f)) {
+        result = true;
+    }
+
+    return result;
+}
+
+bool zPlayerWalkBoard::WalkSlipperyCheck(xAnimTransition* a0,
+                                         xAnimSingle* a1) {
+    bool result = false;
+    bool walk = false;
+
+    if (((zBoardPlayerAction*)this)->DefaultStateCheck(a0, a1) &&
+        WalkCheck(a0, a1)) {
+        walk = true;
+    }
+
+    if (walk && ((zBoardPlayer*)player)->IsOnSlipperySurface(0.13f)) {
+        result = true;
+    }
+
+    return result;
+}
+
+bool zPlayerRunBoard::RunSlipperyCheck(xAnimTransition* a0,
+                                       xAnimSingle* a1) {
+    bool result = false;
+    bool run = false;
+
+    if (((zBoardPlayerAction*)this)->DefaultStateCheck(a0, a1) &&
+        RunCheck(a0, a1)) {
+        run = true;
+    }
+
+    if (run && ((zBoardPlayer*)player)->IsOnSlipperySurface(0.13f)) {
+        result = true;
+    }
+
+    return result;
+}
+
+bool zBoardPlayerLosePowerup::LosePowerupCheck(xAnimTransition* a0,
+                                               xAnimSingle* a1) {
+    zBoardPlayer* sbPlayer = (zBoardPlayer*)player;
+
+    if (sbPlayer->powerupModelState != 0 &&
+        sbPlayer->powerupModelState != sbPlayer->powerupState) {
+        return true;
+    }
+
+    if (sbPlayer->powerupState != 0 && sbPlayer->_v48()) {
+        sbPlayer->SetPowerupState((BoardPowerupState)0);
+        sbPlayer->currentHitType = -1;
+
+        return true;
+    }
+
+    return false;
+}
+
+bool zPlayerSlide::SlideJumpCheck(xAnimTransition* a0, xAnimSingle* a1) {
+    if (((zBoardPlayer*)player)->ignoreInputThisFrame != 0) {
+        return false;
+    }
+
+    if (((zBoardPlayer*)player)->playerInput->_v19(8, 0, 1)) {
+        time = 0.0f;
+        y = ((ModelMatView*)((zBoardPlayer*)player)->ogModel)->pos.y;
+
+        return true;
+    }
+
+    return false;
+}
+
+template <class T, int N>
+class fixed_stack_list {
+public:
+    unsigned long _size;
+    unsigned char _pad0[0x198 - 0x4];
+};
+
+class zNPCBase;
+
+enum eNPCType { eNPCType_ = 0x7FFFFFFF };
+
+class zNPCManager {
+public:
+    static zNPCManager* Manager();
+    void _GetAllNPCsWithinSphereByType(eNPCType type, xVec3* pos,
+                                       float radius,
+                                       fixed_stack_list<zNPCBase*, 32>* list);
+};
+
+bool zBoardPlayer::CheckForNearbyNPCs(float radius) {
+    fixed_stack_list<zNPCBase*, 32> nearbyNPCList;
+    xVec3 checkPos = ((ModelMatView*)ogModel)->pos;
+
+    checkPos.y += _v140() * 0.5f;
+    zNPCManager::Manager()->_GetAllNPCsWithinSphereByType(
+        (eNPCType)1, &checkPos, radius, &nearbyNPCList);
+
+    return nearbyNPCList._size != 0;
+}
+
+// An inline of its own: retail materialises the first `&&` into a
+// flag and tests that.
+inline bool BoardPlayerOnGround(zBoardPlayer* p) {
+    return (p->zPlayerFlags & 0x2) && (p->zPlayerFlags & 0x4);
+}
+
+bool zPlayerSlamFallBoard::SlamLandCheck(xAnimTransition* a0,
+                                         xAnimSingle* a1) {
+    sphere_damage((xBase*)player,
+                  ((zBoardPlayerOffsets*)player)->ogModel.model->pos, f10,
+                  f14, f18, f1C, (Sext::eHitSource)46, (zHitTarget)0, 0, 0);
+
+    return BoardPlayerOnGround((zBoardPlayer*)player) &&
+           !(((zBoardPlayer*)player)->zPlayerFlags & 0x2000);
+}
+
+// The listener is a referenced object with the proxy's listener
+// interface at +8: passing it as that interface is the null-tested
+// `addi r31,r31,8` the image has.
+class hkReferencedObject {
+public:
+    void removeReference() const;
+
+    void* _vtbl;
+    unsigned short m_memSizeAndFlags;
+    short m_referenceCount;
+};
+
+class hkpCharacterProxyListener {
+public:
+    void* _vtbl;
+};
+
+class zBoardPlayerCharacterProxyCollisionListener
+    : public hkReferencedObject,
+      public hkpCharacterProxyListener {
+public:
+};
+
+// The sound sources' reset folded onto bit_array_alloc's
+// constructor: that is the symbol the image keeps.
+extern "C" void* __ct__15bit_array_allocFv(void* self);
+
+void zBoardPlayer::Exit() {
+    hkpCharacterProxy* proxy = characterController.GetCharacterProxy();
+
+    if (pCharacterProxyListener != 0 && proxy != 0) {
+        characterController.GetCharacterProxy()->removeCharacterProxyListener(
+            pCharacterProxyListener);
+        pCharacterProxyListener->removeReference();
+        pCharacterProxyListener = 0;
+    }
+
+    __ct__15bit_array_allocFv(soundSourcesPhysics);
+    actionManager.Exit();
+    ((zPlayer*)this)->Exit();
+}
+
+class zCombatDamageInfo {
+public:
+    zCombatDamageInfo(xBase* from, float damage, Sext::eHitSource source,
+                      zHitTarget target, const xVec3& knockback,
+                      const xVec3& hitLocation, const xVec3& hitNormal,
+                      int flags, int attackID);
+
+    int flags;
+    xBase* from;
+    float damage;
+    Sext::eHitSource source;
+    zHitTarget target;
+    xVec3 knockback;
+    xVec3 hitLocation;
+    xVec3 hitNormal;
+    int attackID;
+};
+
+zCombatDamageInfo::zCombatDamageInfo(xBase* from_, float damage_,
+                                     Sext::eHitSource source_,
+                                     zHitTarget target_,
+                                     const xVec3& knockback_,
+                                     const xVec3& hitLocation_,
+                                     const xVec3& hitNormal_, int flags_,
+                                     int attackID_)
+    : flags(flags_), from(from_), damage(damage_), source(source_),
+      target(target_), knockback(knockback_), hitLocation(hitLocation_),
+      hitNormal(hitNormal_), attackID(attackID_) {
 }

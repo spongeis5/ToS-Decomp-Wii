@@ -258,7 +258,7 @@ EXPECT = {
     "SB/GM/Engine/Game/zNGLoadingScreen": (2, 2),
     "SB/GM/Engine/Game/zNPCBase": (2, 2),
     "SB/GM/Engine/Game/zNPCCommonBTActions": (56, 60),
-    "SB/GM/Engine/Game/zNPCCommonMovementBTActions": (4, 4),
+    "SB/GM/Engine/Game/zNPCCommonMovementBTActions": (31, 34),
     "SB/GM/Engine/Game/zNPCGenericSpawner": (1, 1),
     "SB/GM/Engine/Game/zNPCGenericSwarm": (2, 2),
     "SB/GM/Engine/Game/zNPCManager": (1, 1),
@@ -270,7 +270,7 @@ EXPECT = {
     "SB/GM/Engine/Game/zPlayerConstrainer": (3, 3),
     "SB/GM/Engine/Game/zPlayerInventory": (1, 1),
     "SB/GM/Engine/Game/zProjectileHavok": (2, 2),
-    "SB/GM/Engine/Game/zSBPlayerActions": (407, 431),
+    "SB/GM/Engine/Game/zSBPlayerActions": (453, 469),
     "SB/GM/Engine/Game/zSearchMapCreatorNavMesh": (2, 2),
     "SB/GM/Engine/Game/zSearchStrategyAStar": (1, 1),
     "SB/GM/Engine/Game/zSpinner": (4, 4),
@@ -284,7 +284,7 @@ EXPECT = {
     "SB/GM/Engine/WAD00_32": (328, 329),
     "SB/GM/Engine/WAD01_13_1": (2, 2),
     "SB/GM/Engine/WAD01_1_1": (123, 127),
-    "SB/GM/Engine/WAD01_28": (433, 439),
+    "SB/GM/Engine/WAD01_28": (473, 486),
     "SB/GM/Engine/WAD01_29": (2, 2),
     "SB/GM/Engine/WAD02_6_1": (3, 3),
     "SB/GM/Engine/WAD03_32_2": (3, 3),
@@ -499,7 +499,7 @@ EXPECT = {
     "SB/GM/Engine/WAD02_29_1": (41, 42),
     "SB/GM/Engine/WAD02_22_1": (19, 21),
     "SB/GM/Engine/Game/zVar": (47, 47),
-    "SB/GM/Engine/WAD02_24_2": (26, 32),
+    "SB/GM/Engine/WAD02_24_2": (90, 95),
     "SB/GM/Engine/Game/zPlayerInputHuman": (42, 42),
     "SB/GM/Engine/Core/x/xCamTransition": (1, 1),
     "SB/GM/Engine/Core/x/xCounter": (1, 1),
@@ -534,6 +534,7 @@ EXPECT = {
     "SB/GM/Engine/Game/zWallNet": (1, 1),
     "SB/GM/Engine/WAD01_13": (2, 2),
     "SB/GM/Engine/WAD02_11_1": (1, 1),
+    "SB/GM/Engine/Game/zNPCCommonBlackboardBTActions": (26, 34),
 }
 
 

@@ -251,7 +251,7 @@ EXPECT = {
     # merged and not yet examined; the pin has to see them.
     "SB/GM/Engine/Game/zCommonPlayerActions": (168, 172),
     "SB/GM/Engine/Game/zFXParticleLocator": (1, 1),
-    "SB/GM/Engine/Game/zFloatingCollectible": (3, 3),
+    "SB/GM/Engine/Game/zFloatingCollectible": (30, 30),
     "SB/GM/Engine/Game/zHitButton": (5, 5),
     "SB/GM/Engine/Game/zInteraction": (5, 5),
     "SB/GM/Engine/Game/zMainOGModule": (3, 3),

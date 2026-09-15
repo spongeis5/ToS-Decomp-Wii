@@ -7,18 +7,18 @@ numbers here, which move.
 ## State at time of writing
 
 ```
-Game Code:  80 of 777 files complete  486,768 / 2,116,616 bytes  3,971 / 10,697 fn
-            22.9975% of game code
+Game Code:  80 of 777 files complete  491,808 / 2,116,616 bytes  3,998 / 10,697 fn
+            23.2356% of game code
 
-Of those 3,971 functions, 835 are GENERATED -- machine-recognised
+Of those 3,998 functions, 832 are GENERATED -- machine-recognised
 shapes, not one of which is decompiling. They are real matched
 functions and the offsets and constants are recovered fact, but a
 count of them is not a count of decompiled code. HAND-WRITTEN IS
-3,136, across 278 units and 452,704 bytes, and that is the figure to
+3,166, across 279 units and 457,896 bytes, and that is the figure to
 compare against earlier ones.
 
 Data:       4 unit(s) carry their own, 412 bytes; 134 more could
-All:        9.04% matched              main.dol reproduces byte for byte
+All:        9.12% matched              main.dol reproduces byte for byte
 ```
 
 Every number above is written by `python tools/notes_state.py`,
@@ -6062,21 +6062,132 @@ Measured dead ends:
   Five spellings keep ours sharing the load: the scale operator two ways,
   and an accessor on either use or both.
 
-## zNPCManager AND zNPCGenericSwarm: TWO AGENT UNITS WITHOUT THEIR REPORTS
+## zNPCManager AND zNPCGenericSwarm: TWO AGENT UNITS, FROM THEIR TRANSCRIPTS
 
-Two agents wrote these and stopped at the session's rate limit before
-reporting, so no lever from them is recorded here. Verified before the
-commit: both compile, a row diff against the stub each started from loses
-nothing (LOST 0), and the pipeline passes.
-- `zNPCManager` 1 to 18 of 27. Nine are written and differ:
-  `_GetAllNPCsWithinConeByType` 125 of 140 words, `Timestep` 30 of 136,
-  `SceneExit` 21 of 116, `SceneSetup` 18 of 101, `SceneReset` 18 of 93,
-  `_GetAllNPCsWithinSphereByType` 17 of 84, `CreateNPCGroup` 10 of 43,
-  `CreateNPC` 10 of 40, `_LoadNPC` 7 of 38.
-- `zNPCGenericSwarm` 2 to 25 of 30. Four are written and differ: `Update`
-  128 of 132 words, `CreateRandomPopSpawnMat` 55 of 98,
-  `CheckSceneSetupValidity` 29 of 41, `Initialize` 6 of 117.
-  `SpawnNewMember` is not written.
+Two agents wrote these and stopped at the session's rate limit before their
+final reports.
+- Verified at commit e181d8f: both compile, a row diff against the stub each
+  started from loses nothing (LOST 0), and the pipeline passes. The word
+  counts below are unitcmp's at that commit.
+- The levers and causes come from the agents' session transcripts, which the
+  user kept. They are the agents' own measurements, not repeated here.
+- The spellings named are in the committed sources.
 
-The word counts are unitcmp's at this commit. Why each differs has not
-been looked at.
+`zNPCManager` 1 to 18 of 27.
+- **The scene walk inlined.** SceneSetup, SceneReset and SceneExit walk the
+  scene's entity lists through a template that retail inlines.
+  - Ours stayed out of line, one instance per callback, until
+    `#pragma always_inline on` was set above the template and left on, with
+    GetNPCType and SubTypeCount defined below their callers.
+  - With the pragma popped just after SceneExit, SceneExit's three walks
+    stayed out of line.
+  - Inlined, the three are near misses on a register rotation: SceneSetup 18
+    of 101 words, SceneReset 18 of 93, SceneExit 21 of 116. Declaring the list
+    node ahead of the list's end did best.
+- **Callback data through a typed pointer.** The sphere and cone searches hand
+  their data to the walk.
+  - Through `void*`, mwcc did not hoist the load of the search position that
+    retail hoists. As `D*`, the sphere search went to 17 of 84.
+  - The cone search is 125 of 140, but ours is one instruction short (560
+    bytes against 564), so every word after it is shifted. It also loads four
+    distinct literals.
+- **A search leaving by `goto`.** `_CreateAnimTable`'s inlined type search
+  matched written with `goto found;` out of the loop.
+- Forcing the type search inline brought CreateNPC and CreateNPCGroup to 10 of
+  40 and 10 of 43 words. What is left is a register swap that declaration
+  order did not move.
+- `_LoadNPC` (7 of 38) differs in scheduling; an accessor and a late
+  assignment did not move it.
+- Timestep (30 of 136): no cause recorded.
+
+`zNPCGenericSwarm` 2 to 25 of 30.
+- Retail calls `Memory::Creator<1, zNPCBTManager, zNPCLogic>::Get`, which an
+  earlier file of the unity build emits. The source declares that explicit
+  specialisation and does not define it.
+- Initialize (6 of 117) is register colouring. The template asset is in
+  retail's r25; the id's two halves and the swarm asset are each one register
+  off.
+- Update (128 of 132) and CheckSceneSetupValidity (29 of 41) did not move.
+  - The agent's scan of the retail image found a compare whose result is
+    discarded in only two functions besides its own: zPlatform_Update and one
+    in WADSpeed.
+  - It found no written unit spelling a materialised `x > 0` test.
+  - `== false`, and templates to delay inlining, changed neither function.
+- CreateRandomPopSpawnMat (55 of 98): no cause recorded. SpawnNewMember is not
+  written.
+
+## zFloatingCollectible: 30 OF 43, AND SIX SPELLINGS FOUND BY SWEEPING
+
+`zFloatingCollectible` 3 to 30 of the unit's 43 functions, written in two
+batches.
+- 22 of the first 23 were byte-identical on the first compile.
+- Of the next four, HandleEvent (904 B) was identical on its first compile.
+- StartPhysics, its weak `hkMatrix3::setIdentity`, zFloatingCollectibleUpdate
+  and the first batch's CollisionCallback needed the spellings below.
+- The thirteen not written were sorted before reading, from counts over the
+  unit's briefs; the list is at the top of the source.
+
+Each count below is one function's row (lsweep). The sweep files combined
+changes to different functions, and each change touches only its own
+function.
+
+**Havok's `hkPadSpu` wrapper sets the registers of a pointer
+difference.** CollisionCallback counts contacts as
+`m_firstFreeContactPoint - &m_contactPoints[0]`.
+- With the first member a plain pointer, ours loads it into r4 and the base
+  into r5 (`subf r3,r5,r4`); retail uses r5 and r4.
+- Declared `hkPadSpu<hkpProcessCdPoint*>` and read through its conversion
+  operator: 5 words to 2.
+- Control: the array decaying without `&[0]`, still 5.
+
+**Read into locals z, y, x, arguments load in retail's order.** The
+penetration direction goes to the folded xVec3 constructor
+(`__ct__Q24Math6VectorFfff`), and retail loads the normal's z, then y, then
+x. Written in place, ours loads x first. Locals declared z, y, x: 2 to 0.
+Controls:
+- Havok's `operator()(int) const` on the arguments: 13, or 10 with hkPadSpu;
+- an inline helper taking the hkVector4: 2;
+- an inline helper returning the xVec3 by value: emitted out of line (an
+  EXTRA function), 57;
+- inline constructors on xVec3: DriveCauseMove goes to 29 of 46, with an
+  EXTRA copy constructor.
+
+**StartPhysics wants the opposite order, from a constructor taking the
+position.** Its translation is `Math::Vector4(position, 0.0f)`, with
+`Vector4(const xVec3& v, float w) { Assign(v.x, v.y, v.z, w); }`. That
+loads the components in order and passes the temporary's own address
+(`addi r4,r1,32`) to hkVector4's assignment: 0. Controls:
+- `Math::Vector4().Assign(position.x, ...)` passes Assign's returned
+  reference (`mr r4,r3`): 2;
+- an inline four-float constructor loads z, y, x: 2;
+- a named four-vector: assigned then passed, 3; passing Assign's return, 4;
+  built by the four-float constructor, 5.
+
+**A reference local loads a singleton ahead of the call's arguments.**
+`CHavokShapeBuilder& builder = hkSingleton<CHavokShapeBuilder>::getInstance();`
+then `builder.getShape(...)`: retail loads `s_instance` into r28 before the
+scale's Assign. Controls:
+- `getInstance().getShape(...)`: 77 of 92 (a saved register fewer moves the
+  frame by 16);
+- `s_instance->getShape(...)`: 78;
+- a pointer local: 4 words more than the reference.
+
+**`getColumn` keeps each column's address for the diagonal.** The weak
+`hkMatrix3::setIdentity` assigns zero to three columns and then sets the
+diagonal.
+- Retail keeps `&m_col1` and `&m_col2` in r31 and r30 from the assignments
+  and stores through them. With the members named directly, ours folds the
+  stores to this+20 and this+40: 29 of 30.
+- `getColumn(i)` (`(&m_col0)[i]`) for assignments and stores: 0. So do
+  reference locals for the two columns.
+- Control: `(*this)(i, i)` over getColumn for the stores alone, 29.
+
+**The step reaches Update through a double.** zFloatingCollectibleUpdate
+calls each enabled collectible's Update with `frsp f1,f30`.
+- `base->Update((double)dt)` gives it; so do a double local and
+  `(float)(double)dt`.
+- Plain `dt` gives `fmr`: 1 word.
+- An inline helper taking a double stays out of line (EXTRA).
+
+HandleEvent's dispatch compares signed (`cmpw`) though the event is
+`unsigned int`; `switch (toEvent)` on it is identical as written.

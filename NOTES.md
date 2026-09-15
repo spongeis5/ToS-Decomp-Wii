@@ -7,18 +7,18 @@ numbers here, which move.
 ## State at time of writing
 
 ```
-Game Code:  80 of 777 files complete  567,380 / 2,116,616 bytes  4,427 / 10,697 fn
-            26.8060% of game code
+Game Code:  80 of 777 files complete  579,728 / 2,116,616 bytes  4,511 / 10,697 fn
+            27.3894% of game code
 
-Of those 4,427 functions, 800 are GENERATED -- machine-recognised
+Of those 4,511 functions, 798 are GENERATED -- machine-recognised
 shapes, not one of which is decompiling. They are real matched
 functions and the offsets and constants are recovered fact, but a
 count of them is not a count of decompiled code. HAND-WRITTEN IS
-3,627, across 290 units and 533,884 bytes, and that is the figure to
+3,713, across 292 units and 546,248 bytes, and that is the figure to
 compare against earlier ones.
 
 Data:       4 unit(s) carry their own, 412 bytes; 134 more could
-All:        10.25% matched              main.dol reproduces byte for byte
+All:        10.44% matched              main.dol reproduces byte for byte
 ```
 
 Every number above is written by `python tools/notes_state.py`,
@@ -7230,3 +7230,215 @@ inline accessor left clear and pop_back unchanged and push_front unchanged
 or worse (24); declaring end ahead of i, the mask's operands swapped, and
 pop_back's test as an early return changed nothing, and the index in a
 local made push_front worse.
+
+## WAD02_15_1: THE WII TEXTURE, ITS HANDLER LISTS AND THE JOB QUEUE, 7 -> 51 OF 57
+
+Measured with `tools/unitcmp.py SB/NG/Engine/WAD02_15_1`, `lsweep.py` and
+`lshow.py`, cflags_game, 2026-09-15. The unit held seven generated or
+hand-written functions (the accessor, two destructors, the GArray pair, the
+processor's constructor and the slot's destructor), all matching. It now has
+51 of 57 byte-identical: 44 more functions, 6,240 bytes, summed by script from
+`rowdiff.py` against the starting file (LOST 0, GAINED 44, CHANGED 6 -- the
+three near misses and three EXTRA rows).
+
+The unit is three files of the WAD02.cpp unity build, as the DWARF's line
+rows name them: GRendererCommonImpl.cpp (the texture node and the two handler
+lists over GArray), GRendererWiiImpl.cpp (the Wii texture) and
+CoreTasking.cpp (the job processor). The DWARF has line rows for 61 of the 69
+functions and no locals for any of them; the eight without rows are template
+instances and weak copies.
+
+**A class template's member with real code is never inlined into an ordinary
+function here either, so retail's in-line bodies are written at the call
+site.** GArrayBase::RemoveAt (both handler lists, 57 of 47 words while it was
+a call) and CircularQueue<CoreJob*>::Pop (13 of 2) are written out. None of
+these moved either one: always_inline around the caller, an explicit
+instantiation placed ahead of the caller, `inline_depth(8)`,
+`inline_bottom_up on`, `inline_max_size(1024)`,
+`inline_max_total_size(100000)`, `auto_inline off` and `defer_codegen on` at
+the top of the unit. The six pragmas moved no row at all, and Pop in a plain
+class was not inlined either. That goes further than zSound's plain-class
+queue, whose helpers did inline.
+
+**A template member that must inline INTO another template member is
+instantiated explicitly inside an always_inline region.** GArrayBase::PushBack
+wants GArrayData::PushBack in line and ResizeNoConstruct called:
+
+  * the always_inline at the foot of the file that WAD01_14 needed inlined
+    GArrayData::PushBack and ResizeNoConstruct together (42 of 23), and put
+    ~GArrayDataBase inside ~GArrayBase (17 of 21);
+  * `template void GArrayBase<...>::PushBack(...)` for both arrays, between
+    `#pragma always_inline on` and `off`, with ResizeNoConstruct's
+    definition below the region, matches both (23 of 1 each before).
+
+**always_inline around a caller takes every function defined above it.**
+GTextureWiiImpl's constructor needs GTextureWii's inline constructor in line
+but calls GTextureImplNode's: in the region with GTextureImplNode's defined
+above, both went in (32 of 25); with it defined below, exact. RemoveFromRenderer
+(AddRef_NotZero and Release in line) took CallHandlers in the same way (76 of
+60) until CallHandlers moved below it (6 of 60, the near miss below). So the
+unit's functions are not in retail's order, and the file says why.
+
+**Folded names spelled.**
+
+  * A pointer array's DestructArray is empty and was folded onto
+    `__ct__Q24Math8Matrix33Fv`; retail calls it with the array and its count,
+    so the allocator's DestructArray calls an `extern "C"` declaration of that
+    name with two parameters.
+  * The EventHandler array's Reserve was folded onto the ChangeHandler
+    array's. The template's ResizeNoConstruct calls Reserve through a cast to
+    the ChangeHandler instantiation, which changes nothing for that array.
+    That matched the EventHandler ResizeNoConstruct (2 of 36) and removed the
+    EXTRA Reserve.
+
+**Smaller levers.**
+
+  * GRefCountBase with the DWARF's 0x10 bytes (three words, then the vtable
+    pointer that CreateRenderer stores at +0xC). Without them the renderer's
+    texture list sat at +0x3C instead of +0x4C.
+  * A POD struct's implicit operator= is emitted out of line and called, as
+    the WAD00 section found. SignalExeComplete's pending-job copy is written
+    member by member (52 of 62 to exact).
+  * The declaration order `int bpp; _GXTexFmt texFormat;` gives
+    InitTexture(width, height)'s two registers (12 of 180 to exact).
+  * The operand order `bpp * w * h`: GetTextureSize and Map compute
+    (h * bpp) * w from it, where `h * bpp * w` put w first (3 and 2 words to
+    exact).
+  * The draw sync's BeginFrame and SetFence, SoftwareResample and
+    LoadTextureTile (580 B) matched on their first compile. The texture
+    helpers are kept in the object by address-taking statics until the
+    InitTexture that calls them is written.
+
+Near misses, each noted in the source:
+
+  * NextQueue, 23 of 58 words, every one a register number. j, the end index,
+    the element and the ready flag are in r8, r9, r10 and r6 where retail has
+    r9, r10, r6 and r8. Six spellings of where the flag, the element and the
+    level are declared left it where it was.
+  * ProcessNextJob, 47 of 84. Retail stores the incremented job number and
+    reads it back into r31; this keeps the sum in r29, so the function is one
+    word short and everything after that word is displaced. Declaration
+    orders, an accessor, `++`, `+= 1` and a reference local: all the same.
+  * RemoveFromRenderer, 6 of 60. In AddRef_NotZero's compare-and-set, retail
+    holds the count in r5 and computes count + 1 into r4 ahead of the compare.
+
+EXTRA rows the object has and retail's unit does not: GArrayData's implicit
+destructor for both arrays and Thread::Runnable's inline destructor, weak
+copies.
+
+What the object defines outside `.text` (`scratchpad/objsyms.py`, 15 of 73
+defined symbols): three local literals, the two keep pointers, the `waiters`
+static (weak, in `.bss`, as retail's), and six vtables. The unit's split is
+`.text` only, so all six are tables retail keeps in `.data` outside it. Their
+bindings agree with symbols.txt for GTextureWiiImpl, GTextureImplNode and
+CoreJobProcessor::Slot (global) and for GTexture and GTextureWii (weak), but
+`__vt__9GRenderer` is global here and weak in retail. That is what an INLINE
+~GRenderer would give, and GRendererWii's retail destructor shows GRenderer's
+inlined (a second null test before GRefCountBase's). This file defines
+~GRenderer out of line, which matches its own row, so the change waits for
+GRendererWii's destructor.
+
+Walls, not written: the draw sync's constructor, DrawSyncHandler and WaitFence
+reach their statics as displacements from the unity file's .bss base, and
+CoreTaskingModule's constructor and GetPriority are in WAD02.cpp's anonymous
+namespace. Not yet written: InitTexture(GImageBase*) (1,712 B), Update
+(1,324), MakeNextMiplevel (952), CreateRenderer (320), GRendererWii's
+destructor, the BlendType array's two destructors, Stats::Clear,
+GRect<int>::Height and SyncEvent::Create.
+
+## zSound: AN AGENT UNIT, 1 -> 27 OF 28
+
+Written by an agent working from BRIEF.md; verified by the coordinator on
+2026-09-15 with `tools/unitcmp.py SB/GM/Engine/Game/zSound` (27 of 28
+byte-identical) and `rowdiff.py` against the file it started from, one
+generated function (LOST 0, GAINED 26, CHANGED 1). The 26 are 3,216 bytes,
+SoundCategoryPauseUnpauseAllExceptUI (356), SetMasterFade (276) and
+TRCUnPauseMaster (248) among them. `zSound.pool.h` is new, written by
+`gen_poolprefix.py --whole` (569 strings), and the .cpp includes it first.
+The coordinator listed the object unitcmp compiles (`scratchpad/objsyms.py`):
+outside `.text` it defines only local `.rodata` (the section symbol,
+`kUnityRodataAhead`, `kUnityPoolPrefix`, `@stringBase0` and six literals, 10
+of 39 defined symbols), so the weak vtable described below is gone.
+
+Near miss, noted in the source: UpdateLoadingEvent, 8 of 92 words, all in
+the branch that pops the last queued event. The instructions and their order
+are retail's; the scratch registers are coloured differently (retail r3, r0,
+r4, r3; ours r5, r4, r3, r0). 24 spellings. Not written: 18 functions, 4,516
+bytes. Each loads `fmodSys` or `fmodEventSys` from WAD03's anonymous
+namespace, or is one of the file callbacks defined there (myopen, myclose,
+myread, myseek), and a fragment compiled as zSound.cpp cannot name either.
+
+What the agent measured (its report, `agents/zSound/report.md`), not
+re-measured here:
+
+* **A queue written as a class template was never inlined** into
+  UpdateLoadingEvent. always_inline around the caller, around the template,
+  and one region over both each left Get, RemoveAt, PopFront, Swap and
+  PopBack out of line. The same queue as a plain class, with a typedef for
+  the element and an enum for the capacity, inlines all of them.
+* **A class that inherits virtuals and declares none of its own gets its
+  vtable emitted weak** in the unit that compiles its constructor.
+  zSoundModule's object defined a 12-byte `__vt__12zSoundModule`, which
+  retail keeps outside this `.text`-only split. Declaring its three
+  overrides without defining them gave the class a key function; the object
+  then has no `.data`, and the constructor still matches. Other units that
+  declare a module with no virtual of its own may carry the same weak
+  vtable; that was not checked.
+* **SetMasterFade's ternary reads the member it just stored** (`isFadeIn ?
+  0.0f : 1.0f`): retail tests the forwarded byte with `rlwinm.`, and testing
+  the parameter gives `cmpwi` (1 word).
+* **`!(fadeCurrentTime > 0.0f)`, not `<= 0.0f`**, in SetUnpauseFadeIn; the
+  second emits a `cror` (29 words to 0).
+* **UpdateLoadingEvent reads the size through Size() in one of its two
+  comparisons**, which restores retail's reload at the loop head (83 words to
+  25; through both, 83), and Swap with its arguments and its body reversed
+  puts the `(first + i)` index first (25 to 8).
+* **The category get-then-act code retail inlines** ahead of the out-of-line
+  SoundCategory functions is static inline helpers in the class body; the
+  out-of-line functions are defined after those callers, so -inline auto
+  cannot fold them in.
+
+## zPOWGroup: AN AGENT UNIT, 1 -> 15 OF 18
+
+Written by an agent working from BRIEF.md; verified by the coordinator on
+2026-09-15 with `tools/unitcmp.py SB/GM/Engine/Game/zPOWGroup` (15 of 18
+byte-identical) and `rowdiff.py` against the file it started from, one
+generated function (LOST 0, GAINED 14, CHANGED 3). The 14 are 2,892 bytes,
+SetMatrix (432), ResetPhysObj (384), Combat (380) and GetBoundSphere (380)
+among them. `zPOWGroup.pool.h` is new, written by `gen_poolprefix.py
+--whole`, and the .cpp includes it first.
+
+Near misses, noted in the source: Activate, 40 of 138 words (the mesh pointer
+in r30 and `this` in r29, where retail has `this` in r30 and the mesh in r26,
+and every temporary between them one register lower; 6 spellings);
+HandleEvent, 8 of 85, and Settle, 8 of 42 (`objPtrs[i]` and the inner
+has-body flag in r4 and r3 where retail has r3 and r4; the helper 3 ways).
+Not written: UpdatePositions (2,276 B) and Update (1,232 B), past the literal
+wall at nine and eight distinct float literals, and Init (264 B), which loads
+FloatingCollectibleEventWrapper from WAD02.cpp's anonymous namespace.
+
+The class is polymorphic, and its first declared virtual (Init) is not
+defined here, so the unit should not emit `__vt__9zPOWGroup`; unitcmp compares
+only functions, so the coordinator listed the object unitcmp compiles
+(`scratchpad/objsyms.py`). Outside `.text`
+it defines only local `.rodata`: the section symbol, `kUnityRodataAhead` and
+three literals (5 of 24 defined symbols). No vtable.
+
+What the agent measured (its report, `agents/zPOWGroup/report.md`), not
+re-measured here:
+
+* **The functions are not in retail's order.** Create, HandleEvent, Settle
+  and Activate each need an always_inline region, and the pragma also inlines
+  the ordinary functions defined above the caller, which retail calls; so
+  those four sit above every function they call.
+* **Combat reads the player's position through an inline accessor** (the
+  chain spelled in place, or an entity position through a free inline, is 10
+  of 95 words): retail loads the chain ahead of the object-position test.
+* **SetupDrivenBy declares its link pointer ahead of the loop**, so `i` takes
+  r29 and the link r30 as retail's do (a pointer or reference local in the
+  loop, 9 of 59).
+* **The has-body tests are inline `return a && b` helpers**; `bool ret =
+  false` with an if is 46 of 85 in HandleEvent and 38 of 42 in Settle.
+* **zPOWGroup packs its bases to four** (`#pragma pack(push, 4)`): the id's
+  eight-byte alignment would otherwise round xBase past the model handle the
+  DWARF puts at +0x34.

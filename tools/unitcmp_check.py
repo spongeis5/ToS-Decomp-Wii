@@ -75,7 +75,7 @@ EXPECT = {
     # stayed at 993 byte-identical functions before and after, which is
     # the evidence that nothing was lost -- only re-homed. unitcmp_pins
     # refuses to lower a pin, correctly, so these seven are written here.
-    "SB/GM/Engine/WAD00": (6, 6),
+    "SB/GM/Engine/WAD00": (59, 63),
     "SB/GM/Engine/WAD00_1": (4, 4),
     "SB/GM/Engine/WAD00_2": (7, 7),
     "SB/GM/Engine/WAD01_21": (4, 4),
@@ -91,7 +91,7 @@ EXPECT = {
     # tools/unitcmp_pins.py refuses to make this edit on its own, which is
     # why it is written out here instead.
     "SB/GM/Engine/WAD03_43": (26, 26),
-    "SB/GM/Engine/WAD04_6": (4, 4),
+    "SB/GM/Engine/WAD04_6": (48, 54),
     "SB/GM/Engine/WAD04_8": (1, 1),
     "SB/NG/Engine/WADSpeed": (18, 18),
     "SB/NG/Source/Engine/TRC/TRCPadManager": (7, 7),
@@ -289,7 +289,7 @@ EXPECT = {
     "SB/GM/Engine/WAD02_6_1": (3, 3),
     "SB/GM/Engine/WAD03_32_2": (3, 3),
     "SB/GM/Engine/WAD03_3_3": (7, 7),
-    "SB/GM/Engine/WAD04_14": (2, 2),
+    "SB/GM/Engine/WAD04_14": (37, 39),
     "SB/GM/Engine/WAD04_8_2": (1, 1),
     "SB/NG/Engine/WAD00_12_2": (5, 5),
     "SB/NG/Engine/WAD00_12_3": (7, 7),

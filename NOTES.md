@@ -7,18 +7,18 @@ numbers here, which move.
 ## State at time of writing
 
 ```
-Game Code:  80 of 777 files complete  491,808 / 2,116,616 bytes  3,998 / 10,697 fn
-            23.2356% of game code
+Game Code:  80 of 777 files complete  520,316 / 2,116,616 bytes  4,129 / 10,697 fn
+            24.5824% of game code
 
-Of those 3,998 functions, 832 are GENERATED -- machine-recognised
+Of those 4,129 functions, 820 are GENERATED -- machine-recognised
 shapes, not one of which is decompiling. They are real matched
 functions and the offsets and constants are recovered fact, but a
 count of them is not a count of decompiled code. HAND-WRITTEN IS
-3,166, across 279 units and 457,896 bytes, and that is the figure to
+3,309, across 282 units and 486,504 bytes, and that is the figure to
 compare against earlier ones.
 
 Data:       4 unit(s) carry their own, 412 bytes; 134 more could
-All:        9.12% matched              main.dol reproduces byte for byte
+All:        9.55% matched              main.dol reproduces byte for byte
 ```
 
 Every number above is written by `python tools/notes_state.py`,
@@ -6022,8 +6022,10 @@ rest before any of it was read: `@unnamed` symbols, and distinct float
 literals per function.
 - `CreateAnimTable`, `RemoveAnimTable` and `Init` load `animTables` from
   WAD03.cpp's anonymous namespace, which a fragment cannot name.
-- `Update` loads 12 distinct literals, `HandleEvent` 5, and `InitPhysics`
-  and `DeactivateTiki` 4 each: the four-literal wall.
+- `Update` loads 12 distinct literals, and `HandleEvent`, `InitPhysics` and
+  `DeactivateTiki` 4 each: the four-literal wall. `HandleEvent` was first
+  counted at 5; its full listing (tools/disasm.py) names four: @254625,
+  @254673, @254795 and @257861.
 
 **A temporary built by `Math::Vector4().Assign(...)` zero-fills; an empty
 inline constructor stops it.** DriveCauseMove hands Havok two four-vectors,
@@ -6191,3 +6193,236 @@ calls each enabled collectible's Update with `frsp f1,f30`.
 
 HandleEvent's dispatch compares signed (`cmpw`) though the event is
 `unsigned int`; `switch (toEvent)` on it is identical as written.
+
+## WAD00: xHavokPhysicsObject, and what always_inline, argument order and folded names needed
+
+All figures are `tools/unitcmp.py SB/GM/Engine/WAD00` rows under this repo's
+cflags_game (-O4,s, -inline auto), swept with scratch copies of the unit;
+the variant files and sweep logs were scratch and are not kept. The unit
+went 6 of 6 (the gen_accessors stub) -> 27 of 36 at the first write of
+xHavokPhysicsObject's small members -> 34 of 34 -> 50 of 53 with a second
+batch -> 59 of 63 with a third.
+
+**The map holds its storage as a MEMBER.** tools/dwarf_types.py gives
+`hkPointerMap { hkPointerMapBase m_map; }`, not a base class, and its
+allocator's `operator delete` tests `p` before
+`deallocateChunkConstSize(p, size, HK_MEMORY_CLASS_MAP)`.
+
+**hkTransform's copy assignment is CALLED.** Retail's GetTransform(hkTransform&)
+branches to `__as__11hkTransformFRC11hkTransform`, a weak with no DWARF DIE.
+Declaring `hkTransform& operator=(const hkTransform&)` and defining it inline
+BELOW its caller reproduces the call and the 88-byte body; left implicit,
+mwcc expands the four vector assignments in place (41 of 99 words).
+
+**physicsSystem kept in a register across calls.** Retail's SetOwner and both
+GetTransforms keep the pointer, never `this`, though its DWARF names no local
+for it. A `hkpPhysicsSystem* system` local and a `bodies` reference both
+match all three. ZeroKeyframedMotion is the same: through a `bodies`
+reference it matches; reading `physicsSystem->getRigidBodies()` in the loop
+header it is 42 of 44 words.
+
+**IsAnchorBody's branch.** `userData != 0 ? (userData & 0x10000) != 0 : false`,
+the same as an `if`, and `userData != 0 ? (bool)((userData >> 16) & 1) : false`
+all match. With `(userData >> 16) & 1` as the ternary's unsigned arm mwcc
+folds it branchless (7 of 7 words); a bitfield union is 4 of 7.
+
+**FreeList::put and hkMatrix3::setIdentity are in line only under
+`#pragma always_inline on` at their CALLERS** (deallocateChunkConstSize,
+hkTransform::setIdentity): pushed around those two, or on from
+deallocateChunkConstSize to the end of the file (as measured then; the
+third batch below popped it before the generated accessors). Wrapping put's
+and hkMatrix3::setIdentity's own definitions changes nothing.
+
+**Cleanup's delete: the region had to end one function after Cleanup.**
+Retail's `delete jointRelativeCreationMap` calls the member's destructor with
+`li r4,-1` and the allocator in line; ours called `__dt__106hkPointerMap<...>`
+with `li r4,1` (29 of 55 words, and that EXTRA row). always_inline fixes it,
+and where the region stops was the whole question:
+
+    on for the whole file                        Cleanup matches; SetPosition,
+                                                 SetTransform(hkTransform&) and
+                                                 SetFriction break -- it inlines
+                                                 GetTransform and GetRigidBody,
+                                                 ordinary members defined above
+    pushed around Cleanup, popped at its brace    29 of 55 + EXTRA
+    fifteen more, none closing after the
+      function that follows Cleanup: around the
+      map template (destructor implicit or
+      explicit), its base, its three out-of-class
+      members, or the class that names the map;
+      from the top of the file through the
+      template, the class or Cleanup; the tail
+      region moved up; and several of these with
+      Cleanup's own region added                  29 of 55 + EXTRA, all fifteen
+    popped after IsAnchorBody, the next function   34 of 34, 0 words
+    popped after GetGraphicsAssociationData...     34 of 34, 0 words
+
+This is a fact about THIS delete, not about pragma regions in general:
+WAD04_14 pops five always_inline regions straight after their functions'
+braces and each does put that function's constructors in line. What the one
+extra function changes for Cleanup was not established, and SetMotionType's
+region below was closed one function late by analogy, not measured at its
+brace.
+
+**The second batch: 43 of 55 at its first compile, 50 of 53 after.**
+UpdateKeyframedMotion and hkTransform(q, t), ZeroKeyframedMotion,
+GetFlattenedTransform, SetFlattenedHKTransform, SetRowInternal, setSub4,
+mul4, Math::Add and Math::Vector's constructor matched as written. What they
+needed declared:
+
+  * hkReferencedObject deriving a polymorphic hkBaseObject (virtual
+    destructor), so a shape's and a motion's vtable pointer sit at offset 0;
+    no matched row moved.
+  * getAabb is slot 36 of `__vt__8hkpShape`, the first of three pure
+    virtuals; setAngularVelocity, setLinearVelocity and applyLinearImpulse are
+    slots 76, 72 and 84 of `__vt__16hkpMaxSizeMotion` (tools/vtslot.py). Only
+    the slot counts are load-bearing.
+  * An xVec3 written by Math::Vector's constructor goes through the
+    `extern "C" void __ct__Q24Math6VectorFfff(...)` declaration recorded
+    above, and that declaration coexists with the constructor's own inline
+    definition in the same unit: both compile, and the constructor's row
+    matches.
+
+**hkVector4's (x, y, z, w = 0) constructor is folded onto
+Math::Vector4::Assign**, the name ConvertGraphicsTransformToHKTransform
+branches to for its four temporaries. Math::Vector4 locals with Assign called
+on them give the right calls in an ordinary frame (76 of 74 words); the
+temporaries are hkVector4s, 16-aligned, which is what makes retail's frame
+`stwux`. A class deriving hkVector4 whose inline constructor calls Assign
+through a cast matches the function whole.
+
+**Float arguments: an INLINE BETWEEN THE READS AND THE CALL sets the order.**
+ConvertHKTransformToGraphicsTransform, both xHavok_SetFrameFromCharacterProxy
+and GetRowInternal load (x, y, z) for a call where retail loads z, then y,
+then x. Plain member reads instead of inline accessors (hkTrans.m_rotation.x
+for hkTrans(0, 0)) move nothing, and neither does
+`#pragma optimize_for_size off` (which, on from the first
+SetFrameFromCharacterProxy to the end, breaks eight weak copies). Two
+spellings match all four: the call made through a small inline taking
+(x, y, z) -- Matrix33::SetRow, ConstructVector -- whose parameters are bound
+right to left, or the three locals declared z, then y, then x. The locals
+are zFloatingCollectible's lever above; what is new is the inline, and its
+parameters have to be the three floats -- zFloatingCollectible's inline
+taking the hkVector4 and reading it inside stayed two words out. SetPos wants
+the opposite: through the inline alone it loads z, y, x into f2, f1, f0
+(2 of 7 words); locals declared x, y, z give retail's x, y, z into f0, f1, f2.
+
+**Near misses, three attempts each:**
+
+  * InterpolateTransformsNoScale, 21 of 83: only the stack slots of the two
+    GetQuaternion temporaries -- ours below every named local, retail's just
+    after interpolatedQuat. Named quaternion locals: 82 of 83. interpolatedQuat
+    initialized from a value-returning Slerp, which mwcc builds at sp+8 and
+    copies: 71 of 83. Math::Lerp was emitted out of line (an EXTRA row) until
+    always_inline was on over it or the blend was written out.
+  * GetBoundingSphere 34 of 46, GetBoundingBoxSize 23 of 35: retail reads the
+    array's m_data once and bodies[0] twice, once for the shape and once for
+    the transform; ours reads the element once. `*begin()` for either use
+    reads m_data twice instead; `m_data[0]` for either, and an inline taking
+    the body for the shape or for the transform, fold into one read again.
+
+**The third batch, the SystemApply family: 59 of 63.** ApplyLinearImpulse,
+SetLinearVelocity and SetAngularVelocity pass a pointer to an hkpRigidBody
+member to the out-of-line template SystemApplyHavok1Param; SetMotionType has
+the same loop in line with three arguments. What they needed:
+
+  * hkpRigidBody's applyLinearImpulse, setLinearVelocity and
+    setAngularVelocity are weak copies with no caller -- the pointers to
+    members need them -- and each calls activate() before the motion's
+    virtual. ZeroKeyframedMotion, which retail has calling the motion with
+    no activate, reaches the motion through getRigidMotion() itself.
+  * SystemApplyHavok1Param came out with IsAnchorBody in line (73 of 72
+    words): mwcc generates the template at the END of the file, where the
+    tail always_inline region was still on -- "always_inline AT THE END OF
+    THE FILE AIMS AT A TEMPLATE ALONE", met from the other side. Popping that
+    region before the generated accessors matches it, and so does
+    instantiating the template explicitly above the region.
+  * SetMotionType: an inline three-argument template defined above it is
+    emitted on its own under -inline auto (an EXTRA row). always_inline pushed
+    around SetMotionType and closed one function later takes it in line, with
+    IsAnchorBody's definition moved below SetMotionType so that region does
+    not take IsAnchorBody too. Written out by hand, with the pointer to member
+    in a local, it is 27 of 82 words: the callee-saved registers come out in
+    another order.
+  * SystemSetHavokFloatScalar keeps the body in a register across the
+    getRoutine call only through a `hkpRigidBody* body = *it;` local; with
+    `(*it)` written twice ours reads it again and saves one register fewer
+    (25 of 69 words).
+  * SetMass is the four-literal wall -- 0.0f, -1e-5f, 1e-5f and 1.0f, retail a
+    `lis` each, ours one `addis` base: 99 of 109 words. A `.rodata` padding
+    array of 65,536 or 131,072 bytes in place of the header's 32,768 forms the
+    same base, which is what the float-base section already records for
+    other units.
+
+## WAD04_6 AND WAD04_14: TWO MORE AGENT UNITS, FROM THEIR TRANSCRIPTS
+
+Both agents stopped at a usage limit mid-round; neither report.md exists
+(the WAD04_14 agent's write of it was refused, so its report lived only in
+its messages). What follows comes from the agents' progress transcripts,
+checked against the tree where a figure could be re-measured: each unit file is
+byte-identical to the agent's last installed version, and the counts below
+are unitcmp and rowdiff run afterwards. Claims marked (transcript) were not
+re-measured.
+
+**WAD04_6, the tail of zViewport.cpp and all of zScaleform.cpp: 4 -> 48 of
+54.** rowdiff against the four-accessor stub: LOST 0, GAINED 44, CHANGED 6.
+
+  * (transcript) Graphics::Viewport::SetPerspProjectionZ, defined in the
+    class, was inlined into Viewport::Create, 24 bytes too long.
+    `#pragma dont_inline` on the in-class definition did not stop it.
+    Defined out of the class after zViewportInit, its caller, it stays out
+    of line and matches, and Create went from 55 to 44 differing words.
+  * (transcript) Viewport::Create's remaining difference is literal loading:
+    a pool base in r30 where retail spells a `lis` per literal. zViewportInit
+    carries the same NEAR MISS for its fourteen literals.
+  * (transcript) Retail's unit has 59 functions to this object's 54: the
+    Viewport constructor, zViewportWorldToScreen, DoInit, and IO::PadStick's
+    and IO::PadTilt's copy constructors are not emitted. PadTilt has a weak
+    operator= and PadInput a weak default constructor, both
+    compiler-generated.
+  * Near misses, noted in the source (counts measured): zViewportInit 278
+    of 257 words; ReadInput 236 of 201 (retail inlines IO::PadInput's implicit
+    copy, 328 bytes, which ours will not); DoUpdate 48 of 133 (one return's
+    `beq +8 ; b epilogue` that ours folds to a `bne`); Viewport::Create 44 of
+    52; zViewportScreenToWorldDir 6 of 76; externalInterface 7 of 1074.
+
+**WAD04_14, TriggerPhantom.cpp: 2 -> 37 of 39.** rowdiff against the
+two-accessor stub: LOST 0, GAINED 35, CHANGED 2.
+
+  * (source comments, and the functions match) `#pragma always_inline on`,
+    pushed and popped around one function, puts in line what -inline auto
+    emits out of line: getProperty in
+    CheckForActiveBodyPartProperty, the entity's constructor in Create, the
+    collector's constructors in UpdatePenetrations, and the quaternion
+    temporary's constructor in Reset and CreateCollector. Every pop sits
+    straight after its function's brace (see WAD00 for the one case where
+    that was not enough).
+  * (transcript) `__fabs` is an mwcc builtin and needs no declaration.
+  * (transcript) xVec3Normalize: a helper returning bool (xeq) materializes
+    the bool before the test and computes a subtraction where retail uses
+    fabs directly; the conditions written out match.
+  * (transcript) removeOverlappingCollidable: in a compare, the side holding
+    an inline accessor is evaluated first, which decides which operand
+    `Threshold - 1` becomes.
+  * (transcript) The Havok shape stubs need their real sizes, padding
+    included, or the size `new` allocates differs.
+  * The memory class the shapes' allocator passes, 40, was named
+    `HK_MEMORY_CLASS_SHAPE` in the agent's source by guess. The DWARF's
+    `HK_MEMORY_CLASS` (tools/dwarf_types.py) names 40 `HK_MEMORY_CLASS_CDINFO`
+    and 38 SHAPE; the source now uses the DWARF's name, the value unchanged.
+  * Near misses (counts measured): UpdatePenetrations 436 of 460 words, ours
+    1840 bytes to retail's 1916 -- (transcript) hkInplaceArray's template
+    constructor is emitted out of line where retail has it in line; and
+    ApplyTriggerPhysics 377 of 389, ours 1596 bytes to retail's 1556 --
+    (transcript) retail keeps an empty case 0 and a dead test on the player
+    that ours folds away.
+  * The agent's ninth round was written and never run; it was run afterwards,
+    against a base one row behind the tree's (36 of 39), so read it per
+    function. `inline_depth(8)` inside the always_inline region takes
+    UpdatePenetrations to 475 words of retail's 479 but emits
+    `hkInplaceArray<hkpRootCdBodyPair,16>`'s constructor as its own function
+    (426 words differ); Havok's two-level array constructors emit hkArray's
+    (478 words, 429 differ); explicit stores in the collector's constructor
+    with `inline_max_size(2048)` change nothing (436 of 460). ApplyTriggerPhysics
+    stays at 377 of 389 with an empty inline call in case 0 and in the dead
+    player test, or an unused hkVector4 local in both.

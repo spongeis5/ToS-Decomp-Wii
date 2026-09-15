@@ -11,7 +11,7 @@
 //   anonymous namespace (the event wrapper, sGenericIdleFX), which a
 //   fragment cannot name; the wrapper is one of them.
 // - LoadModel (5), Reset (7), StartCollecting (4), Update (6), UpdateIdle
-//   (11) and UpdateToBeCollected (4) load that many distinct float
+//   (8) and UpdateToBeCollected (4) load that many distinct float
 //   literals: the four-literal wall.
 // - SetTextureBlendFactor calls RenderableSceneRef::UpdateIsAlpha through a
 //   pointer to member, a stack copy of an anonymous data constant: not

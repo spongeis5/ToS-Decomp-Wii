@@ -51,10 +51,13 @@ class xEntFrame {
 public:
     void zeroVel();
 
-    unsigned char _pad0[0x88];
+    unsigned char _pad0[0x68];
+    float f68;
+    unsigned char _pad0b[0x88 - 0x6C];
     float f88;
     float f8C;
     float f90;
+    unsigned int f94;
 };
 
 class xVec3 {
@@ -85,11 +88,24 @@ unsigned int xStrHash(const char* s);
 
 class xScene;
 class zCombatDamageInfo;
-namespace Math { class Matrix43; }
+class zCombatAttack;
+namespace Math {
+class Matrix43;
+
+// Sixteen-byte aligned, which is what gives a function with one on its
+// stack the dynamically aligned frame.
+class Vector4 {
+public:
+    void Assign(float x, float y, float z, float w);
+
+    float v[4] __attribute__((aligned(16)));
+};
+}
 
 class zCommonPlayer {
 public:
     void DefaultMove(xScene* scene, float dt, xEntFrame* frame);
+    void DefaultBeginUpdate(float dt);
     void GetSafePos();
     bool CanSwitchPlayer();
     bool SkipCharacterProxyHavokUpdate();
@@ -129,9 +145,26 @@ public:
     virtual void _v22();
     virtual void _v23();
     virtual void _v24();
-    virtual void _v25();
+    virtual xVec2 _v25(unsigned int idx, int padType);
     virtual void _v26();
     virtual float _v27(int a0, int a1);
+    virtual void _v28();
+    virtual void _v29();
+    virtual void _v30();
+    virtual void _v31();
+    virtual void _v32();
+    virtual void _v33();
+    virtual void _v34();
+    virtual void _v35();
+    virtual void _v36();
+    virtual void _v37();
+    virtual void _v38();
+    virtual void _v39();
+    virtual void _v40();
+    virtual void _v41();
+    virtual void _v42();
+    virtual void _v43();
+    virtual int _v44();
 };
 
 enum SBGooFilledState { SBGooFilledState_ = 0x7FFFFFFF };
@@ -162,6 +195,16 @@ class xAnimState;
 
 void zBoardAnimPackageBE(xAnimPlay* a0, xAnimState* a1, void* a2);
 
+// The trap's asset: the only fields read are the three floats at +0x24
+// the kelp trap holds the player at.
+class zPlantTrapAsset {
+public:
+    unsigned char _pad0[0x24];
+    float f24;
+    float f28;
+    float f2C;
+};
+
 class zPlantTrap {
 public:
     enum plantState { plantState_ = 0x7FFFFFFF };
@@ -169,7 +212,8 @@ public:
 
     unsigned char _pad0[0x3C];
     int f3C;
-    unsigned char _pad1[0x5C - 0x40];
+    zPlantTrapAsset* asset;
+    unsigned char _pad1[0x5C - 0x44];
     int f5C;
 };
 
@@ -184,8 +228,11 @@ class zBungeeBall {
 public:
     void BallReturn();
     bool IsPerformingFling();
+    void PopBall();
+    xVec3 GetPlayerPosition();
 
-    unsigned char _pad0[0xC0];
+    unsigned char _pad0[0x80];
+    unsigned char baseMat[0x40];
     bool fC0;
     unsigned char _pad1[0xC3 - 0xC1];
     bool fC3;
@@ -310,6 +357,33 @@ public:
     // three slots the tables call keep the indices they have.
     virtual bool _v4();
     virtual bool _v5();
+
+    // Slots 6 to 29, appended for the one call StartLedgeCheck makes
+    // through slot 29 (`lwz r12,124(r12)`).
+    virtual void _v6();
+    virtual void _v7();
+    virtual void _v8();
+    virtual void _v9();
+    virtual void _v10();
+    virtual void _v11();
+    virtual void _v12();
+    virtual void _v13();
+    virtual void _v14();
+    virtual void _v15();
+    virtual void _v16();
+    virtual void _v17();
+    virtual void _v18();
+    virtual void _v19();
+    virtual void _v20();
+    virtual void _v21();
+    virtual void _v22();
+    virtual void _v23();
+    virtual void _v24();
+    virtual void _v25();
+    virtual void _v26();
+    virtual void _v27();
+    virtual void _v28();
+    virtual unsigned int _v29();
     static void AddActionTransition(xAnimTable*, const char*, const char*, unsigned int (*)(xAnimTransition*, xAnimSingle*, void*), unsigned int (*)(xAnimTransition*, xAnimSingle*, void*), unsigned int (*)(xAnimTransition*, xAnimSingle*, void*), unsigned short, float, unsigned int, unsigned int);
     // Returns the state it made: four AddStates keep it in a
     // member. The mangled name carries no return type, so this
@@ -321,6 +395,9 @@ public:
 class zPlayerActionManager {
 public:
     zPlayerAction** actions;
+    void Init(unsigned int count);
+    void Add(zPlayer* player, zPlayerAction* action);
+    void SetCurrentAction(zPlayerAction* action);
     void AddTransitionsTo(unsigned int, xAnimTable*, const char*, unsigned int (*)(xAnimTransition*, xAnimSingle*, void*), unsigned int (*)(xAnimTransition*, xAnimSingle*, void*), unsigned short, float, unsigned int, unsigned int, zPlayerAction::SpecialActions);
     void AddStandardTransitionsTo(unsigned int, xAnimTable*, const char*);
     void AddDefaultTransitionsTo(unsigned int, xAnimTable*, const char*);
@@ -654,6 +731,7 @@ public:
 class zInteractionManager {
 public:
     void StopCurrentInteraction();
+    unsigned int GetCurrentInteractionType();
 
     void* currentInteraction;
     int state;
@@ -680,8 +758,21 @@ public:
     int controllerType;
 };
 
+// The floor the player stands on: a tag, and the object, which is an
+// entity only when the tag is 1.
+struct FloorObject {
+    int type;
+    void* pointer;
+
+    xBase* GetEntity() const { return type == 1 ? (xBase*)pointer : 0; }
+};
+
 class zBoardPlayer {
 public:
+    void InitActions();
+    void SwapToCurrentPowerupModel();
+    void DefaultBeginUpdate(float dt);
+    float GetPuckCooldownTimerPercent();
     void DefaultMove(xScene* scene, float dt, xEntFrame* frame);
     void GetGoodPos(zCommonPlayer* other, int which);
     int IsInAnyGooState();
@@ -826,7 +917,7 @@ public:
     virtual void _v102() const;
     virtual void _v103() const;
     virtual void _v104() const;
-    virtual void _v105() const;
+    virtual bool _v105() const;
     virtual void _v106() const;
     virtual void _v107() const;
     virtual void _v108() const;
@@ -836,7 +927,7 @@ public:
     virtual void _v112() const;
     virtual void _v113(const xVec3& v) const;
     virtual void _v114() const;
-    virtual void _v115() const;
+    virtual void _v115(const xVec3& v) const;
     virtual void _v116() const;
     virtual void _v117() const;
     virtual void _v118() const;
@@ -886,7 +977,7 @@ public:
     virtual void _v161(float a0, float a1, float a2) const;
     virtual void _v162() const;
     virtual void _v163() const;
-    virtual void _v164() const;
+    virtual void _v164(float a0, float a1, unsigned int a2) const;
     virtual void _v165() const;
     virtual void _v166() const;
     virtual void _v167() const;
@@ -916,11 +1007,15 @@ public:
     unsigned char _pad5[0x1E4 - 0x1C8];
     int ignoreInputThisFrame;
     zPlayerInput* playerInput;
-    unsigned char _pad6[0x1C];
+    float controlOffTimer;
+    unsigned int controlOff;
+    unsigned char _pad6[0x208 - 0x1F4];
     bool f208;
     unsigned char _pad7[0x20C - 0x209];
     xHavokCharacterController characterController;
-    unsigned char _pad7c[0x2E8 - 0x214];
+    unsigned char _pad7c[0x2DC - 0x214];
+    FloorObject floor_object;
+    unsigned char _pad7d[0x2E8 - 0x2E4];
     xAnimTable* playerAnimTable;
     int eName;
     unsigned char _pad7b[0x2F4 - 0x2F0];
@@ -936,7 +1031,9 @@ public:
     unsigned char soundSourcesPhysics[0x18];
     unsigned char _pad10b[0x898 - 0x588];
     SBGooFilledState gooState;
-    unsigned char _pad11[0x10];
+    bool FillWithGooShouldTurn;
+    unsigned char _pad11[0x8A0 - 0x89D];
+    xVec3 FillWithGooTurnTarget;
     BoardPowerupState powerupState;
     BoardPowerupState powerupModelState;
     bool powerupPerformDeferredModelSwap;
@@ -960,12 +1057,18 @@ public:
     bool f8FC;
     unsigned char _pad18[0x7];
     float f904;
-    unsigned char _pad19[0x7C];
+    unsigned char _pad19[0x978 - 0x908];
+    float f978;
+    unsigned char _pad19b[0x980 - 0x97C];
+    void* trampolineLink;
     bool f984;
-    unsigned char _pad20[0x1B];
+    bool f985;
+    unsigned char _pad20[0x998 - 0x986];
+    float f998;
+    unsigned char _pad20b[0x9A0 - 0x99C];
     int f9A0;
     zBungeeBall* bungeeBall;
-    unsigned char _pad21[0xC];
+    xVec3 bungeeBallOffset;
     zPlantTrap* kelpTrapLink;
     unsigned char _pad22[0x8];
     int f9C0;
@@ -981,7 +1084,9 @@ public:
     unsigned char _pad25[0x24];
     float fA74;
     float fA78;
-    unsigned char _pad26[0x28];
+    unsigned char _pad26[0xA90 - 0xA7C];
+    float fA90;
+    unsigned char _pad26b[0xAA4 - 0xA94];
     float fAA4;
     unsigned char _pad27[0xAB0 - 0xAA8];
     zBoardPlayerCharacterProxyCollisionListener* pCharacterProxyListener;
@@ -1018,8 +1123,11 @@ public:
 // has it. The offsets are the store instructions': the count at
 // +0x94 is 15*4 past the first state, which is what fixes the
 // array's length.
-class zPlayerIdleBoard : public zPlayerAction {
+class zPlayerIdleBoard : public zBoardPlayerAction {
 public:
+    zPlayerIdleBoard() {}
+    virtual void __vtable_anchor();
+
     unsigned int variants0[15];
     int numVariants0;
     int numValid0;
@@ -1030,7 +1138,7 @@ public:
     int numValid1;
     bool noRepeats1;
     static unsigned int anExtraIdleCB(xAnimTransition* a0, xAnimSingle* a1, void* a2);
-    bool ExtraIdleCB(xAnimTransition* a0, xAnimSingle* a1);
+    unsigned int ExtraIdleCB(xAnimTransition* a0, xAnimSingle* a1);
     static unsigned int anExtraIdleCheck(xAnimTransition* a0, xAnimSingle* a1, void* a2);
     bool ExtraIdleCheck(xAnimTransition* a0, xAnimSingle* a1);
 
@@ -1043,9 +1151,9 @@ public:
     static const char* GetTransitionString() { return "Idle*"; }
     void AddActionTransitions(xAnimTable* table);
     void AddStates(xAnimTable* table);
-    bool IdleColdCheck(xAnimTransition* a0, xAnimSingle* a1);
+    unsigned int IdleColdCheck(xAnimTransition* a0, xAnimSingle* a1);
     bool IdleLowHealthCheck(xAnimTransition* a0, xAnimSingle* a1);
-    bool IdleRegularCheck(xAnimTransition* a0, xAnimSingle* a1);
+    unsigned int IdleRegularCheck(xAnimTransition* a0, xAnimSingle* a1);
     bool IdleSlipperyCheck(xAnimTransition* a0, xAnimSingle* a1);
 
     bool IdleCheck(xAnimTransition* a0, xAnimSingle* a1);
@@ -1057,12 +1165,16 @@ public:
     float extraIdleTimer;
 
     void Update(float dt);
+    void Reset();
 };
 
 
 
-class zPlayerTurn180Board : public zPlayerAction {
+class zPlayerTurn180Board : public zBoardPlayerAction {
 public:
+    zPlayerTurn180Board() {}
+    virtual void __vtable_anchor();
+
     void Begin();
 
     xVec3 targetVector;
@@ -1079,8 +1191,11 @@ public:
 
 
 
-class zPlayerFallBoard : public zPlayerAction {
+class zPlayerFallBoard : public zBoardPlayerAction {
 public:
+    zPlayerFallBoard() {}
+    virtual void __vtable_anchor();
+
     static unsigned int anFallHighCheck(xAnimTransition* a0, xAnimSingle* a1, void* a2);
     bool FallHighCheck(xAnimTransition* a0, xAnimSingle* a1);
 
@@ -1109,8 +1224,11 @@ public:
 // The member this forwards through is at +4, which is where the
 // action base's `player` is, so the stub carries the base rather
 // than padding to it and the tables below can be generated.
-class zPlayerLandHighBoard : public zPlayerAction {
+class zPlayerLandHighBoard : public zPlayerLandBoard {
 public:
+    zPlayerLandHighBoard() {}
+    virtual void __vtable_anchor();
+
     void Move(xScene* a0, float a1, xEntFrame* a2);
     void AddInternalTransitions(xAnimTable* table);
     void AddTransitionsFrom(xAnimTable* table, const char* name, unsigned int (*c)(xAnimTransition*, xAnimSingle*, void*), unsigned int (*d)(xAnimTransition*, xAnimSingle*, void*), unsigned short e, float f, unsigned int g, unsigned int h, zPlayerAction::SpecialActions i);
@@ -1121,8 +1239,11 @@ public:
 
 
 
-class zBoardPlayerHammerAttack : public zPlayerAction {
+class zBoardPlayerHammerAttack : public zBoardPlayerAction {
 public:
+    zBoardPlayerHammerAttack() {}
+    virtual void __vtable_anchor();
+
     static unsigned int anSpongebuffHammerSplashCB(xAnimTransition* a0, xAnimSingle* a1, void* a2);
     bool SpongebuffHammerSplashCB(xAnimTransition* a0, xAnimSingle* a1);
 
@@ -1158,8 +1279,11 @@ public:
 
 
 
-class zBoardPlayerPuckAttack : public zPlayerAction {
+class zBoardPlayerPuckAttack : public zBoardPlayerAction {
 public:
+    zBoardPlayerPuckAttack() {}
+    virtual void __vtable_anchor();
+
     static unsigned int anAimPuckCheck(xAnimTransition* a0, xAnimSingle* a1, void* a2);
     unsigned int AimPuckCheck(xAnimTransition* a0, xAnimSingle* a1);
     static unsigned int anFirePuckCB(xAnimTransition* a0, xAnimSingle* a1, void* a2);
@@ -1173,13 +1297,15 @@ public:
     static const char* GetTransitionString() { return "PuckAttack*"; }
     void AddActionTransitions(xAnimTable* table);
     void AddStates(xAnimTable* table);
-    bool StartPuckAttackCheck(xAnimTransition* a0, xAnimSingle* a1);
+    unsigned int StartPuckAttackCheck(xAnimTransition* a0, xAnimSingle* a1);
 
     void Begin();
     void End();
 
     float f10;
     unsigned char f14;
+
+    void Move(xScene* s, float dt, xEntFrame* frame);
 };
 
 
@@ -1189,15 +1315,18 @@ public:
 // has it. The offsets are the store instructions': the count at
 // +0x50 is 15*4 past the first state, which is what fixes the
 // array's length.
-class zPlayerHitBoard : public zPlayerAction {
+class zPlayerHitBoard : public zPlayerHit {
 public:
+    zPlayerHitBoard() {}
+    virtual void __vtable_anchor();
+
     unsigned char _pad0[0x14 - 0x10];
     unsigned int variants[15];
     int numVariants;
     int numValid;
     bool noRepeats;
     static unsigned int anHammerHitCB(xAnimTransition* a0, xAnimSingle* a1, void* a2);
-    bool HammerHitCB(xAnimTransition* a0, xAnimSingle* a1);
+    unsigned int HammerHitCB(xAnimTransition* a0, xAnimSingle* a1);
 
     static unsigned int anHammerTimerDone(xAnimTransition*, xAnimSingle*, void*);
     void AddInternalTransitions(xAnimTable* table);
@@ -1234,14 +1363,19 @@ public:
     bool HitSpinBackCheck(xAnimTransition* a0, xAnimSingle* a1);
     bool HitPuckFrontCheck(xAnimTransition* a0, xAnimSingle* a1);
     bool HitPuckBackCheck(xAnimTransition* a0, xAnimSingle* a1);
+    void Reset();
 
     void Update(float dt);
+    void Move(xScene* s, float dt, xEntFrame* frame);
 };
 
 
 
-class zBoardPlayerHammerPowerupAttack : public zPlayerWalk {
+class zBoardPlayerHammerPowerupAttack : public zBoardPlayerAction {
 public:
+    zBoardPlayerHammerPowerupAttack() {}
+    virtual void __vtable_anchor();
+
     void Update(float a0);
     static unsigned int anAttackPushCB(xAnimTransition* a0, xAnimSingle* a1, void* a2);
     bool AttackPushCB(xAnimTransition* a0, xAnimSingle* a1);
@@ -1266,8 +1400,11 @@ public:
 
 
 
-class zBoardPlayerPuckPowerupAttack : public zPlayerAction {
+class zBoardPlayerPuckPowerupAttack : public zBoardPlayerAction {
 public:
+    zBoardPlayerPuckPowerupAttack() {}
+    virtual void __vtable_anchor();
+
     static unsigned int anFirePuckCB(xAnimTransition* a0, xAnimSingle* a1, void* a2);
     bool FirePuckCB(xAnimTransition* a0, xAnimSingle* a1);
 
@@ -1288,8 +1425,11 @@ public:
 
 
 
-class zBoardPlayerKelpTrap : public zPlayerAction {
+class zBoardPlayerKelpTrap : public zBoardPlayerAction {
 public:
+    zBoardPlayerKelpTrap() {}
+    virtual void __vtable_anchor();
+
     static unsigned int anKelpReleaseCheck(xAnimTransition* a0, xAnimSingle* a1, void* a2);
     bool KelpReleaseCheck(xAnimTransition* a0, xAnimSingle* a1);
 
@@ -1304,12 +1444,16 @@ public:
 
     void Begin();
     void End();
+    void Move(xScene* s, float dt, xEntFrame* frame);
 };
 
 
 
-class zPlayerSlide : public zPlayerAction {
+class zPlayerSlide : public zBoardPlayerAction {
 public:
+    zPlayerSlide() {}
+    virtual void __vtable_anchor();
+
     static unsigned int anSlideJumpApexCheck(xAnimTransition* a0, xAnimSingle* a1, void* a2);
     bool SlideJumpApexCheck(xAnimTransition* a0, xAnimSingle* a1);
     static unsigned int anSlideJumpCheck(xAnimTransition* a0, xAnimSingle* a1, void* a2);
@@ -1379,7 +1523,7 @@ unsigned int zBoardPlayerPuckAttack::anFirePuckCB(xAnimTransition* a0, xAnimSing
 unsigned int zPlayerHitBoard::anHammerHitCB(xAnimTransition* a0, xAnimSingle* a1, void* a2) { return ((zPlayerHitBoard*)((AnimCBHolder*)a1)->slot->owner)->HammerHitCB(a0, a1); }
 unsigned int zBoardPlayerHammerPowerupAttack::anAttackPushCB(xAnimTransition* a0, xAnimSingle* a1, void* a2) { return ((zBoardPlayerHammerPowerupAttack*)((AnimCBHolder*)a1)->slot->owner)->AttackPushCB(a0, a1); }
 unsigned int zBoardPlayerHammerPowerupAttack::anSplashCB(xAnimTransition* a0, xAnimSingle* a1, void* a2) { return ((zBoardPlayerHammerPowerupAttack*)((AnimCBHolder*)a1)->slot->owner)->SplashCB(a0, a1); }
-void zBoardPlayerHammerPowerupAttack::Update(float a0) { zPlayerWalk::Update(a0); }
+void zBoardPlayerHammerPowerupAttack::Update(float a0) { ((zPlayerWalk*)this)->Update(a0); }
 unsigned int zBoardPlayerPuckPowerupAttack::anFirePuckCB(xAnimTransition* a0, xAnimSingle* a1, void* a2) { return ((zBoardPlayerPuckPowerupAttack*)((AnimCBHolder*)a1)->slot->owner)->FirePuckCB(a0, a1); }
 unsigned int zBoardPlayerKelpTrap::anKelpReleaseCheck(xAnimTransition* a0, xAnimSingle* a1, void* a2) { return ((zBoardPlayerKelpTrap*)((AnimCBHolder*)a1)->slot->owner)->KelpReleaseCheck(a0, a1); }
 unsigned int zPlayerSlide::anSlideJumpCheck(xAnimTransition* a0, xAnimSingle* a1, void* a2) { return ((zPlayerSlide*)((AnimCBHolder*)a1)->slot->owner)->SlideJumpCheck(a0, a1); }
@@ -1387,8 +1531,11 @@ unsigned int zPlayerSlide::anSlideJumpApexCheck(xAnimTransition* a0, xAnimSingle
 unsigned int zPlayerSlide::anSlideLandCheck(xAnimTransition* a0, xAnimSingle* a1, void* a2) { return ((zPlayerSlide*)((AnimCBHolder*)a1)->slot->owner)->SlideLandCheck(a0, a1); }
 #pragma dont_inline off
 
-class zBoardPlayerBungeeBall : public zPlayerAction {
+class zBoardPlayerBungeeBall : public zBoardPlayerAction {
 public:
+    zBoardPlayerBungeeBall() {}
+    virtual void __vtable_anchor();
+
     static unsigned int anSBBungeeBallBuffFlingCheck(xAnimTransition*, xAnimSingle*, void*);
     static unsigned int anSBBungeeBallDeathCheck(xAnimTransition*, xAnimSingle*, void*);
     static unsigned int anSBBungeeBallDeathEndCB(xAnimTransition*, xAnimSingle*, void*);
@@ -1418,12 +1565,21 @@ public:
     bool SBBungeeBallReturnCheck(xAnimTransition* a0, xAnimSingle* a1);
     bool SBBungeeBallHitCB(xAnimTransition* a0, xAnimSingle* a1);
 
-    unsigned char _pad0[0x18 - 0x10];
+    float lastYaw;
+    float aimerDelayTimer;
     unsigned char f18;
+
+    void Update(float dt);
+    void End();
+    void Begin();
+    void AddAttacks(zCombatAttack* attackStates, unsigned short bone);
 };
 
-class zPlayerRunBoard : public zPlayerAction {
+class zPlayerRunBoard : public zBoardPlayerAction {
 public:
+    zPlayerRunBoard() {}
+    virtual void __vtable_anchor();
+
     static unsigned int anRunBraveCheck(xAnimTransition*, xAnimSingle*, void*);
     static unsigned int anRunRegularCheck(xAnimTransition*, xAnimSingle*, void*);
     static unsigned int anRunSlipperyCheck(xAnimTransition*, xAnimSingle*, void*);
@@ -1434,15 +1590,18 @@ public:
     void AddActionTransitions(xAnimTable* table);
     void AddStates(xAnimTable* table);
     bool RunBraveCheck(xAnimTransition* a0, xAnimSingle* a1);
-    bool RunRegularCheck(xAnimTransition* a0, xAnimSingle* a1);
+    unsigned int RunRegularCheck(xAnimTransition* a0, xAnimSingle* a1);
     bool RunSlipperyCheck(xAnimTransition* a0, xAnimSingle* a1);
     bool RunSuccessCheck(xAnimTransition* a0, xAnimSingle* a1);
 
     bool RunCheck(xAnimTransition* a0, xAnimSingle* a1);
 };
 
-class zBoardPlayerCandy : public zPlayerAction {
+class zBoardPlayerCandy : public zBoardPlayerAction {
 public:
+    zBoardPlayerCandy() {}
+    virtual void __vtable_anchor();
+
     void AddInternalTransitions(xAnimTable* table);
     void AddTransitionsFrom(xAnimTable* table, const char* name, unsigned int (*c)(xAnimTransition*, xAnimSingle*, void*), unsigned int (*d)(xAnimTransition*, xAnimSingle*, void*), unsigned short e, float f, unsigned int g, unsigned int h, zPlayerAction::SpecialActions i);
     static const char* GetTransitionString() { return "CandyGetOff CandyBuffGetOff"; }
@@ -1450,8 +1609,11 @@ public:
     void AddStates(xAnimTable* table);
 };
 
-class zBoardPlayerSpinAttack : public zPlayerAction {
+class zBoardPlayerSpinAttack : public zBoardPlayerAction {
 public:
+    zBoardPlayerSpinAttack() {}
+    virtual void __vtable_anchor();
+
     static unsigned int anFinishedQueueCheck(xAnimTransition*, xAnimSingle*, void*);
     static unsigned int anSpongebuffIdleSpinCheck(xAnimTransition*, xAnimSingle*, void*);
     static unsigned int anSpongebuffMovingSpinCheck(xAnimTransition*, xAnimSingle*, void*);
@@ -1464,7 +1626,8 @@ public:
     bool SpongebuffIdleSpinCheck(xAnimTransition* a0, xAnimSingle* a1);
     bool SpongebuffMovingSpinCheck(xAnimTransition* a0, xAnimSingle* a1);
     bool StartSpinAttackCheck(xAnimTransition* a0, xAnimSingle* a1);
-    bool FinishedQueueCheck(xAnimTransition* a0, xAnimSingle* a1);
+    unsigned int FinishedQueueCheck(xAnimTransition* a0, xAnimSingle* a1);
+    void Update(float dt);
 
     void End();
     void Begin();
@@ -1472,10 +1635,15 @@ public:
     int numSpinsQueued;
     int numSpinsExecuted;
     float rotationOffset;
+
+    void Move(xScene* s, float dt, xEntFrame* frame);
 };
 
-class zPlayerWalkBoard : public zPlayerAction {
+class zPlayerWalkBoard : public zBoardPlayerAction {
 public:
+    zPlayerWalkBoard() {}
+    virtual void __vtable_anchor();
+
     static unsigned int anWalkRegularCheck(xAnimTransition*, xAnimSingle*, void*);
     static unsigned int anWalkSlipperyCheck(xAnimTransition*, xAnimSingle*, void*);
     void AddInternalTransitions(xAnimTable* table);
@@ -1483,7 +1651,7 @@ public:
     static const char* GetTransitionString() { return "Walk*"; }
     void AddActionTransitions(xAnimTable* table);
     void AddStates(xAnimTable* table);
-    bool WalkRegularCheck(xAnimTransition* a0, xAnimSingle* a1);
+    unsigned int WalkRegularCheck(xAnimTransition* a0, xAnimSingle* a1);
     bool WalkSlipperyCheck(xAnimTransition* a0, xAnimSingle* a1);
 
     bool WalkCheck(xAnimTransition* a0, xAnimSingle* a1);
@@ -1491,8 +1659,11 @@ public:
     void Begin();
 };
 
-class zBoardPlayerGainPowerup : public zPlayerAction {
+class zBoardPlayerGainPowerup : public zBoardPlayerAction {
 public:
+    zBoardPlayerGainPowerup() {}
+    virtual void __vtable_anchor();
+
     static unsigned int anGainHammerPowerupCheck(xAnimTransition*, xAnimSingle*, void*);
     static unsigned int anGainPuckPowerupCheck(xAnimTransition*, xAnimSingle*, void*);
     static unsigned int anGainSpinPowerupCheck(xAnimTransition*, xAnimSingle*, void*);
@@ -1515,8 +1686,11 @@ public:
     void End();
 };
 
-class zPlayerHitLaunchBoard : public zPlayerAction {
+class zPlayerHitLaunchBoard : public zPlayerHitLaunch {
 public:
+    zPlayerHitLaunchBoard() {}
+    virtual void __vtable_anchor();
+
     void AddInternalTransitions(xAnimTable* table);
     static const char* GetTransitionString() { return "LaunchLand*"; }
     void AddActionTransitions(xAnimTable* table);
@@ -1537,8 +1711,11 @@ public:
     void AddTransitionsFrom(xAnimTable* table, const char* name, unsigned int (*c)(xAnimTransition*, xAnimSingle*, void*), unsigned int (*d)(xAnimTransition*, xAnimSingle*, void*), unsigned short e, float f, unsigned int g, unsigned int h, zPlayerAction::SpecialActions i);
 };
 
-class zBoardPlayerSpinPowerupAttack : public zPlayerAction {
+class zBoardPlayerSpinPowerupAttack : public zBoardPlayerAction {
 public:
+    zBoardPlayerSpinPowerupAttack() {}
+    virtual void __vtable_anchor();
+
     void AddInternalTransitions(xAnimTable* table);
     static unsigned int anSpinPowerupCheck(xAnimTransition*, xAnimSingle*, void*);
     void AddTransitionsFrom(xAnimTable* table, const char* name, unsigned int (*c)(xAnimTransition*, xAnimSingle*, void*), unsigned int (*d)(xAnimTransition*, xAnimSingle*, void*), unsigned short e, float f, unsigned int g, unsigned int h, zPlayerAction::SpecialActions i);
@@ -1552,8 +1729,11 @@ public:
     void Begin();
 };
 
-class zBoardPlayerQuicksandStuck : public zPlayerAction {
+class zBoardPlayerQuicksandStuck : public zBoardPlayerAction {
 public:
+    zBoardPlayerQuicksandStuck() {}
+    virtual void __vtable_anchor();
+
     void AddInternalTransitions(xAnimTable* table);
     void AddTransitionsFrom(xAnimTable* table, const char* name, unsigned int (*c)(xAnimTransition*, xAnimSingle*, void*), unsigned int (*d)(xAnimTransition*, xAnimSingle*, void*), unsigned short e, float f, unsigned int g, unsigned int h, zPlayerAction::SpecialActions i);
     static const char* GetTransitionString() { return "QuicksandStuck*"; }
@@ -1561,8 +1741,11 @@ public:
     void AddStates(xAnimTable* table);
 };
 
-class zPlayerDoubleJumpBoard : public zPlayerAction {
+class zPlayerDoubleJumpBoard : public zBoardPlayerAction {
 public:
+    zPlayerDoubleJumpBoard() {}
+    virtual void __vtable_anchor();
+
     void AddInternalTransitions(xAnimTable* table);
     static unsigned int anDoubleJumpStartCheck(xAnimTransition*, xAnimSingle*, void*);
     static unsigned int anDoubleJumpStartMovingCheck(xAnimTransition*, xAnimSingle*, void*);
@@ -1584,6 +1767,7 @@ public:
     float f14;
 
     float GetY(float t) const;
+    void Move(xScene* s, float dt, xEntFrame* frame);
 };
 
 // The variant set the states are kept in -- fifteen of them, a
@@ -1591,8 +1775,11 @@ public:
 // has it. The offsets are the store instructions': the count at
 // +0x4C is 15*4 past the first state, which is what fixes the
 // array's length.
-class zPlayerDefeatedBoard : public zPlayerAction {
+class zPlayerDefeatedBoard : public zBoardPlayerAction {
 public:
+    zPlayerDefeatedBoard() {}
+    virtual void __vtable_anchor();
+
     unsigned int variants[15];
     int numVariants;
     int numValid;
@@ -1600,9 +1787,10 @@ public:
     void AddInternalTransitions(xAnimTable* table);
     void AddStates(xAnimTable* table);
     static unsigned int anDeathCheck(xAnimTransition* a0, xAnimSingle* a1, void* a2);
-    bool DeathCheck(xAnimTransition* a0, xAnimSingle* a1);
+    unsigned int DeathCheck(xAnimTransition* a0, xAnimSingle* a1);
+    void Reset();
     static unsigned int anFrozenGooDeathCheck(xAnimTransition* a0, xAnimSingle* a1, void* a2);
-    bool FrozenGooDeathCheck(xAnimTransition* a0, xAnimSingle* a1);
+    unsigned int FrozenGooDeathCheck(xAnimTransition* a0, xAnimSingle* a1);
     static unsigned int anGooDeathCheck(xAnimTransition* a0, xAnimSingle* a1, void* a2);
     static unsigned int anLavaDeathCheck(xAnimTransition* a0, xAnimSingle* a1, void* a2);
     void AddTransitionsFrom(xAnimTable* table, const char* name, unsigned int (*c)(xAnimTransition*, xAnimSingle*, void*), unsigned int (*d)(xAnimTransition*, xAnimSingle*, void*), unsigned short e, float f, unsigned int g, unsigned int h, zPlayerAction::SpecialActions i);
@@ -1612,8 +1800,11 @@ public:
     void Update(float dt);
 };
 
-class zPlayerJumpBoard : public zPlayerAction {
+class zPlayerJumpBoard : public zBoardPlayerAction {
 public:
+    zPlayerJumpBoard() {}
+    virtual void __vtable_anchor();
+
     void AddInternalTransitions(xAnimTable* table);
     static unsigned int anSBJumpCheck(xAnimTransition*, xAnimSingle*, void*);
     static unsigned int anSBJumpMovingCheck(xAnimTransition*, xAnimSingle*, void*);
@@ -1632,19 +1823,26 @@ public:
 
     float f10;
     float y;
-    unsigned char _padA[0x20 - 0x18];
+    float JUMP_TIME_TOTAL_PARAM;
+    float scaleJump;
     float f20;
-    unsigned char _padB[0x30 - 0x24];
+    float Jump_Time_Decel;
+    float Jump_Height;
+    float Jump_Float;
     float Jump_Velocity;
     float Jump_Decel;
     float Jump_Time_Const;
 
+    void Move(xScene* s, float dt, xEntFrame* frame);
     void UpdateFall(float dt);
     float GetY(float t) const;
 };
 
-class zBoardPlayerFillWithGoo : public zPlayerAction {
+class zBoardPlayerFillWithGoo : public zBoardPlayerAction {
 public:
+    zBoardPlayerFillWithGoo() {}
+    virtual void __vtable_anchor();
+
     static unsigned int anTurnDoneCheck(xAnimTransition*, xAnimSingle*, void*);
     void AddInternalTransitions(xAnimTable* table);
     static unsigned int anStartFillWithGooCheck(xAnimTransition*, xAnimSingle*, void*);
@@ -1655,8 +1853,10 @@ public:
     bool StartFillWithGooCheck(xAnimTransition* a0, xAnimSingle* a1);
 
 
-    unsigned char _padA[0x1C - 0x10];
+    xVec3 targetVector;
     unsigned char f1C;
+
+    void Begin();
 };
 
 // -- the animation tables, read from the image ------------------
@@ -1996,8 +2196,11 @@ void zBoardPlayerFillWithGoo::AddInternalTransitions(xAnimTable* table) {
 // generator's own reading of the image (f0 = 2.0, f2 = 0.0) and
 // the offsets are the store instructions'; the action base ends
 // at +0x10, so these are the first members of the class.
-class zPlayerSlamFallBoard : public zPlayerAction {
+class zPlayerSlamFallBoard : public zBoardPlayerAction {
 public:
+    zPlayerSlamFallBoard() {}
+    virtual void __vtable_anchor();
+
     float f10;
     float f14;
     float f18;
@@ -2016,8 +2219,11 @@ void zPlayerSlamFallBoard::AddActionTransitions(xAnimTable* table) {
     zPlayerAction::AddActionTransition(table, "SlamFall01", "SlamLand01", zPlayerSlamFallBoard::anSlamLandCheck, 0, 0, 1000, 0.15f, 0, 0);
 }
 
-class zPlayerSlamLandBoard : public zPlayerAction {
+class zPlayerSlamLandBoard : public zBoardPlayerAction {
 public:
+    zPlayerSlamLandBoard() {}
+    virtual void __vtable_anchor();
+
     void AddActionTransitions(xAnimTable* table);
     void AddStates(xAnimTable* table);
 
@@ -2030,8 +2236,11 @@ void zPlayerSlamLandBoard::AddActionTransitions(xAnimTable* table) {
     manager->AddTransitionsTo(0, table, "SlamLand01", 0, 0, 1000, 0.15f, 16, 0, (zPlayerAction::SpecialActions)0);
 }
 
-class zPlayerSlamStartBoard : public zPlayerAction {
+class zPlayerSlamStartBoard : public zBoardPlayerAction {
 public:
+    zPlayerSlamStartBoard() {}
+    virtual void __vtable_anchor();
+
     static unsigned int anSlamApexCheck(xAnimTransition*, xAnimSingle*, void*);
     void AddActionTransitions(xAnimTable* table);
     static unsigned int anSlamCheck(xAnimTransition*, xAnimSingle*, void*);
@@ -2039,6 +2248,7 @@ public:
     void AddStates(xAnimTable* table);
     bool SlamCheck(xAnimTransition* a0, xAnimSingle* a1);
     bool SlamApexCheck(xAnimTransition* a0, xAnimSingle* a1);
+    void Move(xScene* a0, float a1, xEntFrame* a2);
 
     float f10;
     float f14;
@@ -2053,8 +2263,11 @@ void zPlayerSlamStartBoard::AddActionTransitions(xAnimTable* table) {
     zPlayerAction::AddActionTransition(table, "SlamStart01", "SlamFall01", zPlayerSlamStartBoard::anSlamApexCheck, 0, 0, 1000, 0.15f, 0, 0);
 }
 
-class zPlayerFluidSprayBoard : public zPlayerAction {
+class zPlayerFluidSprayBoard : public zBoardPlayerAction {
 public:
+    zPlayerFluidSprayBoard() {}
+    virtual void __vtable_anchor();
+
     static unsigned int anSprayEndCheck(xAnimTransition*, xAnimSingle*, void*);
     void AddActionTransitions(xAnimTable* table);
     static unsigned int anSprayCheck(xAnimTransition*, xAnimSingle*, void*);
@@ -2067,8 +2280,11 @@ void zPlayerFluidSprayBoard::AddActionTransitions(xAnimTable* table) {
     zPlayerAction::AddActionTransition(table, "Spray01", "Idle01", zPlayerFluidSprayBoard::anSprayEndCheck, 0, 0, 1000, 0.15f, 0, 0);
 }
 
-class zPlayerFluidBurstBoard : public zPlayerAction {
+class zPlayerFluidBurstBoard : public zBoardPlayerAction {
 public:
+    zPlayerFluidBurstBoard() {}
+    virtual void __vtable_anchor();
+
     float f10;
     float f14;
     float f18;
@@ -2107,15 +2323,18 @@ void zPlayerFluidSprayBoard::AddTransitionsFrom(xAnimTable* table, const char* n
     zPlayerAction::AddActionTransition(table, name, "Spray01", zPlayerFluidSprayBoard::anSprayCheck, c, d, 1010, 0.15f, 0, 0);
 }
 
-class zPlayerSpringboardBoard : public zPlayerAction {
+class zPlayerSpringboardBoard : public zBoardPlayerAction {
 public:
+    zPlayerSpringboardBoard() {}
+    virtual void __vtable_anchor();
+
     static unsigned int anBoardSpringboardCheck(xAnimTransition*, xAnimSingle*, void*);
     void AddTransitionsFrom(xAnimTable* table, const char* name, unsigned int (*c)(xAnimTransition*, xAnimSingle*, void*), unsigned int (*d)(xAnimTransition*, xAnimSingle*, void*), unsigned short e, float f, unsigned int g, unsigned int h, zPlayerAction::SpecialActions i);
     static const char* GetTransitionString() { return "SprBo*"; }
     static unsigned int anBoardSpringboardDoubleJumpCheck(xAnimTransition*, xAnimSingle*, void*);
     void AddActionTransitions(xAnimTable* table);
     void AddStates(xAnimTable* table);
-    bool BoardSpringboardCheck(xAnimTransition* a0, xAnimSingle* a1);
+    unsigned int BoardSpringboardCheck(xAnimTransition* a0, xAnimSingle* a1);
     bool BoardSpringboardDoubleJumpCheck(xAnimTransition* a0, xAnimSingle* a1);
 
     void Begin();
@@ -2137,14 +2356,17 @@ void zPlayerLandBoard::AddTransitionsFrom(xAnimTable* table, const char* name, u
     zPlayerAction::AddActionTransition(table, name, "LandIdle01", zBoardPlayerAction::anBoardLandCheck, c, d, e, f, g, h);
 }
 
-class zPlayerLedgeBoard : public zPlayerAction {
+class zPlayerLedgeBoard : public zCommonPlayerAction {
 public:
+    zPlayerLedgeBoard() {}
+    virtual void __vtable_anchor();
+
     static unsigned int anStartLedgeCheck(xAnimTransition*, xAnimSingle*, void*);
     void AddTransitionsFrom(xAnimTable* table, const char* name, unsigned int (*c)(xAnimTransition*, xAnimSingle*, void*), unsigned int (*d)(xAnimTransition*, xAnimSingle*, void*), unsigned short e, float f, unsigned int g, unsigned int h, zPlayerAction::SpecialActions i);
     static const char* GetTransitionString() { return "Ledge*"; }
     void AddActionTransitions(xAnimTable* table);
     void AddStates(xAnimTable* table);
-    bool StartLedgeCheck(xAnimTransition* a0, xAnimSingle* a1);
+    unsigned int StartLedgeCheck(xAnimTransition* a0, xAnimSingle* a1);
 
     void UpdateFall(float dt);
     void Move(xScene* a0, float a1, xEntFrame* a2);
@@ -2164,8 +2386,11 @@ void zPlayerTurn180Board::AddTransitionsFrom(xAnimTable* table, const char* name
     zPlayerAction::AddActionTransition(table, name, "Turn180", zPlayerTurn180Board::anTurn180Check, c, d, e, f, g, h);
 }
 
-class zBoardPlayerDrainGoo : public zPlayerAction {
+class zBoardPlayerDrainGoo : public zBoardPlayerAction {
 public:
+    zBoardPlayerDrainGoo() {}
+    virtual void __vtable_anchor();
+
     static unsigned int anStartDrainGooCheck(xAnimTransition*, xAnimSingle*, void*);
     void AddTransitionsFrom(xAnimTable* table, const char* name, unsigned int (*c)(xAnimTransition*, xAnimSingle*, void*), unsigned int (*d)(xAnimTransition*, xAnimSingle*, void*), unsigned short e, float f, unsigned int g, unsigned int h, zPlayerAction::SpecialActions i);
     static const char* GetTransitionString() { return "DrainGoo*"; }
@@ -2206,8 +2431,11 @@ void zBoardPlayerFillWithGoo::AddTransitionsFrom(xAnimTable* table, const char* 
     zPlayerAction::AddActionTransition(table, name, "FillWithGooTurn01", zBoardPlayerFillWithGoo::anStartFillWithGooCheck, c, d, e, f, g, h);
 }
 
-class zBoardPlayerLosePowerup : public zPlayerAction {
+class zBoardPlayerLosePowerup : public zBoardPlayerAction {
 public:
+    zBoardPlayerLosePowerup() {}
+    virtual void __vtable_anchor();
+
     static unsigned int anLosePowerupCheck(xAnimTransition*, xAnimSingle*, void*);
     void AddTransitionsFrom(xAnimTable* table, const char* name, unsigned int (*c)(xAnimTransition*, xAnimSingle*, void*), unsigned int (*d)(xAnimTransition*, xAnimSingle*, void*), unsigned short e, float f, unsigned int g, unsigned int h, zPlayerAction::SpecialActions i);
     static const char* GetTransitionString() { return "LosePowerup*"; }
@@ -2225,8 +2453,11 @@ void zBoardPlayerLosePowerup::AddTransitionsFrom(xAnimTable* table, const char* 
     zPlayerAction::AddActionTransition(table, name, "LosePowerup", zBoardPlayerLosePowerup::anLosePowerupCheck, c, d, e, f, g, h);
 }
 
-class zPlayerCelebrationBoard : public zPlayerAction {
+class zPlayerCelebrationBoard : public zBoardPlayerAction {
 public:
+    zPlayerCelebrationBoard() {}
+    virtual void __vtable_anchor();
+
     static unsigned int anCelebrationCheck(xAnimTransition*, xAnimSingle*, void*);
     void AddTransitionsFrom(xAnimTable* table, const char* name, unsigned int (*c)(xAnimTransition*, xAnimSingle*, void*), unsigned int (*d)(xAnimTransition*, xAnimSingle*, void*), unsigned short e, float f, unsigned int g, unsigned int h, zPlayerAction::SpecialActions i);
     static const char* GetTransitionString() { return "Celebration*"; }
@@ -2422,8 +2653,11 @@ void zBoardPlayerDrainGoo::AddActionTransitions(xAnimTable* table) {
     manager->AddStandardTransitionsTo(12, table, zBoardPlayerDrainGoo::GetTransitionString());
 }
 
-class zBoardPlayerQuicksandJump : public zPlayerAction {
+class zBoardPlayerQuicksandJump : public zBoardPlayerAction {
 public:
+    zBoardPlayerQuicksandJump() {}
+    virtual void __vtable_anchor();
+
     static const char* GetTransitionString() { return "QuicksandJump*"; }
     static unsigned int anSBQuicksandApexCheck(xAnimTransition*, xAnimSingle*, void*);
     void AddActionTransitions(xAnimTable* table);
@@ -2436,6 +2670,8 @@ public:
 
     float f10;
     float f14;
+
+    void Move(xScene* s, float dt, xEntFrame* frame);
 };
 
 // zBoardPlayerQuicksandJump::AddActionTransitions: 7 call(s)
@@ -2496,8 +2732,11 @@ void zBoardPlayerLosePowerup::AddActionTransitions(xAnimTable* table) {
     manager->AddTransitionsTo(13, table, zBoardPlayerLosePowerup::GetTransitionString(), 0, 0, 1000, 0.0f, 16, 0, (zPlayerAction::SpecialActions)0);
 }
 
-class zPlayerCheatBoard : public zPlayerAction {
+class zPlayerCheatBoard : public zPlayerCheat {
 public:
+    zPlayerCheatBoard() {}
+    virtual void __vtable_anchor();
+
     void AddActionTransitions(xAnimTable* table);
     void AddStates(xAnimTable* table);
 };
@@ -4835,6 +5074,66 @@ unsigned int zBoardPlayerAction::BoardWalkCheck(xAnimTransition* a0,
     return false;
 }
 
+struct zSceneIDView {
+    unsigned int sceneID;
+};
+
+// The game globals, as far as the scene pointer at +0x43C.
+class zGlobals {
+public:
+    unsigned char _pad0[0x43C];
+    zSceneIDView* sceneCur;
+};
+
+extern zGlobals globals;
+
+// A scene's four-letter tag, spelled out of the string at run time.
+inline unsigned int BoardSceneTag(const char* s) {
+    return (s[0] << 24) | (s[1] << 16) | (s[2] << 8) | s[3];
+}
+
+// Both callers of the tag sit above every function they call, so the
+// pragma round them has only the tag to take in: retail has it in line,
+// and -inline auto will not take it here.
+#pragma push
+#pragma always_inline on
+unsigned int zPlayerDefeatedBoard::FrozenGooDeathCheck(xAnimTransition* a0,
+                                                       xAnimSingle* a1) {
+    zBoardPlayer* sbPlayer = (zBoardPlayer*)player;
+    bool result = false;
+
+    if (globals.sceneCur->sceneID == BoardSceneTag("SL05") &&
+        sbPlayer->IsOnGoo() && sbPlayer->_v48()) {
+        result = true;
+    }
+
+    return result;
+}
+
+unsigned int zPlayerIdleBoard::IdleColdCheck(xAnimTransition* tran,
+                                             xAnimSingle* anim) {
+    bool result = false;
+    bool notSlippery = false;
+    bool cold = false;
+
+    if (globals.sceneCur->sceneID == BoardSceneTag("SL05") &&
+        extraIdleTimer > 0.0f && DefaultStateCheck(tran, anim) &&
+        IdleCheck(tran, anim)) {
+        cold = true;
+    }
+
+    if (cold && !((zBoardPlayer*)player)->IsOnSlipperySurface(0.13f)) {
+        notSlippery = true;
+    }
+
+    if (notSlippery && !IdleLowHealthCheck(tran, anim)) {
+        result = true;
+    }
+
+    return result;
+}
+#pragma pop
+
 bool zBoardPlayerAction::DefaultStateCheck(xAnimTransition* a0,
                                            xAnimSingle* a1) {
     bool result = false;
@@ -5110,12 +5409,16 @@ bool zPlayerIdleBoard::DefaultIdleCheck(xAnimTransition* a0,
     return false;
 }
 
+// Called, never in line, by every predicate below it: retail keeps the
+// `bl` in IdleSlipperyCheck and the regular check.
+#pragma dont_inline on
 bool zPlayerIdleBoard::IdleCheck(xAnimTransition* a0, xAnimSingle* a1) {
     zBoardPlayer* p = (zBoardPlayer*)player;
     zPlayerInput* input = p->playerInput;
 
     return input->_v27(0, 2) < p->GetWalkStartMag();
 }
+#pragma dont_inline off
 
 inline bool zPlayerHitBoard::HitSpinFrontCheck(xAnimTransition* a0,
                                                  xAnimSingle* a1) {
@@ -5360,6 +5663,8 @@ bool zPlayerRunBoard::RunSuccessCheck(xAnimTransition* a0,
     return result;
 }
 
+// The same for the walk and run twins.
+#pragma dont_inline on
 bool zPlayerWalkBoard::WalkCheck(xAnimTransition* a0,
                                  xAnimSingle* a1) {
     zBoardPlayer* p = (zBoardPlayer*)player;
@@ -5398,6 +5703,7 @@ bool zPlayerRunBoard::RunCheck(xAnimTransition* a0, xAnimSingle* a1) {
 
     return input->_v27(0, 2) >= p->GetRunStartMag();
 }
+#pragma dont_inline off
 
 unsigned int zBoardPlayerSpinPowerupAttack::anShouldSingleJumpCheck(xAnimTransition* a0,
                                                                    xAnimSingle* a1,
@@ -6395,6 +6701,7 @@ public:
     void UpdaterCheckHide();
     void SetLODScale(float scale);
     void Hide();
+    void AutoLODScale();
 
     unsigned char _pad0[0xE8];
     Graphics::Model model;
@@ -7170,8 +7477,12 @@ class xAnimState {
 public:
     unsigned char _pad0[0x10];
     unsigned int ID;
-    unsigned char _pad1[0x20 - 0x14];
+    unsigned int Flags;
+    unsigned int UserFlags;
+    float Speed;
     xAnimFile* Data;
+    unsigned char _pad1[0x94 - 0x24];
+    unsigned int UserData;
 };
 
 class xAnimSingle {
@@ -7186,6 +7497,7 @@ public:
     unsigned char _pad0[0xC];
     xAnimSingle* Single;
     void* Object;
+    xAnimTable* Table;
 };
 
 void zBoardPlayerKelpTrap::BeforeEnter(xAnimPlay* play, xAnimState* state,
@@ -7348,12 +7660,8 @@ void zBoardPlayer::AfterAnimMatrices(xAnimPlay* play,
 bool zPlayerIdleBoard::IdleSlipperyCheck(xAnimTransition* a0,
                                          xAnimSingle* a1) {
     bool result = false;
-    bool idle = false;
-
-    if (((zBoardPlayerAction*)this)->DefaultStateCheck(a0, a1) &&
-        IdleCheck(a0, a1)) {
-        idle = true;
-    }
+    bool idle = ((zBoardPlayerAction*)this)->DefaultStateCheck(a0, a1) &&
+                IdleCheck(a0, a1);
 
     if (idle && ((zBoardPlayer*)player)->IsOnSlipperySurface(0.13f)) {
         result = true;
@@ -7365,12 +7673,8 @@ bool zPlayerIdleBoard::IdleSlipperyCheck(xAnimTransition* a0,
 bool zPlayerWalkBoard::WalkSlipperyCheck(xAnimTransition* a0,
                                          xAnimSingle* a1) {
     bool result = false;
-    bool walk = false;
-
-    if (((zBoardPlayerAction*)this)->DefaultStateCheck(a0, a1) &&
-        WalkCheck(a0, a1)) {
-        walk = true;
-    }
+    bool walk = ((zBoardPlayerAction*)this)->DefaultStateCheck(a0, a1) &&
+                WalkCheck(a0, a1);
 
     if (walk && ((zBoardPlayer*)player)->IsOnSlipperySurface(0.13f)) {
         result = true;
@@ -7382,12 +7686,8 @@ bool zPlayerWalkBoard::WalkSlipperyCheck(xAnimTransition* a0,
 bool zPlayerRunBoard::RunSlipperyCheck(xAnimTransition* a0,
                                        xAnimSingle* a1) {
     bool result = false;
-    bool run = false;
-
-    if (((zBoardPlayerAction*)this)->DefaultStateCheck(a0, a1) &&
-        RunCheck(a0, a1)) {
-        run = true;
-    }
+    bool run = ((zBoardPlayerAction*)this)->DefaultStateCheck(a0, a1) &&
+               RunCheck(a0, a1);
 
     if (run && ((zBoardPlayer*)player)->IsOnSlipperySurface(0.13f)) {
         result = true;
@@ -7466,6 +7766,11 @@ inline bool BoardPlayerOnGround(zBoardPlayer* p) {
     return (p->zPlayerFlags & 0x2) && (p->zPlayerFlags & 0x4);
 }
 
+// The ground test is in line in retail and past what -inline auto takes
+// here, so the pragma goes round the caller; sphere_damage is defined
+// below it and stays a call.
+#pragma push
+#pragma always_inline on
 bool zPlayerSlamFallBoard::SlamLandCheck(xAnimTransition* a0,
                                          xAnimSingle* a1) {
     sphere_damage((xBase*)player,
@@ -7475,6 +7780,7 @@ bool zPlayerSlamFallBoard::SlamLandCheck(xAnimTransition* a0,
     return BoardPlayerOnGround((zBoardPlayer*)player) &&
            !(((zBoardPlayer*)player)->zPlayerFlags & 0x2000);
 }
+#pragma pop
 
 // The listener is a referenced object with the proxy's listener
 // interface at +8: passing it as that interface is the null-tested
@@ -7497,6 +7803,8 @@ class zBoardPlayerCharacterProxyCollisionListener
     : public hkReferencedObject,
       public hkpCharacterProxyListener {
 public:
+    float dt;
+    bool inCheckSupport;
 };
 
 // The sound sources' reset folded onto bit_array_alloc's
@@ -7520,6 +7828,7 @@ void zBoardPlayer::Exit() {
 
 class zCombatDamageInfo {
 public:
+    zCombatDamageInfo();
     zCombatDamageInfo(xBase* from, float damage, Sext::eHitSource source,
                       zHitTarget target, const xVec3& knockback,
                       const xVec3& hitLocation, const xVec3& hitNormal,
@@ -7546,4 +7855,1103 @@ zCombatDamageInfo::zCombatDamageInfo(xBase* from_, float damage_,
     : flags(flags_), from(from_), damage(damage_), source(source_),
       target(target_), knockback(knockback_), hitLocation(hitLocation_),
       hitNormal(hitNormal_), attackID(attackID_) {
+}
+
+// -- fourth batch --------------------------------------------------
+
+inline void* operator new(unsigned long, void* p) { return p; }
+
+namespace Memory {
+enum GlobalHeapEnum { GlobalHeapEnum_ = 0x7FFFFFFF };
+}
+
+enum eMemMgrTag { eMemMgrTag_ = 0x7FFFFFFF };
+
+void* xMemAlloc(Memory::GlobalHeapEnum heap, unsigned int size, int align,
+                eMemMgrTag tag);
+
+// Forty-four actions, each from heap 0 with tag 29 and the size retail
+// passes. The board actions' constructors are in line -- the base's
+// call and the vtable store -- and the common ones are called.
+void zBoardPlayer::InitActions() {
+    actionManager.Init(44);
+    actionManager.Add((zPlayer*)this, new (xMemAlloc((Memory::GlobalHeapEnum)0, 164, 0, (eMemMgrTag)29)) zPlayerIdleBoard);
+    actionManager.Add((zPlayer*)this, new (xMemAlloc((Memory::GlobalHeapEnum)0, 16, 0, (eMemMgrTag)29)) zPlayerSkidStop);
+    actionManager.Add((zPlayer*)this, new (xMemAlloc((Memory::GlobalHeapEnum)0, 16, 0, (eMemMgrTag)29)) zPlayerWalkBoard);
+    actionManager.Add((zPlayer*)this, new (xMemAlloc((Memory::GlobalHeapEnum)0, 16, 0, (eMemMgrTag)29)) zPlayerRunBoard);
+    actionManager.Add((zPlayer*)this, new (xMemAlloc((Memory::GlobalHeapEnum)0, 32, 0, (eMemMgrTag)29)) zPlayerTurn180Board);
+    actionManager.Add((zPlayer*)this, new (xMemAlloc((Memory::GlobalHeapEnum)0, 20, 0, (eMemMgrTag)29)) zPlayerSlip);
+    actionManager.Add((zPlayer*)this, new (xMemAlloc((Memory::GlobalHeapEnum)0, 60, 0, (eMemMgrTag)29)) zPlayerJumpBoard);
+    actionManager.Add((zPlayer*)this, new (xMemAlloc((Memory::GlobalHeapEnum)0, 24, 0, (eMemMgrTag)29)) zPlayerDoubleJumpBoard);
+    actionManager.Add((zPlayer*)this, new (xMemAlloc((Memory::GlobalHeapEnum)0, 20, 0, (eMemMgrTag)29)) zPlayerFallBoard);
+    actionManager.Add((zPlayer*)this, new (xMemAlloc((Memory::GlobalHeapEnum)0, 20, 0, (eMemMgrTag)29)) zPlayerFallToDeath);
+    actionManager.Add((zPlayer*)this, new (xMemAlloc((Memory::GlobalHeapEnum)0, 16, 0, (eMemMgrTag)29)) zPlayerLandBoard);
+    actionManager.Add((zPlayer*)this, new (xMemAlloc((Memory::GlobalHeapEnum)0, 16, 0, (eMemMgrTag)29)) zPlayerLandHighBoard);
+    actionManager.Add((zPlayer*)this, new (xMemAlloc((Memory::GlobalHeapEnum)0, 40, 0, (eMemMgrTag)29)) zPlayerTriggered);
+    actionManager.Add((zPlayer*)this, new (xMemAlloc((Memory::GlobalHeapEnum)0, 96, 0, (eMemMgrTag)29)) zPlayerLedgeBoard);
+    actionManager.Add((zPlayer*)this, new (xMemAlloc((Memory::GlobalHeapEnum)0, 92, 0, (eMemMgrTag)29)) zPlayerHitBoard);
+    actionManager.Add((zPlayer*)this, new (xMemAlloc((Memory::GlobalHeapEnum)0, 16, 0, (eMemMgrTag)29)) zPlayerHitLaunchBoard);
+    actionManager.Add((zPlayer*)this, new (xMemAlloc((Memory::GlobalHeapEnum)0, 88, 0, (eMemMgrTag)29)) zPlayerDefeatedBoard);
+    actionManager.Add((zPlayer*)this, new (xMemAlloc((Memory::GlobalHeapEnum)0, 20, 0, (eMemMgrTag)29)) zCommonPlayerDash);
+    actionManager.Add((zPlayer*)this, new (xMemAlloc((Memory::GlobalHeapEnum)0, 16, 0, (eMemMgrTag)29)) zPlayerWalkStart);
+    actionManager.Add((zPlayer*)this, new (xMemAlloc((Memory::GlobalHeapEnum)0, 64, 0, (eMemMgrTag)29)) zPlayerCustomAnim);
+    actionManager.Add((zPlayer*)this, new (xMemAlloc((Memory::GlobalHeapEnum)0, 28, 0, (eMemMgrTag)29)) zBoardPlayerSpinAttack);
+    actionManager.Add((zPlayer*)this, new (xMemAlloc((Memory::GlobalHeapEnum)0, 28, 0, (eMemMgrTag)29)) zBoardPlayerHammerAttack);
+    actionManager.Add((zPlayer*)this, new (xMemAlloc((Memory::GlobalHeapEnum)0, 24, 0, (eMemMgrTag)29)) zBoardPlayerPuckAttack);
+    actionManager.Add((zPlayer*)this, new (xMemAlloc((Memory::GlobalHeapEnum)0, 16, 0, (eMemMgrTag)29)) zPlayerSpringboardBoard);
+    actionManager.Add((zPlayer*)this, new (xMemAlloc((Memory::GlobalHeapEnum)0, 32, 0, (eMemMgrTag)29)) zBoardPlayerFillWithGoo);
+    actionManager.Add((zPlayer*)this, new (xMemAlloc((Memory::GlobalHeapEnum)0, 16, 0, (eMemMgrTag)29)) zBoardPlayerDrainGoo);
+    actionManager.Add((zPlayer*)this, new (xMemAlloc((Memory::GlobalHeapEnum)0, 16, 0, (eMemMgrTag)29)) zBoardPlayerGainPowerup);
+    actionManager.Add((zPlayer*)this, new (xMemAlloc((Memory::GlobalHeapEnum)0, 16, 0, (eMemMgrTag)29)) zBoardPlayerSpinPowerupAttack);
+    actionManager.Add((zPlayer*)this, new (xMemAlloc((Memory::GlobalHeapEnum)0, 16, 0, (eMemMgrTag)29)) zBoardPlayerHammerPowerupAttack);
+    actionManager.Add((zPlayer*)this, new (xMemAlloc((Memory::GlobalHeapEnum)0, 16, 0, (eMemMgrTag)29)) zBoardPlayerPuckPowerupAttack);
+    actionManager.Add((zPlayer*)this, new (xMemAlloc((Memory::GlobalHeapEnum)0, 16, 0, (eMemMgrTag)29)) zBoardPlayerLosePowerup);
+    actionManager.Add((zPlayer*)this, new (xMemAlloc((Memory::GlobalHeapEnum)0, 16, 0, (eMemMgrTag)29)) zBoardPlayerCandy);
+    actionManager.Add((zPlayer*)this, new (xMemAlloc((Memory::GlobalHeapEnum)0, 24, 0, (eMemMgrTag)29)) zBoardPlayerQuicksandJump);
+    actionManager.Add((zPlayer*)this, new (xMemAlloc((Memory::GlobalHeapEnum)0, 16, 0, (eMemMgrTag)29)) zBoardPlayerQuicksandStuck);
+    actionManager.Add((zPlayer*)this, new (xMemAlloc((Memory::GlobalHeapEnum)0, 28, 0, (eMemMgrTag)29)) zBoardPlayerBungeeBall);
+    actionManager.Add((zPlayer*)this, new (xMemAlloc((Memory::GlobalHeapEnum)0, 20, 0, (eMemMgrTag)29)) zBoardPlayerKelpTrap);
+    actionManager.Add((zPlayer*)this, new (xMemAlloc((Memory::GlobalHeapEnum)0, 32, 0, (eMemMgrTag)29)) zPlayerSlamStartBoard);
+    actionManager.Add((zPlayer*)this, new (xMemAlloc((Memory::GlobalHeapEnum)0, 32, 0, (eMemMgrTag)29)) zPlayerSlamFallBoard);
+    actionManager.Add((zPlayer*)this, new (xMemAlloc((Memory::GlobalHeapEnum)0, 16, 0, (eMemMgrTag)29)) zPlayerSlamLandBoard);
+    actionManager.Add((zPlayer*)this, new (xMemAlloc((Memory::GlobalHeapEnum)0, 16, 0, (eMemMgrTag)29)) zPlayerFluidSprayBoard);
+    actionManager.Add((zPlayer*)this, new (xMemAlloc((Memory::GlobalHeapEnum)0, 32, 0, (eMemMgrTag)29)) zPlayerFluidBurstBoard);
+    actionManager.Add((zPlayer*)this, new (xMemAlloc((Memory::GlobalHeapEnum)0, 16, 0, (eMemMgrTag)29)) zPlayerCelebrationBoard);
+    actionManager.Add((zPlayer*)this, new (xMemAlloc((Memory::GlobalHeapEnum)0, 72, 0, (eMemMgrTag)29)) zPlayerSlide);
+    actionManager.Add((zPlayer*)this, new (xMemAlloc((Memory::GlobalHeapEnum)0, 16, 0, (eMemMgrTag)29)) zPlayerCheatBoard);
+}
+
+// -- fifth batch ---------------------------------------------------
+
+void zEntEvent(xBase* from, unsigned int fromEvent, xBase* to,
+               unsigned int toEvent, Sext::EventAny* param, ForceEvent force);
+unsigned int xrand_GenRandInt32();
+
+class xMat3x3;
+void xMat3x3GetEuler(const xMat3x3* m, xVec3* euler);
+xVec3 operator-(const xVec3& a, const xVec3& b);
+
+
+unsigned int zBoardPlayerSpinAttack::FinishedQueueCheck(xAnimTransition* a0,
+                                                        xAnimSingle* a1) {
+    zBoardPlayer* sbPlayer = (zBoardPlayer*)player;
+
+    if (sbPlayer->powerupState == 0) {
+        return 1;
+    }
+
+    if (!sbPlayer->_v74()) {
+        return 1;
+    }
+
+    if (numSpinsExecuted >= 5) {
+        return 1;
+    }
+
+    if (numSpinsQueued > 0) {
+        numSpinsExecuted++;
+        numSpinsQueued--;
+
+        return 0;
+    }
+
+    return 1;
+}
+
+unsigned int zPlayerDoubleJumpBoard::DoubleJumpStartCheck(xAnimTransition* a0,
+                                                          xAnimSingle* a1) {
+    if (((zBoardPlayer*)player)->f984) {
+        if (((zBoardPlayer*)player)->playerInput->_v44()) {
+            if (((zBoardPlayer*)player)->playerInput->_v19(95, 0, 1)) {
+                ((zBoardPlayer*)player)->SetGooState((SBGooFilledState)0);
+
+                return 1;
+            }
+        } else if (((zBoardPlayer*)player)->playerInput->_v19(8, 0, 1)) {
+            ((zBoardPlayer*)player)->SetGooState((SBGooFilledState)0);
+
+            return 1;
+        }
+    }
+
+    return 0;
+}
+
+unsigned int zPlayerSpringboardBoard::BoardSpringboardCheck(xAnimTransition* a0,
+                                                            xAnimSingle* a1) {
+    zBoardPlayer* sbPlayer = (zBoardPlayer*)player;
+
+    if (sbPlayer->ignoreInputThisFrame) {
+        return 0;
+    }
+
+    if (sbPlayer->trampolineLink) {
+        sbPlayer->SetGooState((SBGooFilledState)0);
+
+        return 1;
+    }
+
+    if (sbPlayer->floor_object.GetEntity() &&
+        sbPlayer->floor_object.GetEntity()->baseType == 0x9B) {
+        sbPlayer->SetGooState((SBGooFilledState)0);
+
+        return 1;
+    }
+
+    return 0;
+}
+
+// The action's player as the board player, an accessor of its own:
+// retail loads it into a saved register ahead of the virtual call.
+inline zBoardPlayer* BoardPlayerOf(zPlayerAction* action) {
+    return (zBoardPlayer*)action->player;
+}
+
+unsigned int zPlayerLedgeBoard::StartLedgeCheck(xAnimTransition* a0,
+                                                xAnimSingle* a1) {
+    zBoardPlayer* sbPlayer = (zBoardPlayer*)player;
+
+    if (!BoardPowerupActive(sbPlayer) && !sbPlayer->IsInAnyGooState() &&
+        BoardPlayerOf(this)->interactionManager.GetCurrentInteractionType() ==
+            _v29()) {
+        return 1;
+    }
+
+    return 0;
+}
+
+unsigned int zPlayerDefeatedBoard::DeathCheck(xAnimTransition* tran,
+                                              xAnimSingle* single) {
+    if (player->f9BC == 10 || player->f9BC == 9 ||
+        FrozenGooDeathCheck(tran, single)) {
+        return 0;
+    }
+
+    return ((zBoardPlayer*)player)->_v48()
+               ? (((AnimCBHolder*)tran)->slot->f94 & 0x20000)
+               : 0;
+}
+
+
+
+// A random index below n: n is loaded before the draw, which is what
+// keeps it in a saved register across the call.
+inline unsigned int BoardRandomChoice(int n) {
+    return n * (xrand_GenRandInt32() & 0xFFFF) >> 16;
+}
+
+// The same draw over one fewer: n is loaded before the draw, and the
+// one is taken off it after.
+inline unsigned int BoardRandomChoiceOther(int n) {
+    return (xrand_GenRandInt32() & 0xFFFF) * (n - 1) >> 16;
+}
+
+void zPlayerDefeatedBoard::Reset() {
+    numValid = 0;
+
+    for (int i = 0; i < numVariants; i++) {
+        unsigned int data = ((xAnimState*)variants[i])->UserData;
+        unsigned int flag = ((xAnimState*)variants[i])->UserFlags;
+
+        if (i > 0) {
+            if (flag & 0x40000000) {
+                data |= 0x40000;
+                ((xAnimState*)variants[i])->UserData = data;
+            }
+        }
+
+        if (!(data & 0x40000)) {
+            numValid++;
+        }
+    }
+
+    unsigned int choice = BoardRandomChoice(numValid);
+
+    for (int j = 0; j < numVariants; j++) {
+        unsigned int data = ((xAnimState*)variants[j])->UserData;
+
+        if (!(data & 0x40000)) {
+            if (choice) {
+                ((xAnimState*)variants[j])->UserData = data & ~0x20000;
+            } else {
+                ((xAnimState*)variants[j])->UserData = data | 0x20000;
+            }
+
+            choice--;
+        }
+    }
+}
+
+void zPlayerHitBoard::Reset() {
+    numValid = 0;
+
+    for (int i = 0; i < numVariants; i++) {
+        unsigned int data = ((xAnimState*)variants[i])->UserData;
+        unsigned int flag = ((xAnimState*)variants[i])->UserFlags;
+
+        if (i > 0) {
+            if (flag & 0x40000000) {
+                data |= 0x40000;
+                ((xAnimState*)variants[i])->UserData = data;
+            }
+        }
+
+        if (!(data & 0x40000)) {
+            numValid++;
+        }
+    }
+
+    unsigned int choice = BoardRandomChoice(numValid);
+
+    for (int j = 0; j < numVariants; j++) {
+        unsigned int data = ((xAnimState*)variants[j])->UserData;
+
+        if (!(data & 0x40000)) {
+            if (choice) {
+                ((xAnimState*)variants[j])->UserData = data & ~0x20000;
+            } else {
+                ((xAnimState*)variants[j])->UserData = data | 0x20000;
+            }
+
+            choice--;
+        }
+    }
+}
+
+void zBoardPlayerSpinAttack::Update(float dt) {
+    ((zPlayerWalk*)this)->Update(dt);
+
+    zBoardPlayer* sbPlayer = (zBoardPlayer*)player;
+
+    if (sbPlayer->powerupState == 1 || sbPlayer->powerupState == 2) {
+        if (sbPlayer->playerInput->_v44()) {
+            if (sbPlayer->playerInput->_v19(98, 0, 1) ||
+                sbPlayer->playerInput->_v19(100, 0, 1)) {
+                numSpinsQueued++;
+            }
+        } else if (sbPlayer->playerInput->_v19(95, 0, 1)) {
+            numSpinsQueued++;
+        }
+    }
+}
+
+inline bool BoardShouldTurnToFill(zBoardPlayer* p) {
+    return p->IsInAnyGooState() && p->FillWithGooShouldTurn;
+}
+
+inline xVec3 BoardFillTurnTarget(zBoardPlayer* p) {
+    return p->FillWithGooTurnTarget;
+}
+
+void zBoardPlayerFillWithGoo::Begin() {
+    ((zBoardPlayer*)player)->frame->zeroVel();
+    ((zBoardPlayer*)player)->zPlayerFlags &= ~0x10;
+
+    zBoardPlayer* sbPlayer = (zBoardPlayer*)player;
+
+    if (BoardShouldTurnToFill(sbPlayer)) {
+        targetVector = BoardFillTurnTarget(sbPlayer);
+        f1C = false;
+    } else {
+        f1C = true;
+    }
+
+    sbPlayer->FillWithGooShouldTurn = false;
+}
+
+void zPlayerSlamStartBoard::Move(xScene* s, float dt, xEntFrame* frame) {
+    ((zBoardPlayer*)player)->_v127(dt);
+    f10 += dt;
+    ((zBoardPlayer*)player)->frame->f8C = f18 * (f14 - f10);
+    ((zBoardPlayer*)player)->zPlayerFlags |= 0x10;
+    ((zPlayerLandHighBoard_m4*)player)->_v128(s, dt, frame);
+}
+
+inline void BoardReleaseBall(zBungeeBall* ball) {
+    ball->PopBall();
+    ball->BallReturn();
+    ball->fC3 = true;
+}
+
+// The model instance's part visibility sits at +0x58.
+struct OGModelVisView {
+    unsigned char _pad0[0x58];
+    xModelInstance::ModelVisibility visibility;
+};
+
+
+void zBoardPlayerBungeeBall::End() {
+    zBoardPlayer* sbPlayer = (zBoardPlayer*)player;
+
+    zEntEvent((xBase*)sbPlayer, 0, (xBase*)sbPlayer->bungeeBall, 0xFEEB5285, 0,
+              (ForceEvent)1);
+    BoardReleaseBall(sbPlayer->bungeeBall);
+    sbPlayer->bungeeBall = 0;
+    sbPlayer->zPlayerFlags &= ~0x10;
+
+    World::xOGModel* model = (World::xOGModel*)sbPlayer->ogModel;
+
+    ((OGModelVisView*)model)->visibility.GetPartVisibility(8).stateMask |= 0x20;
+    ((OGModelVisView*)model)->visibility.GetPartVisibility(8).stateMask &= ~0x10;
+    model->UpdaterCheckHide();
+    sbPlayer->aimer->model->Hide();
+}
+
+// The player's position, through its model: an accessor of its own,
+// which is what loads the model ahead of the call on the other side.
+inline xOGModel* BoardModelOf(zBoardPlayer* p) {
+    return p->ogModel;
+}
+
+inline float BoardYawOf(const xMat3x3* m) {
+    xVec3 euler;
+
+    xMat3x3GetEuler(m, &euler);
+
+    return euler.x;
+}
+
+void zBoardPlayerBungeeBall::Update(float dt) {
+    zBoardPlayer* sbPlayer = (zBoardPlayer*)player;
+
+    ((zPlayerWalk*)this)->Update(dt);
+
+    if ((zBungeeBall*)sbPlayer->f9A0 != 0 &&
+        (zBungeeBall*)sbPlayer->f9A0 != sbPlayer->bungeeBall) {
+        zEntEvent((xBase*)sbPlayer, 0, (xBase*)sbPlayer->bungeeBall, 0xFEEB5285,
+                  0, (ForceEvent)1);
+        sbPlayer->bungeeBall = (zBungeeBall*)sbPlayer->f9A0;
+        zEntEvent((xBase*)sbPlayer, 0, (xBase*)sbPlayer->f9A0, 0x71170C09, 0,
+                  (ForceEvent)1);
+        sbPlayer->bungeeBallOffset =
+            BoardModelOf(sbPlayer)->pos -
+            ((zBungeeBall*)sbPlayer->f9A0)->GetPlayerPosition();
+        lastYaw = BoardYawOf((const xMat3x3*)sbPlayer->bungeeBall->baseMat);
+        f18 = 1;
+    }
+}
+
+unsigned long long zPlayerResourcesGetCharacterAssetID(unsigned int index);
+
+namespace World {
+class ModelInstanceAsset {
+public:
+    unsigned char _pad0[0x40];
+};
+
+class EntityManager {
+public:
+    static void* FindAsset(unsigned long long id);
+};
+
+EntityManager* GetEntityManager();
+
+class xOGModelHandle {
+public:
+    void SwapRenderModel(const ModelInstanceAsset& asset);
+};
+}  // namespace World
+
+// The character asset opens with its default model; the powerup
+// models are an array behind the pointer at +0x8C.
+class zCharacterAsset {
+public:
+    unsigned char _pad0[0x8C];
+    World::ModelInstanceAsset* powerupModels;
+};
+
+void zBoardPlayer::SwapToCurrentPowerupModel() {
+    unsigned long long assetID = zPlayerResourcesGetCharacterAssetID(0);
+    zCharacterAsset* characterAsset =
+        (zCharacterAsset*)World::GetEntityManager()->FindAsset(assetID);
+
+    if (powerupModelState != 0) {
+        ((World::xOGModelHandle*)&ogModel)
+            ->SwapRenderModel(characterAsset->powerupModels[powerupModelState - 1]);
+    } else {
+        ((World::xOGModelHandle*)&ogModel)
+            ->SwapRenderModel(*(World::ModelInstanceAsset*)characterAsset);
+    }
+
+    if (powerupModelState == 5) {
+        f8F8 = true;
+    } else {
+        StopInvincibilityFX();
+    }
+}
+
+class zBombManager {
+public:
+    void AddBomb(const xSphere& sphere, xBase* from, float damage0,
+                 float damage1, float damage2, float awayKnockback,
+                 float upKnockback, Sext::eHitSource source, zHitTarget target,
+                 unsigned int flags, const xVec3* normal);
+};
+
+extern zBombManager gBombManager;
+
+void sphere_damage(xBase* fromEnt, const xVec3& pos, float blastRadius,
+                   float damage, float awayKnockback, float upKnockback,
+                   Sext::eHitSource hitSource, zHitTarget hitTarget,
+                   unsigned int hitFlags, const xVec3* optNormalToChk) {
+    xSphere sphere;
+
+    sphere.center = pos;
+    sphere.r = blastRadius;
+    gBombManager.AddBomb(sphere, fromEnt, damage, damage, damage, awayKnockback,
+                         upKnockback, hitSource, hitTarget, hitFlags,
+                         optNormalToChk);
+}
+
+void zBoardGainPowerupSidekickBE(xAnimPlay* play, xAnimState* state,
+                                 void* object) {
+    zBoardPlayer* sbPlayer = (zBoardPlayer*)object;
+
+    switch (sbPlayer->powerupModelState) {
+    case 9:
+        sbPlayer->SetPowerupState((BoardPowerupState)2);
+        break;
+    case 10:
+        sbPlayer->SetPowerupState((BoardPowerupState)3);
+        break;
+    case 11:
+        sbPlayer->SetPowerupState((BoardPowerupState)4);
+        break;
+    }
+
+    sbPlayer->powerupModelState = sbPlayer->powerupState;
+    zBoardAnimPackageBE(play, state, object);
+    sbPlayer->powerupPerformDeferredModelSwap = true;
+}
+
+// -- sixth batch ---------------------------------------------------
+
+void zPlayerJumpBoard::Move(xScene* s, float dt, xEntFrame* frame) {
+    ((zBoardPlayer*)player)->_v127(dt);
+    f10 += dt;
+
+    if (f10 < f20) {
+        xVec3 dposVel = { 0.0f, 0.0f, 0.0f };
+        dposVel.y = GetY(f10) - GetY(f10 - dt);
+        dposVel *= scaleJump / dt;
+        ((zBoardPlayer*)player)->frame->f8C = dposVel.y;
+        ((zBoardPlayer*)player)->zPlayerFlags |= 0x10;
+    } else {
+        xVec3 dposVel = { 0.0f, 0.0f, 0.0f };
+        dposVel.y = dt * (Jump_Float * (f10 - f20));
+        dposVel *= scaleJump / dt;
+        ((zBoardPlayer*)player)->_v115(dposVel);
+    }
+
+    ((zPlayerLandHighBoard_m4*)player)->_v128(s, dt, frame);
+}
+
+// Input counts unless control is off, and an AI always has it.
+inline bool BoardPlayerHasControl(zBoardPlayer* p) {
+    return p->controlOff == 0 || p->_v105();
+}
+
+unsigned int zPlayerJumpBoard::SBJumpCheck(xAnimTransition* a0,
+                                           xAnimSingle* a1) {
+    if (((zBoardPlayer*)player)->ignoreInputThisFrame) {
+        return 0;
+    }
+
+    if (!BoardPlayerHasControl((zBoardPlayer*)player)) {
+        return 0;
+    }
+
+    if (!(((zBoardPlayer*)player)->zPlayerFlags & 0x4)) {
+        return 0;
+    }
+
+    if (((zBoardPlayer*)player)->playerInput->_v44()) {
+        if (((zBoardPlayer*)player)->playerInput->_v19(95, 0, 1)) {
+            ((zBoardPlayer*)player)->SetGooState((SBGooFilledState)0);
+
+            return 1;
+        }
+    } else if (((zBoardPlayer*)player)->playerInput->_v19(8, 0, 1)) {
+        if (!((zBoardPlayer*)player)->f8FC) {
+            return 1;
+        }
+    }
+
+    return 0;
+}
+
+unsigned int zBoardPlayerPuckAttack::StartPuckAttackCheck(xAnimTransition* a0,
+                                                          xAnimSingle* a1) {
+    zBoardPlayer* sbPlayer = (zBoardPlayer*)player;
+
+    if (sbPlayer->ignoreInputThisFrame) {
+        return 0;
+    }
+
+    if (!BoardPlayerHasControl(sbPlayer)) {
+        return 0;
+    }
+
+    if (BoardPowerupActive(sbPlayer)) {
+        if (sbPlayer->powerupState != 5 && sbPlayer->powerupState != 1) {
+            return 0;
+        }
+    }
+
+    if (sbPlayer->IsInAnyGooState()) {
+        return 0;
+    }
+
+    if (sbPlayer->IsOnQuicksand()) {
+        return 0;
+    }
+
+    if (sbPlayer->playerInput->_v44()) {
+        if (sbPlayer->playerInput->_v19(94, 0, 1)) {
+            sbPlayer->SetGooState((SBGooFilledState)0);
+
+            return 1;
+        }
+    } else if (sbPlayer->playerInput->_v19(100, 0, 1)) {
+        ((zBoardPlayer*)player)->SetGooState((SBGooFilledState)0);
+
+        return 1;
+    }
+
+    return 0;
+}
+
+unsigned int zPlayerWalkBoard::WalkRegularCheck(xAnimTransition* tran,
+                                                xAnimSingle* anim) {
+    return WalkCheck(tran, anim) && !WalkSlipperyCheck(tran, anim);
+}
+
+unsigned int zPlayerRunBoard::RunRegularCheck(xAnimTransition* tran,
+                                              xAnimSingle* anim) {
+    return RunCheck(tran, anim) && !RunSlipperyCheck(tran, anim) &&
+           !RunBraveCheck(tran, anim) && !RunSuccessCheck(tran, anim);
+}
+
+unsigned int zPlayerIdleBoard::IdleRegularCheck(xAnimTransition* tran,
+                                                xAnimSingle* anim) {
+    return IdleCheck(tran, anim) && DefaultIdleCheck(tran, anim) &&
+           !IdleSlipperyCheck(tran, anim) && !IdleLowHealthCheck(tran, anim) &&
+           !IdleColdCheck(tran, anim);
+}
+
+
+// -- seventh batch -------------------------------------------------
+
+xAnimState* xAnimTableGetState(xAnimTable* table, const char* name);
+void xAnimPlaySetState(xAnimSingle* single, xAnimState* state, float time);
+
+unsigned int zPlayerHitBoard::HammerHitCB(xAnimTransition* a0,
+                                          xAnimSingle* a1) {
+    if (noRepeats && numValid > 1) {
+        unsigned int choice = BoardRandomChoiceOther(numValid);
+
+        for (int i = 0; i < numVariants; i++) {
+            unsigned int data = ((xAnimState*)variants[i])->UserData;
+
+            if (!(data & 0x40000)) {
+                if (data & 0x20000) {
+                    ((xAnimState*)variants[i])->UserData = data & ~0x20000;
+                } else {
+                    if (choice) {
+                        ((xAnimState*)variants[i])->UserData = data & ~0x20000;
+                    } else {
+                        ((xAnimState*)variants[i])->UserData = data | 0x20000;
+                    }
+
+                    choice--;
+                }
+            }
+        }
+    } else {
+        unsigned int data;
+        unsigned int choice = BoardRandomChoice(numValid);
+
+        for (int i = 0; i < numVariants; i++) {
+            data = ((xAnimState*)variants[i])->UserData;
+
+            if (!(data & 0x40000)) {
+                if (choice) {
+                    ((xAnimState*)variants[i])->UserData = data & ~0x20000;
+                } else {
+                    ((xAnimState*)variants[i])->UserData = data | 0x20000;
+                }
+
+                choice--;
+            }
+        }
+    }
+
+    return 0;
+}
+
+// The two extra-idle variant sets the idle keeps from +0x10: fifteen
+// states, a count, a valid count and a flag, 0x48 bytes each.
+struct ExtraIdleTableEntry {
+    xAnimState* variants[15];
+    int numVariants;
+    int numValid;
+    bool noRepeats;
+};
+
+struct IdleVariantTable {
+    unsigned char _pad0[0x10];
+    ExtraIdleTableEntry extraIdleTable[2];
+};
+
+unsigned int zPlayerIdleBoard::ExtraIdleCB(xAnimTransition* tran,
+                                           xAnimSingle* anim) {
+    ExtraIdleTableEntry* variantGroup =
+        &((IdleVariantTable*)this)
+             ->extraIdleTable[anim->State->UserData & 0xFFFF];
+
+    if (variantGroup->noRepeats && variantGroup->numValid > 1) {
+        unsigned int choice = BoardRandomChoiceOther(variantGroup->numValid);
+
+        for (int i = 0; i < variantGroup->numVariants; i++) {
+            unsigned int data = variantGroup->variants[i]->UserData;
+
+            if (!(data & 0x40000)) {
+                if (data & 0x20000) {
+                    variantGroup->variants[i]->UserData = data & ~0x20000;
+                } else {
+                    if (choice) {
+                        variantGroup->variants[i]->UserData = data & ~0x20000;
+                    } else {
+                        variantGroup->variants[i]->UserData = data | 0x20000;
+                    }
+
+                    choice--;
+                }
+            }
+        }
+    } else {
+        unsigned int data;
+        unsigned int choice = BoardRandomChoice(variantGroup->numValid);
+
+        for (int i = 0; i < variantGroup->numVariants; i++) {
+            data = variantGroup->variants[i]->UserData;
+
+            if (!(data & 0x40000)) {
+                if (choice) {
+                    variantGroup->variants[i]->UserData = data & ~0x20000;
+                } else {
+                    variantGroup->variants[i]->UserData = data | 0x20000;
+                }
+
+                choice--;
+            }
+        }
+    }
+
+    return 0;
+}
+
+// The model's animation player, through an accessor of its own.
+inline ModelAnimView* BoardAnimModel(zPlayer* p) {
+    return (ModelAnimView*)((zBoardPlayer*)p)->ogModel;
+}
+
+void zPlayerIdleBoard::Reset() {
+    xAnimPlaySetState(
+        BoardAnimModel(player)->Anim->Single,
+        xAnimTableGetState(BoardAnimModel(player)->Anim->Table, "Idle01"),
+        0.0f);
+    manager->SetCurrentAction(this);
+
+    int i, j;
+
+    for (i = 0; i < 2; i++) {
+        ((IdleVariantTable*)this)->extraIdleTable[i].numValid = 0;
+
+        for (j = 0; j < ((IdleVariantTable*)this)->extraIdleTable[i].numVariants;
+             j++) {
+            unsigned int data = ((IdleVariantTable*)this)
+                                    ->extraIdleTable[i]
+                                    .variants[j]
+                                    ->UserData;
+            unsigned int flag = ((IdleVariantTable*)this)
+                                    ->extraIdleTable[i]
+                                    .variants[j]
+                                    ->UserFlags;
+
+            if (j > 0) {
+                if (flag & 0x40000000) {
+                    data |= 0x40000;
+                    ((IdleVariantTable*)this)
+                        ->extraIdleTable[i]
+                        .variants[j]
+                        ->UserData = data;
+                }
+            }
+
+            if (!(data & 0x40000)) {
+                ((IdleVariantTable*)this)->extraIdleTable[i].numValid++;
+            }
+        }
+
+        unsigned int choice = BoardRandomChoice(
+            ((IdleVariantTable*)this)->extraIdleTable[i].numValid);
+
+        for (j = 0; j < ((IdleVariantTable*)this)->extraIdleTable[i].numVariants;
+             j++) {
+            unsigned int data = ((IdleVariantTable*)this)
+                                    ->extraIdleTable[i]
+                                    .variants[j]
+                                    ->UserData;
+
+            if (!(data & 0x40000)) {
+                if (choice) {
+                    ((IdleVariantTable*)this)
+                        ->extraIdleTable[i]
+                        .variants[j]
+                        ->UserData = data & ~0x20000;
+                } else {
+                    ((IdleVariantTable*)this)
+                        ->extraIdleTable[i]
+                        .variants[j]
+                        ->UserData = data | 0x20000;
+                }
+
+                choice--;
+            }
+        }
+    }
+}
+
+// The manager's action lookup folded onto ModelPrototype::GetBuilder:
+// that is the symbol the image keeps, so it is the one called.
+namespace Graphics {
+class ModelPrototype {
+public:
+    zPlayerAction* GetBuilder(int index);
+};
+}  // namespace Graphics
+
+// A jump lands only once its clock has passed the rise.
+inline bool BoardJumpPastApex(zPlayerJumpBoard* jump) {
+    return jump->f10 > jump->f20;
+}
+
+inline bool BoardDoubleJumpPastRise(zPlayerDoubleJumpBoard* jump) {
+    return jump->f10 > 0.4f;
+}
+
+#pragma push
+#pragma always_inline on
+unsigned int zBoardPlayerAction::BoardLandCheck(xAnimTransition* a0,
+                                                xAnimSingle* a1) {
+    if (((zBoardPlayer*)player)->actionManager.GetCurrentActionID() == 5 &&
+        !BoardJumpPastApex(
+            (zPlayerJumpBoard*)((Graphics::ModelPrototype*)&((zBoardPlayer*)player)
+                                    ->actionManager)
+                ->GetBuilder(5))) {
+        return 0;
+    }
+
+    if (((zBoardPlayer*)player)->actionManager.GetCurrentActionID() == 23 &&
+        !BoardDoubleJumpPastRise(
+            (zPlayerDoubleJumpBoard*)((Graphics::ModelPrototype*)&(
+                                          (zBoardPlayer*)player)
+                                          ->actionManager)
+                ->GetBuilder(23))) {
+        return 0;
+    }
+
+    if (((zBoardPlayer*)player)->floor_object.GetEntity() &&
+        ((zBoardPlayer*)player)->floor_object.GetEntity()->baseType == 0x9B) {
+        return 0;
+    }
+
+    bool result = false;
+
+    if (BoardPlayerOnGround((zBoardPlayer*)player) &&
+        !(((zBoardPlayer*)player)->zPlayerFlags & 0x2000)) {
+        result = true;
+    }
+
+    return result;
+}
+#pragma pop
+
+// -- eighth batch --------------------------------------------------
+
+void zPlayerDoubleJumpBoard::Move(xScene* s, float dt, xEntFrame* frame) {
+    ((zBoardPlayer*)player)->_v127(dt);
+    f10 += dt;
+
+    if (f10 < 0.4f) {
+        xVec3 dposVel = { 0.0f, 0.0f, 0.0f };
+        dposVel.y = GetY(f10) - GetY(f10 - dt);
+        dposVel *= 1.0f / dt;
+        ((zBoardPlayer*)player)->frame->f8C = dposVel.y;
+        ((zBoardPlayer*)player)->zPlayerFlags |= 0x10;
+    } else {
+        xVec3 dposVel = { 0.0f, 0.0f, 0.0f };
+        dposVel.y = dt * (f10 - 0.4f);
+        dposVel *= 1.0f / dt;
+        ((zBoardPlayer*)player)->_v115(dposVel);
+    }
+
+    ((zPlayerLandHighBoard_m4*)player)->_v128(s, dt, frame);
+}
+
+inline float BoardMaxF(float a, float b) {
+    return (a > b) ? a : b;
+}
+
+inline float BoardMinF(float a, float b) {
+    return (a < b) ? a : b;
+}
+
+void zBoardPlayerSpinAttack::Move(xScene* s, float dt, xEntFrame* frame) {
+    ((zBoardPlayer*)player)->_v127(dt);
+
+    if (!((zBoardPlayer*)player)->_v74()) {
+        if (((zBoardPlayer*)player)->frame->f8C > -1.5f) {
+            ((zBoardPlayer*)player)->frame->f8C = BoardMaxF(
+                ((zBoardPlayer*)player)->frame->f8C - 20.0f * dt, -1.5f);
+        } else if (((zBoardPlayer*)player)->frame->f8C < -1.5f) {
+            ((zBoardPlayer*)player)->frame->f8C = BoardMinF(
+                ((zBoardPlayer*)player)->frame->f8C + 20.0f * dt, -1.5f);
+        }
+
+        ((zBoardPlayer*)player)->zPlayerFlags |= 0x10;
+    }
+
+    ((zPlayerLandHighBoard_m4*)player)->_v128(s, dt, frame);
+}
+
+void zBoardPlayerPuckAttack::Move(xScene* s, float dt, xEntFrame* frame) {
+    unsigned int animFlags = xEntGetAnimFlags((xEnt*)player);
+
+    if (animFlags & 0x4000) {
+        float stickInput =
+            ((zBoardPlayer*)player)->playerInput->_v25(0, 2).x;
+
+        frame->f68 = dt * (-0.87266463f * stickInput);
+        frame->f94 |= 0x20;
+        ((zBoardPlayer*)player)->_v164(dt, 1.0f + stickInput, 0);
+    }
+
+    ((zPlayerLandHighBoard_m4*)player)->_v128(s, dt, frame);
+}
+
+void zBoardPlayerQuicksandJump::Move(xScene* s, float dt, xEntFrame* frame) {
+    ((zBoardPlayer*)player)->_v127(dt);
+
+    float t0 = f10;
+
+    f10 += dt;
+
+    if (f10 > 0.25f) {
+        f10 = 0.25f;
+    }
+
+    f14 -= 0.27f * ((f10 - t0) / 0.25f);
+    ((zBoardPlayer*)player)->f998 = f14;
+    ((zPlayerLandHighBoard_m4*)player)->_v128(s, dt, frame);
+}
+
+class zSoundCue;
+
+unsigned long long xUIDMgrFindUID(unsigned int hash);
+xBase* zSceneFindObject(unsigned long long id);
+
+// The powerup event's one byte of payload.
+class EventActionSBPowerup {
+public:
+    unsigned char type;
+};
+
+void zBoardPlayer::SetPowerupState(BoardPowerupState newPowerupState) {
+    if (powerupState == newPowerupState) {
+        SetPowerupTimerToMax(powerupState);
+        return;
+    }
+
+    if (powerupState != 0) {
+        EventActionSBPowerup params;
+
+        params.type = 0;
+        zEntEventAllOfType((xBase*)this, 0, 0xFEF69755,
+                           (Sext::EventAny*)&params, 219, (ForceEvent)1);
+    }
+
+    if (newPowerupState == 0) {
+        zSoundCue* sc = (zSoundCue*)zSceneFindObject(
+            xUIDMgrFindUID(xStrHash("UID_A_BOOT_MusicHappy")));
+
+        if (sc) {
+            zEntEvent(0, 0, (xBase*)sc, 0x5D2F4217, 0, (ForceEvent)1);
+        }
+    }
+
+    f8B8 = 0.0f;
+    powerupState = newPowerupState;
+}
+
+void zPlayerHitBoard::Move(xScene* s, float dt, xEntFrame* frame) {
+    if (xEntGetAnimFlags((xEnt*)player) & 0x4000) {
+        ((zBoardPlayer*)player)->frame->f88 = 0.0f;
+        ((zBoardPlayer*)player)->frame->f90 = 0.0f;
+    }
+
+    ((zPlayerLandHighBoard_m4*)player)->_v128(s, dt, frame);
+}
+
+void zBoardPlayerBungeeBall::Begin() {
+    zBoardPlayer* sbPlayer = (zBoardPlayer*)player;
+
+    sbPlayer->f985 = true;
+    sbPlayer->bungeeBall = (zBungeeBall*)sbPlayer->f9A0;
+    zEntEvent((xBase*)sbPlayer, 0, (xBase*)sbPlayer->f9A0, 0x71170C09, 0,
+              (ForceEvent)1);
+    sbPlayer->bungeeBallOffset =
+        BoardModelOf(sbPlayer)->pos -
+        ((zBungeeBall*)sbPlayer->f9A0)->GetPlayerPosition();
+    lastYaw = BoardYawOf((const xMat3x3*)sbPlayer->bungeeBall->baseMat);
+    aimerDelayTimer = 0.0f;
+    f18 = 0;
+
+    World::xOGModel* model = (World::xOGModel*)sbPlayer->ogModel;
+
+    model->AutoLODScale();
+    ((OGModelVisView*)model)->visibility.GetPartVisibility(8).stateMask |= 0x10;
+    ((OGModelVisView*)model)->visibility.GetPartVisibility(8).stateMask &= ~0x20;
+    model->UpdaterCheckShow();
+}
+
+class hkpWorld {
+public:
+    void markForWrite() {}
+    void unmarkForWrite() {}
+};
+
+hkpWorld* xHavok_GetWorld();
+
+// The controller by value: each call works on a copy of its two words.
+inline xHavokCharacterController BoardCharacterController(zBoardPlayer* p) {
+    return p->characterController;
+}
+
+void zBoardPlayerKelpTrap::Move(xScene* s, float dt, xEntFrame* frame) {
+    if (((zBoardPlayer*)player)->kelpTrapLink) {
+        xHavok_GetWorld()->markForWrite();
+
+        Math::Vector4 pos;
+
+        BoardCharacterController((zBoardPlayer*)player)
+            .GetPosition((hkVector4&)pos);
+        pos.Assign(((zBoardPlayer*)player)->kelpTrapLink->asset->f24,
+                   ((zBoardPlayer*)player)->kelpTrapLink->asset->f28,
+                   ((zBoardPlayer*)player)->kelpTrapLink->asset->f2C, 0.0f);
+        BoardCharacterController((zBoardPlayer*)player)
+            .SetPosition((hkVector4&)pos);
+        xHavok_GetWorld()->unmarkForWrite();
+    }
+}
+
+// -- ninth batch ---------------------------------------------------
+
+class zSlope {
+public:
+    int inBox(const hkVector4* pos);
+};
+
+bool zPlayerSlide::SlideExitCheck(xAnimTransition* a0, xAnimSingle* a1) {
+    zSlope* mySlope = (zSlope*)((zBoardPlayer*)player)->f9C0;
+    Math::Vector4 pos;
+
+    BoardCharacterController((zBoardPlayer*)player)
+        .GetPosition((hkVector4&)pos);
+
+    return mySlope == 0 || !mySlope->inBox((const hkVector4*)&pos);
+}
+
+void zBoardPlayer::DefaultBeginUpdate(float dt) {
+    _v116();
+    f978 = 0.0f;
+
+    if (characterController.controllerType == 1) {
+        pCharacterProxyListener->dt = dt;
+        pCharacterProxyListener->inCheckSupport = true;
+    }
+
+    ((zCommonPlayer*)this)->DefaultBeginUpdate(dt);
+
+    if (!(zPlayerFlags & 0x2)) {
+        fA90 = 1e38f;
+    }
+
+    if (characterController.controllerType == 1) {
+        pCharacterProxyListener->inCheckSupport = false;
+    }
+}
+
+zCombatDamageInfo::zCombatDamageInfo()
+    : flags(0), from(0), damage(0.0f), source((Sext::eHitSource)1),
+      target((zHitTarget)0), knockback(xVec3::m_Null),
+      hitLocation(xVec3::m_Null), hitNormal(xVec3::m_Null), attackID(-1) {
+}
+
+// One bone's hit sphere, 0x14 bytes.
+struct hitBoneInfo {
+    float radius;
+    unsigned short bone;
+    xVec3 boneOffset;
+};
+
+// An attack state, 0xD8 bytes; the actions fill a table of them.
+class zCombatAttack {
+public:
+    unsigned int state;
+    float attackStart;
+    float attackEnd;
+    float attackRadius;
+    hitBoneInfo hitBones[6];
+    float damage;
+    int hitFilter;
+    unsigned short flags;
+    Sext::eHitSource source;
+    bool hitsBSP;
+    float impact;
+    unsigned short effect;
+    unsigned short hitEffect;
+    float effectStart;
+    float effectEnd;
+    unsigned int chainStateID;
+    unsigned char rumbleEffect[0x20];
+    void* hitCB;
+    unsigned char _pad0[0x4];
+};
+
+void zBoardPlayerBungeeBall::AddAttacks(zCombatAttack* attackStates,
+                                        unsigned short bone) {
+    zCombatAttack* flingAttack = &attackStates[21];
+
+    flingAttack->state = xStrHash("BungeeBallBuffFling");
+    flingAttack->attackStart = 0.0f;
+    flingAttack->attackEnd = 0.5f;
+    flingAttack->attackRadius = 3.0f;
+    flingAttack->source = (Sext::eHitSource)51;
+    flingAttack->hitBones[0].bone = bone;
+    flingAttack->damage = 1.0f;
+    flingAttack->impact = 1.0f;
+    flingAttack->hitCB = 0;
+}
+
+#define BOARD_MIN(a, b) ((a) < (b) ? (a) : (b))
+#define BOARD_MAX(a, b) ((a) > (b) ? (a) : (b))
+
+float zBoardPlayer::GetPuckCooldownTimerPercent() {
+    float maxTime;
+
+    maxTime = (powerupState == 1) ? 0.15f : 0.3f;
+
+    return BOARD_MAX(0.0f, BOARD_MIN(1.0f - f8D0 / maxTime, 1.0f));
 }

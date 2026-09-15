@@ -111,6 +111,12 @@ public:
     FlyingNPCHeightAdjustment HeightAdjustment;
 };
 
+class Action_NPC_Write_ChildMovePoint : public ActionBase {
+public:
+    bool StopOnFirst;
+    float ExcludeRadius;
+};
+
 class EventAny;
 
 }  // namespace Sext
@@ -186,6 +192,15 @@ public:
     World::xOGModel* model;
 };
 
+// xMovePoint's count of children is xGroup's GetNumItems in the image: one
+// eight-byte `lwz r3,0x44(r3)` under that name, which the linker kept.
+class xGroup {
+public:
+    unsigned int GetNumItems();
+};
+
+unsigned int xrand_GenRandInt32();
+
 xBase* zSceneFindObject(unsigned long long id);
 
 class xMovePoint : public xBase {
@@ -199,9 +214,13 @@ public:
 
     unsigned char _pad2[0x40 - 0x38];
     xVec3* pos;
+    unsigned int numChildren;
+    xMovePoint** children;
+    unsigned char _pad3[0x60 - 0x4C];
+    unsigned char on;
 };
 
-// Slot 105 of the player's vtable is IsAI (tools/vtable.py on __vt__7zPlayer).
+// Slot 105 of the player's vtable is IsAI (tools/vtslot.py __vt__7zPlayer 428).
 #define V10(a) virtual void _v##a##0(); virtual void _v##a##1(); \
     virtual void _v##a##2(); virtual void _v##a##3(); \
     virtual void _v##a##4(); virtual void _v##a##5(); \
@@ -597,6 +616,11 @@ public:
     eTaskState Update(float dt);
 };
 
+class zNPCBTWriteChildMovePointAction : public zNPCBTAction {
+public:
+    eTaskState Update(float dt);
+};
+
 #define xmin(a, b) ((a) < (b) ? (a) : (b))
 #define xmax(a, b) ((a) > (b) ? (a) : (b))
 
@@ -733,6 +757,11 @@ eTaskState zNPCFlyingBTWriteInsideWallnetAction::Update(float dt) {
     return btClient->blackboard.Write(variable, pos) ? eTaskState_Complete : eTaskState_Fail;
 }
 
+// NEAR MISS: 55 of 63 words, all in the dispatch. Retail lowers the switch
+// as a binary search pivoting on 2; ours is a compare chain over the same
+// four values. Measured without effect: a case 4, an enum-typed switch
+// value, a local copy, a default label. `optimize_for_size off` realigns
+// the words (23 differ) but only by breaking the prologue; not kept.
 float BT_Utility::CalcFlyingNPCsAdjustedY(
     const Sext::FlyingNPCHeightAdjustment* adj, const zNPCBase* npc,
     const xVec3& pos) {
@@ -776,13 +805,12 @@ float BT_Utility::CalcFlyingNPCsAdjustedY(
 // Move points and players
 
 eTaskState zNPCBTWriteNumberOfMovepointsAction::Update(float dt) {
+    xMovePoint* movePoint = npcBase->npcMovePoint;
+    zBlackboard& blackboard = btClient->blackboard;
     unsigned int var =
         ((const Sext::Action_NPC_WriteVariable*)actionAsset)->VariableName;
-    zBlackboard& blackboard = btClient->blackboard;
     int numberOfMovepoints =
-        npcBase->npcMovePoint != 0
-            ? npcBase->npcMovePoint->NetworkGetNumberOfMPs()
-            : 0;
+        movePoint != 0 ? movePoint->NetworkGetNumberOfMPs() : 0;
 
     if (!blackboard.Write(var, numberOfMovepoints)) {
         return eTaskState_Fail;
@@ -844,6 +872,9 @@ eTaskState zNPCBTWriteClosestPlayerAction::Update(float dt) {
 // near, how many enemies attack and target it (compiled to nothing), and
 // whether it is human -- and target the best.
 
+// NEAR MISS: 65 of 66 words. Five distinct float literals: mwcc forms one
+// addis base for them where retail spells a lis per literal (the wall in
+// NOTES.md).
 float zNPCBTWriteTargetPlayerAction::FindWeightedDistance(const xVec3& pos) {
     const Sext::Action_NPC_Write_TargetPlayer* asset =
         (const Sext::Action_NPC_Write_TargetPlayer*)actionAsset;
@@ -922,12 +953,13 @@ eTaskState zNPCBTWriteTargetPlayerAction::Update(float dt) {
     zPlayer* player = 0;
 
     for (int i = 0; i < xglobals->players.numPlayers; i++) {
-        zPlayer* p = xglobals->players.playerArray[i];
 
-        if (p->eName == 2 || p->eName == 3) {
+        if (xglobals->players.playerArray[i]->eName == 2 ||
+            xglobals->players.playerArray[i]->eName == 3) {
             continue;
         }
 
+        zPlayer* p = xglobals->players.playerArray[i];
         xVec3& curPos = p->model->Mat.pos;
 
         if (checkIfInWallNet && npcBase->npcSteering->wallNet != 0 &&
@@ -935,8 +967,8 @@ eTaskState zNPCBTWriteTargetPlayerAction::Update(float dt) {
             continue;
         }
 
-        float priority = FindWeightedNumAttacking(p) +
-                         FindWeightedDistance(curPos) +
+        float priority = FindWeightedDistance(curPos) +
+                         FindWeightedNumAttacking(p) +
                          FindWeightedNumTargeting(p) +
                          FindWeightedPlayerStatus(p);
 
@@ -1170,6 +1202,11 @@ eTaskState zNPCBTResetCurrentPlayerAction::Update(float dt) {
     return btClient->blackboard.Write(NPC_VAR_CURRENT_PLAYER, none) ? eTaskState_Complete : eTaskState_Fail;
 }
 
+// NEAR MISS, this and the next: 8 of 21 words. Ours selects (li 4; beq;
+// li 3) where retail branches. Six spellings (if/else, a result local, a
+// bool local, == false, an empty call between) and pragmas peephole,
+// opt_propagation, opt_dead_code, optimization_level 2 and 3 change
+// nothing; only optimization_level 1 branches, and it moves the loads.
 eTaskState zNPCBTSetNeedCombatCleanupAction::Update(float dt) {
     int value = ((const Sext::Action_NPC_SetFlag*)actionAsset)->Value;
 
@@ -1315,15 +1352,18 @@ inline void xMat4x3Toworld(xVec3* o, const xMat4x3* m, const xVec3* v) {
 }
 
 bool zNPCBTWriteCurrentPosition::FindCurrentPos(xVec3& targetPosition) {
+    zWallNet* wn;
+
     const Sext::Action_NPC_Write_CurrentPosition* asset =
         (const Sext::Action_NPC_Write_CurrentPosition*)actionAsset;
+
     Math::Vector offset(asset->Offset.x, asset->Offset.y, asset->Offset.z);
 
     xMat4x3Toworld(&targetPosition, &npcBase->npcEntity->model->Mat,
                    (const xVec3*)&offset);
 
     if (asset->ConstrainToWallnet) {
-        zWallNet* wn = npcBase->npcSteering->wallNet;
+        wn = npcBase->npcSteering->wallNet;
         int triangleID;
 
         if (wn != 0 &&
@@ -1355,6 +1395,86 @@ eTaskState zNPCFlyingBTWriteCurrentPosition::Update(float dt) {
     }
 
     return btClient->blackboard.Write(NPC_VAR_CURRENT_DESTINATION, pos) ? eTaskState_Complete : eTaskState_Fail;
+}
+
+// A random child of the current target that is switched on, is not the
+// target itself and, with one player, is outside the exclusion radius
+// around that player; failing a random pick, the last child that qualified.
+eTaskState zNPCBTWriteChildMovePointAction::Update(float dt) {
+    const Sext::Action_NPC_Write_ChildMovePoint* asset =
+        (const Sext::Action_NPC_Write_ChildMovePoint*)actionAsset;
+    float radius = asset->ExcludeRadius;
+
+    if (radius > 0.0f && xglobals->players.numPlayers != 1) {
+        return eTaskState_Fail;
+    }
+
+    xMovePoint* currMP = 0;
+
+    btClient->blackboard.Read(NPC_VAR_TARGET_MP, currMP);
+
+    if (currMP == 0 || !asset->StopOnFirst) {
+        currMP = npcBase->npcMovePoint;
+
+        if (currMP == 0) {
+            return eTaskState_Fail;
+        }
+
+        xMovePoint* nextMP = 0;
+
+        if (((xGroup*)currMP)->GetNumItems() != 0) {
+            xMovePoint* previousOption = 0;
+            int rnd = xrand_GenRandInt32();
+
+            rnd = rnd % ((xGroup*)currMP)->GetNumItems();
+
+            for (unsigned int idx = 0; idx < ((xGroup*)currMP)->GetNumItems(); idx++) {
+                nextMP = currMP->children[idx];
+                rnd--;
+
+                if (!nextMP->on) {
+                    nextMP = 0;
+                    continue;
+                }
+
+                if (nextMP == currMP) {
+                    nextMP = 0;
+                    continue;
+                }
+
+                float dist2 = xVec3Dist2(
+                    nextMP->pos,
+                    &xglobals->players.playerArray[0]->model->Mat.pos);
+
+                if (dist2 <= radius * radius) {
+                    nextMP = 0;
+                    continue;
+                }
+
+                previousOption = nextMP;
+
+                if (rnd < 0) {
+                    break;
+                }
+            }
+
+            if (nextMP == 0 && previousOption != 0) {
+                nextMP = previousOption;
+            }
+        }
+
+        if (nextMP != 0) {
+            btClient->blackboard.Write(NPC_VAR_TARGET_MP, nextMP);
+
+            xVec3 mpPos = *nextMP->pos;
+
+            btClient->blackboard.Write(NPC_VAR_CURRENT_DESTINATION, mpPos);
+        } else {
+            return eTaskState_Fail;
+        }
+    }
+
+    return eTaskState_Complete;
 }
 
 // Defined last: retail CALLS it from the Read and Write above, and read any

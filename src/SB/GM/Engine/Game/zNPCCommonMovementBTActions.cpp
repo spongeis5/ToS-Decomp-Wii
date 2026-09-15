@@ -54,6 +54,10 @@ public:
     bool ExitWhenAnimationIsDone;
     bool DontExitBeforeAnimationIsDone;
     bool FastMove;
+
+    bool GetEnableObjectAvoidance() const {
+        return EnableObjectAvoidance;
+    }
 };
 
 class Action_NPC_Flee : public Action_NPC_MoveTo {
@@ -114,6 +118,19 @@ public:
 class Action_NPC_SnapToFloor : public ActionBase {
 public:
     float HeightOffset;
+};
+
+// Event payloads the jump, path-follow, face and teleport actions read: an
+// object's uid, after a move type for a path.
+class EventActionUid {
+public:
+    unsigned long long uid;
+};
+
+class EventActionFollowPath {
+public:
+    eNPCMoveType MoveType;
+    unsigned long long uid;
 };
 
 class EventAny;
@@ -377,6 +394,8 @@ public:
 class zNPCEntity {
 public:
     bool DoesAnimExist(unsigned int animID);
+    xVec3& GetPos() { return model->Mat.pos; }
+    float GetBoundHeight() { return npcBound.extent.y; }
     bool DoesAnimExist(const char* name);
     bool IsAnimationStopped(unsigned int animID);
     void KillVelocity();
@@ -415,6 +434,8 @@ public:
 class zNPCBase {
 public:
     void GetPosition(xVec3& pos);
+    zNPCSteering* GetSteering() { return npcSteering; }
+    bool IsFlying() { return flying; }
 
     unsigned char _pad0[0x71];
     bool infoNodesUpdating : 1;
@@ -497,6 +518,15 @@ public:
     void SetMaxAcc(float acc);
     void SetMaxAcc(const xVec3& acc);
     void SetCustomHeading(zNPCSteeringDest& dest);
+    void SetIgnoreYComponent(bool ignore) { ignoreYComponent = ignore; }
+    void SetSpeedLimitXZ(float limit) { speedLimitXZ = limit; }
+    void SetSpeedLimitY(float limit) { speedLimitY = limit; }
+    // Inline where retail inlines it (Escort's Begin); the out-of-line
+    // SetMaxAcc(float) is the one other callers reach.
+    void SetMaxAccLimits(float acc) {
+        maxAcc = acc;
+        accLimiter.Set(acc, acc, acc);
+    }
 
     zNPCSteering* steering;
     zNPCBase* npcBase;
@@ -549,6 +579,12 @@ public:
 class zNPCSteeringMoveToControl : public zNPCSteeringControl {
 public:
     xVec3* GetReachableDest();
+    void SetArriveToDest(int arrive) { arriveToDest = arrive; }
+    void SetWanderIgnoreY(bool ignore) { wanderData.ignoreY = ignore; }
+    void SetObjectAvoidance(bool enable) {
+        objectAvoidanceData.enabled = enable;
+    }
+    void SetArriveTolerance(float tol) { arriveTolerance2 = tol * tol; }
 
     zWanderData wanderData;
     zAvoidanceData wallAvoidanceData;
@@ -612,6 +648,10 @@ public:
 class zSteeringPathMovePoints : public zSteeringPath {
 public:
     void UpdateToNextMP(const xVec3& pos);
+    void SetCurrMP(xMovePoint* mp, const xVec3& pos) {
+        currMP = mp;
+        UpdateToNextMP(pos);
+    }
     bool IsPathEnd() const;
 
     xMovePoint* currMP;
@@ -692,6 +732,8 @@ class zVariableEventData {
 public:
     zVariableEventData() : eventID(0), dataPointer(0) {}
 
+    unsigned int GetEventID() const { return eventID; }
+
     unsigned int eventID;
     Sext::EventAny* dataPointer;
     char eventDataBuffer[64];
@@ -732,6 +774,15 @@ extern const unsigned int NPC_VAR_PATH_SHIFT_PERCENT;
 // ---------------------------------------------------------------------------
 // The actions
 
+enum eTaskState {
+    eTaskState_Unknown = 0,
+    eTaskState_Running = 1,
+    eTaskState_Suspend = 2,
+    eTaskState_Complete = 3,
+    eTaskState_Fail = 4,
+    eTaskState_Abort = 5
+};
+
 class zNPCBTActionAnim {
 public:
     void Init(const char* name, float blend, float start);
@@ -750,6 +801,7 @@ public:
 class zNPCBTStuckRangeMultiplier {
 public:
     void Update(const xVec3& vel, float dt);
+    bool IsMaxed() const { return curMultiplier == maxMultiplier; }
 
     float stuckVel2;
     float multiplierRate;
@@ -782,6 +834,8 @@ public:
 
 class zNPCBTAction : public zBTAction {
 public:
+    zNPCBase* GetNPCBase() { return npcBase; }
+
     zNPCBase* npcBase;
 };
 
@@ -811,7 +865,7 @@ public:
     void UpdateDestination();
     void UpdateMoveTo(float dt);
     void UpdatePathFinding(float dt);
-    int Update(float dt);
+    eTaskState Update(float dt);
     void End();
     void Cleanup();
 
@@ -838,7 +892,7 @@ public:
                                           const xVec3* pos);
     bool InitializeMPs();
     void Begin();
-    int Update(float dt);
+    eTaskState Update(float dt);
     void End();
 
     xVec3 pathThruDest;
@@ -853,7 +907,7 @@ public:
     void Initialize();
     void Begin();
     void SwitchAnim(const char* name);
-    int Update(float dt);
+    eTaskState Update(float dt);
 
     zNPCSteeringJumpControl jumpControl;
     zNPCBTActionAnim actionAnim;
@@ -884,7 +938,7 @@ public:
     void UpdateDestination();
     void Begin();
     zNPCSteeringEscortControl* SteeringControl();
-    int Update(float dt);
+    eTaskState Update(float dt);
 
     zNPCSteeringEscortControl escortControl;
 };
@@ -901,14 +955,14 @@ class zNPCBTFlutterAction : public zNPCBTMoveToAction {
 public:
     void Begin();
     void UpdateDestination();
-    int Update(float dt);
+    eTaskState Update(float dt);
 };
 
 class zNPCBTFollowProjectileAction : public zNPCBTMoveToAction {
 public:
     void Begin();
     void UpdateDestination();
-    int Update(float dt);
+    eTaskState Update(float dt);
 
     zProjectile* projectile;
 };
@@ -918,7 +972,7 @@ public:
     void Begin();
     bool ArrivedAtMP();
     bool IsStuck();
-    int Update(float dt);
+    eTaskState Update(float dt);
     void End();
 
     zNPCSteeringFollowPathControl followControl;
@@ -940,7 +994,7 @@ class zNPCBTStopAction : public zNPCBTAction {
 public:
     void Setup(const Sext::ActionBase* a);
     void Begin();
-    int Update(float dt);
+    eTaskState Update(float dt);
 
     zNPCSteeringStopControl stopControl;
     int headingCalcType;
@@ -965,7 +1019,7 @@ public:
 class zNPCBTTeleportAction : public zNPCBTAction {
 public:
     void Setup(const Sext::ActionBase* a);
-    int Update(float dt);
+    eTaskState Update(float dt);
 
     xMat4x3 destMat;
     unsigned int destVar;
@@ -976,7 +1030,7 @@ public:
     void Begin();
     void UpdateOrbitDirection(float dt);
     void UpdateOrbitDestination(float dt);
-    int Update(float dt);
+    eTaskState Update(float dt);
 
     zNPCBTActionAnim actionAnim;
     zPlayer* player;
@@ -989,12 +1043,12 @@ public:
 
 class zNPCBTSetFlyingAction : public zNPCBTAction {
 public:
-    int Update(float dt);
+    eTaskState Update(float dt);
 };
 
 class zNPCBTSnapToFloorAction : public zNPCBTAction {
 public:
-    int Update(float dt);
+    eTaskState Update(float dt);
 
     xMat4x3 destMat;
 };
@@ -1003,12 +1057,182 @@ public:
 // zNPCBTPathThruMPsShiftedAction: move to the destination through the move
 // point network, walking each point shifted sideways into its own lane.
 
+#define xmin(a, b) ((a) < (b) ? (a) : (b))
+
+// Whether segments a0-a1 and b0-b1 cross in XZ. Inline in retail: all of it
+// sits on one source line of IsWalkable.
+inline bool SegmentsIntersectXZ(const xVec3& a0, const xVec3& a1,
+                                const xVec3& b0, const xVec3& b1) {
+    float dx = a1.x - a0.x;
+    float dz = a1.z - a0.z;
+    float ex = b1.x - b0.x;
+    float ez = b1.z - b0.z;
+    float denom = dx * ez - dz * ex;
+
+    if (denom == 0.0f) {
+        return false;
+    }
+
+    float sx = a0.x - b0.x;
+    float sz = a0.z - b0.z;
+    float t = (sz * dx - sx * dz) / denom;
+
+    if (t >= 0.0f && t <= 1.0f) {
+        float u = (sz * ex - sx * ez) / denom;
+
+        if (u >= 0.0f && u <= 1.0f) {
+            return true;
+        }
+    }
+
+    return false;
+}
+
+// Walkable: both ends on the same wallnet, and the segment crosses none of
+// its boundary edges.
+// NEAR MISS: 71 of 113 words. The intersection test must be in line:
+// always_inline below, or the helper comes out as an EXTRA copy. What
+// is left: retail re-reads startWN->wallNetAsset at the top of every
+// iteration where ours hoists it out of the loop, and the float
+// temporaries land in other registers. An inline zWallNet member that
+// reads its own asset, nested or flat, gives the same 71 words.
+#pragma push
+#pragma always_inline on
+bool zNPCBTPathThruMPsShiftedAction::IsWalkable(const xVec3* start,
+                                                const xVec3* end) {
+    if (start == 0 || end == 0 || npcBase == 0) {
+        return false;
+    }
+
+    zWallNet* startWN = zIWallNet::FindWallNet(*start, eWallNetUserType_NPC,
+                                               (xBase*)npcBase, 0, true);
+    zWallNet* endWN = zIWallNet::FindWallNet(*end, eWallNetUserType_NPC,
+                                             (xBase*)npcBase, 0, true);
+
+    if (startWN == 0 || endWN == 0) {
+        return false;
+    }
+
+    if (startWN != endWN) {
+        return false;
+    }
+
+    bool intersect = false;
+
+    for (int j = 0; j < startWN->wallNetAsset->numBoundEdges; j++) {
+        if (SegmentsIntersectXZ(
+                *start, *end,
+                startWN->wallNetAsset
+                    ->vertices[startWN->wallNetAsset->edges[j].srcVertex],
+                startWN->wallNetAsset
+                    ->vertices[startWN->wallNetAsset->edges[j].dstVertex])) {
+            intersect = true;
+            break;
+        }
+    }
+
+    return !intersect;
+}
+#pragma pop
+
+xMovePoint* zNPCBTPathThruMPsShiftedAction::NetworkGetClosestWalkable(
+    xMovePoint* network, const xVec3* pos) {
+    xMovePoint* closestWalkable = 0;
+
+    if (network != 0 && pos != 0 && npcBase != 0) {
+        int numberOfMPs = network->NetworkGetNumberOfMPs();
+
+        if (numberOfMPs < 200) {
+            xMovePoint* movePointsArray[200];
+            int movePointsLength =
+                network->NetworkFillMovepoints(movePointsArray, 200);
+            float closestDist2 = 3.4028235e+38f;
+
+            for (int i = 0; i < movePointsLength; i++) {
+                if (IsWalkable(pos, movePointsArray[i]->pos)) {
+                    float dist2 = pos->Distance2XZ(*movePointsArray[i]->pos);
+
+                    if (dist2 < closestDist2) {
+                        closestDist2 = dist2;
+                        closestWalkable = movePointsArray[i];
+                    }
+                }
+            }
+        }
+    }
+
+    return closestWalkable;
+}
+
 void zNPCBTPathThruMPsShiftedAction::Begin() {
     InitializeMPs();
     zNPCBTMoveToAction::Begin();
 }
 
 void zNPCBTPathThruMPsShiftedAction::End() { zNPCBTMoveToAction::End(); }
+
+// On arriving at a move point, step to the next one on the path to the end
+// point -- skipping the last when the destination is already walkable past
+// it -- and aim at its lane-shifted position.
+eTaskState zNPCBTPathThruMPsShiftedAction::Update(float dt) {
+    eTaskState result = zNPCBTMoveToAction::Update(dt);
+
+    if (result == eTaskState_Complete) {
+        if (currentMP != 0) {
+            if (nextMP == endMP) {
+                xVec3 currToNext = *nextMP->pos - *currentMP->pos;
+                xVec3 NextToDest = pathThruDest - *nextMP->pos;
+                float dotXZ = currToNext.x * NextToDest.x +
+                              currToNext.z * NextToDest.z;
+
+                if (dotXZ < 0.0f) {
+                    if (IsWalkable(currentMP->pos, &pathThruDest)) {
+                        nextMP = 0;
+                    }
+                }
+            }
+
+            xMovePoint* prevMP = currentMP;
+
+            currentMP = nextMP;
+
+            if (currentMP != 0) {
+                currentMP->NetworkGetNextOnPath_Null(endMP, nextMP);
+
+                float shiftPercent = 0.0f;
+
+                btClient->blackboard.Read(NPC_VAR_PATH_SHIFT_PERCENT,
+                                          shiftPercent);
+
+                xVec3 npcPos;
+
+                npcBase->GetPosition(npcPos);
+
+                xVec3 mpPos = currentMP->GetPosShifted(
+                    &npcPos, prevMP, &pathThruDest, nextMP, shiftPercent);
+
+                btClient->blackboard.Write(NPC_VAR_CURRENT_DESTINATION, mpPos);
+            } else {
+                btClient->blackboard.Write(NPC_VAR_CURRENT_DESTINATION,
+                                           pathThruDest);
+            }
+
+            if (asset->UsePathFinding) {
+                pathFinder.CancelSearch();
+            }
+
+            updateDestTimer = 0.0f;
+            updatePathTimer = 0.0f;
+            _v10();
+
+            return eTaskState_Running;
+        }
+
+        return eTaskState_Complete;
+    }
+
+    return result;
+}
 
 // ---------------------------------------------------------------------------
 // zNPCBTMoveToAction
@@ -1044,6 +1268,141 @@ zNPCSteeringMoveToControl* zNPCBTMoveToAction::SteeringControl() {
     return &moveToControl;
 }
 
+// NEAR MISS: 8 of 98 words, all in the arrive-tolerance store: retail
+// loads the tolerance before SteeringControl() and squares it after
+// the call, ours squares it first. A tolerance local, the direct
+// product and an inline setter (left out of line: an EXTRA copy) were
+// measured. The stored asset member, not a local, and a local for the
+// control in the last store are what brought it from 81 words to 8.
+void zNPCBTMoveToAction::InitMovement() {
+    asset = (const Sext::Action_NPC_MoveTo*)actionAsset;
+
+    BT_Utility::SetMovementLimits(
+        GetNPCBase(), npcBase->GetSteering(), _v11(),
+        asset->MovementData.MoveType, asset->MovementData.MaxSpeed,
+        asset->MovementData.MaxAcceleration, asset->MovementData.TurningRadius,
+        asset->MovementData.TurnSpring);
+
+    _v11()->headingCalcType = asset->MovementData.Heading;
+    _v11()->arriveTolerance2 = asset->MovementData.ArriveTolerance *
+                               asset->MovementData.ArriveTolerance;
+
+    if (asset->MovementData.Arrive) {
+        _v11()->SetArriveToDest(1);
+    } else {
+        _v11()->SetArriveToDest(0);
+    }
+
+    stuckRangeMultiplier.curMultiplier = 1.0f;
+
+    bool checkForWallNetEdges = asset->CheckForWallNetEdges;
+
+    _v11()->wallAvoidanceData.enabled = checkForWallNetEdges;
+    _v11()->useWallNet = checkForWallNetEdges;
+    npcBase->npcSteering->SetCheckForWallNetEdges(checkForWallNetEdges);
+
+    zNPCSteeringMoveToControl* control = _v11();
+
+    control->objectAvoidanceData.enabled = asset->EnableObjectAvoidance;
+}
+
+// The speeds come from the asset for a custom move type and from the NPC's
+// template otherwise; -1 means "leave it". With a turning radius, the
+// acceleration across the heading is capped at v^2 / r.
+// NEAR MISS: 4 of 82 words. The template pointer is in r3 and the scaled
+// index in r0 where retail has them the other way round; a local, no
+// local and a MoveData reference all give the same bytes.
+void BT_Utility::SetMovementLimits(const zNPCBase* npcBase,
+                                   zNPCSteering* steeringComponent,
+                                   zNPCSteeringControl* control,
+                                   Sext::eNPCMoveType moveType,
+                                   float customMaxSpeed, float customMaxAcc,
+                                   float customTurningRadius,
+                                   float customTurnSpring) {
+    if (control == 0) {
+        return;
+    }
+
+    float maxSpeed = -1.0f;
+    float maxAcc = -1.0f;
+    float turningRadius = -1.0f;
+    float turnSpring = -1.0f;
+
+    if (moveType == Sext::eNPCMoveType_Custom) {
+        maxSpeed = customMaxSpeed;
+        maxAcc = customMaxAcc;
+        turningRadius = customTurningRadius;
+        turnSpring = customTurnSpring;
+    } else {
+        zNPCTemplate* npcTemplate = npcBase->npcTemplate;
+
+        if (npcTemplate != 0) {
+            maxSpeed = npcTemplate->moveData[moveType].maxSpeed;
+            maxAcc = npcTemplate->moveData[moveType].maxAcceleration;
+            turningRadius = npcTemplate->moveData[moveType].turningRadius;
+            turnSpring = npcTemplate->moveData[moveType].turnSpring;
+        }
+    }
+
+    if (maxSpeed > 0.0f) {
+        control->speedLimitXZ = maxSpeed;
+    }
+
+    if (maxAcc > 0.0f) {
+        if (turningRadius > 0.0f) {
+            float turningAcceleration = control->speedLimitXZ;
+
+            turningAcceleration =
+                turningAcceleration * turningAcceleration / turningRadius;
+
+            xVec3 limits;
+
+            limits.x = turningAcceleration;
+            limits.y = maxAcc;
+            limits.z = maxAcc;
+
+            control->SetMaxAcc(limits);
+        } else {
+            control->maxAcc = maxAcc;
+            control->accLimiter.Set(maxAcc, maxAcc, maxAcc);
+        }
+    } else if (turningRadius > 0.0f) {
+        float turningAcceleration = control->speedLimitXZ;
+
+        maxAcc = control->maxAcc;
+        turningAcceleration =
+            turningAcceleration * turningAcceleration / turningRadius;
+
+        xVec3 limits;
+
+        limits.x = turningAcceleration;
+        limits.y = maxAcc;
+        limits.z = maxAcc;
+
+        control->SetMaxAcc(limits);
+    }
+
+    if (turnSpring != -1.0f) {
+        steeringComponent->turnSpringK = turnSpring;
+    }
+}
+
+void zNPCBTMoveToAction::Begin() {
+    actionAnim.SetAnimation(asset->MovementData.MoveType,
+                            asset->MovementData.AnimationName);
+    InitMovement();
+    InitPathFinder();
+    _v10();
+
+    if (npcBase->flying) {
+        _v11()->SetIgnoreYComponent(false);
+        _v11()->SetWanderIgnoreY(false);
+    }
+
+    actionAnim.StartOnNPC(npcBase->npcEntity, false);
+    npcBase->GetSteering()->_s10(_v11());
+}
+
 // Without path finding the destination goes straight to the steering; with
 // it, it is where the path finder is sent.
 void zNPCBTMoveToAction::SetDestination(const xVec3& dest) {
@@ -1054,6 +1413,139 @@ void zNPCBTMoveToAction::SetDestination(const xVec3& dest) {
     }
 }
 
+// Arrived: at the final destination when path finding, and within the NPC's
+// radius plus the tolerance of the reachable destination -- in 3D for a
+// flier (its radius capped by its half height), in XZ otherwise.
+// NEAR MISS: 72 of 98 words. Ours keeps npcBase from the flying test in
+// a saved register across the calls where retail reloads it, and takes
+// the else branch's position after the calls where retail takes it
+// first. Inline position and bound-height accessors, a local for the
+// reachable destination, and GetNPCBase() were measured; none matches.
+bool zNPCBTMoveToAction::IsArrived() {
+    bool isFinalDest = true;
+
+    if (asset->UsePathFinding) {
+        zNPCSteeringMoveToControl* control = _v11();
+
+        isFinalDest = finalDest == *control->destination.pDest;
+    }
+
+    if (!isFinalDest) {
+        return false;
+    }
+
+    if (npcBase->flying) {
+        xVec3 diff;
+
+        diff.Sub(*_v11()->GetReachableDest(),
+                 npcBase->npcEntity->model->Mat.pos);
+
+        float dist2 = diff.length2();
+        float bound = xmin(npcBase->npcEntity->npcBound.GetBoundMinRadiusXZ(),
+                           npcBase->npcEntity->npcBound.extent.y);
+        float arriveTolerance = asset->MovementData.ArriveTolerance;
+
+        if (dist2 < bound * bound + arriveTolerance * arriveTolerance) {
+            return true;
+        }
+    } else {
+        float dist2 = npcBase->npcEntity->model->Mat.pos.Distance2XZ(
+            *_v11()->GetReachableDest());
+        float boundXZ = npcBase->npcEntity->npcBound.GetBoundMinRadiusXZ();
+        float arriveTolerance = asset->MovementData.ArriveTolerance;
+
+        if (dist2 < boundXZ * boundXZ + arriveTolerance * arriveTolerance) {
+            return true;
+        }
+    }
+
+    return false;
+}
+
+// Stuck: still near the destination's radius scaled by the stuck-range
+// multiplier, or the multiplier has run out.
+// NEAR MISS: 99 of 102 words. Retail reuses the loaded multiplier for the
+// equality test but materialises it (mfcr) as a bool; ours does one or
+// the other: an inline IsMaxed() gives the mfcr and loses the reuse
+// (85 of 106), the plain comparison keeps the reuse and branches.
+bool zNPCBTMoveToAction::IsStuck() {
+    xVec3 dest = *_v11()->GetReachableDest();
+
+    if (asset->UsePathFinding && *_v11()->destination.pDest != finalDest) {
+        dest = finalDest;
+    }
+
+    if (npcBase->flying) {
+        xVec3 diff;
+
+        diff.Sub(dest, npcBase->npcEntity->model->Mat.pos);
+
+        float dist2 = diff.length2();
+        float bound = xmin(npcBase->npcEntity->npcBound.GetBoundMinRadiusXZ(),
+                           npcBase->npcEntity->npcBound.extent.y);
+
+        return dist2 < bound * bound * (stuckRangeMultiplier.curMultiplier *
+                                        stuckRangeMultiplier.curMultiplier) ||
+               stuckRangeMultiplier.curMultiplier ==
+                   stuckRangeMultiplier.maxMultiplier;
+    } else {
+        float dist2 = npcBase->npcEntity->model->Mat.pos.Distance2XZ(dest);
+        float boundXZ = npcBase->npcEntity->npcBound.GetBoundMinRadiusXZ();
+
+        return dist2 < boundXZ * boundXZ *
+                           (stuckRangeMultiplier.curMultiplier *
+                            stuckRangeMultiplier.curMultiplier) ||
+               stuckRangeMultiplier.curMultiplier ==
+                   stuckRangeMultiplier.maxMultiplier;
+    }
+}
+
+bool zNPCBTMoveToAction::EvaluatePath() {
+    eNavLinkActionCode newCode;
+    float npcRadius = npcBase->npcEntity->npcBound.GetBoundRadiusXZ();
+
+    pathResult = pathFinder.EvaluatePath(&npcBase->npcEntity->model->Mat.pos,
+                                         &currentDest, npcRadius, &newCode);
+
+    switch (pathResult) {
+    case ePathEvalResult_Searching:
+        return false;
+    case ePathEvalResult_PathEnd:
+        currentDest = finalDest;
+        actionCode = eNavLinkActionCode_None;
+        break;
+    case ePathEvalResult_NoPath_OutsideOfWallNet:
+    case ePathEvalResult_NoPath_NoConnection:
+    case ePathEvalResult_NoPath_InvalidSetup:
+        currentDest = finalDest;
+        actionCode = eNavLinkActionCode_None;
+        break;
+    default:
+        actionCode = newCode;
+        break;
+    }
+
+    return true;
+}
+
+void zNPCBTMoveToAction::UpdateFinalDestination(const xVec3& newDest) {
+    if (updateDestTimer > 0.0f) {
+        return;
+    }
+
+    if (actionCode != eNavLinkActionCode_None) {
+        return;
+    }
+
+    float npcRadius = npcBase->npcEntity->npcBound.GetBoundRadiusXZ();
+
+    finalDest = newDest;
+    pathFinder.FindPath(&npcBase->npcEntity->model->Mat.pos, &finalDest,
+                        npcRadius, eWallNetUserType_NPC);
+    updateDestTimer = 0.5f;
+    updatePathTimer = 2.0f;
+}
+
 void zNPCBTMoveToAction::UpdateDestination() {
     xVec3 dest;
 
@@ -1061,12 +1553,88 @@ void zNPCBTMoveToAction::UpdateDestination() {
     SetDestination(dest);
 }
 
+void zNPCBTMoveToAction::UpdateMoveTo(float dt) {
+    SetMoveToDestination(currentDest);
+
+    if (pathResult != ePathEvalResult_PathEnd) {
+        _v11()->SetArriveToDest(0);
+    } else if (asset->MovementData.Arrive) {
+        _v11()->SetArriveToDest(1);
+    } else {
+        _v11()->SetArriveToDest(0);
+    }
+}
+
+void zNPCBTMoveToAction::UpdatePathFinding(float dt) {
+    if (asset->UsePathFinding) {
+        if (updatePathTimer >= 0.0f) {
+            updatePathTimer -= dt;
+
+            if (updatePathTimer < 0.0f) {
+                float npcRadius =
+                    npcBase->npcEntity->npcBound.GetBoundRadiusXZ();
+
+                pathFinder.FindPath(&npcBase->npcEntity->model->Mat.pos,
+                                    &finalDest, npcRadius,
+                                    eWallNetUserType_NPC);
+                updatePathTimer = 2.0f;
+            }
+        }
+
+        if (updateDestTimer > 0.0f) {
+            updateDestTimer -= dt;
+        }
+
+        __ct__Q24Math8Matrix33Fv(&pathFinder);
+
+        if (EvaluatePath()) {
+            UpdateMoveTo(dt);
+        }
+    }
+}
+
+eTaskState zNPCBTMoveToAction::Update(float dt) {
+    _v10();
+    UpdatePathFinding(dt);
+    npcBase->npcSteering->_s14(dt);
+    stuckRangeMultiplier.Update(npcBase->npcEntity->frame->vel, dt);
+
+    if (asset->ExitWhenAnimationIsDone &&
+        npcBase->npcEntity->IsAnimationStopped(actionAnim.animStateID)) {
+        if (asset->MovementData.StopAtExit) {
+            npcBase->npcEntity->frame->vel = xVec3::m_Null;
+        }
+
+        return eTaskState_Complete;
+    }
+
+    if (endWhenArrived) {
+        if (IsArrived()) {
+            if (asset->MovementData.Arrive || asset->MovementData.StopAtExit) {
+                npcBase->npcEntity->frame->vel = xVec3::m_Null;
+            }
+
+            if (!asset->DontExitBeforeAnimationIsDone ||
+                npcBase->npcEntity->IsAnimationStopped(
+                    actionAnim.animStateID)) {
+                return eTaskState_Complete;
+            }
+        } else if (IsStuck()) {
+            return eTaskState_Fail;
+        }
+    }
+
+    return eTaskState_Running;
+}
+
 void zNPCBTMoveToAction::End() {
     if (asset->UsePathFinding) {
         pathFinder.CancelSearch();
     }
 
-    npcBase->npcSteering->_s11(_v11());
+    zNPCSteering* steering = npcBase->npcSteering;
+
+    steering->_s11(_v11());
 }
 
 void zNPCBTMoveToAction::Cleanup() {
@@ -1089,6 +1657,105 @@ void zNPCBTJumpAction::Initialize() {
     jumpEndAnimName = "JUMP_END";
 }
 
+// The launch uses the asset's XZ speed or its apex height; the destination
+// is a move point named by an event in the asset's variable, or the current
+// destination.
+void zNPCBTJumpAction::Begin() {
+    const Sext::Action_NPC_Jump* asset =
+        (const Sext::Action_NPC_Jump*)actionAsset;
+    bool checkDestination = asset->CheckDestination;
+    bool useLaunchVelXZ = asset->UseLaunchVelXZ;
+    unsigned int destVar = asset->DestinationVariable;
+
+    useJumpStartAnim = npcBase->npcEntity->DoesAnimExist(jumpStartAnimName);
+    useJumpEndAnim = npcBase->npcEntity->DoesAnimExist(jumpEndAnimName);
+
+    if (useJumpStartAnim) {
+        actionAnim.Init(jumpStartAnimName, 0.2f, 0.0f);
+    } else {
+        actionAnim.Init(jumpAnimName, 0.2f, 0.0f);
+    }
+
+    actionAnim.StartOnNPC(npcBase->npcEntity, false);
+
+    if (useLaunchVelXZ) {
+        jumpControl.launchVelXZ = asset->VelocityXZ;
+        jumpControl.useHeight = false;
+    } else {
+        jumpControl.apexHeight = asset->Height;
+        jumpControl.useHeight = true;
+    }
+
+    jumpControl.maxLaunchVelY = asset->MaxVelocityY;
+
+    if (checkDestination) {
+        xVec3 dest;
+
+        if (destVar != 0) {
+            zVariableEventData eventData;
+
+            if (btClient->blackboard.Read(destVar, eventData) &&
+                eventData.eventID == 0x49DA9FC3 && eventData.dataPointer != 0) {
+                xMovePoint* destMP = (xMovePoint*)zSceneFindObject(
+                    ((const Sext::EventActionUid*)eventData.dataPointer)->uid);
+
+                dest = *destMP->pos;
+            } else {
+                btClient->blackboard.Read(NPC_VAR_CURRENT_DESTINATION, dest);
+            }
+        } else {
+            btClient->blackboard.Read(NPC_VAR_CURRENT_DESTINATION, dest);
+        }
+
+        jumpControl.SetDestination(&dest);
+    }
+
+    npcBase->npcSteering->_s10(&jumpControl);
+    jumpState = 0;
+}
+
+// Take-off (after the start animation), airborne until the floor, landing
+// (until the end animation is done).
+eTaskState zNPCBTJumpAction::Update(float dt) {
+    switch (jumpState) {
+    case 0:
+        if (!useJumpStartAnim) {
+            jumpState = 1;
+            break;
+        }
+
+        if (npcBase->npcEntity->IsAnimationStopped(actionAnim.animStateID)) {
+            SwitchAnim(jumpAnimName);
+            jumpState = 1;
+        }
+        break;
+    case 1:
+        if (npcBase->npcEntity->floorCollision) {
+            if (useJumpEndAnim) {
+                SwitchAnim(jumpEndAnimName);
+            }
+
+            jumpState = 2;
+        }
+        break;
+    case 2:
+        npcBase->npcEntity->KillVelocity();
+
+        if (!useJumpEndAnim) {
+            return eTaskState_Complete;
+        }
+
+        if (npcBase->npcEntity->IsAnimationStopped(actionAnim.animStateID)) {
+            return eTaskState_Complete;
+        }
+        break;
+    }
+
+    npcBase->npcSteering->_s14(dt);
+
+    return eTaskState_Running;
+}
+
 void zNPCBTJumpAction::SwitchAnim(const char* name) {
     actionAnim.Init(name, 0.2f, 0.0f);
     actionAnim.StartOnNPC(npcBase->npcEntity, false);
@@ -1098,6 +1765,31 @@ void zNPCBTJumpAction::SwitchAnim(const char* name) {
 // zNPCBTFollowPlayerAction: the player comes from a blackboard variable,
 // re-read whenever the variable changes.
 
+// The player variable is the asset's, or the current player's when the asset
+// names none; the delegate re-reads the player whenever it changes.
+void zNPCBTFollowPlayerAction::Begin() {
+    actionAnim.SetAnimation(asset->MovementData.MoveType,
+                            asset->MovementData.AnimationName);
+    InitMovement();
+    InitPathFinder();
+
+    playerVariable =
+        ((const Sext::Action_NPC_FollowPlayer*)actionAsset)->PlayerVariable != 0
+            ? ((const Sext::Action_NPC_FollowPlayer*)actionAsset)->PlayerVariable
+            : NPC_VAR_CURRENT_PLAYER;
+    UpdatePlayer();
+
+    observer.object = this;
+    observer.func =
+        &Util::DelegateP0<void>::InvokeMember<
+            zNPCBTFollowPlayerAction, &zNPCBTFollowPlayerAction::UpdatePlayer>;
+    btClient->blackboard.RegisterVariableObserver(playerVariable, &observer);
+
+    _v10();
+    npcBase->GetSteering()->_s10(_v11());
+    actionAnim.StartOnNPC(npcBase->npcEntity, false);
+}
+
 void zNPCBTFollowPlayerAction::End() {
     zNPCBTMoveToAction::End();
     btClient->blackboard.UnregisterVariableObserver(playerVariable, &observer);
@@ -1106,6 +1798,29 @@ void zNPCBTFollowPlayerAction::End() {
 void zNPCBTFollowPlayerAction::Cleanup() {
     zNPCBTMoveToAction::Cleanup();
     btClient->blackboard.UnregisterVariableObserver(playerVariable, &observer);
+}
+
+// The first human player found, whatever its distance.
+zPlayer* zNPCBTFollowPlayerAction::GetPlayer() {
+    zPlayer* closestPlayer = 0;
+    float minDist2 = 3.4028235e+38f;
+
+    for (int i = 0; i < xglobals->players.numPlayers; i++) {
+        if (!xglobals->players.playerArray[i]->IsAI()) {
+            xVec3 playerPos = xglobals->players.playerArray[i]->model->Mat.pos;
+            float dist2 =
+                playerPos.Distance2XZ(npcBase->npcEntity->model->Mat.pos);
+
+            if (dist2 < minDist2) {
+                minDist2 = dist2;
+                closestPlayer = xglobals->players.playerArray[i];
+            }
+
+            break;
+        }
+    }
+
+    return closestPlayer;
 }
 
 void zNPCBTFollowPlayerAction::UpdateDestination() {
@@ -1129,12 +1844,139 @@ void zNPCBTEscortAction::UpdateDestination() {
     SetDestination(dest);
 }
 
+void zNPCBTEscortAction::Begin() {
+    actionAnim.SetAnimation(asset->MovementData.MoveType,
+                            asset->MovementData.AnimationName);
+    actionAnim.StartOnNPC(npcBase->npcEntity, false);
+    InitMovement();
+    InitPathFinder();
+    _v10();
+
+    if (npcBase->flying) {
+        _v11()->SetIgnoreYComponent(false);
+        _v11()->SetWanderIgnoreY(false);
+    }
+
+    _v11()->SetSpeedLimitXZ(100.0f);
+    _v11()->SetSpeedLimitY(100.0f);
+    _v11()->SetMaxAccLimits(100.0f);
+    npcBase->GetSteering()->_s10(_v11());
+    endWhenArrived = false;
+}
+
 zNPCSteeringEscortControl* zNPCBTEscortAction::SteeringControl() {
     return &escortControl;
 }
 
-int zNPCBTEscortAction::Update(float dt) {
+eTaskState zNPCBTEscortAction::Update(float dt) {
     return zNPCBTMoveToAction::Update(dt);
+}
+
+// ---------------------------------------------------------------------------
+// zNPCBTFleeAction: away from the flee point, along the flee direction, or
+// away from the nearest human player.
+
+void zNPCBTFleeAction::Begin() {
+    actionAnim.SetAnimation(asset->MovementData.MoveType,
+                            asset->MovementData.AnimationName);
+    InitMovement();
+    InitPathFinder();
+
+    const Sext::Action_NPC_Flee* asset =
+        (const Sext::Action_NPC_Flee*)actionAsset;
+
+    player = 0;
+
+    if (asset->PlayerVariable != 0) {
+        btClient->blackboard.Read(asset->PlayerVariable, player);
+    }
+
+    if (player == 0) {
+        btClient->blackboard.Read(NPC_VAR_CURRENT_PLAYER, player);
+    }
+
+    _v10();
+    actionAnim.StartOnNPC(npcBase->npcEntity, false);
+    npcBase->GetSteering()->_s10(_v11());
+}
+
+void zNPCBTFleeAction::UpdateDestination() {
+    xVec3 dest = xVec3::m_Null;
+    const Sext::Action_NPC_Flee* asset =
+        (const Sext::Action_NPC_Flee*)actionAsset;
+
+    if (asset->UseFleePoint) {
+        btClient->blackboard.Read(NPC_VAR_FLEE_POS, dest);
+    } else if (asset->UseFleeDirection) {
+        xVec3 fleeDir;
+
+        if (btClient->blackboard.Read(NPC_VAR_FLEE_DIR, fleeDir)) {
+            dest.AddScale(npcBase->npcEntity->model->Mat.pos, fleeDir, 20.0f);
+        }
+    } else {
+        if (player == 0) {
+            float minDist2 = 3.4028235e+38f;
+
+            for (int i = 0; i < xglobals->players.numPlayers; i++) {
+                if (!xglobals->players.playerArray[i]->IsAI()) {
+                    float dist2 = xVec3Dist2(
+                        &npcBase->npcEntity->model->Mat.pos,
+                        &xglobals->players.playerArray[i]->model->Mat.pos);
+
+                    if (dist2 < minDist2) {
+                        minDist2 = dist2;
+                        player = xglobals->players.playerArray[i];
+                    }
+                }
+            }
+        }
+
+        xVec3 playerToNPC;
+
+        playerToNPC.Sub(npcBase->npcEntity->model->Mat.pos,
+                        player->model->Mat.pos);
+        playerToNPC.NormalizeSafe();
+        playerToNPC *= 20.0f;
+        dest.Add(npcBase->npcEntity->model->Mat.pos, playerToNPC);
+    }
+
+    SetDestination(dest);
+}
+
+// ---------------------------------------------------------------------------
+// zNPCBTFlutterAction
+
+void zNPCBTFlutterAction::Begin() {
+    actionAnim.SetAnimation(asset->MovementData.MoveType,
+                            asset->MovementData.AnimationName);
+    InitMovement();
+    InitPathFinder();
+
+    zNPCTemplate* npcTemplate = npcBase->npcTemplate;
+
+    if (npcTemplate != 0 && (npcTemplate->templateAsset->flags & 1)) {
+        _v11()->SetIgnoreYComponent(false);
+    }
+
+    _v10();
+    actionAnim.StartOnNPC(npcBase->npcEntity, false);
+    npcBase->GetSteering()->_s10(_v11());
+}
+
+eTaskState zNPCBTFlutterAction::Update(float dt) {
+    npcBase->npcSteering->_s14(dt);
+    UpdatePathFinding(dt);
+    stuckRangeMultiplier.Update(npcBase->npcEntity->frame->vel, dt);
+
+    if (npcBase->npcEntity->IsAnimationStopped(actionAnim.animStateID)) {
+        return eTaskState_Complete;
+    }
+
+    if (IsArrived() || IsStuck()) {
+        _v10();
+    }
+
+    return eTaskState_Running;
 }
 
 // ---------------------------------------------------------------------------
@@ -1163,8 +2005,109 @@ void zNPCBTFollowProjectileAction::UpdateDestination() {
     SetDestination(dest);
 }
 
+eTaskState zNPCBTFollowProjectileAction::Update(float dt) {
+    int projectileID;
+
+    if (!btClient->blackboard.Read(NPC_VAR_CURRENT_PROJECTILE_ID,
+                                   projectileID)) {
+        return eTaskState_Fail;
+    }
+
+    projectile = zProjectileManager::sFindProjectileFromID(projectileID);
+
+    return projectile != 0 ? zNPCBTMoveToAction::Update(dt) : eTaskState_Fail;
+}
+
 // ---------------------------------------------------------------------------
 // zNPCBTPathFollowMPAction
+
+// The path starts at a move point named by an event in the asset's
+// variable (which may also change the move type), the target move point, or
+// the NPC's own.
+void zNPCBTPathFollowMPAction::Begin() {
+    const Sext::Action_NPC_PathFollowMP* asset =
+        (const Sext::Action_NPC_PathFollowMP*)actionAsset;
+
+    arriveTol2 = asset->MovementData.ArriveTolerance *
+                 asset->MovementData.ArriveTolerance;
+
+    unsigned int destVar = asset->MovementVariable;
+    Sext::eNPCMoveType moveType = asset->MovementData.MoveType;
+    xMovePoint* mp = 0;
+
+    if (destVar != 0) {
+        zVariableEventData eventData;
+
+        if (btClient->blackboard.Read(destVar, eventData) &&
+            eventData.eventID == 0x9A75D58B && eventData.dataPointer != 0) {
+            const Sext::EventActionFollowPath* followPathData =
+                (const Sext::EventActionFollowPath*)eventData.dataPointer;
+
+            mp = (xMovePoint*)zSceneFindObject(followPathData->uid);
+            moveType = followPathData->MoveType;
+        } else {
+            btClient->blackboard.Read(NPC_VAR_TARGET_MP, mp);
+        }
+    }
+
+    if (mp == 0) {
+        btClient->blackboard.Read(NPC_VAR_TARGET_MP, mp);
+    }
+
+    if (mp == 0) {
+        mp = npcBase->npcMovePoint;
+    }
+
+    path.SetCurrMP(mp, npcBase->npcEntity->model->Mat.pos);
+    path.SetHalfWidth(0.5f * asset->PathWidth);
+    path.arriveTol2 = asset->MovementData.ArriveTolerance *
+                      asset->MovementData.ArriveTolerance;
+    followControl.path = &path;
+    followControl.wanderData.enabled = true;
+    followControl.wanderData.wanderFOV = 1.0f;
+
+    if (npcBase->flying) {
+        followControl.ignoreYComponent = false;
+        followControl.wanderData.ignoreY = false;
+    }
+
+    BT_Utility::SetMovementLimits(npcBase, npcBase->npcSteering, &followControl,
+                                  moveType, asset->MovementData.MaxSpeed,
+                                  asset->MovementData.MaxAcceleration,
+                                  asset->MovementData.TurningRadius,
+                                  asset->MovementData.TurnSpring);
+    followControl.headingCalcType = asset->MovementData.Heading;
+    actionAnim.SetAnimation(moveType, asset->MovementData.AnimationName);
+    actionAnim.StartOnNPC(npcBase->npcEntity, false);
+    npcBase->npcSteering->_s10(&followControl);
+    stuckRangeMultiplier.curMultiplier = 1.0f;
+}
+
+// Defined above ArrivedAtMP and IsStuck, which retail calls rather than
+// takes in line.
+eTaskState zNPCBTPathFollowMPAction::Update(float dt) {
+    if (path._p4()) {
+        return eTaskState_Fail;
+    }
+
+    if (ArrivedAtMP()) {
+        path.UpdateToNextMP(npcBase->npcEntity->model->Mat.pos);
+    }
+
+    if (path._p4()) {
+        return eTaskState_Complete;
+    }
+
+    npcBase->npcSteering->_s14(dt);
+
+    if (path._p4()) {
+        return eTaskState_Complete;
+    }
+
+    stuckRangeMultiplier.Update(npcBase->npcEntity->frame->vel, dt);
+
+    return IsStuck() ? eTaskState_Fail : eTaskState_Running;
+}
 
 void zSteeringPath::SetHalfWidth(float hw) {
     halfWidth = hw;
@@ -1214,10 +2157,10 @@ void zNPCBTStopAction::Begin() {
     npcBase->npcSteering->_s10(&stopControl);
 }
 
-int zNPCBTStopAction::Update(float dt) {
+eTaskState zNPCBTStopAction::Update(float dt) {
     npcBase->npcSteering->_s14(dt);
 
-    return 1;
+    return eTaskState_Running;
 }
 
 // ---------------------------------------------------------------------------
@@ -1232,6 +2175,44 @@ void zNPCBTFaceFromEventAction::Setup(const Sext::ActionBase* a) {
     acceleration = asset->Acceleration;
 }
 
+// Face along the heading, or towards an object named by an event in the
+// variable; invalid when the event names nothing visible or the animation
+// does not exist.
+void zNPCBTFaceFromEventAction::Begin() {
+    valid = true;
+    stopControl.SetMaxAcc(acceleration);
+    npcBase->npcSteering->_s10(&stopControl);
+
+    if (eventVarID != 0) {
+        zVariableEventData eventData;
+
+        if (btClient->blackboard.Read(eventVarID, eventData)) {
+            if (eventData.GetEventID() == 0x057AE2C7) {
+                stopControl.headingCalcType = 0;
+            } else if (eventData.GetEventID() == 0x7FBBF77F &&
+                       eventData.dataPointer != 0) {
+                stopControl.headingCalcType = 8;
+
+                xBase* faceObject = zSceneFindObject(
+                    ((const Sext::EventActionUid*)eventData.dataPointer)->uid);
+
+                if (faceObject != 0 && (faceObject->baseFlags & 0x20)) {
+                    target.pDest = &faceObject->model->Mat.pos;
+                    stopControl.SetCustomHeading(target);
+                } else {
+                    valid = false;
+                }
+            } else {
+                valid = false;
+            }
+        }
+    }
+
+    valid &= npcBase->npcEntity->DoesAnimExist(animID);
+    actionAnim.Init(animID, 0.2f, 0.0f);
+    actionAnim.StartOnNPC(npcBase->npcEntity, false);
+}
+
 void zNPCBTFaceFromEventAction::End() {
     npcBase->npcSteering->_s11(&stopControl);
 }
@@ -1243,11 +2224,56 @@ void zNPCBTTeleportAction::Setup(const Sext::ActionBase* a) {
     destVar = *(const unsigned int*)a;
 }
 
+// To a move point named by an event in the variable, or to the current
+// destination, keeping the NPC's orientation.
+eTaskState zNPCBTTeleportAction::Update(float dt) {
+    xVec3 currentDest;
+
+    if (destVar != 0) {
+        zVariableEventData eventData;
+
+        if (!btClient->blackboard.Read(destVar, eventData) ||
+            eventData.eventID != 0x6A29EB24 || eventData.dataPointer == 0) {
+            return eTaskState_Fail;
+        }
+
+        xMovePoint* destMP = (xMovePoint*)zSceneFindObject(
+            ((const Sext::EventActionUid*)eventData.dataPointer)->uid);
+
+        currentDest = *destMP->pos;
+    } else {
+        btClient->blackboard.Read(NPC_VAR_CURRENT_DESTINATION, currentDest);
+    }
+
+    destMat = npcBase->npcEntity->model->Mat;
+    destMat.pos = currentDest;
+    npcBase->npcEntity->model->Mat = destMat;
+    npcBase->npcSteering->_s15();
+    npcBase->npcEntity->KillVelocity();
+    npcBase->npcEntity->UpdateWithTeleport(dt);
+
+    return eTaskState_Complete;
+}
+
+// ---------------------------------------------------------------------------
+// zNPCBTOrbitAction
+
+eTaskState zNPCBTOrbitAction::Update(float dt) {
+    npcBase->npcSteering->_s14(dt);
+    UpdateOrbitDirection(dt);
+    UpdateOrbitDestination(dt);
+
+    bool animDone =
+        npcBase->npcEntity->IsAnimationStopped(actionAnim.animStateID);
+
+    return animDone ? eTaskState_Complete : eTaskState_Running;
+}
+
 // ---------------------------------------------------------------------------
 // zNPCBTSetFlyingAction
 
-int zNPCBTSetFlyingAction::Update(float dt) {
+eTaskState zNPCBTSetFlyingAction::Update(float dt) {
     npcBase->flying = *(const bool*)actionAsset;
 
-    return 3;
+    return eTaskState_Complete;
 }

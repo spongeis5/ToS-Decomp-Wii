@@ -102,7 +102,7 @@ EXPECT = {
     "SB/GM/Engine/WAD00_31": (6, 6),
     "SB/GM/Engine/WAD01_19": (3, 3),
     "SB/GM/Engine/WAD02_31": (17, 33),
-    "SB/GM/Engine/WAD02_4": (7, 7),
+    "SB/GM/Engine/WAD02_4": (68, 71),
     "SB/GM/Engine/WAD04_13": (3, 3),
     "SB/NG/Engine/WAD02_37": (19, 19),
     "SB/NG/Source/Engine/IO/VirtualKeyboard/VirtualKeyboard": (2, 2),
@@ -258,7 +258,7 @@ EXPECT = {
     "SB/GM/Engine/Game/zNGLoadingScreen": (2, 2),
     "SB/GM/Engine/Game/zNPCBase": (2, 2),
     "SB/GM/Engine/Game/zNPCCommonBTActions": (56, 60),
-    "SB/GM/Engine/Game/zNPCCommonMovementBTActions": (31, 34),
+    "SB/GM/Engine/Game/zNPCCommonMovementBTActions": (56, 63),
     "SB/GM/Engine/Game/zNPCGenericSpawner": (1, 1),
     "SB/GM/Engine/Game/zNPCGenericSwarm": (2, 2),
     "SB/GM/Engine/Game/zNPCManager": (1, 1),
@@ -284,7 +284,7 @@ EXPECT = {
     "SB/GM/Engine/WAD00_32": (328, 329),
     "SB/GM/Engine/WAD01_13_1": (2, 2),
     "SB/GM/Engine/WAD01_1_1": (123, 127),
-    "SB/GM/Engine/WAD01_28": (473, 486),
+    "SB/GM/Engine/WAD01_28": (501, 526),
     "SB/GM/Engine/WAD01_29": (2, 2),
     "SB/GM/Engine/WAD02_6_1": (3, 3),
     "SB/GM/Engine/WAD03_32_2": (3, 3),
@@ -534,7 +534,8 @@ EXPECT = {
     "SB/GM/Engine/Game/zWallNet": (1, 1),
     "SB/GM/Engine/WAD01_13": (2, 2),
     "SB/GM/Engine/WAD02_11_1": (1, 1),
-    "SB/GM/Engine/Game/zNPCCommonBlackboardBTActions": (26, 34),
+    "SB/GM/Engine/Game/zNPCCommonBlackboardBTActions": (30, 35),
+    "SB/GM/Engine/Game/zNPCCommonBTConditions": (30, 32),
 }
 
 

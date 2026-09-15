@@ -7,18 +7,18 @@ numbers here, which move.
 ## State at time of writing
 
 ```
-Game Code:  80 of 777 files complete  425,340 / 2,116,616 bytes  3,613 / 10,697 fn
-            20.0953% of game code
+Game Code:  80 of 777 files complete  454,248 / 2,116,616 bytes  3,761 / 10,697 fn
+            21.4610% of game code
 
-Of those 3,613 functions, 845 are GENERATED -- machine-recognised
+Of those 3,761 functions, 845 are GENERATED -- machine-recognised
 shapes, not one of which is decompiling. They are real matched
 functions and the offsets and constants are recovered fact, but a
 count of them is not a count of decompiled code. HAND-WRITTEN IS
-2,768, across 270 units and 391,136 bytes, and that is the figure to
+2,916, across 271 units and 420,044 bytes, and that is the figure to
 compare against earlier ones.
 
 Data:       4 unit(s) carry their own, 412 bytes; 134 more could
-All:        8.12% matched              main.dol reproduces byte for byte
+All:        8.56% matched              main.dol reproduces byte for byte
 ```
 
 Every number above is written by `python tools/notes_state.py`,
@@ -5829,3 +5829,61 @@ under more than one name, 0 share an address. There is no spelling that
 reaches it -- the name follows from the type and the type from the
 table -- so the function cannot report MATCH under this check. Worth
 knowing before anyone spends a day on it.
+
+## THE FIRST FUNCTION A FRAGMENT COMPILES, AND FOUR SMALL LEVERS
+
+`zNPCCommonBTConditions` written whole, 30 of 32, and one of the two
+left is a compiler effect nobody had recorded.
+
+**The first function mwcc builds in a file allocates registers
+differently.** `NeedCombatCleanup` and `NeedCombatTargetingCleanup` are
+the same source on two variables; only the first differs, 5 of 17: the
+variable's `lis` comes before `btClient` and `btClient` stays in r3
+instead of r6. Every control read with names (a sweep that prints
+mangled names, since `sweep_src.py`'s short names cannot tell apart two
+functions of one size): swapping the pair moves the miss to whichever
+comes first; moving `Hit` or `LockedPlayerIsHuman` in front moves it onto
+them; moving `Active` or `CounterSuccess` (leaves that load) in front
+makes all of them byte-identical, and so does an unreferenced
+`static int f(const int* p) { return *p; }` (as an EXTRA), where an
+empty `static void f() {}` does not. Inert: the read over two lines, the
+extern declared first, the other flag's variable, `Read<int>` declared
+as an explicit specialization. Neither dummy changes a single row in
+the movement, blackboard or `zNPCCommonBTActions` units. Retail's unity
+build always has functions ahead; a fragment cannot without an extra
+function, so it stays a near miss.
+
+**A float's register follows declaration order, not first assignment.**
+`HitPointCount` with `float hitCount;` declared above `assetHitNumber`
+gets f0 like retail; declared where it is assigned (the DWARF's line),
+f1. 9 of 86 words to 0.
+
+**`p != 0 ? !p->IsAI() : false`**, not `p != 0 && !p->IsAI()`: the `&&`
+builds the bool in r31 (108 B against 96), the conditional gives
+retail's `beq` / `li r3,0` arms. Twice.
+
+**`if (b == false) return false;` keeps a bool guard's arms in source
+order**, where `if (!b)` lets mwcc invert them. `CanSpawn`, 8 of 18 to 0.
+
+**`==` read through an inline subtracts the other way.**
+`p->eName == playerName` spells `subf r0,r3,r0`; retail's `subf r0,r0,r3`
+came only from an inline accessor, `p->GetName() == playerName`, in
+either operand order. A cast, `a - b == 0`, `!(a - b)`, a conditional,
+the line split and the member typed `int` or `unsigned` all stay one word
+off. Both `IsPlayer` conditions.
+
+`IsToLockedPlayerSide` is the four-literal wall again (0.7, -0.7, 0.8,
+-0.8): 107 of 113, the `addis` base the only difference, and padding of
+65 to 262 KB forms the same base.
+
+`tools/vtslot.py` names the function in a vtable slot from main.dol and
+symbols.txt -- a virtual call has no relocation to read -- and refuses to
+answer unless zPlayer's `IsAI` comes back at 428. `__vt__10zNPCCombat`
+52 is `IsDead`. The blackboard unit's comment had cited a
+`tools/vtable.py` that never existed in the repository.
+
+The two agent units the session limit stopped were compared by name
+against HEAD before commit, as were the two BT units: 0 functions lost
+in any, 28 gained in WAD01_28, 61 in WAD02_4 (its first pool header),
+25 in the movement unit, 4 in the blackboard unit. WAD01_28's 16 new
+differing functions carry no notes yet.

@@ -75,7 +75,7 @@ EXPECT = {
     # stayed at 993 byte-identical functions before and after, which is
     # the evidence that nothing was lost -- only re-homed. unitcmp_pins
     # refuses to lower a pin, correctly, so these seven are written here.
-    "SB/GM/Engine/WAD00": (59, 63),
+    "SB/GM/Engine/WAD00": (93, 110),
     "SB/GM/Engine/WAD00_1": (4, 4),
     "SB/GM/Engine/WAD00_2": (7, 7),
     "SB/GM/Engine/WAD01_21": (4, 4),
@@ -225,7 +225,7 @@ EXPECT = {
     "SB/GM/Engine/Game/zNPCUPGeneric": (7, 8),
     "SB/GM/Engine/Core/x/xWMLTypes": (1, 2),
     "SB/GM/Engine/Core/x/xCam": (2, 2),
-    "SB/GM/Engine/Core/x/xEnt": (5, 5),
+    "SB/GM/Engine/Core/x/xEnt": (40, 44),
     "SB/GM/Engine/Core/x/xFX": (1, 1),
     "SB/GM/Engine/Core/x/xLight": (3, 3),
     "SB/GM/Engine/Core/x/xLightEffect": (2, 2),
@@ -241,7 +241,7 @@ EXPECT = {
     "SB/GM/Engine/Game/zBTNodeAction": (1, 1),
     "SB/GM/Engine/Game/zBTNodeDecorator": (1, 1),
     "SB/GM/Engine/Game/zBoardPlayerCharacterProxyCollisionListener": (1, 1),
-    "SB/GM/Engine/Game/zBreakawayPlatform": (3, 3),
+    "SB/GM/Engine/Game/zBreakawayPlatform": (32, 32),
     "SB/GM/Engine/Game/zBungeeBall": (3, 3),
     "SB/GM/Engine/Game/zCamFollow": (2, 2),
     "SB/GM/Engine/Game/zCheckpoint": (3, 3),
@@ -277,7 +277,7 @@ EXPECT = {
     "SB/GM/Engine/Game/zSpringboard": (4, 4),
     "SB/GM/Engine/Game/zTiki": (25, 27),
     "SB/GM/Engine/Game/zTrigger": (1, 1),
-    "SB/GM/Engine/Game/zUI": (2, 2),
+    "SB/GM/Engine/Game/zUI": (20, 22),
     "SB/GM/Engine/Game/zUIGroup": (1, 1),
     "SB/GM/Engine/Game/zUIMgr": (8, 8),
     "SB/GM/Engine/Game/zWallNetPositionXZ": (1, 1),

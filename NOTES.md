@@ -7,18 +7,18 @@ numbers here, which move.
 ## State at time of writing
 
 ```
-Game Code:  80 of 777 files complete  520,316 / 2,116,616 bytes  4,129 / 10,697 fn
-            24.5824% of game code
+Game Code:  80 of 777 files complete  541,436 / 2,116,616 bytes  4,245 / 10,697 fn
+            25.5803% of game code
 
-Of those 4,129 functions, 820 are GENERATED -- machine-recognised
+Of those 4,245 functions, 810 are GENERATED -- machine-recognised
 shapes, not one of which is decompiling. They are real matched
 functions and the offsets and constants are recovered fact, but a
 count of them is not a count of decompiled code. HAND-WRITTEN IS
-3,309, across 282 units and 486,504 bytes, and that is the figure to
+3,435, across 285 units and 507,764 bytes, and that is the figure to
 compare against earlier ones.
 
 Data:       4 unit(s) carry their own, 412 bytes; 134 more could
-All:        9.55% matched              main.dol reproduces byte for byte
+All:        9.86% matched              main.dol reproduces byte for byte
 ```
 
 Every number above is written by `python tools/notes_state.py`,
@@ -6426,3 +6426,395 @@ two-accessor stub: LOST 0, GAINED 35, CHANGED 2.
     with `inline_max_size(2048)` change nothing (436 of 460). ApplyTriggerPhysics
     stays at 377 of 389 with an empty inline call in case 0 and in the dead
     player test, or an unused hkVector4 local in both.
+
+## WAD00 AGAIN: BODIES, GROUND SUPPORT AND THE RAY CAST (59 -> 78 of 88)
+
+Measured with `tools/unitcmp.py SB/GM/Engine/WAD00` through `lsweep.py`, the
+flags of cflags_game, on 2026-09-15. Row counts include EXTRA rows (weak
+copies our object emits that retail does not keep under that name): 88 rows
+are 84 retail functions and four EXTRA copies.
+
+Matched in this batch: both CreateFromCollisionShape overloads,
+CreateFromCollisionShapes, AddRigidBodyToSystem, hkVector4::setAll3,
+xHavok_SetNPCFromCharacterProxyMotion, both xHavok_CheckGroundSupportFrom*
+functions, hkpSurfaceInfo's constructor, GetCharacterProxy, hkStepInfo::set,
+the destructors of TriggerIdentifyingPointCollector, hkpCdPointCollector,
+hkpAllRayHitCollector and three hkArray instances,
+hkpWorldObject::hasProperty and hkVector4::sub4.
+
+What each needed (the control is the variant that differs only in it):
+
+* **A function defined above a caller in a loop is taken in line there.**
+  AddRigidBodyToSystem (524 B) is first in retail's unit, but defined above
+  CreateFromCollisionShapes it was expanded into that function's loop (199
+  words against retail's 87) while the hkTransform overload still called it.
+  Defined below both callers, all three match.
+* **An inline's arguments load z, y, x; a direct call's load x, y, z.** The NPC
+  function builds its up and down vectors with Assign loading x, y, z;
+  through hkVector4Init's inline constructor they loaded z, y, x (11 words).
+  `((Math::Vector4*)&up)->Assign(x, y, z, 0.0f)` matches.
+* **One ConstructVector in the NPC function stayed out of line** (an EXTRA
+  `ConstructVector__FPvfff`, 3 words) with the other in line, and it was not a
+  count: removing the two hkVector4Init expansions, or the in-line velocity
+  getter, left it. An `always_inline` region from the NPC function to the
+  function after it matches. So does loading the position into locals
+  declared z, y, x and calling `__ct__Q24Math6VectorFfff` directly; the
+  region was kept.
+* **The pragma state and the function it reaches.** The region pushed after
+  HavokRayCastStopFilterCollide's closing brace (before the NPC function)
+  still took the ray cast's collector and output constructors in line (no
+  EXTRA copies; 132 differing words against 164 without the region). A
+  region pushed before hkVector4Init's class and popped straight after
+  ConvertGraphicsTransformToHKTransform took hkVector4Init's constructor in
+  line in that function, as one popped a function later did (k6b and k6a,
+  both matching). Recorded as measured, not as a rule.
+* **hkpSurfaceInfo's constructor stores its distance and motion type after its
+  two vector calls**, not first as Havok's initializer list would (28 of 32
+  words with the initializers).
+* **Havok's class allocators.** hkpRigidBody is allocated like
+  hkpPhysicsSystem (the size stored before the null test), class 46
+  ENTITY. hkpCdPointCollector has its own operator delete (8 bytes, class 32
+  AGENT) and hkpAllCdPointCollector its own (0x1A0, AGENT, which the derived
+  trigger collector's destructor also passes). hkArray's is 12 bytes, class
+  24 ARRAY, and is taken in line in the array destructors only when defined
+  in the class (hkThreadMemory moved above hkArray for it); defined out of
+  the class, above or below the destructor, it was called (EXTRA `__dl__`
+  rows, 16 of 28 words).
+* **The array destructor reloads the capacity after the flag test**, which
+  getCapacity() through hkDeallocateChunk gives; the capacity mask shows as
+  `rlwinm r0,r0,0,2,31` for 80-byte elements and folds into the shift for
+  powers of two.
+* **Folded names reached through declarations**: hkpCharacterProxy's
+  getLinearVelocity is `GetGeometry__Q28Graphics13StaticBuilderFv`
+  (`addi r3,r3,16`).
+* **GetCharacterProxy is called and GetCharacterRigidBody taken in line**, so
+  the first is defined at the foot and the second in the class.
+* **AddRigidBodyToSystem tests the id first and holds the same mass test on
+  both sides of it**; the source has the test twice.
+
+Left as they are:
+
+* `__dt__22hkpAllCdPointCollectorFv`, 1 of 28 words: the branch to its hits
+  array's destructor. The linker folded `hkArray<hkpRootCdPoint>`'s
+  destructor onto `hkArray<Math::Matrix43>`'s (both 48-byte elements) and
+  retail's relocation names the latter; ours names the former. Not a source
+  difference.
+* EXTRA rows: `__dt__25hkArray<14hkpRootCdPoint>Fv` (the folded copy above),
+  the two hkInplaceArray destructors (taken in line where they are called,
+  and still emitted), and `__dt__18hkpRayHitCollectorFv`.
+* **NEAR MISS HavokRayCastStopFilterCollide, 92 of 172 words.** The copy of
+  each hit needs hkVector4 to have constructors, the copy constructor through
+  operator= (132 words to 92); with them, ConvertGraphicsTransformToHKTransform
+  needs an always_inline region to keep hkVector4Init's constructor in line.
+  What remains: retail computes `!enabled` as a value (cntlzw/srwi on the
+  hkBool's byte) and merges the `||` into r3, where ours holds a flag in r29,
+  which also swaps the registers of the loop index and the ignored flag.
+  Tried: `== false` through hkBool::operator==(bool) (95 words); the hit
+  default-constructed and assigned (182); the condition held in a bool first,
+  with that assignment (182).
+
+## WAD00: MATCHPHYSICSTORENDEREDMODEL AND HAVOK'S LOCAL ARRAY (78 -> 82 of 94)
+
+Measured with `lsweep.py`/`lshow.py` on `tools/unitcmp.py SB/GM/Engine/WAD00`,
+cflags_game, 2026-09-15, against the tree at 78 of 88. The 94 rows include the
+four EXTRA copies recorded for the ray cast.
+
+Matched: hkLocalArray<Math::Matrix43>'s destructor and hkArray<Math::Matrix43>'s
+destructor, setSize and expandBy. Near misses: MatchPhysicsToRenderedModel
+(185 of 236) and hkLocalArray<Math::Matrix43>'s constructor (8 of 39).
+
+* **A template's members are generated at the end of the file, and there
+  mwcc's auto-inliner does not take a constructor's calls in line.**
+  hkLocalArray<Math::Matrix43>'s constructor and destructor, generated at the
+  end where always_inline is off, called hkArray's constructor,
+  hkThreadMemory::allocateStack and deallocateStack out of line: three EXTRA
+  rows, 37 of 21 and 36 of 30 words (k8a). Explicitly instantiating them inside
+  the tail's always_inline region
+  (`template hkLocalArray<Math::Matrix43>::hkLocalArray(int);` and the
+  destructor's) takes all three in line (k9a: no EXTRA rows).
+* **Where the instantiation sits in the region matters.** At the region's
+  foot, the destructor's operator delete also took deallocateChunkConstSize in
+  line, which retail calls (30 of 38). Instantiated at the region's top, before
+  deallocateChunkConstSize is defined, the destructor matches (k10a, k10b).
+* **Refuted: ending the file with always_inline on**, with IsAnchorBody guarded
+  by dont_inline around its own definition (k9b). Four array destructors broke
+  (30 of 34-35 words) and IsAnchorBody itself (14 of 7, with an EXTRA
+  getUserData).
+* **The object type is dispatched as a switch.** Retail's compare tree is a
+  range test for SHAPE and MULTI_SHAPE, `cmpwi 3; beq`, then out, with the
+  case bodies after the tests; an if/else-if put the shape body first.
+* **The bind matrix is copy-constructed**: retail loads
+  `skins->invBindMat[i]` before the Matrix33 constructor call.
+* **A pointer loop's zero-trip guard.** In retail's own SystemApplyHavok1Param
+  (matched), the loop advancing only `it` enters with a branch to its bottom
+  test, and the loop advancing `it` and `index` together has a `slwi.`/`beq`
+  guard first. Retail's renderable loop in MatchPhysicsToRenderedModel
+  advances two inductions without a guard; ours has one, and neither advancing
+  the index at the foot of the body nor a while loop removed it.
+
+Left as they are:
+
+* **NEAR MISS MatchPhysicsToRenderedModel, 185 of 236 words.** Words 0-51
+  match. From the system case's first load the nonvolatile registers differ
+  (retail: the system r25, the joint count r24, the body count r21, the skins
+  r20, i r19, the placed bodies r18; ours holds one more counter), the stream
+  runs a word long, and the renderable loop keeps its guard. Tried: the type
+  as an if/else-if (219 of 235); i declared before the placed-bodies counter
+  with the index advanced at the loop's foot (186); i declared beside the
+  relative transforms with a while loop (195).
+* **NEAR MISS hkLocalArray<Math::Matrix43>'s constructor, 8 of 39 words.**
+  Retail rounds the size into the register that held capacity * 48 (r5) and
+  loads the stack's current pointer into r6; ours uses r7 and r5. Tried: the
+  size rounded in allocateStack's own parameter (13 of 39); allocateStack
+  called without hkAllocateStack (8 of 39).
+
+## WAD00: MATH AND HAVOK WEAK COPIES, AND THE CONSTRAINT SCALER (82 -> 93 of 110)
+
+Measured with `lsweep.py`/`lshow.py` on `tools/unitcmp.py SB/GM/Engine/WAD00`,
+cflags_game, 2026-09-15, against the tree at 82 of 94, in three batches (92 of
+108, then 93 of 110). The 110 rows include the four EXTRA copies recorded for
+the ray cast. rowdiff against HEAD's file (59 of 63): LOST 0, GAINED 34,
+CHANGED 13.
+
+Matched: Math::Invert (orthogonal hint), Math::Transpose, Matrix33::MakeScale,
+Matrix33::Assign (nine floats), Math::Negate, Math::Mul(Vector4&, const
+Vector4&, float), hkArray<hkpRigidBody*>::indexOf,
+hkThreadMemory::allocateChunkConstSize, hkThreadMemory::constSizeToRow,
+hkVector4::mul4(const hkVector4&) and hkVector4::equals3. Weak copies with no
+caller written here (Negate, the vector Mul, indexOf, allocateChunkConstSize,
+mul4, normalize3, Matrix43::Invert) are defined out of line, indexOf by
+explicit instantiation.
+
+* **Matrix33's assignment is Matrix43's name.** Transpose and MakeScale copy a
+  whole matrix by branching to `__as__Q24Math8Matrix43`: the two classes are
+  the same 48 bytes and the linker kept Matrix43's. Reached by assigning
+  through Matrix43 references.
+* **Loads into saved registers follow declaration order.** MakeScale loads
+  z, y, x into f31, f30, f29 before its call: locals declared z, y, x match;
+  x, y, z is 4 of 31.
+* **A swap's two values named in load order.** Transpose loads a[1][0] then
+  a[0][1] for each pair: with one temporary the first load went to f1 (12 of
+  26); two named values declared in load order put it in f0, as retail has.
+* **Component stores beat Assign** for Negate (Assign: 8 of 13) and the vector
+  Mul (12 of 13). The vector Mul's products came out with their operands
+  swapped through Vector4's operator[] (`a[i] * s` and `s * a[i]` both 4 of
+  13); `o.data.x = a.data.x * s` matches.
+* **FreeList::get returns the head it tested.** allocateChunkConstSize needed
+  the free-list get in line (the tail's always_inline region; outside it an
+  EXTRA get and a saved register, 29 of 25), then retail's shape: the tested
+  head is returned and m_head is read again for its m_next after the count's
+  store (9 of 33 with Havok's `n = m_head; m_head = n->m_next`).
+* **hkVector4::equals3 matches in the tail's always_inline region, above
+  setSub4's and setAll3's definitions**: setAbs4 and the comparison are in
+  line, the two it calls stay calls. Outside the region setAbs4 was called
+  (72 of 32). Absolute values are `(float)__fabs(x)`, the tree's spelling.
+* **`__frsqrte` for hkMath::sqrtInverse**: the (float) of the intrinsic's
+  double is the frsp retail has (NOTES.md's LinkFastSqrt section records the
+  intrinsic).
+* **Explicit data members, not Havok's inline**: normalize3 computed through
+  an inline lengthSquared3() called it out of line (23 of 20).
+* **HK_BREAKPOINT is four asm statements on real registers.**
+  hkThreadMemory::constSizeToRow (280 B) ends a size past every row with
+  `mfmsr r0; ori r3,r0,0x400; mtmsr r3; mtmsr r0` (the MSR's single-step bit
+  set and cleared) before `return -1`. `asm { mfmsr r0 }`, `asm { ori r3, r0,
+  0x400 }`, `asm { mtmsr r3 }`, `asm { mtmsr r0 }` inside the C++ function
+  match on the first compile: LinkFastSqrt.cpp's statement form, here with
+  raw registers instead of register variables. Sixteen `if (size <= N) return
+  row;` tests before it, defined below both chunk functions, which call it.
+* **A vector assigned from an expression, not initialised from it, is built in
+  a temporary and copied.** Matrix43::Invert's rotated position initialised
+  from the sum of three products had the sum built straight into it: no copy,
+  a frame 16 bytes smaller, 43 of 62 words. Declared, then assigned, it gets
+  retail's four lwz/stw pairs and frame, and every instruction is retail's
+  (23 of 70, stack offsets only).
+
+Near misses, each with a note in the source:
+
+* Math::Mul(Matrix33&, ...), 89 differing words (retail 90): retail spills
+  nine inputs into f23-f31 and computes the middle products p1, p2, p4, p3
+  first; ours spills fewer and starts from p9's. Tried: b-first products;
+  named entries; both (each 89).
+* hkVector4::normalize3, 1 of 25 words: fcmpu's operands (the literal first in
+  ours) with the literal on either side, and through lengthSquared3().
+* hkMath::sqrtInverse, 5 of 11 words: retail loads 1.0 first and multiplies
+  the difference by 0.5 * e. Tried: r * e * e (6), r * (e * e) (5), the
+  difference multiplied first (5).
+* Math::Matrix43::Invert (orthonormal hint), 23 of 70 words, three attempts,
+  stack offsets only. CheckHint is asked with a literal 0, not the hint.
+  Retail keeps the first position at sp+8, the rotated vector at +24, the
+  first negation at +40, the second position at +56 and the second negation
+  at +72, with the sums and products above them (+88 to +152); ours puts the
+  second negation, the products and the sums lowest (+8 to +88). Tried: the
+  rotated vector initialised (43 of 62, above); declared then assigned, before
+  or after the position (23 of 70 both); declared at function scope (23 of
+  70).
+* ScaleConstraintBodyAttachSpace, 161 of 311 words, three attempts: 243 of
+  307 as first written; 236 of 308 under always_inline (which also took the
+  ragdoll data's setAngularLimitsTauFactor in line, where it had been an EXTRA
+  copy); 161 of 311 with the vectors of ones as temporaries (xEnt.cpp's
+  `Math::Vector4().Assign(...)`, which moves them below every named local, as
+  retail has them), every constraint type from 0 to 19 listed, and an empty
+  inline call inside each unused test. What still differs:
+  * **mwcc drops a test whose result nothing uses, even around an empty inline
+    call.** Retail keeps two -- the id in the default case (`cmpwi r26,0`,
+    which keeps the id in a saved register) and the twist limit's tau factor
+    against the cone limit's (`fcmpu`) -- and ours has neither, so every saved
+    register after the id is one lower.
+  * **Listing every value from 0 to 19 still gives a compare tree** where
+    retail has a 20-entry jump table, as the xEnt agent found for its switch.
+
+Facts recorded along the way:
+
+* hkpConstraintData's virtual slots are Havok's order
+  (`tools/vtslot.py __vt__24hkpRagdollConstraintData 8..68`): the destructor,
+  getClassType, calcContentStatistics, setMaxLinearImpulse,
+  getMaxLinearImpulse, setBodyToNotify, getNotifiedBodyIndex, isValid, getType
+  (40), getRuntimeInfo, getSolverResults, addInstance, buildJacobian,
+  isBuildJacobianCallbackRequired, buildJacobianCallback, getConstraintInfo
+  (68). Several slots resolve to unrelated names the linker folded onto.
+* ConstraintType, HintOrthogonalEnum and HintOrthonormalEnum are not named
+  types in the DWARF (each lookup says so); the values used are the listings'.
+* The jump table at 0x806B00AC sends constraint type 1 to the hinge case, 7 to
+  the ragdoll, 8 to the stiff spring.
+
+## xENT: AN AGENT UNIT, 5 -> 40 OF 44
+
+Written by an agent working from BRIEF.md; verified by the coordinator on
+2026-09-15 with `tools/unitcmp.py SB/GM/Engine/Core/x/xEnt` (40 of 44
+byte-identical) and `rowdiff.py` against the stub it started from (LOST 0,
+GAINED 35, CHANGED 4), measured again after the coordinator wrapped comments
+and split one line (no change). One of the 40, `__dt__17xEffectAttachIntfFv`,
+is retail's in WAD00_1: xEnt's destructor inlines it and mwcc still emits the
+copy. Matched bytes of this unit's own: 7,056 in 34 functions.
+
+Skipped: xEntInitForType (a load of `memWatermark` in WAD00.cpp's anonymous
+namespace), xEntDebugReset (calls FindAsset through a loaded address, which no
+spelling reproduced: a cast function pointer folded back to `bl`, a
+function-pointer variable was held in r31; its switch also stayed a compare
+chain where retail has a jump table), normalizeFast (fsel/frsqrte with three
+literals, declared only).
+
+Near misses, each noted in the source: DriveCauseMove (8 of 442, register
+ties), xVec3Equals (6 of 36, a register tie), FindAsset (25 of 35, the inlined
+tree walk's register and a dead branch), getProperty (2 of 23, frame
+allocation order).
+
+What the agent measured:
+
+* **A volatile view gives retail's second load**: xEntBeginUpdate and
+  xEntEndUpdate read the model once for the test and again for the call;
+  `*(World::xOGModel* volatile*)&ent->ogModel.data` spells it (the zUIModel.cpp
+  lever).
+* **xEntGetCenterFromAABB**: an inline returning xVec3 from an if/return pair,
+  under always_inline, its result bound to a `const xVec3&` before assigning.
+* **xGetSurface (four arguments)**: the three xVec3 locals declared in reverse,
+  and the float tested implicitly (no `!= 0.0f`).
+* **xEntUpdate**: nested one-expression inline bool helpers, the model pointer
+  declared at the top of the function.
+* **A literal on the left of a float comparison comes out first**:
+  `0.0f != asset->physicsData.mass` matched where retail's fcmpu has the
+  literal first. (normalize3 in WAD00 did not respond to the same change.)
+* **UpdateRagdoll matched on its first compile** with WAD00.cpp's
+  `SystemApplyHavok1Param<const hkVector4&>` declaration.
+* **The first virtual an entity class declares is an override this unit does
+  not define**, so xEnt's vtable stays out of the object, as retail's is.
+* Retail's own duplicated writes are kept: the frame arms of
+  xEntDefaultTranslate and xEntRedoTranslate move the model's matrix again,
+  and DriveCauseMove assigns the model matrix to itself in three arms.
+
+## zBREAKAWAYPLATFORM: AN AGENT UNIT, 3 -> 32 OF 32
+
+Written by an agent working from BRIEF.md; verified by the coordinator on
+2026-09-15 with `tools/unitcmp.py SB/GM/Engine/Game/zBreakawayPlatform` (32 of
+32 byte-identical) and `rowdiff.py` against the stub it started from (LOST 0,
+GAINED 29, CHANGED 0), measured again after the coordinator split
+multi-statement lines (no change). 5,104 bytes in 29 functions: the whole set
+the triage called clear of the walls.
+
+Skipped, each confirmed against the unit's listing: eight functions at the
+four-literal wall (Move 8 literals, UpdateWarn 6, UpdateDisappear 6, Mounted 5,
+SetupReappear 5, UpdateReappear 5, SetupDisappear 4, Update 4); CreateAnimTable,
+DebugReset, Setup and RemoveAnimTable load `animTables` in WAD01.cpp's
+anonymous namespace; Init loads the address of the event wrapper there; the
+wrapper is itself in it.
+
+What the agent measured (its report, `agents/zBreakawayPlatform/report.md`):
+
+* **The first virtual declared decides whether the vtable is emitted**, and
+  with it the in-class weak virtuals it names. With SceneExit (defined here)
+  first, IsAnimated and IsStatic came out and matched; with Init (not defined
+  here) first, neither did.
+* **A model pointer held across a call with no DWARF local needs a real
+  local**: `World::xOGModel* model = ogModel.data;` took Reset from 67
+  differing words to 0 and SetupWarn from 48 to 0. An inline helper taking the
+  model came out of line (EXTRA) instead.
+* **HandleEvent took `SetCollision(true)` in line in a fall-through case**
+  (3 words); defined below HandleEvent, it is called.
+* **ShouldMove keeps two in-line results as flags.** It matched with
+  always_inline, CanMove as `bool ret = false; if (...) ret = true; return
+  ret;`, IsIntact as `return state == 0 || state == 1;`, and nested ifs around
+  a result in ShouldMove. Helpers that are one return expression fold into a
+  single branch chain, as does `bool ret = state <= 1`.
+* **Create:** the platform's in-class constructor stayed out of line until
+  always_inline was put around Create; zSoundAsset's constructor, defined
+  below Create, is called and emitted.
+* **~zCollidable stores the vtable pointer only when it clears the model
+  through an inline member** (`ogModel.SetModel(0)`); `ogModel.data = 0`
+  omits the store, and an extra virtual did not bring it back.
+* **Weak copies with no caller in the fragment** (xVec3Lerp, xcos, the three
+  animation callbacks, ~zCollidable) are defined out of line with global
+  binding, as WAD00.cpp's generated accessors are; unitcmp compares by name.
+* **DriveCauseMove calls xMat4x3Mul twice in a row** in one arm; the source
+  does too.
+
+## zUI: AN AGENT UNIT, 2 -> 20 OF 22
+
+Written by an agent working from BRIEF.md, which reached a usage limit just
+after writing its final report; verified by the coordinator on 2026-09-15 with
+`tools/unitcmp.py SB/GM/Engine/Game/zUI` (20 of 22 byte-identical) and
+`rowdiff.py` against the stub it started from, HEAD's file (LOST 0, GAINED 18,
+CHANGED 2). 3,596 bytes in 18 functions; DoHandleEvent alone is 1,300.
+
+Skipped, each checked by the agent against the unit's listing: DoUpdate,
+Signal, zUI_Init, ResetAllowPadActivationThisFrame, UIEventHandler,
+zUISetCustomSignalHandler and SetAllowPadActivationThisFrame name symbols in
+WAD03.cpp's anonymous namespace (the event wrapper, the signal handler and its
+user, gAllowPortActivationThisFrame); ApplyMotion and DoResetMotion load six
+distinct float literals each.
+
+Near misses, each noted in the source, four attempts each: GetTransform, 2 of
+92 words (the scale's x and z loads swapped; the y load and every register
+match); AutoMenu, 1 of 109 (the pointer-to-member add has its operands the
+other way round, ours `add r4,r4,r0` and retail `add r4,r0,r4`; eight
+spellings of the member read left it).
+
+What the agent measured (its report, `agents/zUI/report.md`), each figure the
+differing words before and after:
+
+* **A result left uninitialised, with a final else assigning it**, keeps
+  CalcAcceleratedDistance's result in f2 with the parameter (30 to 0).
+  Initialised at its declaration it went to f1 and shifted every float
+  register; without the else, 24.
+* **MakeEuler's locals declared z, y, x** (2 to 0).
+* **dont_inline around an inline's DEFINITION** keeps GetNoScaleTransform
+  calling MakeEuler, as retail does (1 to 0). The same region around the
+  caller left Matrix43() out of line instead.
+* **A class's implicit operator= is emitted out of line, and always_inline does
+  not take it in line**: DoInitMotion's State copy matched as an explicit
+  member-wise copy, the three pad bytes a one-member struct so that they
+  block-move (37 to 0).
+* **Math::Vector4 as the DWARF has it, one DataType member**, makes a row copy
+  retail's paired-word block move where four float members copy float by
+  float (GetTransform 107 to 20).
+* **Temporaries as locals of inlines take retail's stack slots.** GetTransform's
+  Mul temporaries declared up front gave slots 40, 24 and 8 (20 to 10); the
+  rotation matrix as a local of an inline (RotateEuler) took slot 56 below
+  parentTransform (10 to 3), where as a function or block local it swapped
+  slots; an inline whose parameters are declared (z, y, x) got y's load right
+  (3 to 2).
+* **A one-pass loop survives only as `while (autoMenuLimit++ < 32)`** (AutoMenu
+  105 to 1): a break, a for loop, an if/else, a goto and a redundant
+  `ui != this` test each let the loop fold away.
+* DoHandleEvent and GetParameterizedMotionTime matched on their first compile.
+  The jump table's anonymous name is masked: unitcmp checks relocation names
+  only on REL24 branches.

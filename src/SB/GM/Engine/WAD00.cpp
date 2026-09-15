@@ -10,14 +10,17 @@
 // out-of-line definitions of what retail has as weak copies with no caller
 // in this unit; they are kept as they were.
 //
-// `#pragma always_inline on` holds in three regions, each measured (NOTES.md,
-// "WAD00"): Cleanup and the function after it, SetMotionType and the
-// function after it, and the weak copies from deallocateChunkConstSize to
-// the generated accessors. On for the whole file it also inlines ordinary
-// members into their callers.
+// `#pragma always_inline on` holds in six regions, each measured (NOTES.md,
+// "WAD00"): ScaleConstraintBodyAttachSpace, Cleanup and the function after
+// it, SetMotionType and the function after it,
+// ConvertGraphicsTransformToHKTransform and the function after it,
+// xHavok_SetNPCFromCharacterProxyMotion and the function after it, and the
+// weak copies from hkLocalArray's destructor to the generated accessors. On
+// for the whole file it also inlines ordinary members into their callers.
 
 class Dummy;
 class hkpRigidBody;
+class hkpRigidBodyCinfo;
 class hkpPhysicsSystem;
 
 typedef unsigned long hkUlong;
@@ -28,7 +31,12 @@ enum hkResult {
 };
 
 enum HK_MEMORY_CLASS {
-    HK_MEMORY_CLASS_MAP = 29
+    HK_MEMORY_CLASS_ARRAY = 24,
+    HK_MEMORY_CLASS_MAP = 29,
+    HK_MEMORY_CLASS_AGENT = 32,
+    HK_MEMORY_CLASS_CONSTRAINT = 45,
+    HK_MEMORY_CLASS_ENTITY = 46,
+    HK_MEMORY_CLASS_WORLD = 48
 };
 
 enum E_HAVOK_COLLIDE_FILTER_LAYER {
@@ -52,13 +60,64 @@ public:
 
 // Weak copies in the image, called out of line: the inlines are defined at
 // the foot of the file, below every caller.
+// Havok's FPU comparison: one bit per component.
+class hkVector4Comparison {
+public:
+    enum Mask {
+        MASK_NONE = 0,
+        MASK_W = 1,
+        MASK_Z = 2,
+        MASK_Y = 4,
+        MASK_X = 8,
+        MASK_XYZ = 14
+    };
+
+    bool allAreSet(Mask m) const { return (m_mask & m) == m; }
+
+    int m_mask;
+};
+
 class hkVector4 {
 public:
+    // Havok's. Through the copy constructor, a class holding a vector is
+    // copied with operator= for it, as HavokRayCastStopFilterCollide's hit is.
+    hkVector4() {}
+    hkVector4(const hkVector4& v) { *this = v; }
+
     void operator=(const hkVector4& v);
     void setZero4();
     void setSub4(const hkVector4& a, const hkVector4& b);
     void mul4(float s);
+    void setAll3(float v);
     float length3() const;
+    void sub4(const hkVector4& a);
+    void mul4(const hkVector4& a);
+    void normalize3();
+    bool equals3(const hkVector4& v, float epsilon) const;
+
+    void setAbs4(const hkVector4& v) {
+        x = (float)__fabs(v.x);
+        y = (float)__fabs(v.y);
+        z = (float)__fabs(v.z);
+        w = (float)__fabs(v.w);
+    }
+
+    hkVector4Comparison compareLessThanEqual4(const hkVector4& a) const {
+        hkVector4Comparison ret;
+        ret.m_mask = ((x <= a.x) ? hkVector4Comparison::MASK_X : hkVector4Comparison::MASK_NONE) |
+                     ((y <= a.y) ? hkVector4Comparison::MASK_Y : hkVector4Comparison::MASK_NONE) |
+                     ((z <= a.z) ? hkVector4Comparison::MASK_Z : hkVector4Comparison::MASK_NONE) |
+                     ((w <= a.w) ? hkVector4Comparison::MASK_W : hkVector4Comparison::MASK_NONE);
+        return ret;
+    }
+
+    void setInterpolate4(const hkVector4& a, const hkVector4& b, float t) {
+        float s = 1.0f - t;
+        x = s * a.x + t * b.x;
+        y = s * a.y + t * b.y;
+        z = s * a.z + t * b.z;
+        w = s * a.w + t * b.w;
+    }
 
     float& operator()(int i) { return (&x)[i]; }
     const float& operator()(int i) const { return (&x)[i]; }
@@ -70,6 +129,11 @@ public:
 };
 
 extern const hkVector4 hkVector4Zero;
+
+class hkMath {
+public:
+    static float sqrtInverse(float r);
+};
 
 class hkMatrix3 {
 public:
@@ -139,10 +203,138 @@ public:
     hkVector4 m_max;
 };
 
+class hkMemory;
+
+class hkThreadMemory {
+public:
+    class FreeElem {
+    public:
+        FreeElem* m_next;
+    };
+
+    class FreeList {
+    public:
+        void put(void* p) {
+            m_numElem++;
+            FreeElem* n = (FreeElem*)p;
+            n->m_next = m_head;
+            m_head = n;
+        }
+
+        // The head tested is the one returned; the count's store comes
+        // between, so the head is read again for its next.
+        void* get() {
+            if (m_head) {
+                FreeElem* n = m_head;
+                m_numElem--;
+                m_head = m_head->m_next;
+                return n;
+            }
+
+            return 0;
+        }
+
+        FreeElem* m_head;
+        int m_numElem;
+    };
+
+    class Stack {
+    public:
+        char* m_current;
+        Stack* m_prev;
+        char* m_base;
+        char* m_end;
+    };
+
+    virtual void* alignedAllocate(int alignment, int nbytes, HK_MEMORY_CLASS cl);
+    virtual void alignedDeallocate(void* p);
+    virtual void setStackArea(void* buf, int nbytes);
+    virtual void releaseCachedMemory();
+    virtual ~hkThreadMemory();
+    virtual void* onStackOverflow(int nbytes);
+    virtual void onStackUnderflow(void* p);
+
+    // Sixteen bytes past the request, rounded down to sixteen: retail's
+    // addi 16 and rlwinm 0,0,27.
+    void* allocateStack(int nbytesin) {
+        int nbytes = (nbytesin + 16) & ~15;
+        char* current = m_stack.m_current;
+        char* next = current + nbytes;
+
+        if (next <= m_stack.m_end) {
+            m_stack.m_current = next;
+            return current;
+        }
+
+        return onStackOverflow(nbytes);
+    }
+
+    void deallocateStack(void* p) {
+        m_stack.m_current = (char*)p;
+
+        if (m_stack.m_current == m_stack.m_base) {
+            onStackUnderflow(p);
+        }
+    }
+
+    static hkThreadMemory& getInstance();
+    static int constSizeToRow(int size);
+
+    void* allocateChunk(int nbytes, HK_MEMORY_CLASS cl);
+    void* allocateChunkConstSize(int nbytes, HK_MEMORY_CLASS cl);
+    void* onRowEmpty(int row, HK_MEMORY_CLASS cl);
+    void deallocateChunk(void* p, int nbytes, HK_MEMORY_CLASS cl);
+    void deallocateChunkConstSize(void* p, int nbytes, HK_MEMORY_CLASS cl);
+    void onRowFull(int row, void* p, HK_MEMORY_CLASS cl);
+
+    hkMemory* m_memory;
+    int m_referenceCount;
+    unsigned char _padC[0x10 - 0xC];
+    Stack m_stack;
+    int m_stackSize;
+    int m_maxNumElemsOnFreeList;
+    FreeList m_free_list[17];
+};
+
+extern hkThreadMemory* hkThreadMemory__s_threadMemoryInstance;
+
+inline hkThreadMemory& hkThreadMemory::getInstance() {
+    return *hkThreadMemory__s_threadMemoryInstance;
+}
+
+class hkArrayUtil {
+public:
+    static hkResult _reserve(void* array, int reqElems, int sizeElem);
+};
+
 template <class T>
 class hkArray {
 public:
+    enum {
+        CAPACITY_MASK = int(0x3FFFFFFF),
+        DONT_DEALLOCATE_FLAG = int(0x80000000)
+    };
+
+    hkArray() : m_data(0), m_size(0), m_capacityAndFlags(DONT_DEALLOCATE_FLAG) {}
+    hkArray(T* buffer, int size, int capacity)
+        : m_data(buffer), m_size(size), m_capacityAndFlags(capacity | DONT_DEALLOCATE_FLAG) {}
+
+    // Defined at the foot, after the collector destructors that call it.
+    ~hkArray();
+
+    void operator delete(void* p) {
+        if (p) {
+            hkThreadMemory::getInstance().deallocateChunkConstSize(p, sizeof(hkArray<T>),
+                                                                   HK_MEMORY_CLASS_ARRAY);
+        }
+    }
+
     int getSize() const { return m_size; }
+    void clear() { m_size = 0; }
+    int indexOf(const T& t, int start = 0, int end = -1) const;
+    void setSize(int n);
+    T* expandBy(int n);
+    int getCapacity() const { return m_capacityAndFlags & CAPACITY_MASK; }
     T* begin() const { return m_data; }
     T* end() const { return m_data + m_size; }
     T& operator[](int i) const { return m_data[i]; }
@@ -166,6 +358,7 @@ public:
     virtual void calcContentStatistics(hkStatisticsCollector* collector,
                                        const hkClass* cls) const;
 
+    void addReference() const;
     void removeReference() const;
     int getReferenceCount() const { return m_referenceCount; }
 
@@ -175,43 +368,6 @@ public:
 
 // ---------------------------------------------------------------------------
 // Havok memory and maps
-
-class hkThreadMemory {
-public:
-    class FreeElem {
-    public:
-        FreeElem* m_next;
-    };
-
-    class FreeList {
-    public:
-        void put(void* p) {
-            m_numElem++;
-            FreeElem* n = (FreeElem*)p;
-            n->m_next = m_head;
-            m_head = n;
-        }
-
-        FreeElem* m_head;
-        int m_numElem;
-    };
-
-    static hkThreadMemory& getInstance();
-    static int constSizeToRow(int size);
-
-    void deallocateChunkConstSize(void* p, int nbytes, HK_MEMORY_CLASS cl);
-    void onRowFull(int row, void* p, HK_MEMORY_CLASS cl);
-
-    unsigned char _pad0[0x24];
-    int m_maxNumElemsOnFreeList;
-    FreeList m_free_list[17];
-};
-
-extern hkThreadMemory* hkThreadMemory__s_threadMemoryInstance;
-
-inline hkThreadMemory& hkThreadMemory::getInstance() {
-    return *hkThreadMemory__s_threadMemoryInstance;
-}
 
 template <class K, class V>
 class hkPointerMapOperations {};
@@ -266,8 +422,12 @@ public:
 // ---------------------------------------------------------------------------
 // Havok bodies
 
-class hkpGroupFilter {
+class hkpCollisionFilter : public hkReferencedObject {};
+
+class hkpGroupFilter : public hkpCollisionFilter {
 public:
+    hkBool isCollisionEnabled(unsigned int infoA, unsigned int infoB) const;
+
     static int getLayerFromFilterInfo(unsigned int info) { return info & 0x1F; }
     static int getSystemGroupFromFilterInfo(unsigned int info) { return info >> 16; }
     static int getSubSystemIdFromFilterInfo(unsigned int info) {
@@ -297,6 +457,11 @@ public:
     // Multithreading checks, compiled out.
     void markForWrite() {}
     void unmarkForWrite() {}
+
+    const hkpCollisionFilter* getCollisionFilter() const { return m_collisionFilter; }
+
+    unsigned char _pad0[0x78];
+    hkpCollisionFilter* m_collisionFilter;
 };
 
 hkpWorld* xHavok_GetWorld();
@@ -378,13 +543,38 @@ public:
 
 class hkpCollidable : public hkpCdBody {
 public:
-    unsigned char _pad4[0x1C - 0x4];
+    void* getOwner() const { return (void*)((char*)this + m_ownerOffset); }
+    unsigned int getCollisionFilterInfo() const { return m_collisionFilterInfo; }
+
+    unsigned char _pad4[0x10 - 0x4];
+    signed char m_ownerOffset;
+    unsigned char _pad11[0x1C - 0x11];
     // m_broadPhaseHandle's
     unsigned int m_collisionFilterInfo;
 };
 
+class hkpPropertyValue {
+public:
+    unsigned long long m_data;
+};
+
+class hkpProperty {
+public:
+    unsigned int m_key;
+    unsigned int m_alignmentPadding;
+    hkpPropertyValue m_value;
+};
+
 class hkpWorldObject : public hkReferencedObject {
 public:
+    enum MtChecks {
+        MULTI_THREADING_CHECKS_ENABLE = 0,
+        MULTI_THREADING_CHECKS_IGNORE = 1
+    };
+
+    bool hasProperty(unsigned int key,
+                     MtChecks mtCheck = MULTI_THREADING_CHECKS_ENABLE) const;
+
     hkpWorld* getWorld() const { return m_world; }
     hkUlong getUserData() const { return m_userData; }
     void setUserData(hkUlong data) { m_userData = data; }
@@ -397,7 +587,9 @@ public:
     hkpWorld* m_world;
     hkUlong m_userData;
     hkpCollidable m_collidable;
-    unsigned char _pad30[0x88 - 0x30];
+    unsigned char _pad30[0x78 - 0x30];
+    hkArray<hkpProperty> m_properties;
+    hkReferencedObject* m_aiData;
 };
 
 // The slots are the image's (tools/vtslot.py __vt__16hkpMaxSizeMotion); the
@@ -469,10 +661,23 @@ public:
     hkpMaterial m_material;
     unsigned char _pad94[0xE0 - 0x94];
     hkpMotion m_motion;
+    // The rest of the entity's motion, and its members after it: the body
+    // AddRigidBodyToSystem allocates is 0x220 bytes.
+    unsigned char _pad1A0[0x220 - 0x1A0];
 };
 
 class hkpRigidBody : public hkpEntity {
 public:
+    // Havok's class allocator, as hkpPhysicsSystem's below.
+    void* operator new(unsigned long nbytes) {
+        hkReferencedObject* b = (hkReferencedObject*)hkThreadMemory::getInstance().allocateChunk(
+            (int)nbytes, HK_MEMORY_CLASS_ENTITY);
+        b->m_memSizeAndFlags = (unsigned short)nbytes;
+        return b;
+    }
+
+    hkpRigidBody(const hkpRigidBodyCinfo& info);
+
     void setTransform(const hkTransform& transform);
     void setFriction(float friction, float scale);
     void setMass(float m);
@@ -495,34 +700,312 @@ public:
     void setAngularDamping(float value);
 };
 
+typedef char _size_hkpRigidBody[(sizeof(hkpRigidBody) == 0x220) ? 1 : -1];
+
 void xHavok_UpdateRigidBodyMotion(hkpRigidBody* body, const hkVector4& pos,
                                   const hkQuaternion& rot, float dt);
+
+class hkpCdPoint;
+
+class hkpCdPointCollector {
+public:
+    void operator delete(void* p) {
+        if (p) {
+            hkThreadMemory::getInstance().deallocateChunkConstSize(
+                p, sizeof(hkpCdPointCollector), HK_MEMORY_CLASS_AGENT);
+        }
+    }
+
+    virtual ~hkpCdPointCollector() {}
+    virtual void addCdPoint(const hkpCdPoint& point) = 0;
+    virtual void reset();
+
+    float m_earlyOutDistance;
+};
+
+class hkContactPoint {
+public:
+    hkVector4 m_position;
+    hkVector4 m_separatingNormal;
+};
+
+class hkpRootCdPoint {
+public:
+    hkContactPoint m_contact;
+    const hkpCollidable* m_rootCollidableA;
+    unsigned int m_shapeKeyA;
+    const hkpCollidable* m_rootCollidableB;
+    unsigned int m_shapeKeyB;
+};
+
+template <class T, int N>
+class hkInplaceArray : public hkArray<T> {
+public:
+    hkInplaceArray(int size = 0) : hkArray<T>(m_storage, size, N) {}
+    ~hkInplaceArray() {}
+
+    T m_storage[N];
+};
+
+template <class T>
+class hkLocalArray : public hkArray<T> {
+public:
+    void operator delete(void* p) {
+        if (p) {
+            hkThreadMemory::getInstance().deallocateChunkConstSize(p, sizeof(hkLocalArray<T>),
+                                                                   HK_MEMORY_CLASS_ARRAY);
+        }
+    }
+
+    // Defined at the foot: retail calls both.
+    hkLocalArray(int capacity);
+    ~hkLocalArray();
+
+    T* m_localMemory;
+};
+
+class hkpAllCdPointCollector : public hkpCdPointCollector {
+public:
+    // Its size, not the size of the class deleted: the destructors of the
+    // collectors derived from it pass 0x1A0 too.
+    void operator delete(void* p) {
+        if (p) {
+            hkThreadMemory::getInstance().deallocateChunkConstSize(
+                p, sizeof(hkpAllCdPointCollector), HK_MEMORY_CLASS_AGENT);
+        }
+    }
+
+    hkpAllCdPointCollector();
+    virtual ~hkpAllCdPointCollector();
+    virtual void addCdPoint(const hkpCdPoint& point);
+    virtual void reset();
+
+    hkInplaceArray<hkpRootCdPoint, 8> m_hits;
+};
+
+typedef char _size_hkpAllCdPointCollector[(sizeof(hkpAllCdPointCollector) == 0x1A0) ? 1 : -1];
+
+class hkpWorldObject;
+
+class TriggerIdentifyingPointCollector : public hkpAllCdPointCollector {
+public:
+    TriggerIdentifyingPointCollector();
+    virtual ~TriggerIdentifyingPointCollector();
+
+    hkArray<hkpWorldObject*> m_objectsWeHit;
+    hkArray<hkContactPoint> m_contacts;
+};
+
+typedef char _size_TriggerIdentifyingPointCollector[
+    (sizeof(TriggerIdentifyingPointCollector) == 0x1C0) ? 1 : -1];
+
+class hkpShapeRayCastCollectorOutput {
+public:
+    hkpShapeRayCastCollectorOutput() { reset(); }
+
+    void reset() {
+        m_hitFraction = 1.0f;
+        m_extraInfo = -1;
+    }
+
+    hkVector4 m_normal;
+    float m_hitFraction;
+    int m_extraInfo;
+    int m_pad[2];
+};
+
+class hkpShapeRayCastOutput : public hkpShapeRayCastCollectorOutput {
+public:
+    hkpShapeRayCastOutput() { _reset(); }
+
+    void reset() {
+        hkpShapeRayCastCollectorOutput::reset();
+        _reset();
+    }
+
+    void _reset() {
+        m_shapeKeyIndex = 0;
+        m_shapeKeys[0] = (unsigned int)-1;  // HK_INVALID_SHAPE_KEY
+    }
+
+    unsigned int m_shapeKeys[8];
+    int m_shapeKeyIndex;
+};
+
+class hkpWorldRayCastOutput : public hkpShapeRayCastOutput {
+public:
+    hkpWorldRayCastOutput() { reset(); }
+
+    void reset() {
+        hkpShapeRayCastOutput::reset();
+        m_rootCollidable = 0;
+    }
+
+    const hkpCollidable* m_rootCollidable;
+};
+
+typedef char _size_hkpWorldRayCastOutput[(sizeof(hkpWorldRayCastOutput) == 0x50) ? 1 : -1];
+
+class hkpRayHitCollector {
+public:
+    hkpRayHitCollector() { reset(); }
+
+    virtual void addRayHit(const hkpCdBody& cdBody,
+                           const hkpShapeRayCastCollectorOutput& hitInfo) = 0;
+    virtual ~hkpRayHitCollector() {}
+
+    void reset() { m_earlyOutHitFraction = 1.0f; }
+
+    float m_earlyOutHitFraction;
+};
+
+class hkpAllRayHitCollector : public hkpRayHitCollector {
+public:
+    hkpAllRayHitCollector() { reset(); }
+    virtual ~hkpAllRayHitCollector();
+
+    const hkArray<hkpWorldRayCastOutput>& getHits() const { return m_hits; }
+    void sortHits();
+
+    void reset() {
+        m_hits.clear();
+        hkpRayHitCollector::reset();
+    }
+
+    virtual void addRayHit(const hkpCdBody& cdBody,
+                           const hkpShapeRayCastCollectorOutput& hitInfo);
+
+    hkInplaceArray<hkpWorldRayCastOutput, 8> m_hits;
+};
+
+typedef char _size_hkpAllRayHitCollector[(sizeof(hkpAllRayHitCollector) == 0x2A0) ? 1 : -1];
+
+class hkpSurfaceInfo {
+public:
+    enum SupportedState {
+        UNSUPPORTED = 0,
+        SLIDING = 1,
+        SUPPORTED = 2
+    };
+
+    hkpSurfaceInfo();
+
+    SupportedState m_supportedState;
+    hkVector4 m_surfaceNormal;
+    hkVector4 m_surfaceVelocity;
+    float m_surfaceDistance;
+    hkpMotion::MotionType m_surfaceMotionType;
+};
+
+typedef char _size_hkpSurfaceInfo[(sizeof(hkpSurfaceInfo) == 0x40) ? 1 : -1];
+
+template <class T>
+class hkPadSpu {
+public:
+    void operator=(T x) { m_storage = x; }
+    operator T() const { return m_storage; }
+
+    T m_storage;
+};
+
+class hkStepInfo {
+public:
+    void set(float startTime, float endTime);
+
+    hkPadSpu<float> m_startTime;
+    hkPadSpu<float> m_endTime;
+    hkPadSpu<float> m_deltaTime;
+    hkPadSpu<float> m_invDeltaTime;
+};
+
+class hkpCharacterProxy;
+
+// hkpCharacterProxy::getLinearVelocity, which hands back the address of its
+// velocity (addi r3, r3, 16): the linker folded it onto
+// Graphics::StaticBuilder::GetGeometry, the name retail branches to.
+extern "C" const hkVector4* GetGeometry__Q28Graphics13StaticBuilderFv(
+    const hkpCharacterProxy* proxy);
 
 class hkpCharacterProxy {
 public:
     const hkVector4& getPosition() const;
+    const hkVector4& getLinearVelocity() const {
+        return *GetGeometry__Q28Graphics13StaticBuilderFv(this);
+    }
+    void checkSupport(const hkVector4& direction, hkpSurfaceInfo& ground);
+    void checkSupportWithCollector(const hkVector4& direction, hkpSurfaceInfo& ground,
+                                   hkpAllCdPointCollector& startPointCollector);
 };
 
 class hkpCharacterRigidBody {
 public:
     const hkVector4& getPosition() const;
     const hkVector4& getLinearVelocity() const;
+    void checkSupport(const hkStepInfo& stepInfo, hkpSurfaceInfo& ground) const;
+    void checkSupport(const hkStepInfo& stepInfo, hkpSurfaceInfo& ground,
+                      hkpCdPointCollector* startPointCollector) const;
+};
+
+enum ControllerType {
+    NONE = 0,
+    PROXY = 1,
+    RIGID_BODY = 2
+};
+
+// GetCharacterProxy is called, GetCharacterRigidBody taken in line: the
+// first is defined at the foot.
+class xHavokCharacterController {
+public:
+    hkpCharacterProxy* GetCharacterProxy() const;
+    hkpCharacterRigidBody* GetCharacterRigidBody() const {
+        return controllerType == RIGID_BODY ? characterRigidBody : 0;
+    }
+
+    union {
+        hkpCharacterProxy* characterProxy;
+        hkpCharacterRigidBody* characterRigidBody;
+    };
+    ControllerType controllerType;
 };
 
 class hkpPhysicsSystem : public hkReferencedObject {
 public:
+    // Havok's class allocator: the chunk's size goes into m_memSizeAndFlags
+    // before the object is constructed.
+    void* operator new(unsigned long nbytes) {
+        hkReferencedObject* b = (hkReferencedObject*)hkThreadMemory::getInstance().allocateChunk(
+            (int)nbytes, HK_MEMORY_CLASS_WORLD);
+        b->m_memSizeAndFlags = (unsigned short)nbytes;
+        return b;
+    }
+
+    hkpPhysicsSystem();
+
+    void addRigidBody(hkpRigidBody* body);
+
     const hkArray<hkpRigidBody*>& getRigidBodies() const { return m_rigidBodies; }
 
     hkArray<hkpRigidBody*> m_rigidBodies;
+    // m_constraints, m_actions, m_phantoms, m_name, m_userData, m_active
+    unsigned char _pad14[0x44 - 0x14];
 };
+
+typedef char _size_hkpPhysicsSystem[(sizeof(hkpPhysicsSystem) == 0x44) ? 1 : -1];
 
 // ---------------------------------------------------------------------------
 // Math
 
 namespace Math {
 
+// Not a named type in the DWARF; retail passes 0.
+enum HintOrthonormalEnum {};
+
 class Vector4 {
 public:
+    Vector4() {}
+
+    operator const hkVector4&() const { return *(const hkVector4*)this; }
+
     class DataType {
     public:
         float x;
@@ -531,7 +1014,7 @@ public:
         float w;
     };
 
-    void Assign(float x, float y, float z, float w);
+    Vector4& Assign(float x, float y, float z, float w);
 
     float& operator[](int i) { return ((float*)&data)[i]; }
     const float& operator[](int i) const { return ((float*)&data)[i]; }
@@ -561,6 +1044,11 @@ public:
     void SetRowInternal(int row, float x, float y, float z);
     Vector GetRowInternal(int row) const;
     Quaternion GetQuaternion() const;
+    Vector GetRecipScaleSqr() const;
+    int CheckHint(HintOrthonormalEnum hint) const;
+    void MakeScale(const Vector& scale);
+    void Assign(float x0, float y0, float z0, float x1, float y1, float z1, float x2,
+                float y2, float z2);
 
     Vector4 v[3];
 };
@@ -575,6 +1063,7 @@ public:
                 float x2, float y2, float z2, float x3, float y3, float z3);
     void SetPos(const Vector& pos);
     void MakeQuaternion(const Quaternion& q);
+    void Invert(HintOrthonormalEnum hint);
 };
 
 extern Matrix43 _matIdentity;
@@ -583,6 +1072,35 @@ void Orthonormalize(Matrix43& o, const Matrix43& a);
 void Normalize(Matrix43& o, const Matrix43& a);
 void Slerp(Quaternion& o, const Quaternion& a, const Quaternion& b, float t);
 void Add(Vector& o, const Vector& a, const Vector& b);
+
+// Not a named type in the DWARF; retail passes 0, and no enumerator name is
+// known.
+enum HintOrthogonalEnum {};
+void Invert(Matrix43& o, const Matrix43& a, HintOrthogonalEnum hint);
+void Transpose(Matrix33& o, const Matrix33& a);
+void Mul(Matrix33& o, const Matrix33& a, const Matrix33& b);
+void Negate(Vector4& o, const Vector4& a);
+void Mul(Vector4& o, const Vector4& a, float s);
+
+extern Matrix43 _matZero;
+
+inline Vector operator*(const Vector4& a, float s) {
+    Vector r;
+    Mul(r, a, s);
+    return r;
+}
+
+inline Vector operator+(const Vector& a, const Vector& b) {
+    Vector r;
+    Add(r, a, b);
+    return r;
+}
+
+inline Vector operator-(const Vector& a) {
+    Vector r;
+    Negate(r, a);
+    return r;
+}
 
 inline void Lerp(Vector4& o, const Vector4& a, const Vector4& b, float t) {
     float s = 1.0f - t;
@@ -597,6 +1115,8 @@ inline void Lerp(Vector4& o, const Vector4& a, const Vector4& b, float t) {
 
 extern "C" void PSMTXConcat(const Math::Matrix43* a, const Math::Matrix43* b,
                             Math::Matrix43* ab);
+extern "C" void PSMTXMultVecSR(const Math::Matrix43* m, const Math::Vector* src,
+                               Math::Vector* dst);
 
 namespace Math {
 
@@ -621,6 +1141,7 @@ public:
 
 namespace Globals {
 extern float dt;
+extern unsigned int updateFrameNumber;
 }  // namespace Globals
 
 // Retail writes an xVec3 by branching to Math::Vector's constructor with the
@@ -654,6 +1175,58 @@ void xMat4x3ToNGMatrix(Math::Matrix43* out, const xMat4x3* in);
 // ---------------------------------------------------------------------------
 // The engine's side
 
+namespace Graphics {
+
+// The members this file reads, at the DWARF's offsets.
+class SkinCluster {
+public:
+    unsigned char _pad0[0x8];
+    Math::Matrix43* invBindMat;
+};
+
+class Skeleton {
+public:
+    unsigned char _pad0[0x24];
+    SkinCluster* skins;
+    int skinCount;
+    int skinJointTotal;
+};
+
+class ModelPrototype {
+public:
+    unsigned char _pad0[0x38];
+    Skeleton* skeleton;
+};
+
+class ModelJointBuffer {
+public:
+    Math::Matrix43* data;
+    ModelJointBuffer* next;
+    unsigned int updateFrame;
+};
+
+class Model {
+public:
+    void CalcWorldChildTransforms(Math::Matrix43* childTransformsOut) const;
+
+    Math::Matrix43 rootTransform;
+    unsigned short visibleCount;
+    unsigned short childTransformCount;
+    unsigned short renderableCount;
+    unsigned short renderCustomizerCount;
+    void* renderables;
+    void* xforms;
+    ModelJointBuffer* joints;
+    void* morphWeights;
+    ModelPrototype* modelProto;
+    void* geoms;
+    Math::Matrix43* childTransforms;
+    unsigned short* childTransformParents;
+    unsigned short* renderableTransformMap;
+};
+
+}  // namespace Graphics
+
 namespace World {
 
 class ModelPrototypeEntity;
@@ -667,11 +1240,373 @@ class xOGModel {
 public:
     ModelPrototypeEntity* GetPrototype() const;
 
-    unsigned char _pad0[0xDC];
+    // xModelInstance's, first in it
+    xMat4x3 Mat;
+    unsigned char _pad40[0xDC - 0x40];
     ModelPrototypeEntity* protoEnt;
 };
 
+class xOGModelRefPtr;
+
+class xOGModelRef {
+public:
+    xOGModel* data;
+    xOGModelRefPtr* autoptr;
+};
+
+class xOGModelHandle : public xOGModelRef {};
+
 }  // namespace World
+
+// The members of an entity this file reads, at the DWARF's offsets.
+class xEntFrame {
+public:
+    xMat4x3 oldmat;
+    unsigned char _pad40[0x88 - 0x40];
+    xVec3 vel;
+};
+
+class xEnt {
+public:
+    unsigned char _pad0[0x34];
+    World::xOGModelHandle ogModel;
+    unsigned char _pad3C[0x58 - 0x3C];
+    xEntFrame* frame;
+};
+
+class zNPCEntity : public xEnt {};
+
+enum hkpCollidableQualityType {
+    HK_COLLIDABLE_QUALITY_INVALID = -1,
+    HK_COLLIDABLE_QUALITY_FIXED = 0,
+    HK_COLLIDABLE_QUALITY_KEYFRAMED = 1,
+    HK_COLLIDABLE_QUALITY_DEBRIS = 2,
+    HK_COLLIDABLE_QUALITY_DEBRIS_SIMPLE_TOI = 3,
+    HK_COLLIDABLE_QUALITY_MOVING = 4,
+    HK_COLLIDABLE_QUALITY_CRITICAL = 5,
+    HK_COLLIDABLE_QUALITY_BULLET = 6,
+    HK_COLLIDABLE_QUALITY_USER = 7,
+    HK_COLLIDABLE_QUALITY_CHARACTER = 8,
+    HK_COLLIDABLE_QUALITY_KEYFRAMED_REPORTING = 9,
+    HK_COLLIDABLE_QUALITY_MAX = 10
+};
+
+template <class ENUM, class STORAGE>
+class hkEnum {
+public:
+    void operator=(ENUM e) { m_storage = (STORAGE)e; }
+
+    STORAGE m_storage;
+};
+
+class hkLocalFrame;
+
+class hkpRigidBodyCinfo {
+public:
+    hkpRigidBodyCinfo();
+
+    unsigned int m_collisionFilterInfo;
+    hkpShape* m_shape;
+    hkLocalFrame* m_localFrame;
+    signed char m_collisionResponse;
+    unsigned short m_processContactCallbackDelay;
+    hkVector4 m_position;
+    hkQuaternion m_rotation;
+    hkVector4 m_linearVelocity;
+    hkVector4 m_angularVelocity;
+    hkMatrix3 m_inertiaTensor;
+    hkVector4 m_centerOfMass;
+    float m_mass;
+    float m_linearDamping;
+    float m_angularDamping;
+    float m_gravityFactor;
+    float m_friction;
+    float m_restitution;
+    float m_maxLinearVelocity;
+    float m_maxAngularVelocity;
+    float m_allowedPenetrationDepth;
+    hkEnum<hkpMotion::MotionType, signed char> m_motionType;
+    signed char m_rigidBodyDeactivatorType;
+    signed char m_solverDeactivation;
+    hkEnum<hkpCollidableQualityType, signed char> m_qualityType;
+    signed char m_autoRemoveLevel;
+    signed char m_numUserDatasInContactPointProperties;
+    hkBool m_forceCollideOntoPpu;
+};
+
+typedef char _size_hkpRigidBodyCinfo[(sizeof(hkpRigidBodyCinfo) == 0xC0) ? 1 : -1];
+
+class CHavokShapeBuilder {
+public:
+    hkpShape* getShape(const hkpShape* shape, const hkVector4& scale);
+};
+
+template <class T>
+class hkSingleton {
+public:
+    static T& getInstance() { return *s_instance; }
+
+    static T* s_instance;
+};
+
+class hkpInertiaTensorComputer {
+public:
+    static void setShapeVolumeMassProperties(const hkpShape* shape, float mass,
+                                             hkpRigidBodyCinfo& bodyInfo);
+};
+
+// ---------------------------------------------------------------------------
+// Havok constraints: the members ScaleConstraintBodyAttachSpace reads, at the
+// DWARF's offsets.
+
+// A debug check compiled to nothing: its test stays in the listing, its
+// branch does not.
+inline void DebugCheck() {}
+
+class hkpConstraintInstance;
+class hkpConstraintRuntime;
+class hkpSolverResults;
+class hkpConstraintQueryIn;
+class hkpConstraintQueryOut;
+class hkpConstraintMotor;
+
+class hkpConstraintAtom {
+public:
+    unsigned short m_type;
+};
+
+class hkpSetLocalTransformsConstraintAtom : public hkpConstraintAtom {
+public:
+    hkTransform m_transformA;
+    hkTransform m_transformB;
+};
+
+class hkpSetLocalTranslationsConstraintAtom : public hkpConstraintAtom {
+public:
+    hkVector4 m_translationA;
+    hkVector4 m_translationB;
+};
+
+class hkpConstraintInfo {
+public:
+    int m_maxSizeOfSchema;
+    int m_sizeOfSchemas;
+    int m_numSolverResults;
+    int m_numSolverElemTemps;
+};
+
+// The slots are the image's (tools/vtslot.py __vt__24hkpRagdollConstraintData).
+class hkpConstraintData : public hkReferencedObject {
+public:
+    // Not a named type in the DWARF: the values are the jump table's.
+    enum ConstraintType {
+        CONSTRAINT_TYPE_HINGE = 1,
+        CONSTRAINT_TYPE_RAGDOLL = 7,
+        CONSTRAINT_TYPE_STIFFSPRING = 8
+    };
+
+    class ConstraintInfo : public hkpConstraintInfo {
+    public:
+        hkpConstraintAtom* m_atoms;
+        unsigned int m_sizeOfAllAtoms;
+    };
+
+    class RuntimeInfo;
+
+    virtual void setMaxLinearImpulse(float maxImpulse);
+    virtual float getMaxLinearImpulse() const;
+    virtual void setBodyToNotify(int bodyIdx);
+    virtual unsigned char getNotifiedBodyIndex() const;
+    virtual hkBool isValid() const;
+    virtual int getType() const;
+    virtual void getRuntimeInfo(hkBool wantRuntime, RuntimeInfo& infoOut) const;
+    virtual hkpSolverResults* getSolverResults(hkpConstraintRuntime* runtime);
+    virtual void addInstance(hkpConstraintInstance* constraint, hkpConstraintRuntime* runtime,
+                             int sizeOfRuntime) const;
+    virtual void buildJacobian(const hkpConstraintQueryIn& in, hkpConstraintQueryOut& out);
+    virtual hkBool isBuildJacobianCallbackRequired() const;
+    virtual void buildJacobianCallback(const hkpConstraintQueryIn& in);
+    virtual void getConstraintInfo(ConstraintInfo& infoOut) const;
+
+    unsigned long m_userData;
+};
+
+class hkpRagdollMotorConstraintAtom : public hkpConstraintAtom {
+public:
+    hkBool m_isEnabled;
+    short m_initializedOffset;
+    short m_previousTargetAnglesOffset;
+    hkMatrix3 m_target_bRca;
+    hkpConstraintMotor* m_motors[3];
+};
+
+class hkpAngFrictionConstraintAtom : public hkpConstraintAtom {
+public:
+    unsigned char m_isEnabled;
+    unsigned char m_firstFrictionAxis;
+    unsigned char m_numFrictionAxes;
+    float m_maxFrictionTorque;
+};
+
+class hkpTwistLimitConstraintAtom : public hkpConstraintAtom {
+public:
+    unsigned char m_isEnabled;
+    unsigned char m_twistAxis;
+    unsigned char m_refAxis;
+    float m_minAngle;
+    float m_maxAngle;
+    float m_angularLimitsTauFactor;
+};
+
+class hkpConeLimitConstraintAtom : public hkpConstraintAtom {
+public:
+    unsigned char m_isEnabled;
+    unsigned char m_twistAxisInA;
+    unsigned char m_refAxisInB;
+    unsigned char m_angleMeasurementMode;
+    unsigned char m_memOffsetToAngleOffset;
+    float m_minAngle;
+    float m_maxAngle;
+    float m_angularLimitsTauFactor;
+};
+
+class hkpBallSocketConstraintAtom : public hkpConstraintAtom {
+public:
+    unsigned char m_bodiesToNotify;
+    unsigned char m_stabilizationFactor;
+    float m_maxImpulse;
+};
+
+class hkpRagdollConstraintData : public hkpConstraintData {
+public:
+    void* operator new(unsigned long nbytes) {
+        hkReferencedObject* b = (hkReferencedObject*)hkThreadMemory::getInstance().allocateChunk(
+            (int)nbytes, HK_MEMORY_CLASS_CONSTRAINT);
+        b->m_memSizeAndFlags = (unsigned short)nbytes;
+        return b;
+    }
+
+    hkpRagdollConstraintData();
+
+    void setInBodySpace(const hkVector4& pivotA, const hkVector4& pivotB,
+                        const hkVector4& planeAxisA, const hkVector4& planeAxisB,
+                        const hkVector4& twistAxisA, const hkVector4& twistAxisB);
+    void setMaxFrictionTorque(float tmag);
+    void setConeLimitStabilization(hkBool enable);
+    hkpConstraintMotor* getTwistMotor() const;
+    void setTwistMotor(hkpConstraintMotor* motor);
+    hkpConstraintMotor* getConeMotor() const;
+    void setConeMotor(hkpConstraintMotor* motor);
+    hkpConstraintMotor* getPlaneMotor() const;
+    void setPlaneMotor(hkpConstraintMotor* motor);
+    void getTarget(hkMatrix3& target_out);
+    void setTarget(const hkMatrix3& target_cbRca);
+
+    float getMaxFrictionTorque() const { return m_atoms.m_angFriction.m_maxFrictionTorque; }
+
+    // Retail compares the twist limit's factor with the cone limit's and
+    // keeps nothing of it.
+    float getAngularLimitsTauFactor() const {
+        if (m_atoms.m_twistLimit.m_angularLimitsTauFactor !=
+            m_atoms.m_coneLimit.m_angularLimitsTauFactor) {
+            DebugCheck();
+        }
+
+        return m_atoms.m_twistLimit.m_angularLimitsTauFactor;
+    }
+
+    void setAngularLimitsTauFactor(float mag) {
+        m_atoms.m_twistLimit.m_angularLimitsTauFactor = mag;
+        m_atoms.m_coneLimit.m_angularLimitsTauFactor = mag;
+        m_atoms.m_planesLimit.m_angularLimitsTauFactor = mag;
+    }
+
+    float getTwistMinAngularLimit() const { return m_atoms.m_twistLimit.m_minAngle; }
+    float getTwistMaxAngularLimit() const { return m_atoms.m_twistLimit.m_maxAngle; }
+    float getPlaneMinAngularLimit() const { return m_atoms.m_planesLimit.m_minAngle; }
+    float getPlaneMaxAngularLimit() const { return m_atoms.m_planesLimit.m_maxAngle; }
+    float getConeAngularLimit() const { return m_atoms.m_coneLimit.m_maxAngle; }
+    void setTwistMinAngularLimit(float rad) { m_atoms.m_twistLimit.m_minAngle = rad; }
+    void setTwistMaxAngularLimit(float rad) { m_atoms.m_twistLimit.m_maxAngle = rad; }
+    void setPlaneMinAngularLimit(float rad) { m_atoms.m_planesLimit.m_minAngle = rad; }
+    void setPlaneMaxAngularLimit(float rad) { m_atoms.m_planesLimit.m_maxAngle = rad; }
+    void setConeAngularLimit(float rad) { m_atoms.m_coneLimit.m_maxAngle = rad; }
+
+    hkBool getConeLimitStabilization() const {
+        return m_atoms.m_coneLimit.m_memOffsetToAngleOffset != 0;
+    }
+
+    class Atoms {
+    public:
+        hkpSetLocalTransformsConstraintAtom m_transforms;
+        hkpRagdollMotorConstraintAtom m_ragdollMotors;
+        hkpAngFrictionConstraintAtom m_angFriction;
+        hkpTwistLimitConstraintAtom m_twistLimit;
+        hkpConeLimitConstraintAtom m_coneLimit;
+        hkpConeLimitConstraintAtom m_planesLimit;
+        hkpBallSocketConstraintAtom m_ballSocket;
+    };
+
+    Atoms m_atoms;
+};
+
+typedef char _size_hkpRagdollConstraintData[
+    (sizeof(hkpRagdollConstraintData) == 0x140) ? 1 : -1];
+
+class hkpStiffSpringConstraintAtom : public hkpConstraintAtom {
+public:
+    float m_length;
+};
+
+class hkpStiffSpringConstraintData : public hkpConstraintData {
+public:
+    void* operator new(unsigned long nbytes) {
+        hkReferencedObject* b = (hkReferencedObject*)hkThreadMemory::getInstance().allocateChunk(
+            (int)nbytes, HK_MEMORY_CLASS_CONSTRAINT);
+        b->m_memSizeAndFlags = (unsigned short)nbytes;
+        return b;
+    }
+
+    hkpStiffSpringConstraintData();
+
+    void setInBodySpace(const hkVector4& pivotA, const hkVector4& pivotB, float restLength) {
+        m_atoms.m_pivots.m_translationA = pivotA;
+        m_atoms.m_pivots.m_translationB = pivotB;
+        m_atoms.m_spring.m_length = restLength;
+    }
+
+    float getSpringLength() const { return m_atoms.m_spring.m_length; }
+
+    class Atoms {
+    public:
+        hkpSetLocalTranslationsConstraintAtom m_pivots;
+        hkpStiffSpringConstraintAtom m_spring;
+    };
+
+    Atoms m_atoms;
+};
+
+typedef char _size_hkpStiffSpringConstraintData[
+    (sizeof(hkpStiffSpringConstraintData) == 0x50) ? 1 : -1];
+
+class hkpHingeConstraintData : public hkpConstraintData {
+public:
+    void* operator new(unsigned long nbytes) {
+        hkReferencedObject* b = (hkReferencedObject*)hkThreadMemory::getInstance().allocateChunk(
+            (int)nbytes, HK_MEMORY_CLASS_CONSTRAINT);
+        b->m_memSizeAndFlags = (unsigned short)nbytes;
+        return b;
+    }
+
+    hkpHingeConstraintData();
+
+    void setInBodySpace(const hkVector4& pivotA, const hkVector4& pivotB,
+                        const hkVector4& axisA, const hkVector4& axisB);
+
+    unsigned char _pad0C[0xB0 - 0xC];
+};
+
+typedef char _size_hkpHingeConstraintData[(sizeof(hkpHingeConstraintData) == 0xB0) ? 1 : -1];
 
 class xHavokPhysicsObject {
 public:
@@ -708,6 +1643,11 @@ public:
         int rootRigidBodyJointIndex;
     };
 
+    enum JointTransformSpace {
+        MODEL_SPACE = 0,
+        MODEL_INV_BIND_SPACE = 1
+    };
+
     enum PhysicsRenderableMatchType {
         TELEPORT = 0,
         KEYFRAMED = 1
@@ -722,6 +1662,35 @@ public:
                                         const hkTransform& finalFlatBodyTrans,
                                         PhysicsRenderableMatchType setType);
 
+    bool AddRigidBodyToSystem(const hkpShape* shape, const hkVector4& shapeScale,
+                              const hkTransform& worldTransform, unsigned int collisionFilter,
+                              hkpMotion::MotionType motionType, float mass, float friction,
+                              float elasticity, float linearDamping, float angularDamping,
+                              hkpCollidableQualityType qualityType, unsigned long long* id);
+    bool CreateFromCollisionShape(const hkpShape* shape, const hkVector4& shapeScale,
+                                  const xMat4x3& worldTransformMat, unsigned int collisionFilter,
+                                  hkpMotion::MotionType motionType, float mass, float friction,
+                                  float elasticity, float linearDamping, float angularDamping,
+                                  hkpCollidableQualityType qualityType, unsigned long long* id);
+    bool CreateFromCollisionShape(const hkpShape* shape, const hkVector4& shapeScale,
+                                  const hkTransform& worldTransform, unsigned int collisionFilter,
+                                  hkpMotion::MotionType motionType, float mass, float friction,
+                                  float elasticity, float linearDamping, float angularDamping,
+                                  hkpCollidableQualityType qualityType, unsigned long long* id);
+    bool CreateFromCollisionShapes(const hkArray<const hkpShape*>& shapes,
+                                   const hkArray<hkVector4>& shapeScales,
+                                   const hkArray<hkTransform>& worldTransforms,
+                                   const hkArray<unsigned int>& collisionFilters,
+                                   const hkArray<hkpMotion::MotionType>& motionTypes,
+                                   const hkArray<float>& masses, const hkArray<float>& frictions,
+                                   const hkArray<float>& elasticities,
+                                   const hkArray<hkpCollidableQualityType>& qualityTypes,
+                                   unsigned long long* id);
+    static hkpConstraintData* ScaleConstraintBodyAttachSpace(hkpConstraintData* constraintData,
+                                                             const hkVector4& scaleA,
+                                                             const hkVector4& scaleB,
+                                                             unsigned long long* id,
+                                                             bool forceCopy);
     void Cleanup();
     bool IsAnchorBody(const hkpRigidBody* body);
     GraphicsAssociationType GetGraphicsAssociationDataFromRigidBody(
@@ -758,6 +1727,9 @@ public:
                                       const Math::Matrix43& transformB, float blend);
     void GetBoundingSphere(xSphere* pSphere) const;
     void GetBoundingBoxSize(xVec3* pBoundSize) const;
+    void MatchPhysicsToRenderedModel(Graphics::Model& model,
+                                     PhysicsRenderableMatchType matchType,
+                                     JointTransformSpace jointSpace);
 
     static hkPointerMap<const World::CollisionMeshBlobEntity*,
                         PhysicsJointRelativeTransforms*>* jointRelativeCreationMap;
@@ -804,6 +1776,300 @@ void xHavokPhysicsObject::SystemSetHavokFloatScalar(void (hkpRigidBody::*setRout
         }
     }
 }
+
+// One shape's body, placed by an engine matrix.
+bool xHavokPhysicsObject::CreateFromCollisionShape(const hkpShape* shape,
+                                                   const hkVector4& shapeScale,
+                                                   const xMat4x3& worldTransformMat,
+                                                   unsigned int collisionFilter,
+                                                   hkpMotion::MotionType motionType,
+                                                   float mass, float friction, float elasticity,
+                                                   float linearDamping, float angularDamping,
+                                                   hkpCollidableQualityType qualityType,
+                                                   unsigned long long* id) {
+    Math::Matrix43 mathmat;
+    xMat4x3ToNGMatrix(&mathmat, &worldTransformMat);
+
+    hkTransform transform;
+    ConvertGraphicsTransformToHKTransform(mathmat, transform);
+
+    return CreateFromCollisionShape(shape, shapeScale, transform, collisionFilter, motionType,
+                                    mass, friction, elasticity, linearDamping, angularDamping,
+                                    qualityType, id);
+}
+
+bool xHavokPhysicsObject::CreateFromCollisionShape(const hkpShape* shape,
+                                                   const hkVector4& shapeScale,
+                                                   const hkTransform& worldTransform,
+                                                   unsigned int collisionFilter,
+                                                   hkpMotion::MotionType motionType,
+                                                   float mass, float friction, float elasticity,
+                                                   float linearDamping, float angularDamping,
+                                                   hkpCollidableQualityType qualityType,
+                                                   unsigned long long* id) {
+    creationScale = shapeScale;
+
+    physicsSystem = new hkpPhysicsSystem();
+
+    bool success = AddRigidBodyToSystem(shape, shapeScale, worldTransform, collisionFilter,
+                                        motionType, mass, friction, elasticity, linearDamping,
+                                        angularDamping, qualityType, id);
+
+    if (success) {
+        physicsObjectType = SHAPE;
+    }
+
+    return success;
+}
+
+// One body per shape, each with the default dampings; the system is a
+// multi-shape one when there is more than one.
+bool xHavokPhysicsObject::CreateFromCollisionShapes(
+    const hkArray<const hkpShape*>& shapes, const hkArray<hkVector4>& shapeScales,
+    const hkArray<hkTransform>& worldTransforms, const hkArray<unsigned int>& collisionFilters,
+    const hkArray<hkpMotion::MotionType>& motionTypes, const hkArray<float>& masses,
+    const hkArray<float>& frictions, const hkArray<float>& elasticities,
+    const hkArray<hkpCollidableQualityType>& qualityTypes, unsigned long long* id) {
+    creationScale.setAll3(1.0f);
+
+    physicsSystem = new hkpPhysicsSystem();
+
+    unsigned int numShapes = shapes.getSize();
+    bool success = true;
+
+    for (unsigned int c = 0; c < numShapes; c++) {
+        float mass = masses[c];
+        float friction = frictions[c];
+        float elasticity = elasticities[c];
+
+        success &= AddRigidBodyToSystem(shapes[c], shapeScales[c], worldTransforms[c],
+                                        collisionFilters[c], motionTypes[c], mass, friction,
+                                        elasticity, 0.0f, 0.05f, qualityTypes[c], id);
+    }
+
+    if (shapes.getSize() > 1) {
+        physicsObjectType = MULTI_SHAPE;
+    } else {
+        physicsObjectType = SHAPE;
+    }
+
+    return success;
+}
+
+// One body for a shape, into the system. A mass within 1e-5 of zero becomes
+// one unless the body is fixed or keyframed. Retail tests the id first and
+// holds the same test on both sides of it, so the source does too. Retail
+// has it first in the file; defined above CreateFromCollisionShapes it is
+// taken in line there, so it is defined below its callers.
+bool xHavokPhysicsObject::AddRigidBodyToSystem(const hkpShape* shape,
+                                               const hkVector4& shapeScale,
+                                               const hkTransform& worldTransform,
+                                               unsigned int collisionFilter,
+                                               hkpMotion::MotionType motionType, float mass,
+                                               float friction, float elasticity,
+                                               float linearDamping, float angularDamping,
+                                               hkpCollidableQualityType qualityType,
+                                               unsigned long long* id) {
+    if (id != 0) {
+        if (mass >= -1e-5f && mass <= 1e-5f && motionType != hkpMotion::MOTION_FIXED &&
+            motionType != hkpMotion::MOTION_KEYFRAMED) {
+            mass = 1.0f;
+        }
+    } else {
+        if (mass >= -1e-5f && mass <= 1e-5f && motionType != hkpMotion::MOTION_FIXED &&
+            motionType != hkpMotion::MOTION_KEYFRAMED) {
+            mass = 1.0f;
+        }
+    }
+
+    hkQuaternion rotation(worldTransform.getRotation());
+    hkpRigidBodyCinfo info;
+
+    info.m_shape = hkSingleton<CHavokShapeBuilder>::getInstance().getShape(shape, shapeScale);
+    hkpInertiaTensorComputer::setShapeVolumeMassProperties(info.m_shape, mass, info);
+
+    info.m_mass = mass;
+    info.m_linearDamping = linearDamping;
+    info.m_angularDamping = angularDamping;
+    info.m_friction = friction;
+    info.m_restitution = elasticity;
+    info.m_collisionFilterInfo = collisionFilter;
+    info.m_position = worldTransform.getTranslation();
+    info.m_rotation.m_vec = rotation.m_vec;
+    info.m_motionType = motionType;
+    info.m_qualityType = qualityType;
+    info.m_numUserDatasInContactPointProperties = 1;
+
+    hkpRigidBody* body = new hkpRigidBody(info);
+    physicsSystem->addRigidBody(body);
+    body->removeReference();
+
+    return true;
+}
+
+// With always_inline off, the ragdoll data's in-class setters are called out
+// of line, where retail has them in line.
+#pragma push
+#pragma always_inline on
+
+// NEAR MISS, 161 of 311 words. Retail tests the id in the default case
+// (cmpwi r26,0) and the twist limit's tau factor against the cone limit's
+// (fcmpu), keeping neither result; ours drops both tests, so the id is dead
+// and every saved register after it is one lower. Retail dispatches the type
+// through a 20-entry jump table; ours stays a compare tree with every value
+// from 0 to 19 listed. Tried: always_inline over the function (243 of 307 to
+// 236 of 308); the vectors of ones as temporaries, every type listed, and an
+// empty inline call inside each unused test (to 161 of 311).
+// A constraint's data rebuilt for bodies scaled by scaleA and scaleB: the
+// pivots scaled, and under a non-uniform scale the axes scaled and
+// renormalized. Unscaled bodies, unless a copy is forced, and a type it does
+// not rebuild, get the data back with a reference added. Retail's hinge case
+// builds new data and returns the old; the source does the same.
+hkpConstraintData* xHavokPhysicsObject::ScaleConstraintBodyAttachSpace(
+    hkpConstraintData* constraintData, const hkVector4& scaleA, const hkVector4& scaleB,
+    unsigned long long* id, bool forceCopy) {
+    if (scaleA.equals3(Math::Vector4().Assign(1.0f, 1.0f, 1.0f, 0.0f), 0.001f) &&
+        scaleB.equals3(Math::Vector4().Assign(1.0f, 1.0f, 1.0f, 0.0f), 0.001f) && !forceCopy) {
+        constraintData->addReference();
+        return constraintData;
+    }
+
+    hkpConstraintData::ConstraintInfo info;
+    constraintData->getConstraintInfo(info);
+
+    switch (constraintData->getType()) {
+    case hkpConstraintData::CONSTRAINT_TYPE_RAGDOLL: {
+        hkpRagdollConstraintData* oldData = static_cast<hkpRagdollConstraintData*>(constraintData);
+        hkpSetLocalTransformsConstraintAtom* transforms =
+            static_cast<hkpSetLocalTransformsConstraintAtom*>(info.m_atoms);
+        const hkTransform& transformA = transforms->m_transformA;
+        const hkTransform& transformB = transforms->m_transformB;
+
+        hkVector4 pivotA = transformA.getTranslation();
+        hkVector4 pivotB = transformB.getTranslation();
+        pivotA.mul4(scaleA);
+        pivotB.mul4(scaleB);
+
+        hkVector4 planeAxisA = transformA.getRotation().getColumn(1);
+        hkVector4 planeAxisB = transformB.getRotation().getColumn(1);
+        hkVector4 twistAxisA = transformA.getRotation().getColumn(0);
+        hkVector4 twistAxisB = transformB.getRotation().getColumn(0);
+
+        if (scaleA.x != scaleA.y || scaleA.y != scaleA.z) {
+            planeAxisA.mul4(scaleA);
+            planeAxisA.normalize3();
+            twistAxisA.mul4(scaleA);
+            twistAxisA.normalize3();
+        }
+
+        if (scaleB.x != scaleB.y || scaleB.y != scaleB.z) {
+            planeAxisB.mul4(scaleB);
+            planeAxisB.normalize3();
+            twistAxisB.mul4(scaleB);
+            twistAxisB.normalize3();
+        }
+
+        hkpRagdollConstraintData* newData = new hkpRagdollConstraintData();
+        newData->setInBodySpace(pivotA, pivotB, planeAxisA, planeAxisB, twistAxisA, twistAxisB);
+        newData->setMaxFrictionTorque(oldData->getMaxFrictionTorque());
+        newData->setAngularLimitsTauFactor(oldData->getAngularLimitsTauFactor());
+        newData->setTwistMinAngularLimit(oldData->getTwistMinAngularLimit());
+        newData->setTwistMaxAngularLimit(oldData->getTwistMaxAngularLimit());
+        newData->setPlaneMinAngularLimit(oldData->getPlaneMinAngularLimit());
+        newData->setPlaneMaxAngularLimit(oldData->getPlaneMaxAngularLimit());
+        newData->setConeAngularLimit(oldData->getConeAngularLimit());
+        newData->setConeLimitStabilization(oldData->getConeLimitStabilization());
+        newData->setMaxFrictionTorque(oldData->getMaxFrictionTorque());
+        newData->setTwistMotor(oldData->getTwistMotor());
+        newData->setConeMotor(oldData->getConeMotor());
+        newData->setPlaneMotor(oldData->getPlaneMotor());
+
+        hkMatrix3 target;
+        oldData->getTarget(target);
+        newData->setTarget(target);
+
+        return newData;
+    }
+
+    case hkpConstraintData::CONSTRAINT_TYPE_STIFFSPRING: {
+        hkpStiffSpringConstraintData* oldData =
+            static_cast<hkpStiffSpringConstraintData*>(constraintData);
+        hkpSetLocalTranslationsConstraintAtom* translations =
+            static_cast<hkpSetLocalTranslationsConstraintAtom*>(info.m_atoms);
+
+        hkVector4 pivotA = translations->m_translationA;
+        hkVector4 pivotB = translations->m_translationB;
+        pivotA.mul4(scaleA);
+        pivotB.mul4(scaleB);
+
+        hkpStiffSpringConstraintData* newData = new hkpStiffSpringConstraintData();
+        newData->setInBodySpace(pivotA, pivotB, oldData->getSpringLength());
+
+        return newData;
+    }
+
+    case hkpConstraintData::CONSTRAINT_TYPE_HINGE: {
+        hkpSetLocalTransformsConstraintAtom* transforms =
+            static_cast<hkpSetLocalTransformsConstraintAtom*>(info.m_atoms);
+        const hkTransform& transformA = transforms->m_transformA;
+        const hkTransform& transformB = transforms->m_transformB;
+
+        hkVector4 pivotA = transformA.getTranslation();
+        hkVector4 pivotB = transformB.getTranslation();
+        pivotA.mul4(scaleA);
+        pivotB.mul4(scaleB);
+
+        hkVector4 axisA = transformA.getRotation().getColumn(0);
+        hkVector4 axisB = transformB.getRotation().getColumn(0);
+
+        if (scaleA.x != scaleA.y || scaleA.y != scaleA.z) {
+            axisA.mul4(scaleA);
+        }
+        axisA.normalize3();
+
+        if (scaleB.x != scaleB.y || scaleB.y != scaleB.z) {
+            axisB.mul4(scaleB);
+        }
+        axisB.normalize3();
+
+        hkpHingeConstraintData* newData = new hkpHingeConstraintData();
+        newData->setInBodySpace(pivotA, pivotB, axisA, axisB);
+        break;
+    }
+
+    // Retail's table covers every type from 0 to 19; the ones it does not
+    // rebuild share the default.
+    case 0:
+    case 2:
+    case 3:
+    case 4:
+    case 5:
+    case 6:
+    case 9:
+    case 10:
+    case 11:
+    case 12:
+    case 13:
+    case 14:
+    case 15:
+    case 16:
+    case 17:
+    case 18:
+    case 19:
+    default:
+        // Retail tests the id here and keeps nothing of it.
+        if (id != 0) {
+            DebugCheck();
+        }
+
+        constraintData->addReference();
+        return constraintData;
+    }
+
+    return constraintData;
+}
+
+#pragma pop
 
 // Drops the system, and this object's hold on the joint transforms its
 // packed data was created with; the map goes when it empties.
@@ -1356,6 +2622,129 @@ void xHavokPhysicsObject::ZeroKeyframedMotion() {
     }
 }
 
+// NEAR MISS, 185 of 236 words: words 0-51 match. From the first load of the
+// system case the nonvolatile registers differ (retail: the system r25, the
+// joint count r24, the body count r21, the skins r20, i r19, bodies placed
+// r18; ours holds one more counter and places the bodies in r20), the stream
+// runs a word long, and the renderable loop opens with a zero-trip guard
+// retail lacks. Tried: the type as an if/else-if (219 of 235); i declared
+// before the placed-bodies counter with the index advanced at the foot of
+// the renderable loop (186); i declared with the relative transforms and a
+// while loop (195).
+// A shape's body goes where the model's root is; a packed system's bodies
+// follow the skinned joints they were created against, or, for a model
+// without skin joints, the renderables they are associated with. Keyframed
+// bodies in a keyframed match are driven there instead of placed.
+void xHavokPhysicsObject::MatchPhysicsToRenderedModel(Graphics::Model& model,
+                                                      PhysicsRenderableMatchType matchType,
+                                                      JointTransformSpace jointSpace) {
+    switch (physicsObjectType) {
+    case SHAPE:
+    case MULTI_SHAPE: {
+        hkpRigidBody* body = GetRigidBody(0);
+
+        if (body != 0) {
+            hkTransform trans;
+            ConvertGraphicsTransformToHKTransform(model.rootTransform, trans);
+
+            if (matchType == KEYFRAMED && body->getMotionType() == hkpMotion::MOTION_KEYFRAMED) {
+                hkQuaternion rotation(trans.getRotation());
+                xHavok_UpdateRigidBodyMotion(body, trans.getTranslation(), rotation, Globals::dt);
+            } else {
+                body->setTransform(trans);
+            }
+        }
+        break;
+    }
+
+    case SYSTEM: {
+        hkpPhysicsSystem* packedPhysicsSystem = packedPhysicsData->GetPhysicsSystem(0, 0);
+        Graphics::Skeleton* skeleton = model.modelProto->skeleton;
+        const hkArray<hkpRigidBody*>& bodies = physicsSystem->getRigidBodies();
+        int numBodies = bodies.getSize();
+
+        if (skeleton != 0 && skeleton->skinJointTotal != 0) {
+            int numJoints = skeleton->skinJointTotal;
+            Graphics::SkinCluster* skins = skeleton->skins;
+            Math::Matrix43* jointMatrices = model.joints->data;
+            bool jointsUpdated = model.joints->updateFrame == Globals::updateFrameNumber;
+            PhysicsJointRelativeTransforms* relativeTransforms = 0;
+
+            jointRelativeCreationMap->get(packedPhysicsData, &relativeTransforms);
+
+            int bodyCount = 0;
+
+            for (int i = 0; i < numJoints && bodyCount < numBodies; i++) {
+                RelativeJointEntry& entry = (*relativeTransforms->bodyRelativeJointTransforms)[i];
+                int bodyIndex = entry.rigidBodyIndex;
+
+                if (bodyIndex >= 0) {
+                    Math::Matrix43 jointMat;
+
+                    if (jointsUpdated) {
+                        if (jointSpace == MODEL_INV_BIND_SPACE) {
+                            Math::Matrix43 bindMat(skins->invBindMat[i]);
+                            Math::Invert(bindMat, bindMat, (Math::HintOrthogonalEnum)0);
+                            Math::Mul(jointMat, jointMatrices[i], bindMat);
+                        } else {
+                            jointMat = jointMatrices[i];
+                        }
+                    } else {
+                        Math::Matrix43 bindMat(skins->invBindMat[i]);
+                        Math::Invert(bindMat, bindMat, (Math::HintOrthogonalEnum)0);
+                        jointMat = bindMat;
+                    }
+
+                    Math::Matrix43 worldMat;
+                    Math::Mul(worldMat, model.rootTransform, jointMat);
+
+                    Math::Matrix43 invRelative(entry.mat);
+                    Math::Invert(invRelative, invRelative, (Math::HintOrthogonalEnum)0);
+
+                    Math::Matrix43 bodyMat;
+                    Math::Mul(bodyMat, worldMat, invRelative);
+
+                    hkTransform bodyTrans;
+                    ConvertGraphicsTransformToHKTransform(bodyMat, bodyTrans);
+
+                    if (matchType == KEYFRAMED &&
+                        bodies[bodyIndex]->getMotionType() == hkpMotion::MOTION_KEYFRAMED) {
+                        hkQuaternion rotation(bodyTrans.getRotation());
+                        xHavok_UpdateRigidBodyMotion(bodies[bodyIndex], bodyTrans.getTranslation(),
+                                                     rotation, Globals::dt);
+                    } else {
+                        bodies[bodyIndex]->setTransform(bodyTrans);
+                    }
+
+                    bodyCount++;
+                }
+            }
+        } else {
+            hkLocalArray<Math::Matrix43> childTransforms(model.childTransformCount + 1);
+
+            model.CalcWorldChildTransforms(childTransforms.expandBy(model.childTransformCount + 1));
+
+            unsigned int index = 0;
+
+            for (hkpRigidBody** it = bodies.begin(); it != bodies.end(); it++, index++) {
+                hkpRigidBody* body = *it;
+                unsigned int renderableIndex;
+
+                GetGraphicsAssociationDataFromRigidBody(packedPhysicsSystem->getRigidBodies()[index],
+                                                        renderableIndex);
+
+                hkTransform childTrans;
+                ConvertGraphicsTransformToHKTransform(
+                    childTransforms[model.renderableTransformMap[renderableIndex]], childTrans);
+
+                SetFlattenedHKTransform(body, childTrans, matchType);
+            }
+        }
+        break;
+    }
+    }
+}
+
 // Havok's rotation is three columns; the engine's matrix takes them as rows.
 void xHavokPhysicsObject::ConvertHKTransformToGraphicsTransform(const hkTransform& hkTrans,
                                                                 Math::Matrix43& trans) {
@@ -1367,6 +2756,12 @@ void xHavokPhysicsObject::ConvertHKTransformToGraphicsTransform(const hkTransfor
                  hkTrans.m_rotation.m_col2.z);
     trans.SetRow(3, hkTrans.m_translation.x, hkTrans.m_translation.y, hkTrans.m_translation.z);
 }
+
+// With hkVector4's own constructors declared, hkVector4Init's is taken in
+// line below only with always_inline on (mwcc takes the pragma state at the
+// start of the function after the one it compiles).
+#pragma push
+#pragma always_inline on
 
 // hkVector4's (x, y, z, w = 0) constructor: the linker folded it onto
 // Math::Vector4::Assign, which is the name retail branches to.
@@ -1431,6 +2826,8 @@ void xHavokPhysicsObject::InterpolateTransformsNoScale(Math::Matrix43& out,
     interpolatedPos.data.w = posA.data.w * (1.0f - blend) + posB.data.w * blend;
     out.SetPos(interpolatedPos);
 }
+
+#pragma pop
 
 // The first body's box.
 //
@@ -1533,11 +2930,143 @@ void xHavokPhysicsObject::SetFlattenedHKTransform(hkpRigidBody* body,
 // ---------------------------------------------------------------------------
 // xHavokInterface
 
+bool xHavok_TestRayAndCollectInSimWorld(const hkVector4& from, const hkVector4& to,
+                                        hkpAllRayHitCollector& collector);
+
+// NEAR MISS, 92 of 172 words: retail computes `!enabled` as a value (cntlzw
+// and srwi on the hkBool's byte) and merges the || into r3; ours holds a flag
+// in r29, which also swaps the registers of i and `ignored`. Tried: `== false`
+// through hkBool::operator==(bool) (95 of 172); the hit default-constructed
+// and assigned (182); the condition held in a bool first, with that
+// assignment (182). Without hkVector4's copy constructor the hit's normal is
+// copied as four words (132).
+// The nearest hit along the ray whose body the world's filter lets collide
+// with filterInfo and that lacks property 7777: where it is, how far from the
+// start, and its owner. A hit on an ignored object clears the owner and the
+// search goes on.
+bool HavokRayCastStopFilterCollide(const hkVector4& from, const hkVector4& to,
+                                   hkVector4& hitPoint, float& hitDistance, void** hitObject,
+                                   const hkBaseObject** ignoreList, int numIgnore,
+                                   unsigned int filterInfo) {
+    hkpAllRayHitCollector collector;
+
+    if (xHavok_TestRayAndCollectInSimWorld(from, to, collector)) {
+        collector.sortHits();
+
+        for (int i = 0; i < collector.getHits().getSize(); i++) {
+            bool ignored = false;
+            hkpWorldRayCastOutput hit = collector.getHits()[i];
+            *hitObject = hit.m_rootCollidable->getOwner();
+
+            const hkpGroupFilter* filter =
+                static_cast<const hkpGroupFilter*>(xHavok_GetWorld()->getCollisionFilter());
+
+            if (!filter->isCollisionEnabled(hit.m_rootCollidable->getCollisionFilterInfo(),
+                                            filterInfo) ||
+                static_cast<hkpWorldObject*>(hit.m_rootCollidable->getOwner())
+                    ->hasProperty(7777)) {
+                continue;
+            }
+            for (int j = 0; j < numIgnore; j++) {
+                if (*hitObject == ignoreList[j]) {
+                    ignored = true;
+                }
+            }
+
+            if (!ignored) {
+                hitPoint.setInterpolate4(from, to, hit.m_hitFraction);
+
+                hkVector4 diff;
+                diff = hitPoint;
+                diff.sub4(from);
+                hitDistance = diff.length3();
+
+                return true;
+            } else {
+                *hitObject = 0;
+            }
+        }
+    }
+
+    return false;
+}
+
+// ConstructVector is taken in line at the model's position only with
+// always_inline on; the region closes one function later, as Cleanup's does.
+#pragma push
+#pragma always_inline on
+
+// The NPC's model goes where its controller's body is and its frame takes the
+// body's velocity; then whether it stands on anything, a proxy probing along
+// the model's down with the model lowered 0.05, a rigid body stepping 0.05.
+bool xHavok_SetNPCFromCharacterProxyMotion(zNPCEntity* npc,
+                                           xHavokCharacterController* controller) {
+    xEntFrame* frame = npc->frame;
+    hkVector4 position;
+    hkVector4 velocity;
+
+    switch (controller->controllerType) {
+    case PROXY:
+        position = controller->characterProxy->getPosition();
+        break;
+    case RIGID_BODY:
+        position = controller->characterRigidBody->getPosition();
+        break;
+    }
+
+    switch (controller->controllerType) {
+    case PROXY:
+        velocity = controller->characterProxy->getLinearVelocity();
+        break;
+    case RIGID_BODY:
+        velocity = controller->characterRigidBody->getLinearVelocity();
+        break;
+    }
+
+    hkpSurfaceInfo ground;
+    hkVector4 up;
+    hkVector4 down;
+
+    // Called, not built through hkVector4Init: retail loads the components
+    // x, y, z, a direct call's order (an inline's arguments load z, y, x).
+    ((Math::Vector4*)&up)->Assign(npc->ogModel.data->Mat.up.x, npc->ogModel.data->Mat.up.y,
+                                  npc->ogModel.data->Mat.up.z, 0.0f);
+    ((Math::Vector4*)&down)->Assign(-npc->ogModel.data->Mat.up.x,
+                                    -npc->ogModel.data->Mat.up.y,
+                                    -npc->ogModel.data->Mat.up.z, 0.0f);
+
+    ConstructVector(&npc->ogModel.data->Mat.pos, position.x, position.y, position.z);
+    ConstructVector(&frame->vel, velocity.x, velocity.y, velocity.z);
+
+    hkpCharacterProxy* proxy = controller->GetCharacterProxy();
+
+    if (proxy != 0) {
+        npc->ogModel.data->Mat.pos.y -= 0.05f;
+        proxy->checkSupport(down, ground);
+    } else {
+        hkStepInfo stepInfo;
+        stepInfo.set(0.0f, 0.05f);
+        controller->GetCharacterRigidBody()->checkSupport(stepInfo, ground);
+    }
+
+    if (ground.m_supportedState == hkpSurfaceInfo::SUPPORTED) {
+        return true;
+    } else if (ground.m_supportedState == hkpSurfaceInfo::SLIDING) {
+        return true;
+    } else if (ground.m_supportedState == hkpSurfaceInfo::UNSUPPORTED) {
+        return false;
+    }
+
+    return true;
+}
+
 void xHavok_SetFrameFromCharacterProxy(xMat4x3* mat, hkpCharacterProxy* pCharacterProxy) {
     const hkVector4& proxy_pos = pCharacterProxy->getPosition();
 
     ConstructVector(&mat->pos, proxy_pos.x, proxy_pos.y, proxy_pos.z);
 }
+
+#pragma pop
 
 void xHavok_SetFrameFromCharacterProxy(xMat4x3* mat, xVec3* vel,
                                        hkpCharacterRigidBody* pCharacterProxy) {
@@ -1548,6 +3077,56 @@ void xHavok_SetFrameFromCharacterProxy(xMat4x3* mat, xVec3* vel,
     const hkVector4& proxy_vel = pCharacterProxy->getLinearVelocity();
 
     ConstructVector(vel, proxy_vel.x, proxy_vel.y, proxy_vel.z);
+}
+
+// Whether the proxy stands on anything below it, and the surface's normal.
+// Without a collector of the caller's, a trigger-identifying one of its own.
+bool xHavok_CheckGroundSupportFromCharacterProxy(hkpCharacterProxy* pCharacterProxy,
+                                                 hkpAllCdPointCollector* pCollector,
+                                                 xVec3* pNormal) {
+    hkpSurfaceInfo ground;
+    hkVector4Init down(0.0f, -1.0f, 0.0f);
+
+    if (pCollector != 0) {
+        pCharacterProxy->checkSupportWithCollector(down, ground, *pCollector);
+    } else {
+        TriggerIdentifyingPointCollector collector;
+        pCharacterProxy->checkSupportWithCollector(down, ground, collector);
+    }
+
+    if (pNormal != 0) {
+        ConstructVector(pNormal, ground.m_surfaceNormal.x, ground.m_surfaceNormal.y,
+                        ground.m_surfaceNormal.z);
+    }
+
+    return ground.m_supportedState != hkpSurfaceInfo::UNSUPPORTED;
+}
+
+// The same for a character rigid body, over one frame's step. The down
+// vector is built and not passed.
+bool xHavok_CheckGroundSupportFromCharacterRigidBody(hkpCharacterRigidBody* pCharacterRigidBody,
+                                                     hkpAllCdPointCollector* pCollector,
+                                                     xVec3* pNormal) {
+    hkpSurfaceInfo ground;
+    hkVector4Init down(0.0f, -1.0f, 0.0f);
+
+    if (pCollector != 0) {
+        hkStepInfo stepInfo;
+        stepInfo.set(0.0f, Globals::dt);
+        pCharacterRigidBody->checkSupport(stepInfo, ground, pCollector);
+    } else {
+        TriggerIdentifyingPointCollector collector;
+        hkStepInfo stepInfo;
+        stepInfo.set(0.0f, Globals::dt);
+        pCharacterRigidBody->checkSupport(stepInfo, ground, &collector);
+    }
+
+    if (pNormal != 0) {
+        ConstructVector(pNormal, ground.m_surfaceNormal.x, ground.m_surfaceNormal.y,
+                        ground.m_surfaceNormal.z);
+    }
+
+    return ground.m_supportedState != hkpSurfaceInfo::UNSUPPORTED;
 }
 
 // ---------------------------------------------------------------------------
@@ -1611,6 +3190,288 @@ inline void xHavokPhysicsObject::SystemApplyHavok1Param(void (hkpRigidBody::*rou
     }
 }
 
+// ---------------------------------------------------------------------------
+// Weak copies above the always_inline region: each calls
+// deallocateChunkConstSize, or a destructor defined after it, out of line.
+
+inline hkpSurfaceInfo::hkpSurfaceInfo() : m_supportedState(SUPPORTED) {
+    ((Math::Vector4*)&m_surfaceNormal)->Assign(0.0f, 0.0f, 1.0f, 0.0f);
+    ((Math::Vector4*)&m_surfaceVelocity)->Assign(0.0f, 0.0f, 0.0f, 0.0f);
+    m_surfaceDistance = 0.0f;
+    m_surfaceMotionType = hkpMotion::MOTION_FIXED;
+}
+
+inline hkpCharacterProxy* xHavokCharacterController::GetCharacterProxy() const {
+    return controllerType == PROXY ? characterProxy : 0;
+}
+
+inline void hkStepInfo::set(float startTime, float endTime) {
+    m_startTime = startTime;
+    m_endTime = endTime;
+    m_deltaTime = endTime - startTime;
+    m_invDeltaTime = m_deltaTime == 0.0f ? 0.0f : 1.0f / m_deltaTime;
+}
+
+inline TriggerIdentifyingPointCollector::~TriggerIdentifyingPointCollector() {}
+
+// One word from retail's: its branch to the hits array's destructor names
+// hkArray<Math::Matrix43>'s, onto which the linker folded
+// hkArray<hkpRootCdPoint>'s (both elements 48 bytes).
+inline hkpAllCdPointCollector::~hkpAllCdPointCollector() {}
+
+inline hkpAllRayHitCollector::~hkpAllRayHitCollector() {}
+
+inline bool hkpWorldObject::hasProperty(unsigned int key, MtChecks mtCheck) const {
+    for (int i = 0; i < m_properties.getSize(); ++i) {
+        if (m_properties[i].m_key == key) {
+            return true;
+        }
+    }
+
+    return false;
+}
+
+inline void hkVector4::sub4(const hkVector4& a) {
+    x -= a.x;
+    y -= a.y;
+    z -= a.z;
+    w -= a.w;
+}
+
+template <class T>
+inline void hkDeallocateChunk(T* ptr, int nelem, HK_MEMORY_CLASS mclass) {
+    hkThreadMemory::getInstance().deallocateChunk(ptr, nelem * sizeof(T), mclass);
+}
+
+template <class T>
+inline hkArray<T>::~hkArray() {
+    if ((m_capacityAndFlags & DONT_DEALLOCATE_FLAG) == 0) {
+        hkDeallocateChunk<T>(m_data, getCapacity(), HK_MEMORY_CLASS_ARRAY);
+    }
+}
+
+template <class T>
+inline T* hkAllocateStack(int n) {
+    return (T*)hkThreadMemory::getInstance().allocateStack(n * sizeof(T));
+}
+
+template <class T>
+inline void hkDeallocateStack(T* p) {
+    hkThreadMemory::getInstance().deallocateStack(p);
+}
+
+// NEAR MISS for Math::Matrix43, 8 of 39 words: retail rounds the size into
+// the register that held capacity * 48 (r5) and loads the stack's current
+// pointer into r6; ours rounds into r7 and loads into r5. Tried: the size
+// rounded in allocateStack's own parameter (13 of 39); allocateStack called
+// here without hkAllocateStack (8 of 39).
+template <class T>
+inline hkLocalArray<T>::hkLocalArray(int capacity) {
+    this->m_data = hkAllocateStack<T>(capacity);
+    this->m_capacityAndFlags = capacity | hkArray<T>::DONT_DEALLOCATE_FLAG;
+    m_localMemory = this->m_data;
+}
+
+template <class T>
+inline hkLocalArray<T>::~hkLocalArray() {
+    hkDeallocateStack<T>(m_localMemory);
+}
+
+template <class T>
+inline void hkArray<T>::setSize(int n) {
+    int cap = getCapacity();
+
+    if (cap < n) {
+        int cap2 = 2 * cap;
+        int newSize = (n < cap2) ? cap2 : n;
+        hkArrayUtil::_reserve(this, newSize, sizeof(T));
+    }
+
+    m_size = n;
+}
+
+template <class T>
+inline T* hkArray<T>::expandBy(int n) {
+    int oldsize = m_size;
+    setSize(oldsize + n);
+    return m_data + oldsize;
+}
+
+// ---------------------------------------------------------------------------
+// Math's weak copies: Invert calls each of the others out of line, so it
+// comes first.
+
+inline void Math::Invert(Matrix43& o, const Matrix43& a, HintOrthogonalEnum hint) {
+    Vector recipScaleSqr = a.GetRecipScaleSqr();
+    Vector pos = a.GetRowInternal(3);
+
+    Transpose(o, a);
+
+    Matrix33 scale;
+    scale.MakeScale(recipScaleSqr);
+    Mul(o, o, scale);
+
+    PSMTXMultVecSR(&o, &pos, &pos);
+
+    Vector negPos;
+    Negate(negPos, pos);
+    o.SetPos(negPos);
+}
+
+// Matrix33's assignment is Matrix43's 48 bytes, and retail branches to
+// Matrix43's name: the copy goes through Matrix43 references.
+inline void Math::Transpose(Matrix33& o, const Matrix33& a) {
+    (Matrix43&)o = (const Matrix43&)a;
+
+    // Each pair's two values named in the order they are loaded.
+    float f10 = a.v[1][0];
+    float f01 = a.v[0][1];
+    o.v[1][0] = f01;
+    o.v[0][1] = f10;
+
+    float f20 = a.v[2][0];
+    float f02 = a.v[0][2];
+    o.v[2][0] = f02;
+    o.v[0][2] = f20;
+
+    float f21 = a.v[2][1];
+    float f12 = a.v[1][2];
+    o.v[2][1] = f12;
+    o.v[1][2] = f21;
+}
+
+inline void Math::Matrix33::MakeScale(const Vector& scale) {
+    float z = scale.data.z;
+    float y = scale.data.y;
+    float x = scale.data.x;
+    (Matrix43&)*this = _matZero;
+
+    v[0][0] = x;
+    v[1][1] = y;
+    v[2][2] = z;
+}
+
+// NEAR MISS, 89 differing words (retail 90): retail spills nine inputs into
+// f23-f31 and computes the middle products p1, p2, p4, p3 first; ours spills
+// fewer and starts from p9's. Tried: the products spelled b[i][k] * a[k][j]
+// (89 of 86); the nine entries named, then Assign (89 of 86); both (89 of 86).
+inline void Math::Mul(Matrix33& o, const Matrix33& a, const Matrix33& b) {
+    o.Assign(a.v[0][0] * b.v[0][0] + a.v[1][0] * b.v[0][1] + a.v[2][0] * b.v[0][2],
+             a.v[0][0] * b.v[1][0] + a.v[1][0] * b.v[1][1] + a.v[2][0] * b.v[1][2],
+             a.v[0][0] * b.v[2][0] + a.v[1][0] * b.v[2][1] + a.v[2][0] * b.v[2][2],
+             a.v[0][1] * b.v[0][0] + a.v[1][1] * b.v[0][1] + a.v[2][1] * b.v[0][2],
+             a.v[0][1] * b.v[1][0] + a.v[1][1] * b.v[1][1] + a.v[2][1] * b.v[1][2],
+             a.v[0][1] * b.v[2][0] + a.v[1][1] * b.v[2][1] + a.v[2][1] * b.v[2][2],
+             a.v[0][2] * b.v[0][0] + a.v[1][2] * b.v[0][1] + a.v[2][2] * b.v[0][2],
+             a.v[0][2] * b.v[1][0] + a.v[1][2] * b.v[1][1] + a.v[2][2] * b.v[1][2],
+             a.v[0][2] * b.v[2][0] + a.v[1][2] * b.v[2][1] + a.v[2][2] * b.v[2][2]);
+}
+
+// Stored row by row; Mul passes columns.
+inline void Math::Matrix33::Assign(float x0, float y0, float z0, float x1, float y1,
+                                   float z1, float x2, float y2, float z2) {
+    v[0][0] = x0;
+    v[0][1] = x1;
+    v[0][2] = x2;
+    v[1][0] = y0;
+    v[1][1] = y1;
+    v[1][2] = y2;
+    v[2][0] = z0;
+    v[2][1] = z1;
+    v[2][2] = z2;
+}
+
+void Math::Negate(Vector4& o, const Vector4& a) {
+    o[0] = -a[0];
+    o[1] = -a[1];
+    o[2] = -a[2];
+    o[3] = -a[3];
+}
+
+void Math::Mul(Vector4& o, const Vector4& a, float s) {
+    o.data.x = a.data.x * s;
+    o.data.y = a.data.y * s;
+    o.data.z = a.data.z * s;
+    o.data.w = a.data.w * s;
+}
+
+// Retail's copies with no caller here: defined out of line.
+
+// NEAR MISS, 23 of 70 words, stack offsets only: every instruction and the
+// frame size are retail's. Retail keeps the first position at sp+8, the
+// rotated vector at +24, the first negation at +40, the second position at +56
+// and the second negation at +72, with the sums and products above them (+88
+// to +152). Ours puts the second negation, the products and the sums lowest
+// (+8 to +88) and the first negation, second position, rotated vector and
+// first position above them (+104 to +152). Tried: the rotated vector
+// initialised from the sum (43 of 62, without retail's copy of the sum);
+// declared then assigned, before or after the position (23 of 70 both);
+// declared at function scope (23 of 70).
+// CheckHint is asked with 0, not the hint. A matrix it answers zero for is
+// inverted as a translation; otherwise the rotation is transposed and the
+// position taken back through it.
+void Math::Matrix43::Invert(HintOrthonormalEnum hint) {
+    if (!CheckHint((HintOrthonormalEnum)0)) {
+        Vector position = GetRowInternal(3);
+        *this = _matIdentity;
+        SetPos(-position);
+    } else {
+        // Assigned, not initialised: retail copies the sum's temporary in.
+        Vector rotated;
+        Vector position = GetRowInternal(3);
+        rotated = v[0] * position.data.x + v[1] * position.data.y + v[2] * position.data.z;
+        Transpose(*this, *this);
+        SetPos(-rotated);
+    }
+}
+
+template <class T>
+int hkArray<T>::indexOf(const T& t, int start, int end) const {
+    if (end < 0) {
+        end = m_size;
+    }
+
+    for (int i = start; i < end; ++i) {
+        if (m_data[i] == t) {
+            return i;
+        }
+    }
+
+    return -1;
+}
+
+template int hkArray<hkpRigidBody*>::indexOf(hkpRigidBody* const& t, int start, int end) const;
+
+// ---------------------------------------------------------------------------
+// Havok vector copies with no caller here: out of line.
+
+void hkVector4::mul4(const hkVector4& a) {
+    x *= a.x;
+    y *= a.y;
+    z *= a.z;
+    w *= a.w;
+}
+
+// NEAR MISS, 1 of 25 words: fcmpu compares the literal with the length where
+// retail compares the length with the literal. Tried: the literal on the
+// right (1 of 25) and on the left (1 of 25); the length through an inline
+// lengthSquared3(), which was called out of line (23 of 20).
+void hkVector4::normalize3() {
+    float lengthSquared = x * x + y * y + z * z;
+    float lengthInverse = (lengthSquared != 0.0f) ? hkMath::sqrtInverse(lengthSquared) : 0.0f;
+    mul4(lengthInverse);
+}
+
+// One Newton step from frsqrte's estimate; the (float) of the intrinsic's
+// double is the frsp retail has.
+// NEAR MISS, 5 of 11 words: retail loads 1.0 first (f2) and multiplies the
+// difference by 0.5 * e; ours loads 0.5 first (f3). Tried: r * e * e (6 of
+// 11); r * (e * e) (5); the difference multiplied first (5).
+inline float hkMath::sqrtInverse(float r) {
+    float e = (float)__frsqrte(r);
+    return e + 0.5f * e * (1.0f - r * (e * e));
+}
+
 // On through the last weak copy: with it deallocateChunkConstSize has
 // FreeList::put in line, and hkTransform::setIdentity hkMatrix3::setIdentity,
 // as retail has them. Wrapping put's or hkMatrix3::setIdentity's own
@@ -1621,6 +3482,36 @@ inline void xHavokPhysicsObject::SystemApplyHavok1Param(void (hkpRigidBody::*rou
 #pragma push
 #pragma always_inline on
 
+// Here, before deallocateChunkConstSize is defined: always_inline takes
+// deallocateStack in line, and cannot take the deallocation retail calls.
+template hkLocalArray<Math::Matrix43>::~hkLocalArray();
+
+// No caller here, so out of line; in the region, so FreeList::get is in line
+// as retail has it.
+void* hkThreadMemory::allocateChunkConstSize(int nbytes, HK_MEMORY_CLASS cl) {
+    int row = constSizeToRow(nbytes);
+    void* o = m_free_list[row].get();
+
+    if (o) {
+        return o;
+    }
+
+    return onRowEmpty(row, cl);
+}
+
+// In the region, so setAbs4 and the comparison are in line; above setSub4's
+// and setAll3's definitions, so those two are called, as retail calls them.
+inline bool hkVector4::equals3(const hkVector4& v, float epsilon) const {
+    hkVector4 t;
+    t.setSub4(*this, v);
+    t.setAbs4(t);
+
+    hkVector4 epsilonV;
+    epsilonV.setAll3(epsilon);
+
+    return t.compareLessThanEqual4(epsilonV).allAreSet(hkVector4Comparison::MASK_XYZ);
+}
+
 inline void hkThreadMemory::deallocateChunkConstSize(void* p, int nbytes,
                                                      HK_MEMORY_CLASS cl) {
     int row = constSizeToRow(nbytes);
@@ -1630,6 +3521,67 @@ inline void hkThreadMemory::deallocateChunkConstSize(void* p, int nbytes,
     } else {
         m_free_list[row].put(p);
     }
+}
+
+// Below both chunk functions, which call it. A size past every row breaks
+// into the debugger: HK_BREAKPOINT sets the MSR's single-step bit and clears
+// it again.
+inline int hkThreadMemory::constSizeToRow(int size) {
+    if (size <= 16) {
+        return 1;
+    }
+    if (size <= 32) {
+        return 2;
+    }
+    if (size <= 48) {
+        return 3;
+    }
+    if (size <= 64) {
+        return 4;
+    }
+    if (size <= 96) {
+        return 5;
+    }
+    if (size <= 128) {
+        return 6;
+    }
+    if (size <= 160) {
+        return 7;
+    }
+    if (size <= 192) {
+        return 8;
+    }
+    if (size <= 256) {
+        return 9;
+    }
+    if (size <= 320) {
+        return 10;
+    }
+    if (size <= 512) {
+        return 11;
+    }
+    if (size <= 544) {
+        return 12;
+    }
+    if (size <= 1024) {
+        return 13;
+    }
+    if (size <= 2048) {
+        return 14;
+    }
+    if (size <= 4096) {
+        return 15;
+    }
+    if (size <= 8192) {
+        return 16;
+    }
+
+    asm { mfmsr r0 }
+    asm { ori r3, r0, 0x400 }
+    asm { mtmsr r3 }
+    asm { mtmsr r0 }
+
+    return -1;
 }
 
 // Inlined into hkTransform::setIdentity, so defined above it.
@@ -1669,6 +3621,13 @@ inline void hkpRigidBody::setAngularVelocity(const hkVector4& newVel) {
 inline hkTransform::hkTransform(const hkQuaternion& q, const hkVector4& t) {
     m_translation = t;
     m_rotation.set(q);
+}
+
+inline void hkVector4::setAll3(float v) {
+    x = v;
+    y = v;
+    z = v;
+    w = v;
 }
 
 inline void hkVector4::setSub4(const hkVector4& a, const hkVector4& b) {
@@ -1766,12 +3725,19 @@ inline void Math::Matrix43::Assign(float x0, float y0, float z0, float x1, float
     v[2].Assign(z0, z1, z2, z3);
 }
 
-inline void Math::Vector4::Assign(float x, float y, float z, float w) {
+inline Math::Vector4& Math::Vector4::Assign(float x, float y, float z, float w) {
     data.x = x;
     data.y = y;
     data.z = z;
     data.w = w;
+    return *this;
 }
+
+// Instantiated here, under always_inline: generated at the end of the file,
+// where it is off, it calls allocateStack and hkArray's constructor out of
+// line, which retail has in line. The destructor is instantiated at the top
+// of the region.
+template hkLocalArray<Math::Matrix43>::hkLocalArray(int capacity);
 
 #pragma pop
 

@@ -109,7 +109,7 @@ EXPECT = {
     # Lowered by hand for the reason given above WAD03_3.
     "SB/NG/Source/Engine/TRC/TRCMessageBox": (1, 1),
     "SB/NG/Source/Engine/TRC/TRCModule": (5, 5),
-    "SB/GM/Engine/Game/zNPCCommonCombatBTActions": (1, 1),
+    "SB/GM/Engine/Game/zNPCCommonCombatBTActions": (27, 27),
     "SB/GM/Engine/Game/zPlayerInputAI": (1, 1),
     "SB/GM/Engine/Game/zGameState": (9, 9),
     "SB/GM/Engine/Game/zMenu": (1, 1),
@@ -256,7 +256,7 @@ EXPECT = {
     "SB/GM/Engine/Game/zInteraction": (5, 5),
     "SB/GM/Engine/Game/zMainOGModule": (3, 3),
     "SB/GM/Engine/Game/zNGLoadingScreen": (2, 2),
-    "SB/GM/Engine/Game/zNPCBase": (2, 2),
+    "SB/GM/Engine/Game/zNPCBase": (40, 43),
     "SB/GM/Engine/Game/zNPCCommonBTActions": (56, 60),
     "SB/GM/Engine/Game/zNPCCommonMovementBTActions": (56, 63),
     "SB/GM/Engine/Game/zNPCGenericSpawner": (1, 1),
@@ -536,6 +536,8 @@ EXPECT = {
     "SB/GM/Engine/WAD02_11_1": (1, 1),
     "SB/GM/Engine/Game/zNPCCommonBlackboardBTActions": (30, 35),
     "SB/GM/Engine/Game/zNPCCommonBTConditions": (30, 32),
+    "SB/GM/Engine/Game/zNPCCommonSBBTActions": (32, 35),
+    "SB/GM/Engine/Game/zNPCCommonSwarmBTActions": (31, 31),
 }
 
 

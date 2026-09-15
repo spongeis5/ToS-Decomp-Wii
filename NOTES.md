@@ -7,18 +7,18 @@ numbers here, which move.
 ## State at time of writing
 
 ```
-Game Code:  80 of 777 files complete  454,248 / 2,116,616 bytes  3,761 / 10,697 fn
-            21.4610% of game code
+Game Code:  80 of 777 files complete  475,704 / 2,116,616 bytes  3,888 / 10,697 fn
+            22.4747% of game code
 
-Of those 3,761 functions, 845 are GENERATED -- machine-recognised
+Of those 3,888 functions, 842 are GENERATED -- machine-recognised
 shapes, not one of which is decompiling. They are real matched
 functions and the offsets and constants are recovered fact, but a
 count of them is not a count of decompiled code. HAND-WRITTEN IS
-2,916, across 271 units and 420,044 bytes, and that is the figure to
+3,046, across 275 units and 441,540 bytes, and that is the figure to
 compare against earlier ones.
 
 Data:       4 unit(s) carry their own, 412 bytes; 134 more could
-All:        8.56% matched              main.dol reproduces byte for byte
+All:        8.88% matched              main.dol reproduces byte for byte
 ```
 
 Every number above is written by `python tools/notes_state.py`,
@@ -5887,3 +5887,81 @@ against HEAD before commit, as were the two BT units: 0 functions lost
 in any, 28 gained in WAD01_28, 61 in WAD02_4 (its first pool header),
 25 in the movement unit, 4 in the blackboard unit. WAD01_28's 16 new
 differing functions carry no notes yet.
+
+## A SECOND BASE'S OVERRIDES, AN ACCESSOR THAT SPLITS A LOAD, AND zNPCBase AT 40 OF 43
+
+`zNPCCommonCombatBTActions` 27 of 27; `zNPCBase` 2 to 40 of 43; from two
+agents, `zNPCCommonSwarmBTActions` 31 of 31 and `zNPCCommonSBBTActions`
+32 of 35. Every lever here was the only change between a differing and an
+identical function, measured on the unit fragment with `unitcmp` (rows by
+full mangled name).
+
+**AN OVERRIDE OF A SECOND BASE'S VIRTUAL MUST ALSO BE DECLARED IN THE
+PRIMARY CHAIN.** zNPCEntity is xEnt at +0 and zNPCComponent at +0xBC.
+With `Attached` ... `SystemEvent` declared only in zNPCComponent, mwcc
+appends zNPCEntity's overrides after that group and every call through
+`npcEntity` lands 12 slots high. Retail's primary vtable has them at 45
+to 53, which it gets when xEnt declares the nine itself.
+
+**A CLASS THAT CONVERTS ITSELF IS EVALUATED BEFORE THE CALL'S OBJECT.**
+`FindAsset(drivenParams->specificPassenger)` with `uid` carrying an inline
+`operator unsigned long long() const` loads the id ahead of
+`World::GetEntityManager()`, as retail does; `.internalUid` loads it
+after.
+
+**AN INLINE ACCESSOR SPLITS A SHARED LOAD.** Retail's BaseReset loads
+`npcAsset` twice, for `EnemyFlags` and again for `ResetToNPCAsset`; ours
+shared one (30 of 40 words, 4 bytes short). Reading either use through
+`GetNPCAsset()` gives both loads. The explicit `this->`, a cast, the
+statement split and `!= 0` do not. In SystemEvent,
+`paramsSetHP->HP + baseCombat.GetCurHitPoints()` loads the hit points
+first, into f1, where `.currentHitPoints` loads them second (3 words).
+
+**IN A LEAF LOOP, WHICH READS GO THROUGH A REFERENCE SETS THE REGISTERS.**
+`zWallNet::IsInsideBoundXZ`, the even-odd crossing test: retail keeps j,
+inside and i in r6, r7, r8.
+- Both vertices through references: inside, i, j (26 of 62).
+- The same with `int j, i` (or `for (int j = ..., i = ...)`): inside, j, i (21).
+- Only the j vertex a reference, `vertices[i]` indexed at each use:
+  retail's order under either declaration order (0).
+- Both references dropped: 51 of 62. Only the i reference kept: 43 to 47.
+
+`#pragma pack(push, 4)` around xBase gives the DWARF's layout (the 64-bit
+id at 0x18, the model at 0x34); unpacked, the id's alignment rounds xBase
+up. The LOD record's constructor call is named `__ct__15bit_array_allocFv`
+(the linker folded them), which zNPCUpdateLOD derived from an empty
+`bit_array_alloc` with a declared constructor produces.
+
+From the combat unit, each alone turning its function identical:
+- `if (b) x = true; else x = false;` for a flag retail stores with branches.
+  A conditional folds to one store.
+- `_ReleaseAttack` reached through a static inline wrapper: called
+  directly, its float argument loads last.
+- `players.GetPlayer(i)->Damage(zCombatDamageInfo(...))`: an inline
+  accessor for the object loads it before the temporary is built.
+- Of two callee-saved locals, the one retail keeps out of r31 is declared
+  first (`void* mem;`).
+- A value both arms of an if/else compute, which ours stored once after the
+  join, is computed in an inline accessor.
+- The linker-folded `Math::Vector` constructor is reached through
+  `extern "C" void __ct__Q24Math6VectorFfff(void*, float, float, float);`.
+
+From the agents:
+- **Swarm** instantiates `zBTFactory::Create<T>` explicitly: the callers
+  retail inlines them into sit past the four-literal wall and are not
+  written. `#pragma always_inline on` around the instantiations takes
+  zNPCBTActionAnim's constructor in line, as retail does.
+- **SB:** `.data` and `.bss` padding arrays (0x644, 0x1F0C0) plus the unity
+  unit's file statics take `zNPCBT_Turret_GetVariantData_Action::Update`
+  from 69 differing words to 9. The two bases still come out in r5 and r6
+  the other way round.
+- SB's other two near misses are the four-literal wall, as are Swarm's six
+  unwritten functions.
+
+zNPCBase's three are NEAR MISS notes in the source:
+- **Load:** one instruction. Retail's `bne +8; b end` is a pair ours folds
+  into `beq end`; 23 spellings of the early return, among them a dead
+  `if (0)` using the local the DWARF names, keep the fold.
+- **BaseActivate:** r27 and r28 swapped; 10 spellings.
+- **IsInsideWallNetXZ:** where the `wallNetAsset` load sits among the
+  prologue's instructions; 8 spellings.

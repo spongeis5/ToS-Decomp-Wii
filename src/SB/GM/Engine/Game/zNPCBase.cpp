@@ -919,10 +919,12 @@ void zNPCBase::SystemEvent(xBase* from, xBase* to, unsigned int to_event,
 // retail branches `bne +8; b end` over the early return where ours folds
 // the pair into one `beq end`, so every later word is one early. The
 // DWARF gives `entass` r0 over the compare, the store and both branches.
-// Twenty-three spellings keep the fold: no local, and the local split,
+// Twenty-seven spellings keep the fold: no local, and the local split,
 // voided, tested, assigned to itself, passed to an empty inline or used
 // by a dead `if (0)` call; `!modelAsset`, the assignment in the test, a
-// goto, a do-while, the rest of the body in an else, the test inverted.
+// goto, a do-while, the rest of the body in an else, the test inverted;
+// and four arms holding a no-op removed only late, the mechanism that
+// keeps zNPCFX's extra `b` (NOTES.md).
 void zNPCBase::Load(const zNPCType* npcType, Sext::NPCAsset* npcAsset,
                     unsigned int count) {
     type = npcType;

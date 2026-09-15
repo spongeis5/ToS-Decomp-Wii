@@ -7,18 +7,18 @@ numbers here, which move.
 ## State at time of writing
 
 ```
-Game Code:  80 of 777 files complete  475,704 / 2,116,616 bytes  3,888 / 10,697 fn
-            22.4747% of game code
+Game Code:  80 of 777 files complete  486,768 / 2,116,616 bytes  3,971 / 10,697 fn
+            22.9975% of game code
 
-Of those 3,888 functions, 842 are GENERATED -- machine-recognised
+Of those 3,971 functions, 835 are GENERATED -- machine-recognised
 shapes, not one of which is decompiling. They are real matched
 functions and the offsets and constants are recovered fact, but a
 count of them is not a count of decompiled code. HAND-WRITTEN IS
-3,046, across 275 units and 441,540 bytes, and that is the figure to
+3,136, across 278 units and 452,704 bytes, and that is the figure to
 compare against earlier ones.
 
 Data:       4 unit(s) carry their own, 412 bytes; 134 more could
-All:        8.88% matched              main.dol reproduces byte for byte
+All:        9.04% matched              main.dol reproduces byte for byte
 ```
 
 Every number above is written by `python tools/notes_state.py`,
@@ -5960,8 +5960,123 @@ From the agents:
 
 zNPCBase's three are NEAR MISS notes in the source:
 - **Load:** one instruction. Retail's `bne +8; b end` is a pair ours folds
-  into `beq end`; 23 spellings of the early return, among them a dead
-  `if (0)` using the local the DWARF names, keep the fold.
+  into `beq end`; 27 spellings of the early return keep the fold. Among
+  them are a dead `if (0)` using the local the DWARF names, and four arms
+  holding a no-op removed only late (the mechanism in the zNPCFX section
+  below).
 - **BaseActivate:** r27 and r28 swapped; 10 spellings.
 - **IsInsideWallNetXZ:** where the `wallNetAsset` load sits among the
   prologue's instructions; 8 spellings.
+
+## zNPCFX: 24 OF 25, AND THREE SPELLINGS WITH THEIR CONTROLS
+
+`zNPCFX` 2 to 24 of the unit's 25 functions, 3,008 bytes. The component
+itself and its three node types: the one-shot and looping FX scripts, and
+the immediate-geometry card loop. The 25th,
+`zNPCFXImmediateInstanceLoop::Update` (864 B), loads six distinct float
+literals, each with its own `lis`: the four-literal wall. Each lever below
+turned a differing function identical; the controls are the spellings
+measured beside it (lsweep, rows by name).
+
+**`p = p != 0 ? p : fallback;` IS retail's `cmpwi ; beq L1 ; b L2 ; L1:
+<load> ; L2:`.** Retail picks the effect's entity this way in PostUpdate
+and RunFX, and the conditional's true arm must be the variable itself.
+Controls:
+- `zNPCEntity* npcEnt = customEnt != 0 ? customEnt : owner->npcEntity;`
+  matches too.
+- `if (npcEnt == 0) npcEnt = ...`, `if (!npcEnt)` and the reversed
+  `npcEnt == 0 ? owner->npcEntity : npcEnt` each give one `bne` and no
+  `b`, one word short (RunFX 38 of 46, PostUpdate 33 of 41).
+
+**An enum compared with a constant is unsigned only through a cast.**
+Attached's type test is `cmplwi r20,2 ; ble` in retail.
+- Matches: `(unsigned int)type > eNPCFXTypeImmediateInstanceLoop`, or
+  `type > 2U`.
+- One word off: `type > eNPCFXTypeImmediateInstanceLoop` (`cmpwi`).
+- Two words off (`cmpwi r20,3 ; blt`): `type >= END_eNPCFXTypeENUM`, the
+  cast applied to either side of `>= END`, `!(type < END)`, and an
+  `unsigned int` local.
+
+**Read through the pointer a member was taken from.** Both FX-script
+Setups store `asset = &node->fxScript;` and then test and pass the spawn
+id. Retail computes `asset` into r0 and loads the id at node+48/+52.
+Through `asset` ours computes into r4 and loads at +32/+36: 5 of 22 and
+5 of 24 words. Controls:
+- test and argument both through `node->fxScript.FXSpawnID`: 0 words;
+- the test alone through `node`: worse, 15 and 17;
+- a pointer local, or a reference local, for the script description:
+  the same 5 as `asset`.
+
+The DWARF's own names settled the rest: the node's slot 0 `Setup` and slot
+3 `Run` come from the mangled names of the definitions in this unit, and
+the handle's +0x38 is `EntityHandleBase::entity`.
+
+## zTiki: 21 ON THE FIRST COMPILE, AND THE WALLS FOUND BEFORE READING
+
+`zTiki` 4 to 25 of the unit's 37 functions. The 21 written were all
+byte-identical on the first compile, 2,036 bytes. Two more are NEAR MISS
+notes in the source, and ten are not written.
+
+**Triage before reading.** Two counts over the unit's briefs sorted the
+rest before any of it was read: `@unnamed` symbols, and distinct float
+literals per function.
+- `CreateAnimTable`, `RemoveAnimTable` and `Init` load `animTables` from
+  WAD03.cpp's anonymous namespace, which a fragment cannot name.
+- `Update` loads 12 distinct literals, `HandleEvent` 5, and `InitPhysics`
+  and `DeactivateTiki` 4 each: the four-literal wall.
+
+**A temporary built by `Math::Vector4().Assign(...)` zero-fills; an empty
+inline constructor stops it.** DriveCauseMove hands Havok two four-vectors,
+each the reference `Assign` returns.
+- The `aligned(16)` `Vector4` from zBouncer reproduces the prologue's
+  dynamic frame alignment. As temporaries (not named locals) the vectors
+  take retail's slots below the named locals.
+- Value-initialisation adds four zero stores to each: 47 of 72 words.
+- `Vector4() {}` removes them: 38.
+
+**An inline accessor puts the object of an assignment ahead of its
+operand.** In `ogModel.data->Mat.pos = accumRelPos + oldMat->pos`, ours
+loads the model after the `+` call; retail loads it first, into a saved
+register. `ogModel.GetModel()->Mat.pos = ...` gives retail's order: 38 to
+11 words. Controls:
+- named four-vector locals instead of temporaries shift the frame: 39;
+- a reference local for the destination is far worse: 62.
+
+What DriveCauseMove still differs by (5 words) is where the model is loaded
+around `xQuatFromMat`. The position's reference declared after the call
+swaps r30 and r31 (10 words); declared before the quaternion, 5; a pointer
+declared early and assigned late, 10.
+
+Measured dead ends:
+- **The destructor.** Retail destroys the listener member through
+  `__dt__12hkBaseObjectFv`. Giving the listener an `hkBaseObject` root, and
+  xOGEntity a virtual destructor, moves zTiki's inline constructor out of
+  line: Create goes to 19 of 32, with four EXTRA functions. The destructor
+  stays unwritten.
+- **`World::xOGModel::SetModelBlendFactor`** calls
+  `SetTextureBlendFactor` through a pointer to member inside a one-line
+  helper. A helper taking the pointer stays out of line under
+  `#pragma always_inline on`, around the caller or around the class. The
+  loop written into the function reaches 39 of 53 at best. Unwritten.
+- **GetCenter** is one instruction: retail reloads the model for the `+=`.
+  Five spellings keep ours sharing the load: the scale operator two ways,
+  and an accessor on either use or both.
+
+## zNPCManager AND zNPCGenericSwarm: TWO AGENT UNITS WITHOUT THEIR REPORTS
+
+Two agents wrote these and stopped at the session's rate limit before
+reporting, so no lever from them is recorded here. Verified before the
+commit: both compile, a row diff against the stub each started from loses
+nothing (LOST 0), and the pipeline passes.
+- `zNPCManager` 1 to 18 of 27. Nine are written and differ:
+  `_GetAllNPCsWithinConeByType` 125 of 140 words, `Timestep` 30 of 136,
+  `SceneExit` 21 of 116, `SceneSetup` 18 of 101, `SceneReset` 18 of 93,
+  `_GetAllNPCsWithinSphereByType` 17 of 84, `CreateNPCGroup` 10 of 43,
+  `CreateNPC` 10 of 40, `_LoadNPC` 7 of 38.
+- `zNPCGenericSwarm` 2 to 25 of 30. Four are written and differ: `Update`
+  128 of 132 words, `CreateRandomPopSpawnMat` 55 of 98,
+  `CheckSceneSetupValidity` 29 of 41, `Initialize` 6 of 117.
+  `SpawnNewMember` is not written.
+
+The word counts are unitcmp's at this commit. Why each differs has not
+been looked at.

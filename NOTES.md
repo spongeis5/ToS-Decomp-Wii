@@ -7,18 +7,18 @@ numbers here, which move.
 ## State at time of writing
 
 ```
-Game Code:  80 of 777 files complete  541,436 / 2,116,616 bytes  4,245 / 10,697 fn
-            25.5803% of game code
+Game Code:  80 of 777 files complete  567,380 / 2,116,616 bytes  4,427 / 10,697 fn
+            26.8060% of game code
 
-Of those 4,245 functions, 810 are GENERATED -- machine-recognised
+Of those 4,427 functions, 800 are GENERATED -- machine-recognised
 shapes, not one of which is decompiling. They are real matched
 functions and the offsets and constants are recovered fact, but a
 count of them is not a count of decompiled code. HAND-WRITTEN IS
-3,435, across 285 units and 507,764 bytes, and that is the figure to
+3,627, across 290 units and 533,884 bytes, and that is the figure to
 compare against earlier ones.
 
 Data:       4 unit(s) carry their own, 412 bytes; 134 more could
-All:        9.86% matched              main.dol reproduces byte for byte
+All:        10.25% matched              main.dol reproduces byte for byte
 ```
 
 Every number above is written by `python tools/notes_state.py`,
@@ -6818,3 +6818,415 @@ differing words before and after:
 * DoHandleEvent and GetParameterizedMotionTime matched on their first compile.
   The jump table's anonymous name is masked: unitcmp checks relocation names
   only on REL24 branches.
+
+## WAD00: AddToHavokSimWorld AND THE ELEVEN WEAK COPIES IT REACHES (93 -> 104 of 122)
+
+Measured with `lsweep.py`/`lshow.py` on `tools/unitcmp.py SB/GM/Engine/WAD00`,
+cflags_game, 2026-09-15, against the tree at 93 of 110. The 122 rows include
+the four EXTRA copies recorded for the ray cast.
+
+Matched: xVec3::length2, Math::rsqrt, hkVector4::dot3,
+Graphics::Model::SetRootTransform, SetChildTransform and XformSetDirty,
+Math::Equal4, Math::feq, World::xOGModel::UpdaterSwitch, and
+EmbeddedList<World::xOGModel,356>::Remove and PushBack. They are defined after
+the tail region, under `#pragma dont_inline on` so that Matrix43's operator=,
+defined above them, stays a call; each callee below its callers. Nine of the
+eleven matched on the first compile.
+
+Read along the way:
+
+* AddToHavokSimWorld is xHavokInterface.cpp lines 771-831
+  (`tools/dwarf_lines.py 0x8000C7F0`). Line 780 holds every instruction of
+  the branch for an entity that already has a system, and line 803 every
+  instruction from the asset's mass to the updater switch: each is one inline
+  call. `tools/dwarf_locals.py` lists no local of either, and the function's
+  lexical blocks start at the `if` tests at 784, 789 and 794, where
+  modelProto, collMesh, pMat and scale are declared.
+* Base type 0x5A is zEntSimpleObj (alltypes.h: sflags +0xC0, destructible
+  +0xCC, the zDestructible that WAD02_24_2.cpp's `zHitPointsEnt5A` reads). A
+  created dynamic one gets sflags 0x2000 and World::g_modelUpdateDefault.
+* xEnt's GetSceneInitCollisionFilter is its 26th virtual (+108). The
+  EntCollisionListener made for each body of an entity with mass is 0x50
+  bytes, memory tag 42, both intervals 0.25. xOGModelUpdater is a vtable
+  pointer and an EmbeddedList (head, size) at +4.
+
+What each needed (the figure before is the variant without the change):
+
+* **rsqrt is LinkFastSqrt.cpp's form.** Retail has no frsp after frsqrte:
+  `register float` locals with `asm { frsqrte e, x }` and
+  `asm { fnmsubs t, t, h, half }` (10 of 18 words as C++ over `__frsqrte`, 3
+  of 19 in this form). Its two guards are one `x <= 0.0f || x > FLT_MAX`
+  returning x: the second test is then `ble +8 ; blr`, an || whose body is the
+  return, where two ifs give `bgtlr`. The last three words were the register
+  locals' colours: declared h, e, t, half, `half` is f3 and `h` f0 as in
+  retail; declared half, e, t, h they swap.
+* **SetRootTransform keeps its epsilon in f31**: `register float epsilon =
+  1e-5f;` and `bool equal = true;` anded with the three Equal4 results give
+  retail's `rlwinm 0,31,31` on the first result and a bool conversion after
+  each later `and` (41 of 38 words with the literal passed three times). An
+  inline taking the epsilon, outside the dont_inline region, was emitted on
+  its own (EXTRA; 42 of 24).
+* **An always_inline region above every member definition.** Under -inline
+  auto both helpers, normalize4 and hkVector4Init's constructor came out of
+  line (four EXTRA rows; the function 381 words off, 132 of retail's 392).
+  always_inline where the function stood would also take the members it
+  calls, which are defined above it (Cleanup, SetOwner, GetRigidBody, ...).
+  With the region moved, hkVector4Init's class with it, to straight after the
+  declarations, the helpers are in line and the members out of reach: 189 of
+  390.
+* Assigning through the base's operator= to a class deriving hkVector4 needs
+  the base spelled, `(hkVector4&)scale = ...`; otherwise mwcc stops with
+  "illegal operands 'hkVector4Init' = 'const hkVector4'".
+
+Near miss, noted in the source:
+
+* **AddToHavokSimWorld, 178 of 390 words (retail 392), three rounds.** The
+  structure is retail's. Two changes each fixed their own words: an inline
+  returning Assign's reference, `hkVector4Set`, gives retail's `mr r4,r3` into
+  operator= where a constructed temporary passes its address; and an
+  `unsigned int` layer gives the `cmplwi` retail compares it with. Declaring
+  rotation before translation swapped their slots into retail's. What still
+  differs: the registers (pEnt r26 where retail has r30, and the helpers'
+  locals coloured otherwise, which declaring them in retail's register order
+  moved by four words); the scale temporary and the quaternion in each
+  other's stack slots (sp+64, sp+80); the quaternion's length compare with the
+  literal first, as normalize3's is, `0.0f != lengthSquared` included; and
+  CreateFromPackedData's arguments loaded in another order, retail
+  zero-extending the quality and motion bytes (`rlwinm 24,31`) before its
+  `extsb`, which unsigned char locals passed through signed char did not give.
+  Rounds: the helpers out of line under -inline auto (381 of 132), in line
+  under always_inline (189 of 390), the three fixes above (182 of 390), the
+  declaration order (178 of 390).
+
+## WAD00: THE REST OF THE WEAK COPIES (104 -> 120 of 142)
+
+Measured with `lsweep.py`/`lshow.py` on `tools/unitcmp.py SB/GM/Engine/WAD00`,
+cflags_game, 2026-09-15, against the tree at 104 of 122. The 142 rows include
+five EXTRA copies: the four recorded for the ray cast, and the in-place
+array's constructor below.
+
+Matched: xVec3's operator*=, normalize, cross and Sub; v3add; Math::sqrt;
+Math::Mul scaling a matrix's rows by a vector (paired-single code, written as
+an `asm` function, on the first compile); xMat3x3RMulVec, a file static
+(symbols.txt: scope:local), which matched by its plain name although
+report.json spells it with an address suffix; both collector resets;
+hkBaseObject's and hkReferencedObject's destructors (the latter's delete
+through deallocateChunk, class 22 HK_MEMORY_CLASS_BASE_CLASS);
+hkGetRigidBody; Model::NextJointMatrices; xMat3x3Normalize; and hkTransform's
+copy constructor. Not written: GetQuaternion (four float literals, and a
+local static of WAD00.cpp's anonymous namespace), xMat4x3Invert (three
+literals over 117 instructions), hkVector4::length3 (a pair of fsel), and the
+xVec3, xMat3x3 and xMat4x3 assignments, which a declared operator= would turn
+into calls everywhere in the file.
+
+What each needed:
+
+* **`#pragma optimize_for_size off` gives separate `stw` saves.**
+  xMat3x3Normalize saves r30 and r31 with two `stw` in retail where ours had
+  `stmw`; under the pragma it matches (21 of 23 words to 0). Its three lengths
+  are declared left, up, at: the first declared takes the highest slot.
+* **An in-class inline is a call under `dont_inline`.** hkGetRigidBody
+  tail-called getOwner inside the region (7 of 6 words); defined after it, it
+  matches.
+* **A value retail reuses from a register is a local**: NextJointMatrices
+  loads the frame number once and stores it again from the register (16 of 17
+  words to 0 with `unsigned int frame = Globals::updateFrameNumber;`).
+* **A copy constructor defined straight after its class** has hkVector4's
+  constructors in line and its operator=, defined at the tail, called, as
+  retail has; defined in the dont_inline region it called all three (34 of 39
+  words and three EXTRA rows).
+* The two resets are virtual and weak in retail; defined out of line with
+  dont_inline off, the base's reset is in line in the derived one.
+
+Near misses, each noted in the source, three rounds each:
+
+* v3normalize, 12 of 68 words: retail keeps the epsilon in f0 and each
+  absolute value in f1, ours the other way round. The epsilon as a local,
+  before len2 or after it, was 18 (the epsilon in f4). xCam.cpp's
+  v3normalizexz, the same shape, matched with its absolute values through an
+  inline xabs; here, defined ahead of the dont_inline region, xabs was emitted
+  on its own and v3normalize went to 59.
+* Matrix43::MakeQuaternion, 47 of 48 words (ours 52): retail computes the
+  doubled components, the squares, the three diagonal terms and then the
+  other products, all in f0 to f11; twelve named products need f31 as well.
+  tx, ty and tz named with the products in Assign's arguments was 43 of 42
+  (the products fused into fnmsubs); nothing named, 44 of 42.
+* hkpAllCdPointCollector's constructor, 20 of 28 words, with an EXTRA row:
+  the in-place array's constructor, a class template's member, is called out
+  of line where retail has it in line. The same 20 words under -inline auto,
+  with always_inline pushed straight before the constructor or two functions
+  before it, and with the array's constructor instantiated explicitly ahead
+  of it.
+
+## xCAM: AN AGENT UNIT, 2 -> 56 OF 57
+
+Written by an agent working from BRIEF.md; verified by the coordinator on
+2026-09-15 with `tools/unitcmp.py SB/GM/Engine/Core/x/xCam` (56 of 57
+byte-identical) and `rowdiff.py` against the stub it started from, HEAD's
+file (LOST 0, GAINED 54, CHANGED 1). 7,408 bytes in 54 functions. The source's
+NEAR MISS comment said 17 of 27 words where unitcmp measures 10; the comment
+now gives the measured figure.
+
+Skipped, each checked by the agent against the listing: xCamShake::Update
+(nine float literals), xrmod (four), CalculateAABB (in WAD00.cpp's anonymous
+namespace), CreatePhantom and UpdatePhantom (which call it), create_blend
+(PushMemory on that namespace's watermark).
+
+Near miss, noted in the source: CalcBias, 10 of 27 words, `t` in f1 where
+retail and the DWARF have f2. Tried: a split declaration (10), a ternary
+clamp (26), the literal on the left (11), an inline ease helper (27, emitted
+on its own; 10 under always_inline).
+
+What the agent measured (its report, `agents/xCam/report.md`):
+
+* **xVec3 has no user-declared operator=.** Declared, mwcc stopped hoisting
+  loads past stores in refresh_mat (48 of 76 words). Left implicit, mwcc
+  emits its synthesised `__as__5xVec3FRC5xVec3` in the object, where retail's
+  copy is another unit's; the assignments reach that symbol through an
+  `extern "C"` declaration instead: the same words, and no copy emitted.
+* **Unions copied member by member**: xCamCoord and xCamOrient as named
+  unions and `coll_spatial.coord = spatial.coord; coll_spatial.orient =
+  spatial.orient;` give retail's loop and four-word block copy, where
+  `coll_spatial = spatial` called a synthesised `__as__15xCamSpatialInfo`.
+* **Small inline helpers returning float**: sin and cos through isin/icos in
+  refresh_mat (5 of 76 words to 0), and the absolute value in v3normalizexz
+  through xabs (10 of 59 to 0; an inline `xeq(a, b, eps)` was 49 of 59).
+* xCamGroup::update clamps dt inside `if (primary)` (8 of 84 to 0).
+* get_blend reaches its shared tail with `goto`; a bool flag set in the same
+  ifs was 72 of 81.
+* The blend-camera loops bound `end = it + 4`, not `blend_cam + 4` (one word
+  each).
+* xCamBlend::stop's two statements per camera through one inline member (66
+  of 70 to 0).
+* The weak virtuals retail keeps here (xCam::get_next, find_camera) are
+  defined out of line: this unit emits no vtable to name them. v3sub too, its
+  only caller being a wall.
+* Its fourth batch -- xCamBlend::update, blend_coord, blend_orient and twelve
+  weak blends and conversions -- matched on the first compile: the converts'
+  call arguments evaluate right to left, and the pairs of locals are declared
+  c1 then c2.
+
+## zPLAYERINPUTPADMGR: AN AGENT UNIT, 3 -> 35 OF 37
+
+Written by an agent working from BRIEF.md; verified by the coordinator on
+2026-09-15 with `tools/unitcmp.py SB/GM/Engine/Game/zPlayerInputPadMgr` (35
+of 37 byte-identical) and `rowdiff.py` against the stub it started from,
+HEAD's file (LOST 0, GAINED 32, CHANGED 2). 5,084 bytes in 32 functions; all
+34 unwritten functions are written. Its two NEAR MISS comments gave the
+matching words (140 and 191) where the file's convention is the differing
+ones; they now give unitcmp's 33 and 3.
+
+Near misses, noted in the source: CheckForDrop, 3 of 194 words (retail shifts
+the box index in place, `slwi r25,r25,4`, where ours shifts it into r31;
+`int box;` declared at the top took it from 10 to 3, and a third round of
+declaration orders gained nothing); reSort, 33 of 173, all in the first
+bubble loop (the volatile registers one lower than retail's and the high pad
+loaded before the low; eleven respellings over two rounds, of which
+`high < low` fixed the load order but reversed the compare, 34).
+
+What the agent measured (its report, `agents/zPlayerInputPadMgr/report.md`):
+
+* **A loop bound compared unsigned although the DWARF's index is an int**:
+  loops the compiler does not turn into count-downs compare with `cmplwi`,
+  and `i < 4u` fixed seven functions, one word each.
+* **Placement new gives retail's null test** before the constructor call:
+  `new (xMemAlloc(0, size, 0, 55)) T`.
+* **A chain of `bne` to one exit** (GetDebugPad's first pad set) is nested
+  `p == 0 ? next : p` conditionals.
+* **A local the DWARF does not list**, holding a member's old value across a
+  store (CheckForDrop's box), declared at the top of the function, fixed the
+  callee-saved colouring of two other locals.
+* zPlayerInputNS is a namespace, not a class: its GetGamePort takes the key
+  in r3.
+
+## zFXPARTICLELOCATOR: 1 -> 21 OF 31, AND A .bss PREFIX
+
+Measured with `tools/unitcmp.py SB/GM/Engine/Game/zFXParticleLocator`,
+`lsweep.py` and `lshow.py`, cflags_game, 2026-09-15. The unit defined one
+function when this started (Sphere::release_volume, a generated accessor);
+all 30 of its own functions and xVec3::ScaleComponents, a weak copy, are now
+written. Its pool header is `gen_poolprefix.py --whole` output: no strings,
+50,872 bytes of `.rodata` ahead of the first literal.
+
+What each needed:
+
+* **Retail reaches a unity TU's `.bss` at displacements from the TU's
+  start, and a prefix array reproduces them.** scene_enter and scene_exit
+  load `Local::activities`, `sNumberPool`, `otherData` and `sOtherIndices`
+  off one base register at 0x634, 0x638, 0x64C and 0x650: WAD02's `.bss`
+  begins at 0x807340F0 (`...bss.0`), 0x634 bytes before `activities`.
+  Compiled alone our object puts them at 0, 4, 0x18 and 0x1C, four words
+  each. A 0x634-byte `static unsigned char` array defined AHEAD of the four
+  definitions makes both byte-identical (from 4 of 40 and 4 of 23 words):
+  a static at the top of the file, a static straight ahead of them and a
+  global straight ahead of them all match, and a static defined after them
+  changes nothing. What this measurement does not
+  cover: unitcmp names only REL24 branch targets, and masks the `lis`/`addi`
+  pair that forms the base without naming it, so the base's symbol is not
+  compared -- ours is our own `.bss`, retail's `...bss.0`.
+* **A value an inline function returns is evaluated whole before the next
+  argument's call.** Box::GetPoint builds each face point from two random
+  ranges, `2 * (v * u) - v`; spelled in place, ours called the second
+  random before finishing the first and kept `u` in f28 (198 of 202
+  words). Returned from an inline, `2.0f * (v * xurand()) - v`, it matches;
+  so does `v * xurand() * 2.0f - v`. With a named temporary inside, the
+  inline was emitted out of line (an EXTRA row).
+* **An id passed on by value copies as its declared path says.**
+  Model::setup_volume hands FX::Locator::Model the asset's uid. As a plain
+  eight-byte member at +0 of FXParticleSystem the copy was interleaved
+  with the other arguments (10 of 18 words), and with an inline copy
+  constructor on uid its two halves took the other register pair (4, and
+  still 4 with the copy in the body, a default constructor added, or an
+  inline accessor returning a reference). It matches with the DWARF's path,
+  FXParticleSystem deriving xBaseScene deriving xBaseAsset, and a plain
+  uid: bases with the copy constructor kept stay at 4.
+* **A weak copy that retail calls is declared `inline` in the class and
+  defined below its caller**: xVec3::ScaleComponents, below
+  Box::get_offset.
+* **The volume tables are `static const` arrays of function pointers** in
+  activate and deactivate: retail's `.rodata` holds them as
+  `@LOCAL@activate...@setup_volume_table` and
+  `@LOCAL@deactivate...@release_volume_table`. Ours are the same
+  declarations, and since unitcmp does not name a load's target, what is
+  compared is how they are used, not what they are called. Point's slot in the release table
+  holds an address the linker folded onto `Math::Matrix33`'s empty
+  constructor; it is declared as `Point::release_volume` and not defined.
+
+Walls, as `triage_units.py` counted them before anything was written
+(2,388 B in 6): Sphere::get_offset and get_offset_edge, Circle's and Line's
+setup_volume, and Line's two capsule offsets each read four to seven float
+literals, and ours forms the `addis` base the pool header's docstring
+describes where retail spells a `lis` per literal.
+
+Near misses, each noted in the source: Circle::get_offset_cylinder and
+Line's get_offset, get_offset_cylinder and get_offset_cylinder_edge, 7
+words each (of 92, 34, 78 and 66). Each multiplies a constant, a member of
+the volume and a random number; retail computes constant times member
+before converting the random number, and ours converts first. The final
+multiply has the same operands in the same order, so it is one tree with
+its two sides evaluated the other way round. 19 spellings over four
+rounds, counted on Line::get_offset: the three operands in other orders
+(7 to 11 words), an explicit cast (7), xurand() on either side of the
+member (8), a division by 2^32, which then loads the divisor and divides
+(8 to 15), and an inline taking the member and returning the product (33).
+
+## WAD01_19 (zCombat): AN AGENT UNIT, 3 -> 28 OF 33
+
+Written by an agent working from BRIEF.md; verified by the coordinator on
+2026-09-15 with `tools/unitcmp.py SB/GM/Engine/WAD01_19` (28 of 33
+byte-identical) and `rowdiff.py` against the file it started from, three
+generated functions (LOST 0, GAINED 25, CHANGED 5). The 25 are 5,284 bytes,
+PostUpdate (1,524), ProcessHitCollection (840) and CheckForHit (756) among
+them. Its three NEAR MISS comments give unitcmp's counts.
+
+Near misses, noted in the source: CheckHitValid, 7 of 94 words (npcCombat
+and the useHitSpots flag in r28 and r29 the other way round);
+CheckHitSpotActive, 5 of 57 (the globals and `@stringBase0` bases in r30 and
+r31 the other way round); FindAttackState, 11 of 15 at 64 bytes against
+retail's 60 (ours takes the element's address ahead of the compare; its
+comment counts six spellings where the agent's report counts seven). Two
+EXTRA rows retail does not have, hkpCdBodyPairCollector's destructor (64 B)
+and the in-place array's (80 B), emitted beside the collector destructors;
+the agent took them for weak copies the linker dropped. Not written:
+SendObjectHit (1,884 B) and zCombatGetHitTarget(xVec3*, xEnt*) (308 B),
+past the literal wall at six and five literals, and zCombatDamage
+(1,424 B), which loads a stack in WAD01.cpp's anonymous namespace.
+
+**A pool string reached through load displacements gets no prefix from the
+generator.** CheckHitSpotActive spells the scene tag "SBB1" out of the pool
+with four `lbz` reads, and `gen_poolprefix.py` counts only `addi`
+references, so for this unit it reports "builds no pool" and writes no
+strings. The agent put the WAD01 prefix in the .cpp as `kUnityPoolStrings`:
+331 strings, the last "SBB1" at +6926, copied from the rows of the
+generated WAD01_28.pool.h. Checked by script
+(`agents/WAD01_19/check_pool.py`): all 331 rows are the same string at the
+same offset as WAD01_28's 395-row table, all 331 offsets agree with the
+lengths before them, and the image holds "SBB1" at `@stringBase0`+6926
+(0x8068B636). Regenerating the header will not recreate the table; teaching
+the tool the load forms is left as a task of its own.
+
+What the agent measured (its report, `agents/WAD01_19/report.md`), not
+re-measured here:
+
+* **A macro, not an inline, for MAX and MIN**: retail evaluates the inner
+  call twice (GetRunningAttackLastTime, PostUpdate's clamp).
+* **The vtable pointer goes where the first virtual is declared** relative
+  to the data members: zProjectile's data first puts it at +0x190.
+* **ShouldRunEffect's two tests are bool inlines under `always_inline`,
+  with the timer by const reference**, so retail reads it at each compare.
+* **The collector destructors depend on definition order**: the combat
+  collector's defined above NoBSP's (in line there and in CheckForHit),
+  hkpAllCdBodyPairCollector's last, and the in-place array a class template
+  deriving hkArray<hkVector4> so its destructor names the folded symbol.
+* **CheckForHit's Havok temporaries are `Math::Vector4().Assign(...)` cast
+  to hkVector4 and hkQuaternion references**; hkMotionState's constructor
+  calls the empty `__ct__Q24Math8Matrix33Fv`; arguments evaluate right to
+  left.
+* **xVec3's assignment reached by symbol with a const reference source**
+  passes a returned temporary as it is; a named local cost 24 bytes.
+* **CheckHitValid's `hitLoc.assign(const xVec3&)`** gives retail's float
+  register order, and CheckHitSpots declares its element pointer before the
+  loop.
+
+## xFX: THE RIBBON TRAIL, 1 -> 26 OF 31
+
+Measured with `tools/unitcmp.py SB/GM/Engine/Core/x/xFX`, `lsweep.py` and
+`lshow.py`, cflags_game, 2026-09-15. The unit defined one function when this
+started (create, a generated accessor); rowdiff against that file: LOST 0,
+GAINED 25, CHANGED 5. FX::Ribbon::xFXRibbon is a trail of joints kept in a
+`tier_queue` (containers.h) over blocks from one shared allocator, with a
+colour and width curve along it. Thirty functions are written besides
+create: 25 match -- the ribbon's own, and the queue's and helpers' weak
+copies -- and five are near misses. Not written: update, refresh_joint and
+the iterator form of render (4, 4 and 14 float literals), and scene_enter and
+the allocator's alloc_block, which call xMemWatermark::PushMemory in
+WAD00.cpp's anonymous namespace. Its pool header is `gen_poolprefix.py
+--whole` output: 16 bytes of `.rodata` ahead, so the 32 KB floor.
+
+What each needed:
+
+* **mwcc returns an eight-byte class in r3 and r4.** begin() and end()
+  build a {first, owner} iterator on the stack and hand it back in two
+  registers, and every caller stores the pair; written as a plain aggregate
+  returned by value, begin() matched on the first compile.
+* **A weak copy called only from functions not written here needs its
+  address taken to be emitted.** Retail's end() and Math::Lerp<float> are
+  called only from update, refresh_joint and render. An explicit
+  instantiation emitted neither (both are inline); dropping `inline` from
+  Lerp emitted it but broke eval_joint, where retail has it in line (20 of
+  105 words); a static pointer to each at the foot of the file emits both
+  and leaves eval_joint matching. log2_ceil, called only from scene_enter,
+  is defined out of line.
+* **`xColorU32FromRGBA` not inline** is emitted as retail's weak copy, and
+  its one use, a local static's initialiser in load_default_config, is
+  still folded to 0xFFFFFFFF.
+* **The queue's members are calls from the ribbon's; `operator+` and
+  `size` are in line.** Defined under `dont_inline` inside the class
+  template, with those two outside the pragma, every call and every inline
+  landed where retail has it.
+* **A product retail multiplies before subtracting comes from an inline.**
+  time_remaining's `cfg->life_time - joint_age(joint)` matches; spelled in
+  place the product fuses into `fnmsubs` (17 of 39 words). A named local
+  matches too, and the DWARF lists none.
+* **add_joint's difference goes through Sub into a named vector**: through
+  an `operator-` returning one, the result is copied first (61 of 89
+  words), and so it is with `xVec3 diff = loc - ...`.
+* **The iterator's `+=` keeps the sum in a local**: in the mask expression,
+  in either operand order, it was 4 of 7 words.
+* **size and empty test for no activity first**, and front_full returns
+  its second test from inside an if: one `&&` gave 15 of 17 words, an
+  early return 14.
+
+Near misses, each noted in the source, after two or three rounds: the
+queue's clear (29 of 33 words: retail loads alloc twice, once for the block
+size and once for the shift, and keeps i and end in r31 and r30, the other
+way from ours), push_front (22 of 31: retail works out the block index
+before calling alloc_block, holding it in r31 with `this` in r30, and reads
+`first` twice), pop_back (17 of 23: retail reloads alloc for the shift and
+keeps `this` in r7), front_full (6 of 17: the allocator and its head in r5
+and r6, the other way round) and end (6 of 11: retail opens its frame
+before any load). Reading either allocator field, or both, through an
+inline accessor left clear and pop_back unchanged and push_front unchanged
+or worse (24); declaring end ahead of i, the mask's operands swapped, and
+pop_back's test as an early return changed nothing, and the index in a
+local made push_front worse.

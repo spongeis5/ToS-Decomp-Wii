@@ -75,7 +75,7 @@ EXPECT = {
     # stayed at 993 byte-identical functions before and after, which is
     # the evidence that nothing was lost -- only re-homed. unitcmp_pins
     # refuses to lower a pin, correctly, so these seven are written here.
-    "SB/GM/Engine/WAD00": (93, 110),
+    "SB/GM/Engine/WAD00": (120, 142),
     "SB/GM/Engine/WAD00_1": (4, 4),
     "SB/GM/Engine/WAD00_2": (7, 7),
     "SB/GM/Engine/WAD01_21": (4, 4),
@@ -100,7 +100,7 @@ EXPECT = {
     "SB/GM/Engine/Game/zEventSpy": (6, 6),
     "SB/GM/Engine/Game/zWaterWheel": (2, 2),
     "SB/GM/Engine/WAD00_31": (6, 6),
-    "SB/GM/Engine/WAD01_19": (3, 3),
+    "SB/GM/Engine/WAD01_19": (28, 33),
     "SB/GM/Engine/WAD02_31": (17, 33),
     "SB/GM/Engine/WAD02_4": (68, 71),
     "SB/GM/Engine/WAD04_13": (3, 3),
@@ -113,7 +113,7 @@ EXPECT = {
     "SB/GM/Engine/Game/zPlayerInputAI": (1, 1),
     "SB/GM/Engine/Game/zGameState": (9, 9),
     "SB/GM/Engine/Game/zMenu": (1, 1),
-    "SB/GM/Engine/Game/zPlayerInputPadMgr": (3, 3),
+    "SB/GM/Engine/Game/zPlayerInputPadMgr": (35, 37),
     "SB/GM/Engine/Game/zProjectileManager": (1, 1),
     "SB/GM/Engine/Game/zSound": (1, 1),
     "SB/GM/Engine/Game/zSoundReverb": (2, 2),
@@ -224,9 +224,9 @@ EXPECT = {
     "SB/NG/Source/Tools/Havok/source/Common/Base/keycode": (1, 1),
     "SB/GM/Engine/Game/zNPCUPGeneric": (7, 8),
     "SB/GM/Engine/Core/x/xWMLTypes": (1, 2),
-    "SB/GM/Engine/Core/x/xCam": (2, 2),
+    "SB/GM/Engine/Core/x/xCam": (56, 57),
     "SB/GM/Engine/Core/x/xEnt": (40, 44),
-    "SB/GM/Engine/Core/x/xFX": (1, 1),
+    "SB/GM/Engine/Core/x/xFX": (26, 31),
     "SB/GM/Engine/Core/x/xLight": (3, 3),
     "SB/GM/Engine/Core/x/xLightEffect": (2, 2),
     "SB/GM/Engine/Core/x/xModel": (26, 36),
@@ -250,7 +250,7 @@ EXPECT = {
     # that DIFFER are AddActionTransitions bodies with many calls,
     # merged and not yet examined; the pin has to see them.
     "SB/GM/Engine/Game/zCommonPlayerActions": (168, 172),
-    "SB/GM/Engine/Game/zFXParticleLocator": (1, 1),
+    "SB/GM/Engine/Game/zFXParticleLocator": (21, 31),
     "SB/GM/Engine/Game/zFloatingCollectible": (30, 30),
     "SB/GM/Engine/Game/zHitButton": (5, 5),
     "SB/GM/Engine/Game/zInteraction": (5, 5),

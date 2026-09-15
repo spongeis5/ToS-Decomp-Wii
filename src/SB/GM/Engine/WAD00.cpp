@@ -10,13 +10,17 @@
 // out-of-line definitions of what retail has as weak copies with no caller
 // in this unit; they are kept as they were.
 //
-// `#pragma always_inline on` holds in six regions, each measured (NOTES.md,
-// "WAD00"): ScaleConstraintBodyAttachSpace, Cleanup and the function after
-// it, SetMotionType and the function after it,
-// ConvertGraphicsTransformToHKTransform and the function after it,
-// xHavok_SetNPCFromCharacterProxyMotion and the function after it, and the
-// weak copies from hkLocalArray's destructor to the generated accessors. On
-// for the whole file it also inlines ordinary members into their callers.
+// `#pragma always_inline on` holds in seven regions, each measured (NOTES.md,
+// "WAD00"): AddToHavokSimWorld with its two helpers, above every member
+// definition; ScaleConstraintBodyAttachSpace; Cleanup and the function after
+// it; SetMotionType and the function after it;
+// ConvertGraphicsTransformToHKTransform and the function after it;
+// xHavok_SetNPCFromCharacterProxyMotion and the function after it; and the
+// weak copies between hkLocalArray's two explicit instantiations. On for the
+// whole file it also inlines ordinary members into their callers.
+// `#pragma dont_inline on` holds over the weak copies after the last of those
+// regions, which retail calls rather than inlines, and `#pragma
+// optimize_for_size off` over xMat3x3Normalize among them.
 
 class Dummy;
 class hkpRigidBody;
@@ -31,6 +35,7 @@ enum hkResult {
 };
 
 enum HK_MEMORY_CLASS {
+    HK_MEMORY_CLASS_BASE_CLASS = 22,
     HK_MEMORY_CLASS_ARRAY = 24,
     HK_MEMORY_CLASS_MAP = 29,
     HK_MEMORY_CLASS_AGENT = 32,
@@ -40,7 +45,11 @@ enum HK_MEMORY_CLASS {
 };
 
 enum E_HAVOK_COLLIDE_FILTER_LAYER {
-    eNoCollisionLayer = 31
+    eNoCollisionLayer = 31,
+    eFixedLayer = 1,
+    eFixedNoCamLayer = 2,
+    eKeyFrameObjLayer = 3,
+    eDynamicSimpleObjLayer = 4
 };
 
 void xHavok_SetCollisionFilterInfo(hkpRigidBody* body,
@@ -94,6 +103,8 @@ public:
     void mul4(const hkVector4& a);
     void normalize3();
     bool equals3(const hkVector4& v, float epsilon) const;
+    float dot3(const hkVector4& v) const;
+    void normalize4();
 
     void setAbs4(const hkVector4& v) {
         x = (float)__fabs(v.x);
@@ -165,7 +176,10 @@ public:
 
 class hkQuaternion {
 public:
+    hkQuaternion() {}
     hkQuaternion(const hkRotation& r) { set(r); }
+
+    void normalize();
 
     void set(const hkRotation& r);
 
@@ -176,6 +190,7 @@ class hkTransform {
 public:
     hkTransform() {}
     hkTransform(const hkQuaternion& q, const hkVector4& t);
+    hkTransform(const hkTransform& t);
 
     hkTransform& operator=(const hkTransform& t);
     void setIdentity();
@@ -196,6 +211,20 @@ public:
     hkRotation m_rotation;
     hkVector4 m_translation;
 };
+
+// Here, above operator='s definition at the tail: hkVector4's constructors
+// are in line and its operator= is called, as retail has them.
+hkTransform::hkTransform(const hkTransform& t) {
+    hkVector4 col0(t.m_rotation.m_col0);
+    hkVector4 col1(t.m_rotation.m_col1);
+    hkVector4 col2(t.m_rotation.m_col2);
+    hkVector4 translation(t.m_translation);
+
+    m_rotation.m_col0 = col0;
+    m_rotation.m_col1 = col1;
+    m_rotation.m_col2 = col2;
+    m_translation = translation;
+}
 
 class hkAabb {
 public:
@@ -354,6 +383,13 @@ public:
 
 class hkReferencedObject : public hkBaseObject {
 public:
+    // Havok's: the size given back is the one the object was allocated with.
+    void operator delete(void* p) {
+        hkThreadMemory::getInstance().deallocateChunk(
+            p, ((hkReferencedObject*)p)->m_memSizeAndFlags, HK_MEMORY_CLASS_BASE_CLASS);
+    }
+
+    virtual ~hkReferencedObject();
     virtual const hkClass* getClassType() const;
     virtual void calcContentStatistics(hkStatisticsCollector* collector,
                                        const hkClass* cls) const;
@@ -548,8 +584,10 @@ public:
 
     unsigned char _pad4[0x10 - 0x4];
     signed char m_ownerOffset;
-    unsigned char _pad11[0x1C - 0x11];
+    unsigned char _pad11[0x18 - 0x11];
     // m_broadPhaseHandle's
+    signed char m_type;
+    unsigned char _pad19[0x1C - 0x19];
     unsigned int m_collisionFilterInfo;
 };
 
@@ -598,6 +636,7 @@ public:
 class hkpMotion : public hkReferencedObject {
 public:
     enum MotionType {
+        MOTION_DYNAMIC = 1,
         MOTION_KEYFRAMED = 6,
         MOTION_FIXED = 7
     };
@@ -716,6 +755,7 @@ public:
         }
     }
 
+    hkpCdPointCollector() { reset(); }
     virtual ~hkpCdPointCollector() {}
     virtual void addCdPoint(const hkpCdPoint& point) = 0;
     virtual void reset();
@@ -1081,6 +1121,16 @@ void Transpose(Matrix33& o, const Matrix33& a);
 void Mul(Matrix33& o, const Matrix33& a, const Matrix33& b);
 void Negate(Vector4& o, const Vector4& a);
 void Mul(Vector4& o, const Vector4& a, float s);
+float rsqrt(float x);
+float sqrt(float x);
+bool feq(float a, float b, float epsilon);
+
+// Not a named type in the DWARF; the name is the symbol's.
+enum MatrixOpScaleEnum {};
+void Mul(Matrix43& o, MatrixOpScaleEnum op, const Matrix43& a, const Vector& s);
+
+extern Vector vec4Zero;
+bool Equal4(const Vector4& a, const Vector4& b, float epsilon);
 
 extern Matrix43 _matZero;
 
@@ -1128,6 +1178,16 @@ inline void Mul(Matrix43& o, const Matrix43& a, const Matrix43& b) {
 
 class xVec3 {
 public:
+    float length2() const;
+    float length() const {
+        float len2 = length2();
+        return len2 * Math::rsqrt(len2);
+    }
+    float normalize();
+    xVec3& operator*=(float s);
+    void cross(const xVec3& a, const xVec3& b);
+    void Sub(const xVec3& a, const xVec3& b);
+
     float x;
     float y;
     float z;
@@ -1171,6 +1231,17 @@ public:
 };
 
 void xMat4x3ToNGMatrix(Math::Matrix43* out, const xMat4x3* in);
+void xMat3x3Normalize(xMat3x3* o, const xMat3x3* m);
+void v3normalize(float& len, xVec3* out, xVec3* in);
+void v3add(xVec3* o, xVec3* a, xVec3* b);
+
+class xQuat {
+public:
+    xVec3 v;
+    float s;
+};
+
+void xQuatFromMat(xQuat* q, const xMat3x3* m);
 
 // ---------------------------------------------------------------------------
 // The engine's side
@@ -1194,8 +1265,14 @@ public:
 
 class ModelPrototype {
 public:
-    unsigned char _pad0[0x38];
+    unsigned char _pad0[0x8];
+    Math::Matrix43* childTransforms;
+    unsigned char _padC[0x2C - 0xC];
+    unsigned short nonRefTransformCount;
+    unsigned char _pad2E[0x38 - 0x2E];
     Skeleton* skeleton;
+    unsigned char _pad3C[0x44 - 0x3C];
+    bool segmentedModel;
 };
 
 class ModelJointBuffer {
@@ -1208,6 +1285,10 @@ public:
 class Model {
 public:
     void CalcWorldChildTransforms(Math::Matrix43* childTransformsOut) const;
+    void SetRootTransform(const Math::Matrix43& transform);
+    void SetChildTransform(int index, const Math::Matrix43& transform);
+    void XformSetDirty(unsigned int index);
+    Math::Matrix43* NextJointMatrices(bool& advanced);
 
     Math::Matrix43 rootTransform;
     unsigned short visibleCount;
@@ -1223,33 +1304,92 @@ public:
     Math::Matrix43* childTransforms;
     unsigned short* childTransformParents;
     unsigned short* renderableTransformMap;
+    void* refModelInstanceChildXforms;
+    unsigned short dirtyRefChildTransformCount;
+    unsigned short dirtyNonRefChildTransformCount;
+    unsigned int* xformDirtyBits;
 };
 
 }  // namespace Graphics
 
 namespace World {
 
-class ModelPrototypeEntity;
-
 class CollisionMeshBlobEntity {
 public:
     hkpPhysicsSystem* GetPhysicsSystem(int index, int flags) const;
+
+    unsigned char _pad0[0x38];
+    int collFilter;
 };
+
+class ModelPrototypeEntity {
+public:
+    unsigned char _pad0[0x6C];
+    CollisionMeshBlobEntity* collmeshBlob;
+};
+
+class ModelInstanceArticle {
+public:
+    unsigned char _pad0[0x18];
+    ModelPrototypeEntity* protoEnt;
+    unsigned char _pad1C[0x24 - 0x1C];
+    Graphics::Model model;
+    unsigned char _pad8C[0x98 - 0x8C];
+};
+
+class xOGModel;
+class xOGModelUpdater;
+
+}  // namespace World
+
+class EmbeddedListNode {
+public:
+    EmbeddedListNode* next;
+    EmbeddedListNode* prev;
+};
+
+// A list threaded through T by the node at nodeOffset in it.
+template <class T, int nodeOffset>
+class EmbeddedList {
+public:
+    void Remove(T* item);
+    void PushBack(T* item);
+
+    EmbeddedListNode head;
+    unsigned long size;
+};
+
+namespace World {
 
 class xOGModel {
 public:
     ModelPrototypeEntity* GetPrototype() const;
+    void UpdaterSwitch(xOGModelUpdater* newUpdater, void* newParent);
 
     // xModelInstance's, first in it
     xMat4x3 Mat;
-    unsigned char _pad40[0xDC - 0x40];
-    ModelPrototypeEntity* protoEnt;
+    unsigned char _pad40[0xC4 - 0x40];
+    ModelInstanceArticle mModelArt;
+    xOGModelUpdater* updater;
+    void* updateParent;
+    EmbeddedListNode updateNode;
 };
+
+class xOGModelUpdater {
+public:
+    virtual void _u0();
+
+    EmbeddedList<xOGModel, 356> updList;
+};
+
+extern xOGModelUpdater g_modelUpdateDefault;
 
 class xOGModelRefPtr;
 
 class xOGModelRef {
 public:
+    bool IsValid() const { return data != 0; }
+
     xOGModel* data;
     xOGModelRefPtr* autoptr;
 };
@@ -1266,15 +1406,6 @@ public:
     xVec3 vel;
 };
 
-class xEnt {
-public:
-    unsigned char _pad0[0x34];
-    World::xOGModelHandle ogModel;
-    unsigned char _pad3C[0x58 - 0x3C];
-    xEntFrame* frame;
-};
-
-class zNPCEntity : public xEnt {};
 
 enum hkpCollidableQualityType {
     HK_COLLIDABLE_QUALITY_INVALID = -1,
@@ -1686,6 +1817,13 @@ public:
                                    const hkArray<float>& elasticities,
                                    const hkArray<hkpCollidableQualityType>& qualityTypes,
                                    unsigned long long* id);
+    bool CreateFromPackedData(const Graphics::Model& model,
+                              const World::CollisionMeshBlobEntity* packedData,
+                              const hkTransform& worldTransform, float mass, float friction,
+                              float elasticity, float linearDamping, float angularDamping,
+                              hkpCollidableQualityType qualityType,
+                              hkpMotion::MotionType motionType, unsigned int collisionFilter,
+                              const hkVector4& scale, unsigned long long* id);
     static hkpConstraintData* ScaleConstraintBodyAttachSpace(hkpConstraintData* constraintData,
                                                              const hkVector4& scaleA,
                                                              const hkVector4& scaleB,
@@ -1739,6 +1877,315 @@ public:
     hkpPhysicsSystem* physicsSystem;
     hkVector4 creationScale;
 };
+
+class PhysicsDataStruct {
+public:
+    float mass;
+    float friction;
+    float elasticity;
+    float linearDamping;
+    float angularDamping;
+};
+
+class xEntAsset {
+public:
+    unsigned char _pad0[0x98];
+    PhysicsDataStruct physicsData;
+};
+
+// The members of an entity this file reads, at the DWARF's offsets (0xC0).
+// The virtuals are there for their slots; none is defined here, so no vtable
+// is emitted.
+class xEnt {
+public:
+    virtual void _v0();
+    virtual void _v1();
+    virtual void _v2();
+    virtual void _v3();
+    virtual void _v4();
+    virtual void _v5();
+    virtual void _v6();
+    virtual void _v7();
+    virtual void _v8();
+    virtual void _v9();
+    virtual void _v10();
+    virtual void _v11();
+    virtual void _v12();
+    virtual void _v13();
+    virtual void _v14();
+    virtual void _v15();
+    virtual void _v16();
+    virtual void _v17();
+    virtual void _v18();
+    virtual void _v19();
+    virtual void _v20();
+    virtual void _v21();
+    virtual void _v22();
+    virtual void _v23();
+    virtual void _v24();
+    virtual E_HAVOK_COLLIDE_FILTER_LAYER GetSceneInitCollisionFilter();
+
+    unsigned char _pad4[0x18 - 0x4];
+    unsigned long long id;
+    unsigned int baseType;
+    unsigned char _pad24[0x34 - 0x24];
+    World::xOGModelHandle ogModel;
+    xEntAsset* asset;
+    E_HAVOK_COLLIDE_FILTER_LAYER storedCollisionLayer;
+    unsigned char _pad44[0x4E - 0x44];
+    unsigned char collType;
+    unsigned char chkby;
+    unsigned char penby;
+    unsigned char collisionOn : 2;
+    unsigned char _pad52[0x58 - 0x52];
+    xEntFrame* frame;
+    unsigned char _pad5C[0x70 - 0x5C];
+    xVec3 pRigidBodyPostScale;
+    unsigned char _pad7C[0x80 - 0x7C];
+    xHavokPhysicsObject physicsObject;
+    unsigned char _padA0[0xC0 - 0xA0];
+};
+
+class zNPCEntity : public xEnt {};
+
+class zEnt : public xEnt {};
+
+// Base type 0x5A.
+class zEntSimpleObj : public zEnt {
+public:
+    unsigned int sflags;
+};
+
+enum eMemMgrTag { eMemMgrTag_ = 0x7FFFFFFF };
+
+namespace Memory {
+
+enum GlobalHeapEnum { GlobalHeap };
+
+void* AllocGlobalHeap(unsigned long size, GlobalHeapEnum heap, eMemMgrTag tag, bool zeroed);
+
+}  // namespace Memory
+
+inline void* operator new(unsigned long, void* p) { return p; }
+
+class EntCollisionListener {
+public:
+    EntCollisionListener(hkpRigidBody* body, float hitSoundInterval, float rippleInterval);
+
+    unsigned char _pad0[0x50];
+};
+
+void xHavok_AddToSimWorld(const hkpPhysicsSystem* system);
+void xHavok_RemoveFromSimWorld(const hkpPhysicsSystem* system);
+
+// hkVector4's (x, y, z, w = 0) constructor: the linker folded it onto
+// Math::Vector4::Assign, which is the name retail branches to.
+class hkVector4Init : public hkVector4 {
+public:
+    hkVector4Init(float x, float y, float z) {
+        ((Math::Vector4*)this)->Assign(x, y, z, 0.0f);
+    }
+};
+
+// always_inline takes the two helpers, hkVector4Init's constructor and
+// normalize4 in line, as retail has them. Above every member definition, it
+// cannot take the members AddToHavokSimWorld calls.
+#pragma push
+#pragma always_inline on
+
+// Assign's result, not the temporary's address, is what retail passes on to
+// operator=; the three floats are bound right to left, as an inline's are.
+inline const hkVector4& hkVector4Set(hkVector4& v, float x, float y, float z) {
+    return ((Math::Vector4&)v).Assign(x, y, z, 0.0f);
+}
+
+inline void hkVector4::normalize4() {
+    float lengthSquared = x * x + y * y + z * z + w * w;
+    float lengthInverse = (0.0f != lengthSquared) ? hkMath::sqrtInverse(lengthSquared) : 0.0f;
+    mul4(lengthInverse);
+}
+
+inline void hkQuaternion::normalize() { m_vec.normalize4(); }
+
+// An entity that already has a system: out of the world when its collision
+// is off, otherwise matched to its model's transforms again. The scale is
+// computed and not used. The name is ours.
+inline void xHavok_ResyncSystem(xEnt* pEnt) {
+    if (!pEnt->collisionOn) {
+        xHavok_RemoveFromSimWorld(pEnt->physicsObject.physicsSystem);
+        pEnt->physicsObject.Cleanup();
+        return;
+    }
+
+    Graphics::Model& model = pEnt->ogModel.data->mModelArt.model;
+    Math::Matrix43 rootTransform;
+    xMat4x3ToNGMatrix(&rootTransform, &pEnt->ogModel.data->Mat);
+    model.SetRootTransform(rootTransform);
+
+    if (model.modelProto->segmentedModel) {
+        for (unsigned short i = 0; i < model.childTransformCount; i++) {
+            model.SetChildTransform(i, model.modelProto->childTransforms[i]);
+        }
+    }
+
+    hkVector4Init scale(1.0f, 1.0f, 1.0f);
+    E_HAVOK_COLLIDE_FILTER_LAYER filter;
+    World::xOGModel* data = pEnt->ogModel.data;
+    hkVector4 scaleTmp;
+    (hkVector4&)scale = hkVector4Set(scaleTmp, data->Mat.left.length(),
+                                     data->Mat.up.length(), data->Mat.at.length());
+
+    filter = pEnt->GetSceneInitCollisionFilter();
+    pEnt->physicsObject.MatchPhysicsToRenderedModel(model, xHavokPhysicsObject::TELEPORT,
+                                                    xHavokPhysicsObject::MODEL_INV_BIND_SPACE);
+    pEnt->physicsObject.SetCollisionFilter(filter);
+}
+
+// The system built from the model's packed collision data: the layer, the
+// quality and the motion from the asset's mass and the entity's type. A
+// model with no prototype counts as created. The name is ours.
+inline bool xHavok_CreateSystem(xEnt* pEnt) {
+    unsigned char motionType;
+    unsigned char qualityType;
+    unsigned int layer;
+    World::CollisionMeshBlobEntity* collMesh;
+    bool created;
+    float mass = pEnt->asset->physicsData.mass;
+    hkVector4Init creationScale(1.0f, 1.0f, 1.0f);
+    layer = eNoCollisionLayer;
+    bool dynamic = 0.0f != mass;
+
+    if (pEnt->chkby != 0) {
+        layer = dynamic ? eDynamicSimpleObjLayer : eFixedLayer;
+    }
+
+
+    if (pEnt->baseType == 0x56) {
+        qualityType = HK_COLLIDABLE_QUALITY_KEYFRAMED;
+        motionType = hkpMotion::MOTION_KEYFRAMED;
+        layer = eKeyFrameObjLayer;
+    } else {
+        qualityType = dynamic ? HK_COLLIDABLE_QUALITY_MOVING : HK_COLLIDABLE_QUALITY_FIXED;
+        motionType = dynamic ? hkpMotion::MOTION_DYNAMIC : hkpMotion::MOTION_FIXED;
+    }
+
+    pEnt->storedCollisionLayer = (E_HAVOK_COLLIDE_FILTER_LAYER)layer;
+
+    World::ModelPrototypeEntity* protoEnt = pEnt->ogModel.data->mModelArt.protoEnt;
+
+    if (protoEnt != 0) {
+        collMesh = protoEnt->collmeshBlob;
+
+        if (collMesh->collFilter == eFixedNoCamLayer && layer == eFixedLayer) {
+            pEnt->storedCollisionLayer = eFixedNoCamLayer;
+            layer = eFixedNoCamLayer;
+        }
+
+        if (collMesh != 0) {
+            World::xOGModel* data = pEnt->ogModel.data;
+            hkVector4 translation;
+            hkQuaternion rotation;
+
+            hkVector4 scaleTmp;
+            (hkVector4&)creationScale = hkVector4Set(scaleTmp, data->Mat.left.length(),
+                                                     data->Mat.up.length(), data->Mat.at.length());
+
+            if (creationScale.dot3(creationScale) > 0.0f) {
+                xMat3x3 tempMat = data->Mat;
+                xMat3x3Normalize(&tempMat, &tempMat);
+                xQuat quat;
+                xQuatFromMat(&quat, &tempMat);
+                ((Math::Vector4*)&rotation)->Assign(quat.v.x, quat.v.y, quat.v.z, quat.s);
+                ((Math::Vector4*)&translation)
+                    ->Assign(data->Mat.pos.x, data->Mat.pos.y, data->Mat.pos.z, 0.0f);
+            }
+
+            rotation.normalize();
+            hkTransform transform(rotation, translation);
+
+            created = pEnt->physicsObject.CreateFromPackedData(
+                pEnt->ogModel.data->mModelArt.model, collMesh, transform, mass,
+                pEnt->asset->physicsData.friction, pEnt->asset->physicsData.elasticity,
+                pEnt->asset->physicsData.linearDamping, pEnt->asset->physicsData.angularDamping,
+                (hkpCollidableQualityType)(signed char)qualityType,
+                (hkpMotion::MotionType)(signed char)motionType, layer,
+                creationScale, &pEnt->id);
+
+            if (pEnt->baseType == 0x5A && created && dynamic) {
+                ((zEntSimpleObj*)pEnt)->sflags |= 0x2000;
+                pEnt->ogModel.data->UpdaterSwitch(&World::g_modelUpdateDefault, 0);
+            }
+        } else {
+            created = false;
+        }
+    } else {
+        created = true;
+    }
+
+    return created;
+}
+
+// NEAR MISS, 178 of 390 words (retail 392). The structure is retail's; what
+// differs: the registers (pEnt r26 where retail has r30, the helpers' locals
+// coloured otherwise); the scale temporary and the quaternion in each other's
+// stack slots; the quaternion's length compare with the literal first; and
+// CreateFromPackedData's arguments loaded in another order, retail
+// zero-extending the quality and motion bytes before sign-extending them (two
+// words that unsigned char locals did not give). Tried: the helpers out of
+// line under -inline auto (381 of 132); in line under always_inline (189 of
+// 390); Assign's result to operator=, the layer unsigned, the bytes unsigned
+// char, rotation and translation swapped (182 of 390); the helpers' locals
+// declared in retail's register order (178 of 390).
+// Players and NPCs are left to their own controllers. Collision listeners
+// only for bodies with mass.
+void AddToHavokSimWorld(xEnt* pEnt) {
+    if (pEnt->baseType == 0x38 || pEnt->baseType == 0x55) {
+        return;
+    }
+
+    if (pEnt->physicsObject.physicsSystem != 0) {
+        xHavok_ResyncSystem(pEnt);
+        return;
+    }
+
+    if (pEnt != 0 && pEnt->collType != 0 && pEnt->ogModel.IsValid() &&
+        pEnt->ogModel.data->mModelArt.protoEnt != 0 && pEnt->collisionOn) {
+        World::ModelPrototypeEntity* modelProto = pEnt->ogModel.data->mModelArt.protoEnt;
+
+        if (modelProto != 0) {
+            World::CollisionMeshBlobEntity* collMesh = modelProto->collmeshBlob;
+
+            if (collMesh != 0) {
+                xMat4x3* pMat = &pEnt->ogModel.data->Mat;
+                hkVector4Init scale(pMat->left.length(), pMat->up.length(), pMat->at.length());
+
+                if (scale.dot3(scale) > 0.0f) {
+                    if (!xHavok_CreateSystem(pEnt)) {
+                        pEnt->collisionOn = 0;
+                        return;
+                    }
+
+                    __ct__Q24Math6VectorFfff(&pEnt->pRigidBodyPostScale, scale.x, scale.y,
+                                             scale.z);
+                    pEnt->physicsObject.SetOwner(pEnt);
+                    xHavok_AddToSimWorld(pEnt->physicsObject.physicsSystem);
+
+                    if (pEnt->asset->physicsData.mass != 0.0f) {
+                        for (unsigned int c = 0; c < pEnt->physicsObject.GetNumRigidBodies(); c++) {
+                            new (Memory::AllocGlobalHeap(sizeof(EntCollisionListener),
+                                                         Memory::GlobalHeap, (eMemMgrTag)42,
+                                                         false))
+                                EntCollisionListener(pEnt->physicsObject.GetRigidBody(c), 0.25f,
+                                                     0.25f);
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+#pragma pop
 
 // ---------------------------------------------------------------------------
 // xHavokPhysicsObject
@@ -2763,15 +3210,6 @@ void xHavokPhysicsObject::ConvertHKTransformToGraphicsTransform(const hkTransfor
 #pragma push
 #pragma always_inline on
 
-// hkVector4's (x, y, z, w = 0) constructor: the linker folded it onto
-// Math::Vector4::Assign, which is the name retail branches to.
-class hkVector4Init : public hkVector4 {
-public:
-    hkVector4Init(float x, float y, float z) {
-        ((Math::Vector4*)this)->Assign(x, y, z, 0.0f);
-    }
-};
-
 // Orthonormalized first; the engine's rows become Havok's columns.
 void xHavokPhysicsObject::ConvertGraphicsTransformToHKTransform(
     const Math::Matrix43& graphicsTrans, hkTransform& trans) {
@@ -3741,6 +4179,313 @@ template hkLocalArray<Math::Matrix43>::hkLocalArray(int capacity);
 
 #pragma pop
 
+// Weak copies retail calls rather than inlines: those AddToHavokSimWorld
+// reaches and the rest of the unit's. dont_inline keeps Matrix43's operator=,
+// defined above, a call as retail has it.
+#pragma push
+#pragma dont_inline on
+
+inline float xVec3::length2() const { return x * x + y * y + z * z; }
+
+// Zero, a negative and anything past the largest float come back as they
+// are; otherwise one Newton step from frsqrte's estimate, in LinkFastSqrt's
+// form.
+inline float Math::rsqrt(register float x) {
+    if (x <= 0.0f || x > 3.40282347e+38f) {
+        return x;
+    }
+
+    register float h;
+    register float e;
+    register float t;
+    register float half = 0.5f;
+
+    asm { frsqrte e, x }
+    h = half * x;
+    t = e * e;
+    asm { fnmsubs t, t, h, half }
+    e = e * t + e;
+
+    return e;
+}
+
+inline float hkVector4::dot3(const hkVector4& v) const {
+    return x * v.x + y * v.y + z * v.z;
+}
+
+// Stored, and marked dirty, only when it differs.
+inline void Graphics::Model::SetRootTransform(const Math::Matrix43& transform) {
+    register float epsilon = 1e-5f;
+    bool equal = true;
+
+    equal &= Math::Equal4(rootTransform.v[0], transform.v[0], epsilon);
+    equal &= Math::Equal4(rootTransform.v[1], transform.v[1], epsilon);
+    equal &= Math::Equal4(rootTransform.v[2], transform.v[2], epsilon);
+
+    if (!equal) {
+        rootTransform = transform;
+        XformSetDirty(0);
+    }
+}
+
+inline void Graphics::Model::SetChildTransform(int index, const Math::Matrix43& transform) {
+    childTransforms[index] = transform;
+    XformSetDirty(index + 1);
+}
+
+// Transform 0 is the root; the prototype's own transforms come before the
+// reference models'.
+inline void Graphics::Model::XformSetDirty(unsigned int index) {
+    unsigned int bit = 1 << (index & 31);
+
+    if ((bit & xformDirtyBits[index >> 5]) != 0) {
+        return;
+    }
+
+    xformDirtyBits[index >> 5] |= bit;
+
+    if (index == 0) {
+        return;
+    }
+
+    if (index < modelProto->nonRefTransformCount + 1U) {
+        dirtyNonRefChildTransformCount++;
+    } else {
+        dirtyRefChildTransformCount++;
+    }
+}
+
+inline bool Math::Equal4(const Vector4& a, const Vector4& b, float epsilon) {
+    return feq(a.data.x, b.data.x, epsilon) && feq(a.data.y, b.data.y, epsilon) &&
+           feq(a.data.z, b.data.z, epsilon) && feq(a.data.w, b.data.w, epsilon);
+}
+
+inline bool Math::feq(float a, float b, float epsilon) {
+    return (float)__fabs(a - b) <= epsilon;
+}
+
+inline void World::xOGModel::UpdaterSwitch(xOGModelUpdater* newUpdater, void* newParent) {
+    if (updater != newUpdater) {
+        if (updateNode.prev != 0) {
+            updater->updList.Remove(this);
+            updateNode.prev = 0;
+        }
+
+        updater = newUpdater;
+        updateParent = newParent;
+
+        if (mModelArt.model.visibleCount != 0) {
+            newUpdater->updList.PushBack(this);
+        }
+    }
+}
+
+template <class T, int nodeOffset>
+inline void EmbeddedList<T, nodeOffset>::Remove(T* item) {
+    EmbeddedListNode* node = (EmbeddedListNode*)((char*)item + nodeOffset);
+
+    node->prev->next = node->next;
+    node->next->prev = node->prev;
+    size--;
+}
+
+template <class T, int nodeOffset>
+inline void EmbeddedList<T, nodeOffset>::PushBack(T* item) {
+    EmbeddedListNode* node = (EmbeddedListNode*)((char*)item + nodeOffset);
+
+    node->prev = head.prev;
+    node->next = &head;
+    head.prev->next = node;
+    head.prev = node;
+    size++;
+}
+
+// NEAR MISS, 12 of 68 words: retail keeps the epsilon in f0 and each
+// absolute value in f1, ours the other way round. Tried: the epsilon a local
+// before len2 or after it (18 of 68, the epsilon in f4); the absolute values
+// through an inline xabs ahead of this region, as xCam.cpp's v3normalizexz
+// matched (59 of 68, xabs emitted on its own).
+// A length of one or of zero is not divided by: the vector is copied, or
+// made the unit y, and the length given as 1 or 0.
+inline void v3normalize(float& len, xVec3* out, xVec3* in) {
+    float len2 = in->x * in->x + in->y * in->y + in->z * in->z;
+
+    if ((float)__fabs(len2 - 1.0f) <= 1e-5f) {
+        out->x = in->x;
+        out->y = in->y;
+        out->z = in->z;
+        len = 1.0f;
+    } else if ((float)__fabs(len2) <= 1e-5f) {
+        out->y = 1.0f;
+        out->x = 0.0f;
+        out->z = 0.0f;
+        len = 0.0f;
+    } else {
+        float l = len2 * Math::rsqrt(len2);
+        len = l;
+        float inv = 1.0f / l;
+        out->x = in->x * inv;
+        out->y = in->y * inv;
+        out->z = in->z * inv;
+    }
+}
+
+// optimize_for_size off: retail saves r30 and r31 with two stw.
+#pragma push
+#pragma optimize_for_size off
+inline void xMat3x3Normalize(xMat3x3* o, const xMat3x3* m) {
+    float leftLength;
+    float upLength;
+    float atLength;
+
+    v3normalize(leftLength, &o->left, (xVec3*)&m->left);
+    v3normalize(upLength, &o->up, (xVec3*)&m->up);
+    v3normalize(atLength, &o->at, (xVec3*)&m->at);
+}
+#pragma pop
+
+// NEAR MISS, 47 of 48 words (ours 52): retail computes the doubled
+// components, the squares, the three diagonal terms and then the other
+// products, all in f0 to f11; twelve named products need f31 as well. Tried:
+// tx, ty and tz named with the products in Assign's arguments (43 of 42, the
+// products fused into fnmsubs); nothing named (44 of 42).
+inline void Math::Matrix43::MakeQuaternion(const Quaternion& q) {
+    float tx = 2.0f * q.v.data.x;
+    float ty = 2.0f * q.v.data.y;
+    float tz = 2.0f * q.v.data.z;
+    float twx = tx * q.v.data.w;
+    float twy = ty * q.v.data.w;
+    float twz = tz * q.v.data.w;
+    float txx = tx * q.v.data.x;
+    float txy = ty * q.v.data.x;
+    float txz = tz * q.v.data.x;
+    float tyy = ty * q.v.data.y;
+    float tyz = tz * q.v.data.y;
+    float tzz = tz * q.v.data.z;
+
+    Matrix33::Assign(1.0f - tyy - tzz, txy + twz, txz - twy,
+                     txy - twz, 1.0f - tzz - txx, tyz + twx,
+                     txz + twy, tyz - twx, 1.0f - txx - tyy);
+    SetPos(vec4Zero);
+}
+
+inline xVec3& xVec3::operator*=(float s) {
+    x *= s;
+    y *= s;
+    z *= s;
+    return *this;
+}
+
+float xVec3::normalize() {
+    float len2 = length2();
+    float len = len2 * Math::rsqrt(len2);
+    *this *= 1.0f / len;
+    return len;
+}
+
+
+// The next frame's joint buffer, once per frame.
+Math::Matrix43* Graphics::Model::NextJointMatrices(bool& advanced) {
+    unsigned int frame = Globals::updateFrameNumber;
+
+    if (joints->updateFrame != frame) {
+        joints = joints->next;
+        joints->updateFrame = frame;
+        advanced = true;
+    } else {
+        advanced = false;
+    }
+
+    return joints->data;
+}
+
+void xVec3::cross(const xVec3& a, const xVec3& b) {
+    x = a.y * b.z - b.y * a.z;
+    y = a.z * b.x - b.z * a.x;
+    z = a.x * b.y - b.x * a.y;
+}
+
+void xVec3::Sub(const xVec3& a, const xVec3& b) {
+    x = a.x - b.x;
+    y = a.y - b.y;
+    z = a.z - b.z;
+}
+
+void v3add(xVec3* o, xVec3* a, xVec3* b) {
+    o->x = a->x + b->x;
+    o->y = a->y + b->y;
+    o->z = a->z + b->z;
+}
+
+float Math::sqrt(float x) { return x * rsqrt(x); }
+
+// Each row scaled by the vector: paired-single code in retail.
+asm void Math::Mul(Matrix43& o, MatrixOpScaleEnum op, const Matrix43& a, const Vector& s) {
+    nofralloc
+    psq_l f0, 0(r6), 0, 0
+    psq_l f2, 0(r5), 0, 0
+    psq_l f4, 16(r5), 0, 0
+    psq_l f5, 32(r5), 0, 0
+    ps_mul f2, f2, f0
+    ps_mul f4, f4, f0
+    psq_l f1, 8(r6), 1, 0
+    ps_mul f5, f5, f0
+    psq_l f3, 8(r5), 0, 0
+    psq_l f0, 24(r5), 0, 0
+    psq_l f6, 40(r5), 0, 0
+    ps_mul f3, f3, f1
+    psq_st f2, 0(r3), 0, 0
+    ps_mul f0, f0, f1
+    ps_mul f6, f6, f1
+    psq_st f3, 8(r3), 0, 0
+    psq_st f4, 16(r3), 0, 0
+    psq_st f0, 24(r3), 0, 0
+    psq_st f5, 32(r3), 0, 0
+    psq_st f6, 40(r3), 0, 0
+    blr
+}
+
+// A file static of the unity build (symbols.txt: scope:local).
+static void xMat3x3RMulVec(xVec3* o, const xMat3x3* m, const xVec3* v) {
+    float x = m->left.x * v->x + m->up.x * v->y + m->at.x * v->z;
+    float y = m->left.y * v->x + m->up.y * v->y + m->at.y * v->z;
+    float z = m->left.z * v->x + m->up.z * v->y + m->at.z * v->z;
+
+    o->x = x;
+    o->y = y;
+    o->z = z;
+}
+
+#pragma pop
+
+// With dont_inline off, so that the base's reset is in line.
+void hkpCdPointCollector::reset() { m_earlyOutDistance = 3.40282e+38f; }
+
+void hkpAllCdPointCollector::reset() {
+    m_hits.clear();
+    hkpCdPointCollector::reset();
+}
+
+// NEAR MISS, 20 of 28 words: the in-place array's constructor, a class
+// template's member, is called out of line (and emitted, an EXTRA row) where
+// retail has it in line. Tried: -inline auto; always_inline pushed straight
+// before this constructor, and two functions before it; the array's
+// constructor instantiated explicitly ahead of it. All four gave these 20.
+hkpAllCdPointCollector::hkpAllCdPointCollector() { reset(); }
+
+// The owner of an entity's collidable.
+hkpRigidBody* hkGetRigidBody(const hkpCollidable* collidable) {
+    if (collidable->m_type == 1) {
+        return (hkpRigidBody*)collidable->getOwner();
+    }
+
+    return 0;
+}
+
+hkBaseObject::~hkBaseObject() {}
+
+hkReferencedObject::~hkReferencedObject() {}
+
 // ---------------------------------------------------------------------------
 // The generated accessors
 
@@ -3749,4 +4494,4 @@ float hkpRigidBody::getLinearDamping() const { return m_motion.m_linearDamping; 
 float hkpRigidBody::getAngularDamping() const { return m_motion.m_angularDamping; }
 void hkpRigidBody::setLinearDamping(float value) { m_motion.m_linearDamping = value; }
 void hkpRigidBody::setAngularDamping(float value) { m_motion.m_angularDamping = value; }
-World::ModelPrototypeEntity* World::xOGModel::GetPrototype() const { return protoEnt; }
+World::ModelPrototypeEntity* World::xOGModel::GetPrototype() const { return mModelArt.protoEnt; }

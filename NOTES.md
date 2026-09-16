@@ -18,7 +18,7 @@ count of them is not a count of decompiled code. HAND-WRITTEN IS
 compare against earlier ones.
 
 Data:       4 unit(s) carry their own, 412 bytes; 134 more could
-All:        10.63% matched              main.dol reproduces byte for byte
+All:        10.64% matched              main.dol reproduces byte for byte
 ```
 
 Every number above is written by `python tools/notes_state.py`,
@@ -8116,3 +8116,107 @@ For WAD01_28 the genuinely unwritten part was 11,860 B in 28 functions, not
 15,928 in 50. The next prompt must separate the two counts, and a triage run
 that means to plan new work should be crossed against unitcmp's own rows
 first.
+
+## THE GFx LIBRARY EXISTS NOW -- AND unitcmp CANNOT MEASURE IT
+
+Measured 2026-09-15. A new library in configure.py, not a new unit in an
+existing one, so these are the first numbers this project has for Scaleform
+GFx. The most important thing here is not the unit; it is what the unit
+exposed about the measuring tool.
+
+### What was built
+
+125 G/src units carry code in splits.txt and every one stood at 0.0% -- about
+a megabyte of unmatched text, including the five largest single units in the
+project (GFxAction 119,048 B, GFxPlayerImpl 111,736, GFxTextField 95,700,
+GFxSprite 86,096, GFxStyledText 78,152). NOTES.md had never mentioned G/src.
+
+    cflags_gfx = [*cflags_base, "-str reuse,pool,readonly",
+                  "-use_lmw_stmw on"]
+
+with `progress_category "engine"` (where Havok, the other middleware, already
+sits; `config.progress_categories` is an explicit list of four and ninja
+writes six badges from it, so adding a fifth would perturb the tracked
+progress/*.json). Two units are in: **G/src/GHeapStarter** and
+**G/src/GSystem**.
+
+### unitcmp measures EVERY unit with cflags_game, and says nothing about it
+
+`tools/unitcmp.py` compiles with a hardcoded `BASE` list that includes
+`-sdata 0 -sdata2 0`, and `_check_flags` refuses to run if BASE has drifted
+from **cflags_game** specifically. `compile_unit` is `[CC] + BASE + extra`:
+there is no per-library cflags lookup anywhere in it. `tools/objsyms.py`
+(scratch) calls the same `compile_unit`, so it inherits the limitation.
+
+For a game unit that is exactly right and is why the guard exists. For a unit
+in ANY other library it is a wrong answer delivered as an ordinary one:
+
+  * unitcmp reported `G/src/GSystem` as **16 of 20 words differing, 80 B
+    against retail's 84**.
+  * The object **ninja actually builds** is 21 words, and every word matches
+    retail except four, which carry relocations: words 7 and 14 are type
+    **109 (R_PPC_EMB_SDA21)** against `pSysAlloc`, and words 11 and 13 are
+    REL24 branches. `.text` is 84 bytes, `.sbss` is 4, and `pSysAlloc` lives
+    in `.sbss` -- exactly retail's shape.
+
+So the unit is right in the build and wrong only under the measuring tool,
+because unitcmp compiled it with `-sdata 0` and turned an SDA21 access into
+absolute addressing.
+
+GHeapStarter's **3 of 3 is still valid**, but only by luck: it has no
+statics, no strings and no literals, so cflags_game and cflags_gfx produce
+identical code for it. That is also why it was chosen as the first unit, and
+it is the reason the discrepancy did not surface until the second.
+
+### The cost of trusting it, recorded so the next person does not repeat it
+
+Four builds and three hypotheses went into "why is the static in .bss":
+`-sdata 8 -sdata2 8` (a no-op -- mwcc's default is already 8), `-common off`
+(a no-op -- the default is off), and `-model sda_pic_pid` (queued as the last
+flag). A five-shape probe was written to decide whether linkage or
+initialisation governed the placement; it reported all five shapes in `.bss`
+and was restored byte for byte afterwards. **Every one of those measurements
+came from unitcmp's wrong-flag compile, not from the build.** The static was
+in `.sbss` the whole time.
+
+Two process lessons, both of which the project's own rules already state:
+
+  * **A tool that cannot measure something must refuse, not answer.** unitcmp
+    printed a plausible count for a unit outside its competence. Its own
+    docstring says a failed compile must never read as a clean sweep; this is
+    the same failure one level up.
+  * **Read the compiler's help before the second guess at a flag.** `-sdata`,
+    `-sdata2` and `-common` were all set to their existing defaults, which is
+    why all three "experiments" were byte-identical no-ops. One `-help` at the
+    start would have skipped two builds -- and it must be the help of the
+    compiler the build actually invokes (`ninja -t commands` names
+    `compilers\Wii\1.1\mwcceppc.exe`; `find | head -1` returned GC/1.0, a
+    different compiler with a different `-model` keyword list, which sent one
+    conclusion the wrong way).
+
+### The pin that was nearly recorded
+
+`tools/unitcmp_pins.py` enumerates **every** source file under `src/`, not
+just the ones already pinned, so the moment the GFx library existed it would
+have pinned both units. A dry run (which writes nothing) shows exactly what:
+
+    added    G/src/GHeapStarter    (3, 3)
+    added    G/src/GSystem         (0, 1)
+
+The first is right. The second is the wrong-flag artefact, and pins
+**refuses to lower a pin** -- by design, so that a unit quietly matching
+fewer functions is a failure rather than a silent edit. That is the correct
+rule and it is exactly what would have made this bad baseline sticky in a
+committed guard file. So pins was NOT run for real, and the GFx units stay
+unpinned until unitcmp can measure them.
+
+### What is needed before GFx work continues
+
+unitcmp needs either per-library cflags or a guard that refuses a unit whose
+library is not the game library. Until then, a GFx unit can be checked only
+by comparing ninja's object against retail directly with relocations masked,
+which is what was done by hand above. The rest of the GFx groundwork --
+disasm works on unwired units, the DWARF covers GFx unevenly, split sections
+reveal vtables before a line is written, and GFx uses multiple inheritance
+with thunks -- is in the scratchpad bootstrap file and unaffected by any of
+this.

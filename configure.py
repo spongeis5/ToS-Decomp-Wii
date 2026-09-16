@@ -343,6 +343,29 @@ cflags_havok = [
     "-sdata2 0",
 ]
 
+# Scaleform GFx library flags.
+#
+# NOT cflags_game, and the evidence is three-fold. cflags_game sets
+# `-sdata 0 -sdata2 0` because the GAME code makes zero of 7,054 data
+# references through r13 or r2. GFx is the opposite: 88 of its 125 units
+# declare .sdata and/or .sdata2 in splits.txt (against 0 for Havok and 1
+# for all of SB), G/src/GSystem.cpp declares .sbss, and its single
+# function reaches that static as `lwz r0,-23696(r13)`. So small data is
+# left ON here, which is what rules out cflags_game, cflags_trk and
+# cflags_havok -- all three zero it -- and makes cflags_msl the nearest
+# precedent.
+#
+# The rest of this is a FIRST GUESS to be measured on a small unit, the
+# way -O4,s and -str reuse,pool,readonly were measured for the game
+# library: the -O level, the string flags, -RTTI, -common and -ipa are
+# each still an open question. Do not carry any of them into a larger
+# GFx unit before a small one has settled them.
+cflags_gfx = [
+    *cflags_base,
+    "-str reuse,pool,readonly",
+    "-use_lmw_stmw on",
+]
+
 # Metrowerks library flags
 cflags_runtime = [
     *cflags_base,
@@ -1181,6 +1204,27 @@ config.libs = [
             Object(NonMatching, "SB/NG/Engine/WADSpeed_2.cpp"),
             Object(NonMatching, "SB/NG/Source/Engine/Math/CollideOpt.cpp"),
             Object(NonMatching, "SB/NG/Engine/WADSpeed_3.cpp"),
+        ],
+    },
+    {
+        "lib": "GFx",
+        "mw_version": config.linker_version,
+        "cflags": cflags_gfx,
+        # "engine" rather than a fifth category: config.progress_categories
+        # is an explicit list of four and ninja writes six badges from it,
+        # so adding one perturbs the tracked progress/*.json artifacts.
+        # Havok, the other middleware, already lives there.
+        "progress_category": "engine",
+        "objects": [
+            # The first GFx unit, and deliberately the smallest: three
+            # functions, two of them a single instruction, no statics, no
+            # float literals and no layout to recover. It proves the flags
+            # above and nothing else -- 3 of 3 on the first compile.
+            Object(NonMatching, "G/src/GHeapStarter.cpp"),
+            # The second: one function, whose whole point is a file static
+            # reached through r13. This is what actually tests small data
+            # being left ON above.
+            Object(NonMatching, "G/src/GSystem.cpp"),
         ],
     },
     {

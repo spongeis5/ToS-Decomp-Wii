@@ -336,7 +336,54 @@ def _drop_object(path):
         pass
 
 
+# configure.py gives each library its own cflags; BASE above is the GAME
+# library's set, which is what this module's first line says. A unit from
+# any other library compiles here with the wrong flags and its verdict
+# reads like every other verdict.
+#
+# G/src/GSystem came out "16 of 20 words differ, 80 B against retail's 84"
+# while the object ninja builds is byte-identical to retail apart from its
+# relocations -- the game flags carry `-sdata 0`, which turned an SDA21
+# access into absolute addressing. Four builds and three hypotheses went
+# into explaining that before anyone re-read the docstring at the top of
+# this file.
+#
+# So it is said out loud now, once per process. It is a NOTICE and not a
+# refusal: 36 of the pins in unitcmp_check are MSL, Havok and TRK units
+# whose recorded numbers came from this same compile, and turning those
+# into failures is a separate decision from telling the truth about them.
+_LIB_CFLAGS = None
+_LIB_SAID = set()
+
+
+def _library_of(source):
+    """-> (library, cflags variable) for a path under src/, else (None, None)."""
+    global _LIB_CFLAGS
+    if _LIB_CFLAGS is None:
+        _LIB_CFLAGS = {}
+        lib = cf = None
+        for line in (REPO / "configure.py").read_text().splitlines():
+            m = re.search(r'"lib"\s*:\s*"([^"]+)"', line)
+            if m:
+                lib, cf = m.group(1), None
+                continue
+            m = re.search(r'"cflags"\s*:\s*([A-Za-z_0-9]+)', line)
+            if m:
+                cf = m.group(1)
+                continue
+            m = re.search(r'Object\([A-Za-z]+,\s*"([^"]+)"', line)
+            if m and lib:
+                _LIB_CFLAGS[m.group(1)] = (lib, cf)
+    return _LIB_CFLAGS.get(source, (None, None))
+
+
 def compile_unit(unit, extra=()):
+    lib, cf = _library_of(source_of(unit)[4:])
+    if cf and cf != "cflags_game" and unit not in _LIB_SAID:
+        _LIB_SAID.add(unit)
+        print("  NOT THE BUILD'S FLAGS: %s is in library %s (%s), and this"
+              " module compiles with the game flags." % (unit, lib, cf))
+
     # Per PROCESS, not a fixed name: two runs at once (a batch of
     # parallel agents) shared one path, and whichever read second got
     # the other unit's object. Its function names are real retail

@@ -7,18 +7,18 @@ numbers here, which move.
 ## State at time of writing
 
 ```
-Game Code:  80 of 777 files complete  588,664 / 2,116,616 bytes  4,601 / 10,697 fn
-            27.8116% of game code
+Game Code:  80 of 777 files complete  592,808 / 2,116,616 bytes  4,621 / 10,697 fn
+            28.0073% of game code
 
-Of those 4,601 functions, 798 are GENERATED -- machine-recognised
+Of those 4,621 functions, 798 are GENERATED -- machine-recognised
 shapes, not one of which is decompiling. They are real matched
 functions and the offsets and constants are recovered fact, but a
 count of them is not a count of decompiled code. HAND-WRITTEN IS
-3,803, across 292 units and 555,184 bytes, and that is the figure to
+3,823, across 292 units and 559,328 bytes, and that is the figure to
 compare against earlier ones.
 
 Data:       4 unit(s) carry their own, 412 bytes; 134 more could
-All:        10.57% matched              main.dol reproduces byte for byte
+All:        10.63% matched              main.dol reproduces byte for byte
 ```
 
 Every number above is written by `python tools/notes_state.py`,
@@ -7918,3 +7918,201 @@ Left unwritten with reasons: `getShape` (812 B) is the four-literal wall
 constructor-inlining wall above; and the CustomTextRenderer / FileOpener /
 GSFMemoryFile cluster was not reached, two of them through `__ptmf_scall`
 pointer-to-member dispatch.
+
+## zSBPlayerActions, ROUND 2: 453 -> 467 OF 481
+
+Measured with `tools/unitcmp.py SB/GM/Engine/Game/zSBPlayerActions`,
+cflags_game, 2026-09-15. Verified independently of the agent that wrote it:
+unitcmp gives 467 of 481; `rowdiff.py` against the file the round started
+from gives **LOST 0**, GAINED 14, CHANGED 2, with the 453 it began with
+still matching; there are **no EXTRA rows**; `objsyms.py` reports 78 symbols
+outside `.text`, all of them the unit's pooled strings and anonymous
+constants, and no vtable; and each of the fourteen DIFFER rows unitcmp
+prints is accounted for by a comment in the source carrying that exact
+count. Three of the fourteen gains were rows that already existed and were
+DIFFERING -- the ExtraIdle trio at 16 of 32 and 16 of 36 -- so this round
+improved as well as added. 2,508 bytes in fourteen functions.
+
+**A redundant `clrlwi` before an `extsb.` is a type fact and a reload fact
+together.** Retail decrements a `signed char` member and then tests it, and
+the test reads the value back out of memory rather than using the register
+it just stored. Neither `--member <= 0` nor a cast of the decrement
+expression produces that -- both were measured and gave identical counts,
+no change at all. What produces it is the decrement as ITS OWN STATEMENT
+followed by a fresh read of the MEMBER, with the sign forced at the read:
+
+      --numExtraIdlesUntilTurn;
+      if ((signed char)numExtraIdlesUntilTurn <= 0) { ... }
+
+That is the same shape as WAD02_15_1's volatile job number from the other
+direction: when retail reads back something it just wrote, the question is
+what forces the reload, and the answer is never in the arithmetic.
+Three functions, 428 B.
+
+**mwcc allocates r31 downward in DECLARATION order and emits initialisers
+in STATEMENT order, so retail's register numbers reveal its declaration
+order.** Retail wanted `ok` in r31 but initialised second (`li r30,0` then
+`li r31,0`). Declaring `ok` first WITH its initialiser gets the registers
+right and the order wrong; declaring it first and assigning it late gets
+both. This was settled by a control rather than by argument: the two
+Slippery twins have identical bodies, so both spellings went into one
+compile -- 5 of 40 against 7 of 40 -- and then both matched. 480 B in three
+functions.
+
+**But that fold is body-specific, and the same spelling is a loss
+elsewhere.** Applied to the four Happy/Happier twins, declaring the flag
+without an initialiser and assigning it after `result` makes mwcc fold the
+flag away entirely: 112 B and 29 of 28 words on all four, against the 2 of
+32 they stand at. So the three available spellings there are "registers
+right, init order wrong" (2 words) or "flag gone" (28+ words), and the
+first is kept. A lever that is worth 480 bytes in one place and a
+regression in another is exactly why each batch is measured on the whole
+unit rather than on the function being aimed at.
+
+**An early exit that branches to the function's single shared `li r3,0` is
+a compound condition, not an early return.** Where two false paths reach
+ONE zero-return, the source has one `if` with `&&`, not two `return false`
+statements -- each of those would get its own `li r3,0`. Two functions,
+380 B (KelpTrapCheck, SBBungeeBallHitCheck).
+
+**Contiguous case values fold to a range test, `switch` included.**
+`state == 2 || state == 3` compiles to `addi r0,r3,-2 ; cmplwi r0,1`, and a
+`switch` on the same two cases folds identically -- which contradicts the
+general note that a switch gives a chain of compares; it does only when the
+values are not contiguous. Retail kept a `cmpwi` per value around a flag
+preset to 1, and only nested `if`s reproduce that. Measured all three on
+the whole unit: the `||` 23 of 45 at 180 B, the `switch` 17 of 49 at 196 B,
+the nested ifs 6 of 50 at retail's exact 200 B.
+
+**A value retail holds across a call is a local named before it** --
+StartLedgeCheck's player, and WalkCheck's `float mag`, where naming the
+threshold makes it load before the call that produces the value it is
+compared with.
+
+Six near misses remain, each with its counts in the source: RunSuccessCheck
+6 of 50 at retail's exact length, HitBuffFrontCheck and HitBuffBackCheck
+7 of 27 each (the second deliberately left untouched as a control for the
+first, and 22 spellings are recorded between them), the four Happy/Happier
+twins at 2 of 32 -- where the ONLY difference is which of two zeroing
+instructions comes first -- HitByDOTCheck 37 of 39, and AimPuckCheck 6 of 6
+in a six-word function. Five more rows differ that this round did not
+attempt: AddInternalTransitions (1,544 of 1,642), AddActionTransitions
+(356 of 362), AddTransitionsFrom (83 of 90), ExtraIdleCheck (38 of 46) and
+FaceCameraCB (34 of 35), each behind four or more distinct float literals.
+
+A stale comment was corrected during the round (HitBuffBackCheck said
+"20 of 27" where the true count is 7 of 27), and a second one was found and
+corrected during verification: HitBuffFrontCheck's note still described
+that twin as "not yet written".
+
+About thirty unwritten functions with no known wall have their disassembly
+saved for the next round in `$S/agents/zSBPlayerActions/unwritten_a.dis`
+and `unwritten_b.dis`; the largest untouched are zSBAnimPackageBE (928 B),
+StartPuckAttackCheck (592), addCdBodyPair (528) and Move for zPlayerJumpSB
+(348), with the ExtraIdleCB/HammerHitCB and Reset/ResetRandomAnims twin
+pairs behind them.
+
+## WAD01_28, ROUND 2: 501 -> 507 OF 532
+
+Measured with `tools/unitcmp.py SB/GM/Engine/WAD01_28`, cflags_game,
+2026-09-15. Verified independently of the agent that wrote it: unitcmp gives
+507 of 532; `rowdiff.py` against the file the round started from gives
+**LOST 0**, GAINED 6 (all six matching), CHANGED 3 (all three closer), with
+the 501 it began with still matching; there are **no EXTRA rows**;
+`objsyms.py` reports 77 symbols outside `.text`, every one a pooled string or
+anonymous constant, and **no vtable**; and all ten NEAR MISS comments carry
+exactly the counts unitcmp prints. 1,636 bytes in six functions, all written
+from `disasm.py` listings alone -- `brief.py` has no DWARF for any of them.
+
+**The control that should be copied.** The round's first batch was six
+well-founded edits, and the whole-unit measurement afterwards came back
+**line-for-line identical to the baseline**: same match count, same differing
+words in all 25 rows, including functions whose source structure had changed
+enough to change their size. Rather than believe either the edits or the
+tool, the agent changed one constant (0x10 -> 0x20) in a function that
+matches and re-measured: 501 of 526 became 500 of 526 with
+`Move__17zPlayerLedgeBoard` at 1 of 9. The control fired, so unitcmp was
+compiling fresh and reading the file, and the six edits were genuine no-ops.
+**When a measurement says nothing changed, that is a claim to test, not a
+result to accept** -- and a deliberate one-word break in a matching function
+is the cheapest test there is.
+
+What those no-ops established, and it is worth more than the batch:
+**mwcc canonicalises commutative operand order** -- integer `*`, float `*`,
+float `==` -- **and folds `bool x = false; if (A && B) x = true;` back into
+`bool x = A && B;`.** Measured, each with no change whatsoever: `0.5f * f()`
+against `f() * 0.5f`; `(n - 1) * (draw & 0xFFFF)` against the reverse, and
+with either operand named in a local; `lodScale == 0.0f` against
+`0.0f == lodScale`; a ternary against an if with a trailing return; and four
+spellings of the two-bool flag (if-form, int flag, nested ifs, and the first
+operand behind an inline returning bool) all byte-identical to each other.
+So where retail differs from us in evaluation or register order ALONE,
+respelling the expression is not the lever, and five of this unit's near
+misses are immune to it. That is a large class of attempts ruled out.
+
+Levers that did work, each measured on the whole unit:
+
+  * **`>=` and `<=` on floats cost a `cror` and a second branch.**
+    GetSurfaceRelativeInput was one word too long purely because of
+    `if (slope >= 0.01f) { body }`; retail leaves on a single `blt`, i.e.
+    an early `if (slope < 0.01f) return;`. That alone took it from 17 of 43
+    words to byte-identical. The same `cror` appears in Turn180Check as
+    retail's own, so the shape is readable in either direction.
+  * **mwcc gives the LAST-declared local the LOWEST stack slot.**
+    BeforeAnimMatrices was 6 of 41 words and every one was a stack
+    displacement; declaring the xQuat before the xVec3 fixed all six at once.
+    (Compare zSBPlayerActions this same day: r31 downward in declaration
+    order for registers. Same principle, different resource.)
+  * **Name ONE operand, not all of them.** ApplySpinBoneModification was 6 of
+    77 words in a single expression; naming only the action's own value
+    before the subtraction matched, while naming all three was still wrong
+    at 5 of 77.
+  * **Write the inlined body out where mwcc will not inline it.** Retail
+    inlines each Slippery check into its Regular check and still emits the
+    out-of-line copy for the `an*` wrapper. mwcc refuses a member that
+    large, so the body is written at the call site: the unit went from 602 to
+    575 differing words with no match lost and no EXTRA row.
+  * **A flag built false-first is a different shape from a bare `||`
+    returned** -- and reusing the unit's own `BoardPowerupActive` inline for
+    it left SBQuicksandJumpCheck at 71 of 92 AND emitted an EXTRA
+    out-of-line copy (505 of 532). Writing the flag out gave byte-identical.
+
+Ten near misses carry their counts in the source: CheckForNearbyNPCs 1 of 37
+(one `fmadds` with its operands the other way round), ExtraIdleCB 3 of 78 and
+HammerHitCB 3 of 75 (all six words inside one inline), SetLODScale 2 of 15,
+IsAI 2 of 19, the three Slippery checks 32 of 32 each, and the three Regular
+checks at 39 of 42, 57 of 62 and 60 of 72.
+
+**One shared cause for the next pass:** StartSpinAttackCheck and
+StartPuckAttackCheck both show retail RE-READING `powerupState` where ours
+keeps it in a register -- which is exactly the volatile signal WAD02_15_1's
+job number turned out to be. It was deliberately not tried, because
+`powerupState` is read by about ten functions that currently match, so it
+needs a whole-unit measurement rather than a local one. That is the right
+call and the right note to leave.
+
+Two functions were written and deliberately **not installed**, kept as
+variants: SetColorMultiplier (40 of 41; the second attempt fixed a real
+layout error -- the float the alpha test reads at +0x28 is the last component
+of the colour multiplier at +0x1C, not a separate member -- without moving
+the count) and StartSpinAttackCheck (105 of 134, though its first 28 words
+match and the divergence begins exactly at the `powerupState` re-read).
+Installing both would add about 700 B of mostly-wrong code to the
+denominator for no matched bytes.
+
+### unmatched is not unwritten, and the prompts said otherwise
+
+The agent reported `triage_units.py` as "stale by 24 functions". It is not:
+the tool counts a unit's **unmatched** functions, which its docstring says
+plainly, and unmatched includes functions the object already defines and gets
+wrong. Checked here -- StartPuckAttackCheck, ExtraIdleCB, HammerHitCB,
+IdleRegularCheck and IdleColdCheck are all in triage's no-wall list AND are
+DIFFER rows in unitcmp. The tool is right.
+
+What was wrong is **the wording of the prompts I wrote from it**, which
+offered "15,928 B in 50 functions have NO known wall" as work to start on.
+That reads as unwritten, and both agents this round were given it that way.
+For WAD01_28 the genuinely unwritten part was 11,860 B in 28 functions, not
+15,928 in 50. The next prompt must separate the two counts, and a triage run
+that means to plan new work should be crossed against unitcmp's own rows
+first.

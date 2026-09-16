@@ -335,6 +335,11 @@ public:
     virtual void _v29();
     virtual zAnimPackage* _v30(ePlayerName name);
 
+    // `ChangeState__10zPlantTrapFQ210zPlantTrap10plantState`: a
+    // non-virtual taking a nested enum.
+    enum plantState { plantState_ = 0x7FFFFFFF };
+    void ChangeState(plantState s);
+
     unsigned char _pad0[0x3C - 0x4];
     int f3C;
     unsigned char _pad1[0x5C - 0x40];
@@ -786,6 +791,8 @@ public:
     bool performCelebration;
     unsigned char _pad21[0xA44 - 0xA3D];
     unsigned int surfaceDefeatedByType;
+    unsigned char _pad22[0xAF4 - 0xA48];
+    float gooWalkStartMag;                // +0xAF4, WalkCheck's threshold
 };
 
 
@@ -855,8 +862,8 @@ public:
     int facing;                           // +0x10 SBExtraIdleFacingState
     xVec3 targetFacing;                   // +0x14
     float turnSpeed;                      // +0x20
-    signed char numExtraIdlesUntilTurn;   // +0x24
-    signed char numExtraIdlesUntilAging;  // +0x25
+    unsigned char numExtraIdlesUntilTurn;  // +0x24
+    unsigned char numExtraIdlesUntilAging; // +0x25
     float agingIdleTimer;                 // +0x28
     ExtraIdleTableEntry extraIdleTable[6];
     float extraIdleTimer;                 // +0x20C
@@ -1027,7 +1034,9 @@ public:
     static unsigned int anHitFrontCheck(xAnimTransition* a0, xAnimSingle* a1, void* a2);
     bool HitFrontCheck(xAnimTransition* a0, xAnimSingle* a1);
     static unsigned int anHitHammerCheck(xAnimTransition* a0, xAnimSingle* a1, void* a2);
-    bool HitHammerCheck(xAnimTransition* a0, xAnimSingle* a1);
+    // Returns the transition state's 0x20000 bit unmasked, so
+    // `unsigned int`: a bool return would normalise it.
+    unsigned int HitHammerCheck(xAnimTransition* a0, xAnimSingle* a1);
     static unsigned int anHitPowerupCheck(xAnimTransition* a0, xAnimSingle* a1, void* a2);
     bool HitPowerupCheck(xAnimTransition* a0, xAnimSingle* a1);
     bool CanExitCheck(xAnimTransition* a0, xAnimSingle* a1);
@@ -1161,7 +1170,7 @@ public:
     static unsigned int anAcidVersionCheck(xAnimTransition* a0, xAnimSingle* a1, void* a2);
     unsigned int AcidVersionCheck(xAnimTransition* a0, xAnimSingle* a1);
     static unsigned int anDeathCheck(xAnimTransition* a0, xAnimSingle* a1, void* a2);
-    bool DeathCheck(xAnimTransition* a0, xAnimSingle* a1);
+    unsigned int DeathCheck(xAnimTransition* a0, xAnimSingle* a1);
     static unsigned int anFragBobCheck(xAnimTransition* a0, xAnimSingle* a1, void* a2);
     bool FragBobCheck(xAnimTransition* a0, xAnimSingle* a1);
     static unsigned int anFrozenGooDeathCheck(xAnimTransition* a0, xAnimSingle* a1, void* a2);
@@ -1914,6 +1923,7 @@ public:
     static unsigned int anWalkToRun2Check(xAnimTransition*, xAnimSingle*, void*);
     void AddActionTransitions(xAnimTable* table);
     void AddStates(xAnimTable* table);
+    bool WalkCheck(xAnimTransition* a0, xAnimSingle* a1);
     bool WalkSlipperyCheck(xAnimTransition* a0, xAnimSingle* a1);
     bool WalkToRun1Check(xAnimTransition* a0, xAnimSingle* a1);
     bool WalkToRun2Check(xAnimTransition* a0, xAnimSingle* a1);
@@ -5549,7 +5559,8 @@ void zPlayerSpringboardSB::End() {
 // `bool`), `switch`, if/else, ternary and an inlined accessor included;
 // a result variable is six words with `beqlr`. tools/idiom_scan.py aim:
 // image-wide only the two AimPuckCheck twins (Board and SB) have this
-// shape, so there is no matched exemplar to read.
+// shape, so there is no matched exemplar to read. Current: 6 of 6
+// words, ours 24 B, retail 28 B.
 unsigned int zSBPlayerPuckAttack::AimPuckCheck(xAnimTransition* a0,
                                                xAnimSingle* a1) {
     bool result = false;
@@ -6693,7 +6704,9 @@ bool zSBPlayerBungeeBall::SBBungeeBallCheck(xAnimTransition* a0,
 }
 
 // NEAR MISS -- HitBuffFrontCheck, 7 of 27 words; its twin HitBuffBackCheck
-// (0x8014C720, not yet written) is the same shape byte for byte. Retail
+// (0x8014C720) is the same shape byte for byte, is now written, and stands
+// at the same 7 of 27 -- it was kept untouched as the control while the
+// 22nd spelling below was measured on this one. Retail
 // materialises `buffHits && powerupState == 1` into r0 -- `li r0,0`
 // BETWEEN the bitfield's `rlwinm.` and its `beq`, then `li r0,1 / cmpwi
 // r0,0` before the call -- and reads the field into r6. Ours initialises
@@ -6710,6 +6723,11 @@ bool zSBPlayerBungeeBall::SBBungeeBallCheck(xAnimTransition* a0,
 // zWallNetGroup::GetWallNet, `return a >= 0 && a < n ? p[a] : 0;` -- a
 // ternary whose condition is an `&&` chain -- but with a call in the
 // true arm that form tail-calls (15 words).
+//
+// 22nd spelling, measured: `if (cheat) buff = (state == 1); else buff =
+// 0;` -- an if/else instead of the `&&` -- is 20 of 27 words at 112 B,
+// worse than this one's 7 of 27, and was reverted. Its twin
+// HitBuffBackCheck was left alone as the control and stayed at 7 of 27.
 unsigned int zPlayerHitSB::HitBuffFrontCheck(xAnimTransition* a0,
                                              xAnimSingle* a1) {
     bool result = false;
@@ -7039,8 +7057,10 @@ bool zPlayerFluidBurstSB::FluidBurstCheck(xAnimTransition* a0,
     return result;
 }
 
-// NEAR MISS: 20 of 27 words; HitBuffFrontCheck's twin, the same
-// temp-placement wall (see the note on HitBuffFrontCheck).
+// NEAR MISS: 7 of 27 words; HitBuffFrontCheck's twin, the same
+// temp-placement wall (see the note on HitBuffFrontCheck). Left
+// untouched as the control while that note's 22nd spelling was
+// measured on the twin.
 bool zPlayerHitSB::HitBuffBackCheck(xAnimTransition* a0, xAnimSingle* a1) {
     bool result = false;
     unsigned int buff;
@@ -7169,9 +7189,20 @@ bool zPlayerIdleSB::IdleNormalHappyCheck(xAnimTransition* a0,
     return result;
 }
 
+// NEAR MISS, all four twins (IdleHappyCheck, IdleHappierCheck,
+// RunRegularHappyCheck, RunRegularHappierCheck): 2 of 32 words each,
+// 128 B, retail 128 B. The only difference is the order of the two
+// zeroing instructions -- ours `li r31,0 ; li r30,0`, retail the
+// reverse -- with ok in r31 and result in r30 in both.
+//
 // `ok` declared first keeps it (r31) and its test, where with `result`
 // first mwcc folds the flag away (29 of 28 words; tools/sweep_src.py,
-// five spellings).
+// five spellings). Declaring `ok` without an initialiser and assigning
+// it after `result` -- the spelling that made both Slippery twins
+// byte-identical below -- ALSO folds the flag away here: 29 of 28
+// words at 112 B, measured on all four. So the three orders available
+// are: registers right and init order wrong (this one, 2 words), or the
+// flag gone (the other two). Left as it stands.
 bool zPlayerIdleSB::IdleHappyCheck(xAnimTransition* a0, xAnimSingle* a1) {
     bool ok = false;
     bool result = false;
@@ -7323,7 +7354,9 @@ bool zPlayerIdleSB::ExtraIdleDontFaceCamBuffCheck(xAnimTransition* a0,
     }
 
     if (facing == 0 && ExtraIdleCheck(a0, a1)) {
-        if (--numExtraIdlesUntilTurn <= 0) {
+        --numExtraIdlesUntilTurn;
+
+        if ((signed char)numExtraIdlesUntilTurn <= 0) {
             facing = 1;
         }
 
@@ -7340,7 +7373,9 @@ bool zPlayerIdleSB::ExtraIdleDontFaceCamCheck(xAnimTransition* a0,
     }
 
     if (facing == 0 && ExtraIdleCheck(a0, a1)) {
-        if (--numExtraIdlesUntilTurn <= 0) {
+        --numExtraIdlesUntilTurn;
+
+        if ((signed char)numExtraIdlesUntilTurn <= 0) {
             facing = 1;
         }
 
@@ -7357,7 +7392,9 @@ bool zPlayerIdleSB::ExtraIdleFaceCamCheck(xAnimTransition* a0,
     }
 
     if (facing == 4 && ExtraIdleCheck(a0, a1)) {
-        if (--numExtraIdlesUntilAging <= 0) {
+        --numExtraIdlesUntilAging;
+
+        if ((signed char)numExtraIdlesUntilAging <= 0) {
             facing = 5;
         }
 
@@ -7525,13 +7562,315 @@ bool zPlayerLedgeSB::StartLedgeCheck(xAnimTransition* a0, xAnimSingle* a1) {
     zSBPlayer* p = (zSBPlayer*)player;
     bool busy = p->powerupState != 0 || p->powerupModelState != 0;
 
-    if (!busy && !p->IsInAnyGooState() &&
-        ((zSBPlayer*)player)->interactionManager.GetCurrentInteractionType() ==
-            _v29()) {
+    if (!busy && !p->IsInAnyGooState()) {
+        zSBPlayer* cur = (zSBPlayer*)player;
+
+        if (cur->interactionManager.GetCurrentInteractionType() == _v29()) {
+            return true;
+        }
+    }
+
+    return false;
+}
+
+bool zPlayerHitLaunchSB::LaunchFrontCheck(xAnimTransition* a0,
+                                          xAnimSingle* a1) {
+    if (((zSBPlayer*)player)->_v48()) {
+        return false;
+    }
+
+    if (zCombatGetBaseAttackSB(
+            (Sext::eHitSource)((zSBPlayer*)player)->lastDamageType) == 29 &&
+        ((zSBPlayer*)player)->_v74()) {
+        return false;
+    }
+
+    if (((zSBPlayer*)player)->IsGooFilled()) {
+        return false;
+    }
+
+    return ((zSBPlayer*)player)->currentHitType == 2;
+}
+
+bool zPlayerHitLaunchSB::LaunchBackCheck(xAnimTransition* a0,
+                                         xAnimSingle* a1) {
+    if (((zSBPlayer*)player)->_v48()) {
+        return false;
+    }
+
+    if (zCombatGetBaseAttackSB(
+            (Sext::eHitSource)((zSBPlayer*)player)->lastDamageType) == 29 &&
+        ((zSBPlayer*)player)->_v74()) {
+        return false;
+    }
+
+    if (((zSBPlayer*)player)->IsGooFilled()) {
+        return false;
+    }
+
+    return ((zSBPlayer*)player)->currentHitType == 1;
+}
+
+// The player stays in r31 across all four calls: one local.
+unsigned int zPlayerHitSB::HitHammerCheck(xAnimTransition* a0,
+                                          xAnimSingle* a1) {
+    zSBPlayer* p = (zSBPlayer*)player;
+
+    if (!p->_v74()) {
+        return 0;
+    }
+
+    if (AnyHitCheck(a0, a1) &&
+        zCombatGetBaseAttackSB((Sext::eHitSource)p->lastDamageType) == 29 &&
+        !p->IsGooFilled()) {
+        return ((AnimCBHolder*)a0)->slot->f94 & 0x20000;
+    }
+
+    return 0;
+}
+
+// NEAR MISS: 37 of 39 words; ours 156 B, retail 164 B. Retail computes
+// every term of the chain as a VALUE in r3 -- `addic/subfe.` for each
+// `!= 0`, `cntlzw/srwi` for each negation -- and the short-circuit
+// exits carry that 0 out as the result, with no flag register at all.
+// Ours turns the chain into control flow and materialises a flag in
+// r31, which is why it saves five registers where retail saves four.
+// Measured: the `||` named as `busy` (this spelling) 37 of 39; the same
+// chain with the `||` spelled inline and unnamed, 38 of 35 at 140 B --
+// shorter than retail and further away.
+bool zPlayerHitSB::HitByDOTCheck(xAnimTransition* a0, xAnimSingle* a1) {
+    zSBPlayer* p = (zSBPlayer*)player;
+    bool busy = p->powerupState != 0 || p->powerupModelState != 0;
+
+    return !busy && !p->IsInAnyGooState() && AnyHitCheck(a0, a1) &&
+           p->lastDamageType == 16;
+}
+
+// `player` is read afresh after FaceCameraCB (retail's r31), and the
+// trap pointer once for both the call and the store.
+bool zPlayerDefeatedSB::KelpTrapCheck(xAnimTransition* a0, xAnimSingle* a1) {
+    if (!((zSBPlayer*)player)->_v48()) {
+        return false;
+    }
+
+    if (PowerupStateCheck(a0, a1)) {
+        return false;
+    }
+
+    // The third guard shares the function's single `li r3,0`, so it is
+    // the positive arm, not an early return.
+    if (((zSBPlayer*)player)->lastDamageType == 26) {
+        FaceCameraCB(a0, a1);
+
+        zSBPlayer* p = (zSBPlayer*)player;
+
+        if (p->kelpTrapLink != 0) {
+            p->kelpTrapLink->ChangeState((zPlantTrap::plantState)6);
+            p->kelpTrapLink = 0;
+        }
+
         return true;
     }
 
     return false;
+}
+
+unsigned int zPlayerDefeatedSB::DeathCheck(xAnimTransition* a0,
+                                           xAnimSingle* a1) {
+    if (PowerupStateCheck(a0, a1)) {
+        return 0;
+    }
+
+    if (LavaDeathCheck(a0, a1) || GooDeathCheck(a0, a1) ||
+        FrozenGooDeathCheck(a0, a1) || FrozenVentDeathCheck(a0, a1) ||
+        AcidDeathCheck(a0, a1) || FragBobCheck(a0, a1) ||
+        KelpTrapCheck(a0, a1)) {
+        return 0;
+    }
+
+    if (!((zSBPlayer*)player)->_v48()) {
+        return 0;
+    }
+
+    return ((AnimCBHolder*)a0)->slot->f94 & 0x20000;
+}
+
+bool zSBPlayerBungeeBall::SBBungeeBallHitCheck(xAnimTransition* a0,
+                                               xAnimSingle* a1) {
+    zSBPlayer* p = (zSBPlayer*)player;
+
+    // Both false exits share one `li r3,0`: a single compound
+    // condition, not two early returns (the same shape as
+    // SBBungeeBallHitExitCheck above).
+    if (p->currentHitType != -1 && !p->_v48()) {
+        if (p->powerupModelState == 1 && !gGameCheats.buffHits) {
+            p->SetPowerupState((SBPowerupState)0);
+            p->powerupModelState = (SBPowerupState)0;
+            p->powerupPerformDeferredModelSwap = true;
+            p->PlayLosePowerupFX();
+            zEntEvent(0, 0, (xBase*)p, 0xCB99606C, 0, (ForceEvent)1);
+        }
+
+        return true;
+    }
+
+    return false;
+}
+
+// Each comparison re-reads the player and calls the stick magnitude
+// again: retail loads the threshold first in all three.
+bool zPlayerWalkSB::WalkCheck(xAnimTransition* a0, xAnimSingle* a1) {
+    // Every false exit shares one `li r3,0`, and each comparison loads
+    // its player and its input BEFORE the call that produces the
+    // magnitude: a local per comparison, re-read after each call.
+    if (((zSBPlayer*)player)->IsGooFilled()) {
+        zSBPlayer* p = (zSBPlayer*)player;
+        float mag = p->gooWalkStartMag;
+
+        if (p->playerInput->_v27(0, 2) >= mag) {
+            return true;
+        }
+    } else {
+        zSBPlayer* p = (zSBPlayer*)player;
+        zPlayerInput* in = p->playerInput;
+
+        if (in->_v27(0, 2) >= p->GetWalkStartMag()) {
+            zSBPlayer* p2 = (zSBPlayer*)player;
+            zPlayerInput* in2 = p2->playerInput;
+
+            if (in2->_v27(0, 2) < p2->GetRunStartMag()) {
+                return true;
+            }
+        }
+    }
+
+    return false;
+}
+
+// The player is read into a local at the TOP (retail holds it in a
+// saved register for the powerupState read alone) while the slippery
+// call re-reads it through `player`.
+//
+// These two twins settled the flag question by control: identical
+// bodies, opposite spellings. mwcc allocates r31 downward in
+// DECLARATION order and emits the initialisers in STATEMENT order, and
+// retail wants ok in r31 but initialised second (`li r30,0 ; li r31,0`).
+// Declaring `ok` first with its initialiser gets the registers right
+// and the order wrong (2 of 40 words); declaring it first and assigning
+// it late gets both, and both twins match.
+bool zPlayerWalkSB::WalkSlipperyCheck(xAnimTransition* a0, xAnimSingle* a1) {
+    bool ok;
+    bool result = false;
+    zSBPlayer* p = (zSBPlayer*)player;
+
+    ok = false;
+
+    if ((((zSBPlayerAction*)this)->DefaultStateCheck(a0, a1) ||
+         p->powerupState == 1) &&
+        WalkCheck(a0, a1)) {
+        ok = true;
+    }
+
+    if (ok && ((zSBPlayer*)player)->IsOnSlipperySurface(0.13f)) {
+        result = true;
+    }
+
+    return result;
+}
+
+bool zPlayerRunSB::RunSlipperyCheck(xAnimTransition* a0, xAnimSingle* a1) {
+    bool ok;
+    bool result = false;
+    zSBPlayer* p = (zSBPlayer*)player;
+
+    ok = false;
+
+    if ((((zSBPlayerAction*)this)->DefaultStateCheck(a0, a1) ||
+         p->powerupState == 1) &&
+        RunCheck(a0, a1)) {
+        ok = true;
+    }
+
+    if (ok && ((zSBPlayer*)player)->IsOnSlipperySurface(0.13f)) {
+        result = true;
+    }
+
+    return result;
+}
+
+// NEAR MISS: 6 of 50 words differ (7 masked); ours 200 B, retail 200 B.
+// Three spellings of the `nearbyEnemyState` test, all measured on the
+// whole unit: `state == 2 || state == 3` gives 23 of 45 at 180 B and a
+// folded range test (`addi r0,r3,-2 ; cmplwi r0,1`); a `switch` with
+// cases 2 and 3 folds the same way (17 of 49 at 196 B) because the two
+// case values are contiguous; the nested ifs below stop the fold and
+// bring the function to retail's exact length, 6 of 50. What is left is
+// in that region -- retail keeps the preset flag in r0 where ours used
+// r4 at the 17-of-49 stage -- not in the three flags above it, whose
+// declaration order was settled against the Slippery twins.
+bool zPlayerRunSB::RunSuccessCheck(xAnimTransition* a0, xAnimSingle* a1) {
+    bool ok;
+    bool result = false;
+    bool notSlippery = false;
+    zSBPlayer* p = (zSBPlayer*)player;
+
+    ok = false;
+
+    if (((zSBPlayerAction*)this)->DefaultStateCheck(a0, a1) &&
+        RunCheck(a0, a1)) {
+        ok = true;
+    }
+
+    if (ok && !((zSBPlayer*)player)->IsOnSlipperySurface(0.13f)) {
+        notSlippery = true;
+    }
+
+    // Two separate ifs, not one boolean expression: `== 2 || == 3` and
+    // a `switch` on the same two values both fold to the range test
+    // `addi r0,r3,-2 ; cmplwi r0,1`, where retail keeps a `cmpwi` per
+    // value around a flag preset to 1.
+    if (notSlippery) {
+        bool nearby = true;
+
+        if (p->nearbyEnemyState != 2) {
+            if (p->nearbyEnemyState != 3) {
+                nearby = false;
+            }
+        }
+
+        if (nearby) {
+            result = true;
+        }
+    }
+
+    return result;
+}
+
+// The owner is read into a local for both calls; the plain 24-byte
+// wrappers above read it afresh each time.
+unsigned int zPlayerWalkSB::anWalkRegularCheck(xAnimTransition* a0,
+                                               xAnimSingle* a1, void* a2) {
+    // Declared ahead of `result` so the registers fall out as retail's
+    // (ok r31, w r30, result r29): mwcc allocates r31 downward in
+    // declaration order.
+    bool ok;
+    zPlayerWalkSB* w;
+    unsigned int result = 0;
+
+    if (((zPlayerWalkSB*)((AnimCBHolder*)a0)->slot->owner)->_v5()) {
+        ok = false;
+        w = (zPlayerWalkSB*)((AnimCBHolder*)a0)->slot->owner;
+
+        if (w->WalkCheck(a0, a1) && !w->WalkSlipperyCheck(a0, a1)) {
+            ok = true;
+        }
+
+        if (ok) {
+            result = 1;
+        }
+    }
+
+    return result;
 }
 
 void zGainPowerupSidekickBE(xAnimPlay* a0, xAnimState* a1, void* a2) {

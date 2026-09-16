@@ -6,6 +6,12 @@
 // it, so a new accessor candidate is merged in by hand. The
 // tables were merged by tools/gen_animtables.py.
 //
+// Six functions written in round 2 (FixAllAnimPackageEffects,
+// GetSurfaceRelativeInput, BeforeAnimMatrices, ApplySpinBoneModification,
+// SBQuicksandJumpCheck and Turn180Check) are defined at the FOOT of this file,
+// after the last #pragma pop, because the types they need (Graphics::
+// ModelPrototype, ModelMatView) are declared far down. Their order is
+// therefore not retail's; nothing in the file inlines into them.
 // This file is a fragment of a unity build: the generated
 // header puts the whole string pool in front, so the string
 // offsets baked into the code come out as retail has them.
@@ -68,8 +74,12 @@ public:
     bool operator==(const xVec3& o) const;
     xVec3& operator*=(float s);
     void AddScale(const xVec3& v, float s);
+    void Scale(const xVec3& v, float s);
+    void NormalizeSafe();
+    void Sub(const xVec3& a, const xVec3& b);
 
     static const xVec3 m_Null;
+    static const xVec3 m_UnitAxisY;
 
     float x;
     float y;
@@ -146,7 +156,7 @@ public:
     virtual void _v23();
     virtual void _v24();
     virtual xVec2 _v25(unsigned int idx, int padType);
-    virtual void _v26();
+    virtual xVec2 _v26(unsigned int idx, int padType);
     virtual float _v27(int a0, int a1);
     virtual void _v28();
     virtual void _v29();
@@ -798,6 +808,11 @@ public:
     float GetCharacterProxyYOffset();
     static zBoardPlayer* GetInstance();
     void FindAndFixAnimPackageEffects(unsigned long long id);
+    void FixAllAnimPackageEffects();
+    void GetCameraRelativeInput(float x, float y, xVec3* out);
+    void BeforeAnimMatrices(xAnimPlay* play, xQuat* quat, xVec3* scale,
+                            xVec3* tran, int boneCount);
+    void GetSurfaceRelativeInput(xVec3* input, const xVec3& surfNormal);
     bool Damage(const zCombatDamageInfo& info);
     void SetMaximumHitPoints(float hp);
     void SetCurrentHitPoints(float hp);
@@ -6799,8 +6814,11 @@ bool zPlayerFluidBurstBoard::FluidBurstCheck(xAnimTransition* a0,
     return p->gooState == 2 && !BoardHoseHasFluid(p);
 }
 
+// NEAR MISS: 2 of 15 words; the two lfs destinations are swapped against retail
+// (retail loads lodScale into f2 and the constant into f0). Writing the compare
+// as lodScale == 0.0f instead of 0.0f == lodScale changes nothing.
 void World::xOGModel::SetLODScale(float scale) {
-    if (0.0f == lodScale) {
+    if (lodScale == 0.0f) {
         lodScale = 1.0f;
     }
 
@@ -6877,6 +6895,58 @@ public:
 };
 }
 
+
+// The normal is copied flat (three words) and only REASSIGNED through
+// xVec3::operator=, which is the call the image makes. The dot is named so it
+// is rounded to single before the compare, which is retail's frsp.
+void zBoardPlayer::GetSurfaceRelativeInput(xVec3* input,
+                                           const xVec3& surfNormal) {
+    xVec3 normal = surfNormal;
+
+    if (!(zPlayerFlags & 0x2)) {
+        normal = xVec3::m_UnitAxisY;
+    }
+
+    float slope = __fabs(((const hkVector4*)&normal)
+                           ->dot3(*(const hkVector4*)&xVec3::m_UnitAxisY));
+
+    // Retail leaves on a single `blt`; `>= ` round the body costs a cror and
+    // a second branch, which is the one word this function was too long by.
+    if (slope < 0.01f) {
+        return;
+    }
+
+    xVec3 flat;
+
+    flat.Scale(normal, ((const hkVector4*)input)
+                           ->dot3(*(const hkVector4*)&normal));
+    input->Sub(*input, flat);
+}
+
+unsigned long long xUIDMgrFindUID(unsigned int hash);
+
+// Eight of the same three calls. The UID pair comes back in r3:r4 and goes
+// straight on as the r5:r6 argument, which is what a 64-bit value passed
+// through does; there is no local for it in the image.
+void zBoardPlayer::FixAllAnimPackageEffects() {
+    FindAndFixAnimPackageEffects(
+        xUIDMgrFindUID(xStrHash("DefaultAnimPackage_Ref")));
+    FindAndFixAnimPackageEffects(
+        xUIDMgrFindUID(xStrHash("SpongebuffAnimPackage_Ref")));
+    FindAndFixAnimPackageEffects(
+        xUIDMgrFindUID(xStrHash("SpinPowerupAnimPackage_Ref")));
+    FindAndFixAnimPackageEffects(
+        xUIDMgrFindUID(xStrHash("HammerPowerupAnimPackage_Ref")));
+    FindAndFixAnimPackageEffects(
+        xUIDMgrFindUID(xStrHash("PuckPowerupAnimPackage_Ref")));
+    FindAndFixAnimPackageEffects(
+        xUIDMgrFindUID(xStrHash("GooAnimPackage_Ref")));
+    FindAndFixAnimPackageEffects(
+        xUIDMgrFindUID(xStrHash("DeathModelSwapAnimPackage_Ref")));
+    FindAndFixAnimPackageEffects(
+        xUIDMgrFindUID(xStrHash("HammerHitAnimPackage_Ref")));
+}
+
 void zBoardPlayer::FindAndFixAnimPackageEffects(unsigned long long id) {
     zAnimPackage* pkg =
         (zAnimPackage*)GradientCurve::zGradientCurve::Find(id);
@@ -6898,12 +6968,12 @@ void zPlayerSlamFallBoard::Move(xScene* a0, float a1, xEntFrame* a2) {
     ((zPlayerLandHighBoard_m4*)player)->_v128(a0, a1, a2);
 }
 
+// NEAR MISS: 2 of 19 words; retail stores LR to the frame BEFORE loading
+// playerInput and ours schedules that load into the prologue. Measured: the
+// ternary form, return playerInput != 0 ? playerInput->_v7() == 1 : false,
+// changes nothing.
 bool zPlayer::IsAI() const {
-    if (playerInput != 0) {
-        return playerInput->_v7() == 1;
-    }
-
-    return false;
+    return playerInput != 0 ? playerInput->_v7() == 1 : false;
 }
 
 float zPlayerJumpBoard::GetY(float t) const {
@@ -7657,11 +7727,20 @@ void zBoardPlayer::AfterAnimMatrices(xAnimPlay* play,
                             tranresult, boneCount);
 }
 
+// NEAR MISS: 32 of 32 words, ours 128 B against retail's 144 B. Retail keeps
+// TWO bools live (one per stage); mwcc folds ours into one and branches
+// straight through. Four spellings measured, all byte-identical to each other
+// and none of them retail's: this two-bool if form, an int flag, nested ifs,
+// and the first && behind an inline returning bool.
 bool zPlayerIdleBoard::IdleSlipperyCheck(xAnimTransition* a0,
                                          xAnimSingle* a1) {
     bool result = false;
-    bool idle = ((zBoardPlayerAction*)this)->DefaultStateCheck(a0, a1) &&
-                IdleCheck(a0, a1);
+    bool idle = false;
+
+    if (((zBoardPlayerAction*)this)->DefaultStateCheck(a0, a1) &&
+        IdleCheck(a0, a1)) {
+        idle = true;
+    }
 
     if (idle && ((zBoardPlayer*)player)->IsOnSlipperySurface(0.13f)) {
         result = true;
@@ -7670,11 +7749,20 @@ bool zPlayerIdleBoard::IdleSlipperyCheck(xAnimTransition* a0,
     return result;
 }
 
+// NEAR MISS: 32 of 32 words, ours 128 B against retail's 144 B. Retail keeps
+// TWO bools live (one per stage); mwcc folds ours into one and branches
+// straight through. Four spellings measured, all byte-identical to each other
+// and none of them retail's: this two-bool if form, an int flag, nested ifs,
+// and the first && behind an inline returning bool.
 bool zPlayerWalkBoard::WalkSlipperyCheck(xAnimTransition* a0,
                                          xAnimSingle* a1) {
     bool result = false;
-    bool walk = ((zBoardPlayerAction*)this)->DefaultStateCheck(a0, a1) &&
-                WalkCheck(a0, a1);
+    bool walk = false;
+
+    if (((zBoardPlayerAction*)this)->DefaultStateCheck(a0, a1) &&
+        WalkCheck(a0, a1)) {
+        walk = true;
+    }
 
     if (walk && ((zBoardPlayer*)player)->IsOnSlipperySurface(0.13f)) {
         result = true;
@@ -7683,11 +7771,20 @@ bool zPlayerWalkBoard::WalkSlipperyCheck(xAnimTransition* a0,
     return result;
 }
 
+// NEAR MISS: 32 of 32 words, ours 128 B against retail's 144 B. Retail keeps
+// TWO bools live (one per stage); mwcc folds ours into one and branches
+// straight through. Four spellings measured, all byte-identical to each other
+// and none of them retail's: this two-bool if form, an int flag, nested ifs,
+// and the first && behind an inline returning bool.
 bool zPlayerRunBoard::RunSlipperyCheck(xAnimTransition* a0,
                                        xAnimSingle* a1) {
     bool result = false;
-    bool run = ((zBoardPlayerAction*)this)->DefaultStateCheck(a0, a1) &&
-               RunCheck(a0, a1);
+    bool run = false;
+
+    if (((zBoardPlayerAction*)this)->DefaultStateCheck(a0, a1) &&
+        RunCheck(a0, a1)) {
+        run = true;
+    }
 
     if (run && ((zBoardPlayer*)player)->IsOnSlipperySurface(0.13f)) {
         result = true;
@@ -7749,11 +7846,15 @@ public:
                                        fixed_stack_list<zNPCBase*, 32>* list);
 };
 
+// NEAR MISS: 1 of 37 words; the one word is the fmadds, which retail spells
+// with the call's result in frA and the constant in frC and ours the other way
+// round. Measured: writing 0.5f * _v140() instead of _v140() * 0.5f changes
+// nothing at all -- mwcc canonicalises commutative operand order here.
 bool zBoardPlayer::CheckForNearbyNPCs(float radius) {
     fixed_stack_list<zNPCBase*, 32> nearbyNPCList;
     xVec3 checkPos = ((ModelMatView*)ogModel)->pos;
 
-    checkPos.y += _v140() * 0.5f;
+    checkPos.y += 0.5f * _v140();
     zNPCManager::Manager()->_GetAllNPCsWithinSphereByType(
         (eNPCType)1, &checkPos, radius, &nearbyNPCList);
 
@@ -8040,10 +8141,16 @@ inline unsigned int BoardRandomChoice(int n) {
     return n * (xrand_GenRandInt32() & 0xFFFF) >> 16;
 }
 
-// The same draw over one fewer: n is loaded before the draw, and the
-// one is taken off it after.
+// The same draw over one fewer. The count expression comes FIRST, as in
+// BoardRandomChoice: that is what puts the masked draw in r0 and n - 1 in
+// a fresh register, which is retail's pair of operands.
+// NEAR MISS: ExtraIdleCB 3 of 78 words and HammerHitCB 3 of 75 words, and all
+// three words in each are inside this inline. Retail masks the draw into r0 and
+// computes n - 1 into a fresh register; ours leaves the mask in r3 and puts
+// n - 1 in r0. Three spellings measured, every one identical to the word:
+// the operands swapped, the draw named in a local, and n - 1 named in a local.
 inline unsigned int BoardRandomChoiceOther(int n) {
-    return (xrand_GenRandInt32() & 0xFFFF) * (n - 1) >> 16;
+    return (n - 1) * (xrand_GenRandInt32() & 0xFFFF) >> 16;
 }
 
 void zPlayerDefeatedBoard::Reset() {
@@ -8421,22 +8528,125 @@ unsigned int zBoardPlayerPuckAttack::StartPuckAttackCheck(xAnimTransition* a0,
     return 0;
 }
 
+// The slippery check is IN LINE in all three of these in retail, and out of
+// line as well for the an* wrapper. mwcc will not inline a member with this
+// much body, so the body is written out at the call site.
+// NEAR MISS: 39 of 42 words, ours 168 B against retail's 184 B. The
+// slippery body is written out here because retail INLINES
+// it (and still emits the out-of-line copy for the an* wrapper); that took the
+// unit from 602 to 575 differing words. What is left is the same fold as the
+// Slippery checks: retail gives the inlined check's result its own register
+// (li r29,0 ... li r29,1 ; cmpwi r29,0), ours reuses the previous flag's.
 unsigned int zPlayerWalkBoard::WalkRegularCheck(xAnimTransition* tran,
                                                 xAnimSingle* anim) {
-    return WalkCheck(tran, anim) && !WalkSlipperyCheck(tran, anim);
+    bool result = false;
+
+    if (WalkCheck(tran, anim)) {
+        bool slippery = false;
+        bool walk = false;
+
+        if (((zBoardPlayerAction*)this)->DefaultStateCheck(tran, anim) &&
+            WalkCheck(tran, anim)) {
+            walk = true;
+        }
+
+        if (walk && ((zBoardPlayer*)player)->IsOnSlipperySurface(0.13f)) {
+            slippery = true;
+        }
+
+        if (!slippery) {
+            result = true;
+        }
+    }
+
+    return result;
 }
 
+// NEAR MISS: 57 of 62 words, ours 248 B against retail's 264 B. The
+// slippery body is written out here because retail INLINES
+// it (and still emits the out-of-line copy for the an* wrapper); that took the
+// unit from 602 to 575 differing words. What is left is the same fold as the
+// Slippery checks: retail gives the inlined check's result its own register
+// (li r29,0 ... li r29,1 ; cmpwi r29,0), ours reuses the previous flag's.
 unsigned int zPlayerRunBoard::RunRegularCheck(xAnimTransition* tran,
                                               xAnimSingle* anim) {
-    return RunCheck(tran, anim) && !RunSlipperyCheck(tran, anim) &&
-           !RunBraveCheck(tran, anim) && !RunSuccessCheck(tran, anim);
+    bool result = false;
+    bool notSuccess = false;
+    bool notBrave = false;
+
+    if (RunCheck(tran, anim)) {
+        bool slippery = false;
+        bool run = false;
+
+        if (((zBoardPlayerAction*)this)->DefaultStateCheck(tran, anim) &&
+            RunCheck(tran, anim)) {
+            run = true;
+        }
+
+        if (run && ((zBoardPlayer*)player)->IsOnSlipperySurface(0.13f)) {
+            slippery = true;
+        }
+
+        if (!slippery) {
+            notBrave = true;
+        }
+    }
+
+    if (notBrave && !RunBraveCheck(tran, anim)) {
+        notSuccess = true;
+    }
+
+    if (notSuccess && !RunSuccessCheck(tran, anim)) {
+        result = true;
+    }
+
+    return result;
 }
 
+// NEAR MISS: 60 of 72 words, ours 288 B against retail's 304 B. The
+// slippery body is written out here because retail INLINES
+// it (and still emits the out-of-line copy for the an* wrapper); that took the
+// unit from 602 to 575 differing words. What is left is the same fold as the
+// Slippery checks: retail gives the inlined check's result its own register
+// (li r29,0 ... li r29,1 ; cmpwi r29,0), ours reuses the previous flag's.
 unsigned int zPlayerIdleBoard::IdleRegularCheck(xAnimTransition* tran,
                                                 xAnimSingle* anim) {
-    return IdleCheck(tran, anim) && DefaultIdleCheck(tran, anim) &&
-           !IdleSlipperyCheck(tran, anim) && !IdleLowHealthCheck(tran, anim) &&
-           !IdleColdCheck(tran, anim);
+    bool result = false;
+    bool notCold = false;
+    bool notLowHealth = false;
+    bool idle = false;
+
+    if (IdleCheck(tran, anim) && DefaultIdleCheck(tran, anim)) {
+        idle = true;
+    }
+
+    if (idle) {
+        bool slippery = false;
+        bool idleAgain = false;
+
+        if (((zBoardPlayerAction*)this)->DefaultStateCheck(tran, anim) &&
+            IdleCheck(tran, anim)) {
+            idleAgain = true;
+        }
+
+        if (idleAgain && ((zBoardPlayer*)player)->IsOnSlipperySurface(0.13f)) {
+            slippery = true;
+        }
+
+        if (!slippery) {
+            notLowHealth = true;
+        }
+    }
+
+    if (notLowHealth && !IdleLowHealthCheck(tran, anim)) {
+        notCold = true;
+    }
+
+    if (notCold && !IdleColdCheck(tran, anim)) {
+        result = true;
+    }
+
+    return result;
 }
 
 
@@ -8943,6 +9153,221 @@ void zBoardPlayerBungeeBall::AddAttacks(zCombatAttack* attackStates,
     flingAttack->damage = 1.0f;
     flingAttack->impact = 1.0f;
     flingAttack->hitCB = 0;
+}
+
+class xQuat {
+public:
+    float x;
+    float y;
+    float z;
+    float w;
+};
+
+void xQuatFromAxisAngle(xQuat* q, const xVec3* axis, float angle);
+void xQuatMul(xQuat* out, const xQuat* a, const xQuat* b);
+
+// The lean angle of the action at +0x44, inside the 72 bytes InitActions
+// gives it.
+struct SlideActionView {
+    unsigned char _pad0[0x44];
+    float f44;
+};
+
+void zBoardPlayer::BeforeAnimMatrices(xAnimPlay* play, xQuat* quat,
+                                      xVec3* scale, xVec3* tran,
+                                      int boneCount) {
+    if (actionManager.GetCurrentActionID() == 0x2B) {
+        xQuat rot;
+        xVec3 axis = { 1.0f, 0.0f, 0.0f };
+        zPlayerAction* action =
+            ((Graphics::ModelPrototype*)&actionManager)
+                ->GetBuilder(actionManager.GetCurrentActionID());
+
+        xQuatFromAxisAngle(&rot, &axis,
+                           0.785398185f * ((SlideActionView*)action)->f44);
+        xQuatMul(&quat[1], &quat[1], &rot);
+    }
+}
+
+class xMat4x3;
+
+namespace Math {
+class Matrix33 {
+public:
+    Matrix33();
+
+    unsigned char _pad0[0x30];
+};
+
+// Three sixteen-byte rows. operator= is DECLARED and never defined, because
+// retail CALLS it rather than expanding the twelve stores.
+class Matrix43 {
+public:
+    Matrix43& operator=(const Matrix43& o);
+
+    xVec3 row0;
+    float p0;
+    xVec3 row1;
+    float p1;
+    xVec3 row2;
+    float p2;
+};
+}
+
+void xVec3RotateOnAxis(xVec3& v, const xVec3& from, const xVec3& axis,
+                       float angle);
+void xMat4x3ToNGMatrix(Math::Matrix43* dst, const xMat4x3* src);
+
+// The action the manager hands back for the spin attack: one float at +0x18,
+// the last word of the 28 bytes InitActions allocates for it.
+struct SpinActionView {
+    unsigned char _pad0[0x18];
+    float f18;
+};
+
+// The entity at +0x58 of the player, and the two times the angle is measured
+// between.
+struct SpinTimeView {
+    unsigned char _pad0[0x58];
+    float f58;
+    unsigned char _pad1[0x78 - 0x5C];
+    float f78;
+};
+
+struct SpinPlayerView {
+    unsigned char _pad0[0x58];
+    SpinTimeView* f58;
+};
+
+// Bone 80 of the skinning matrices, transposed into an xMat4x3, spun about
+// its own up axis, and written back. Every read is a displacement off
+// skinMat, so the matrix is indexed in place rather than through a reference.
+void zBoardPlayer::ApplySpinBoneModification(xAnimPlay* play,
+                                             Math::Matrix43* skinMat,
+                                             xQuat* quat, xVec3* scale,
+                                             xVec3* tran, int boneCount) {
+    if (actionManager.GetCurrentActionID() == 0x14) {
+        zPlayerAction* action =
+            ((Graphics::ModelPrototype*)&actionManager)
+                ->GetBuilder(actionManager.GetCurrentActionID());
+        ModelMatView m;
+
+        m.right.x = skinMat[80].row0.x;
+        m.right.y = skinMat[80].row1.x;
+        m.right.z = skinMat[80].row2.x;
+        m.up.x = skinMat[80].row0.y;
+        m.up.y = skinMat[80].row1.y;
+        m.up.z = skinMat[80].row2.y;
+        m.at.x = skinMat[80].row0.z;
+        m.at.y = skinMat[80].row1.z;
+        m.at.z = skinMat[80].row2.z;
+        m.pos.x = skinMat[80].p0;
+        m.pos.y = skinMat[80].p1;
+        m.pos.z = skinMat[80].p2;
+
+        SpinTimeView* ent = ((SpinPlayerView*)this)->f58;
+        float base = ((SpinActionView*)action)->f18;
+        float angle = base + -(ent->f78 - ent->f58);
+
+        xVec3RotateOnAxis(m.at, m.at, m.up, angle);
+        xVec3RotateOnAxis(m.right, m.right, m.up, angle);
+        ((SpinActionView*)action)->f18 = angle;
+
+        Math::Matrix33 ng;
+
+        xMat4x3ToNGMatrix((Math::Matrix43*)&ng, (const xMat4x3*)&m);
+        skinMat[80] = *(const Math::Matrix43*)&ng;
+    }
+}
+
+// Retail re-reads `player` off `this` at every stage rather than keeping it
+// in a saved register across the calls, so there is no local for it here.
+bool zBoardPlayerQuicksandJump::SBQuicksandJumpCheck(xAnimTransition* a0,
+                                                     xAnimSingle* a1) {
+    if (((zBoardPlayer*)player)->ignoreInputThisFrame) {
+        return false;
+    }
+
+    if (!BoardPlayerHasControl((zBoardPlayer*)player)) {
+        return false;
+    }
+
+    bool active = false;
+
+    if (((zBoardPlayer*)player)->powerupState != 0 ||
+        ((zBoardPlayer*)player)->powerupModelState != 0) {
+        active = true;
+    }
+
+    if (active) {
+        return false;
+    }
+
+    if (!((zBoardPlayer*)player)->IsOnQuicksand() ||
+        ((zBoardPlayer*)player)->f998 < 0.27f) {
+        return false;
+    }
+
+    if (((zBoardPlayer*)player)->playerInput->_v44()) {
+        if (((zBoardPlayer*)player)->playerInput->_v19(95, 0, 1)) {
+            ((zBoardPlayer*)player)->SetGooState((SBGooFilledState)0);
+
+            return true;
+        }
+    } else if (((zBoardPlayer*)player)->playerInput->_v19(8, 0, 1)) {
+        ((zBoardPlayer*)player)->SetGooState((SBGooFilledState)0);
+
+        return true;
+    }
+
+    return false;
+}
+
+// The limit is an if/else, not a ternary: retail materialises each constant
+// into f31 in its own arm. The `<=` is what costs the cror before the branch.
+bool zPlayerTurn180Board::Turn180Check(xAnimTransition* a0, xAnimSingle* a1) {
+    zBoardPlayer* p = (zBoardPlayer*)player;
+
+    if (p->IsOnQuicksand()) {
+        return false;
+    }
+
+    bool active = false;
+
+    if (p->powerupState != 0 || p->powerupModelState != 0) {
+        active = true;
+    }
+
+    if (active) {
+        return false;
+    }
+
+    xVec3 input;
+    xVec2 stick = p->playerInput->_v26(0, 2);
+
+    p->GetCameraRelativeInput(stick.x, stick.y, &input);
+
+    if (input == xVec3::m_Null) {
+        return false;
+    }
+
+    float limit;
+
+    if (p->gooState == 2) {
+        limit = 0.5f;
+    } else {
+        limit = -0.5f;
+    }
+
+    if (((const hkVector4*)&input)
+            ->dot3(*(const hkVector4*)&BoardModelOf(p)->f20) <= limit) {
+        __ct__Q24Math6VectorFfff(&targetVector, input.x, input.y, input.z);
+        targetVector.NormalizeSafe();
+
+        return true;
+    }
+
+    return false;
 }
 
 #define BOARD_MIN(a, b) ((a) < (b) ? (a) : (b))

@@ -7,18 +7,18 @@ numbers here, which move.
 ## State at time of writing
 
 ```
-Game Code:  80 of 777 files complete  579,728 / 2,116,616 bytes  4,511 / 10,697 fn
-            27.3894% of game code
+Game Code:  80 of 777 files complete  588,664 / 2,116,616 bytes  4,601 / 10,697 fn
+            27.8116% of game code
 
-Of those 4,511 functions, 798 are GENERATED -- machine-recognised
+Of those 4,601 functions, 798 are GENERATED -- machine-recognised
 shapes, not one of which is decompiling. They are real matched
 functions and the offsets and constants are recovered fact, but a
 count of them is not a count of decompiled code. HAND-WRITTEN IS
-3,713, across 292 units and 546,248 bytes, and that is the figure to
+3,803, across 292 units and 555,184 bytes, and that is the figure to
 compare against earlier ones.
 
 Data:       4 unit(s) carry their own, 412 bytes; 134 more could
-All:        10.44% matched              main.dol reproduces byte for byte
+All:        10.57% matched              main.dol reproduces byte for byte
 ```
 
 Every number above is written by `python tools/notes_state.py`,
@@ -7442,3 +7442,479 @@ re-measured here:
 * **zPOWGroup packs its bases to four** (`#pragma pack(push, 4)`): the id's
   eight-byte alignment would otherwise round xBase past the model handle the
   DWARF puts at +0x34.
+
+## WAD02_15_1, SECOND PASS: THE MIPMAP CHAIN AND THE DRAW SYNC, 56 OF 61
+
+Measured with `tools/unitcmp.py SB/NG/Engine/WAD02_15_1`, `lsweep.py` and
+`lshow.py`, cflags_game, 2026-09-15, after the first pass (51 of 57).
+`rowdiff.py` against the file the unit started from still shows LOST 0, and
+the seven functions it began with still match.
+
+**A store through a pointer into the same buffer stops every later load
+being hoisted over it, and that is what the halving loops are about.**
+MakeNextMiplevel halves a level in place, so its destination and source are
+one buffer and mwcc must assume they alias. Retail issues all six (three
+channels) or eight (four channels) byte loads before the first store;
+writing each channel as it is computed cannot do that. Measured on the
+952-byte function, at retail's exact size throughout:
+
+  * each channel stored as it is computed: 180 of 238 words differ;
+  * the channel values into locals, stored after: 150;
+  * the row below as its own pointer and each channel a pair of pairs, with
+    the loads read into locals in channel order: 111;
+  * one source pointer declared ahead of the branch chain (retail keeps it
+    in one saved register across the three branches): 111, unchanged.
+
+What matches exactly at 111: the prologue and epilogue, the one-channel 2x1
+loop, the whole one-channel 2x2 box loop, both box loop set-ups and every
+loop tail. What differs is register numbers and the order the loads and adds
+are issued inside the four multi-channel bodies. The NEAR MISS comment in
+the source carries these counts.
+
+**InitTexture(GImageBase*) (1,712 B) is written in the scratchpad and NOT in
+the tree.** Its DXT1-to-CMPR branch is the one part of this unit read with
+real uncertainty -- a wrong reading there is wrong texture data, not just
+wrong bytes -- so it is not committed on a byte count alone. What the three
+spellings measured, for whoever takes it next:
+
+  * as first written (the range test hoisted into a `dxt` local): 372 of 416
+    words, where retail has 428 -- 12 words short;
+  * the range test written out at each of its three sites, which is what
+    retail's level loop does: 376 of 415, no better;
+  * retail's DXT addressing (the block address keeping `bx * 8` as its own
+    term, and the second half of each block reached through base-plus-k
+    pointers, which is what gives its displacement-8 load and store): 375 of
+    422, six words short.
+
+Everything before the branch chain -- the format switch, both
+power-of-two loops, the size loop and the allocation -- matches retail
+instruction for instruction and differs only in which callee-saved registers
+hold `this`, the image and the three format variables (retail: r23, r24, and
+bpp in r21, the GX format in r29, the source depth in r30).
+
+**Update (1,324 B) is written in the scratchpad and NOT in the tree either**,
+for the same reason: its four tile-writing bodies are the part read with the
+least certainty. Measured:
+
+  * as first written, the destination and source addresses through one pair
+    of locals per pixel: 282 of 293 words, where retail has 331 -- 38 short;
+  * every channel re-deriving the rectangle and the image fields, which is
+    what the byte stores force: 282 of 300, 31 short, and not one word
+    better.
+
+Two things it did establish. **Retail's pixel depth is unsigned**: the tests
+on it are `cmplwi`, not `cmpwi`, wherever it is compared with 1, 2 or 4.
+And **GRect<int>::Height matches** as the weak copy Update's loop conditions
+call out of line (declared inline in the class, defined below Update, while
+the x bound `Right - Left` is written out) -- but only something calling it
+emits it, so it leaves the tree with Update. What already matches in Update:
+the prologue, the format-to-depth chain, the fence wait and the whole
+mip-level skip loop; the branch bodies are where it goes wrong, so the next
+pass should re-read those four bodies from the listing rather than adjust
+this draft.
+
+### The draw sync: undefined statics cost three otherwise-perfect functions
+
+GRenderSyncWii_DrawSync's constructor, DrawSyncHandler and WaitFence are
+written in the scratchpad and NOT in the tree. They are not a spelling
+problem, and the measurement says exactly where the remaining difference
+lives.
+
+**mwcc reaches several statics of one unit through a single base register**
+loaded once (`lis/addi`, both masked as relocations) and addresses each as a
+displacement off it: `lwz r5,12440(r30)`. It can only do that for statics it
+is placing itself. Declared-and-never-defined -- which is how this file
+carried them, because BeginFrame and SetFence touch only one each and match
+that way -- every reference becomes its own external `lis/addi` pair, the
+function grows a word or two per reference, and everything after the first
+one is shifted. Measured, same source both times:
+
+  * statics declared only: **27 of 32** words differ in the constructor,
+    **25 of 24** in DrawSyncHandler, **46 of 45** in WaitFence -- that is,
+    essentially every word, at one to four words over retail's size;
+  * the six statics DEFINED in the unit: **6 of 32**, **8 of 24** and
+    **7 of 45**, each at retail's exact size. Defining them cost nothing:
+    BeginFrame and SetFence still match.
+
+**Every one of those remaining words is a displacement, and the layout is
+already retail's.** Ours: init +0, count +4, waiton +8, lastv +12, lastw
++16, waitq +24, with four bytes of padding at +20. Retail: 12424, 12428,
+12432, 12436, 12440, 12448, with padding at 12444 -- the same offsets, the
+same padding, 12,424 bytes further into the section, because the rest of the
+original translation unit's data sits ahead of them and a text-only split
+has nothing to put there. Padding `.bss` with a 12KB array would make the
+displacements line up, and the count would then be measuring the padding, so
+it was not done. This is a near miss owned by whoever reconstructs that
+unit's data.
+
+### Installed this pass: three free functions and two closed near misses
+
+**RemoveFromRenderer now matches**, and what closed it is worth more than
+the function. All six of its differing words were inside the inlined
+compare-and-set, where retail computes `count + 1` into its own register
+BEFORE the compare (`addi r4,r5,1` between the load and the `cmplw`).
+Folding the increment into the call argument
+(`CompareAndSet_NoSync(refCount, refCount + 1)`) materialises it at the
+store instead. Giving it a name --
+
+      long next = refCount + 1;
+      if (RefCount.CompareAndSet_NoSync(refCount, next))
+
+-- makes the function byte-identical. **Where an expression is named is
+where it is computed**, and the position matters as much as the name:
+naming `next` after the zero test matches, naming it before the zero test
+still leaves 5 of 60, and doing the same thing on the far side of the inline
+boundary (the callee reading its new value into a local) matches as well.
+The first pass had recorded its attempts as "the compare-and-set as one
+inline level and as two" -- a structural question, when the answer was that
+one value was computed too late. A near-miss note that lists only structures
+tried is a signal to read the instruction ORDER next.
+
+The other three were each measured on the whole unit before installing, and
+none of them changed the differing-word total or any existing row:
+
+  * **GRendererWii's destructor** -- the same shape as GRenderer's, which
+    already matched: the null-this test, the base destructor with mwcc's
+    deleting flag, the heap's Free taken inline from the class's own
+    operator delete. 51 of 58 became 52 of 59.
+  * **System::SyncEvent::Create** -- retail's object has it out of line but
+    nothing written here calls it yet, so its address holds it in the object
+    (`static void (SyncEvent::*const kKeepCreate)() = &SyncEvent::Create;`),
+    the same idiom already holding SoftwareResample and LoadTextureTile.
+    52 of 59 became 53 of 60.
+  * **GRenderer::Stats::Clear** -- four zero stores. A member function that
+    is NOT inline is emitted whether or not anything calls it, so this one
+    needed no address taken and no caller. 53 of 60 became **54 of 61**.
+
+### CreateRenderer: mwcc will not inline the constructor chain, and six levers do not move it
+
+CreateRenderer (320 B) is written in the scratchpad and NOT in the tree,
+because installing it makes the unit **worse**: it adds six constructors
+**retail's image does not contain anywhere** --
+`__ct__16GRendererWiiImplFv`, `__ct__12GRendererWiiFv`,
+`__ct__9GRendererFv`, `__ct__26GRefCountBase<8GFxState,2>Fv`,
+`__ct__8GArrayLHFv`, `__ct__13GRendererNodeFv`, all EXTRA -- plus two rows
+that match copies elsewhere in retail and differ here
+(`__dt__16GRendererWiiImplFv` 24 of 27, `__ct__12GFxFillStyleFv` 17 of 21).
+Measured whole-unit, that batch was 52 of 68 against 51 of 58.
+
+Retail's CreateRenderer is the whole constructor chain inlined into the
+factory: 80 instructions, one `bl` per helper this unit does not define.
+Ours is **15 words where retail has 80** -- allocate, test, call the
+constructor, return -- in every spelling tried:
+
+  * `#pragma always_inline on` round the factory's definition (the call
+    site, which is the region form that works elsewhere in this unit): no
+    change, to the word;
+  * the same region extended upward to cover the class definitions as well,
+    so both the callee's definition and the call site are inside it: no
+    change;
+  * `#pragma inline_max_auto_size(1000)`: no change;
+  * `#pragma inline_depth(16)` with always_inline (the chain is five deep:
+    factory, impl, GRendererWii, GRenderer, GRefCountBase): no change;
+  * no user constructor at all, the body's eleven stores written in the
+    factory under the null test: the factory grows to 29 words and the
+    constructor is still out of line;
+  * placement new on a raw allocation **did not compile** and so is not
+    measured -- the class's own `operator new` hides the global placement
+    form.
+
+**So the value of that pass is the layout, and it is verified.** Every
+offset below is from the DWARF and each one is confirmed by an instruction
+in retail's CreateRenderer, which is why writing the class out is not
+guesswork for whoever takes it next:
+
+GRendererWiiImpl is 0x2EC = 748 bytes, the size retail asks the global heap
+for. EnableAntialias 0x10 and ModeSet 0x11 (bytes), RenderMode 0x14,
+GViewport Viewport 0x18 (0x34 bytes), GRendererNode Textures 0x4C (the two
+self-links at +76/+80), GLock TexturesLock 0x54, UserMatrix 0x58,
+CurrentMatrix 0x70, CurrentCxform 0x88 (0x20), ViewportMatrix 0xA8, Stats
+RenderStats 0xC0 (0x10), TextureVMem 0xD0 and BufferVMem 0xDC (0xC each,
+constructed under the folded name `__ct__15bit_array_allocFv`), seven
+GCounterStats 0xE8..0x100, pIndexData 0x104, pVertexData 0x108,
+IndexBufferSize 0x10C, VertexBufferSize 0x110, VertexFmt 0x114, IndexFmt
+0x118, StencilCounter 0x11C, DrawingMasks 0x120, BlendMode 0x124 (**never
+stored** -- it has no initialiser), BlendModeStack 0x128 (three words),
+CacheList 0x134, pRmode 0x138, pRenderSync 0x13C, Handlers 0x140 (a byte at
++0 and a word at +4), GFxFillStyle CurrentStyles[3] at 0x148, 0x8C each,
+which is the 140-byte step of retail's loop from this+328 to this+748.
+GFxFillStyle: Mode 0, GouraudType 4, Color 8, FillTexture Fill 0xC and Fill2
+0x30 (0x24 each, a GMatrix2D at +4 of each, which is the loop's SetIdentity
+at +16 and +52), BitmapColorTransform 0x54, BitmapMatrix 0x74.
+
+The order of the stores says which are member constructors and which are the
+constructor body, and that is the part a layout alone does not give you:
+everything up to and including the fill-style loop is member construction in
+declaration order, and the eleven stores after the loop are the body, issued
+as ModeSet, EnableAntialias, pRenderSync, pVertexData, pIndexData,
+IndexBufferSize, VertexBufferSize, IndexFmt, VertexFmt, StencilCounter,
+DrawingMasks. Retail's Stats has a constructor that calls Clear out of line;
+its GCounterStat zeroes itself; GRendererNode's default constructor points
+both links at itself.
+
+### What is left in this unit, and why each is left
+
+  * The two near misses above -- MakeNextMiplevel (111 of 238) and
+    NextQueue (**14 of 58**, improved from 23 this pass) -- each with its
+    counts in the source.
+
+    **NextQueue is where the declaration-position lever runs out.** Its 23
+    words were four registers rotated by one place against retail (ours: j
+    r8, end r9, element r10, flag r6; retail: r9, r10, r6, r8). Declaring
+    the element ahead of the queue loop rather than inside it put j and the
+    end index on retail's registers and took it to 14; declaring it at the
+    top of the function gives the same bytes, and moving the flag to its
+    first use changes nothing. What remains is a single swap -- our element
+    in r8 and flag in r6 against retail's r6 and r8 -- and **that pair does
+    not answer to declaration order at all**: exchanging the two
+    declarations, hoisting the flag to the function top, and putting both at
+    the function top each produced output byte-identical to the 14-word
+    version. Three orders, one result. So the same lever that closed
+    ProcessNextJob's register swap does not reach this one, and a fourth
+    ordering is not the next thing to try.
+    RemoveFromRenderer and ProcessNextJob were near misses until this pass
+    and are now matches.
+
+    **ProcessNextJob is the one worth reading before the next near miss.**
+    It sat at 47 of 84 because retail stores the incremented job number and
+    reads it straight back (`lwz, addi, stw, lwz`), and mwcc never re-reads
+    an ordinary member whose value it just wrote -- so the previous pass's
+    five spellings of the arithmetic could not have worked, whichever was
+    tried. Declaring `CoreQueueRef::jobNumber` **volatile** took it to 10 of
+    85 at retail's exact size, and it cost nothing: the other function that
+    reads the same member still matches. The control matters as much as the
+    fix -- forcing the identical re-read at that one site through a cast,
+    with the member left ordinary, changed **nothing at all** (47 of 84, to
+    the word), which is what makes this a fact about the member's TYPE
+    rather than about that access. The ten words left were a single register
+    swap (retail: job in r29, number in r31), and declaring `number` before
+    `job` assigns them retail's way; declaring each local at its first use
+    gives the same bytes, and the other two orders give 16 and 18 words.
+  * `Height__8GRect<i>CFv` and the two BlendType array destructors
+    (`__dt__106GArrayDataBase<...GArrayConstPolicy<0,4,1>>Fv`, 92 B, and its
+    GArrayBase, 84 B) are emitted only by something that uses them, and the
+    things that use them are Update and the renderer's destructor -- so they
+    come back with those.
+  * `__ct__Q219@unnamed@WAD02_cpp@17CoreTaskingModuleFv` (68 B) and
+    `GetPriority__...CFRi` (64 B) are in an **anonymous namespace mangled
+    with the original file's name**, `@unnamed@WAD02_cpp@`. A file called
+    WAD02_15_1.cpp cannot produce that symbol -- an anonymous namespace here
+    mangles as `@unnamed@WAD02_15_1_cpp@` -- so written as they stand both
+    would be EXTRA rather than matches. The recorded way through is real and
+    in the tree (`SB/NG/Source/Engine/Util/Sort/WAD02.cpp` and
+    `SB/GM/Engine/Core/Wii/Env/WAD00.cpp` each carry a blob's basename at
+    their own path, each its own unit in splits.txt), but it costs THIS
+    unit's filename, and 132 bytes is a bad trade for a unit already at 54
+    of 61. Left as a deliberate no. (GetPriority would also need a guarded
+    function-local static: retail has `@GUARD@...@priority` and
+    `@LOCAL@...@priority`, and it reads `taskingModule__6System`.)
+
+    While correcting this section I found `tools/anon_blocked.py`'s
+    docstring still saying the rename "is not a thing to work around"
+    because dtk refuses the duplicate basename -- true only at the parent's
+    path, and contradicted by NOTES.md, by dashboard.py and by the two files
+    above. The prose is now corrected; its logic is untouched. That stale
+    sentence was standing in front of 75 units and 662,980 bytes.
+
+## WAD02_14: SCALEFORM'S COORDINATOR, 2 -> 49 OF 52
+
+Measured with `tools/unitcmp.py SB/NG/Engine/WAD02_14`, cflags_game,
+2026-09-15. Verified independently of the agent that wrote it: unitcmp
+gives 49 of 52; `rowdiff.py` against the file the unit started from gives
+**LOST 0**, GAINED 47, CHANGED 3 (every changed row previously absent),
+with the two rows it began with still matching; `objsyms.py` reports 12
+defined symbols outside `.text` -- two section symbols and ten anonymous
+`.data`/`.rodata` constants, **no vtable**; and each of the three NEAR MISS
+comments in the source states the count unitcmp reports.
+
+**A heap enumerator bound to a `const H&` becomes a const temporary in
+`.data` at every call site.** Retail's allocation helpers do not
+materialise the enumerator into a register; every call site reads it back
+out of a fresh anonymous `.data` word (`lwz r4,@92481`). That shape comes
+from an inline helper taking `const H& heap` rather than `H heap` -- the
+enumerator has to be given an address, so mwcc emits one const temporary
+per site. Retail also reads that word **before** the null test, so `Free`
+has to copy it into a local first (`H h = heap;`) or the load lands after
+the branch. The out-of-line `Delete<GlobalHeapEnum,SFEventNode>` reads the
+same reference through r30.
+
+**`if (A || B) return;` is the only spelling that gives retail's `beq body ;
+b end` for the last operand.** Written as `&&`, as `!b`, or as `b == false`,
+mwcc collapses the tail into a single `bne end`. This one change took four
+InvokeASFunc overloads from about 40 of 51 words differing to exact, and it
+is worth trying first wherever a guard clause is a word or two out.
+
+**A function template is instantiated too late to be inlined** -- WAD02_4
+records the same thing. `NewArray<GFxValue>` was emitted out of line as an
+EXTRA the object should not have had; rewritten as a plain non-template
+`inline` function it disappeared and the 152-byte SFEventNode constructor
+matched. A template's body is not a candidate at the call sites that
+precede its instantiation.
+
+**GFx reference counting goes through a function-pointer table at object+4,
+not through the vtable**: AddRef is `lwz r12,0(impl)` and Release
+`lwz r12,4(impl)`, one load each. Writing it as a virtual call adds a
+vtable load and never matches.
+
+**The flag bytes are bitfields, not the unions the type dumper prints**, and
+they must be `bool : 1` rather than `unsigned char : 1` wherever one is
+returned -- an `unsigned char` bitfield makes mwcc add an `addic/subfe`
+bool conversion retail does not have. Read back off the rlwinm/ori masks:
+Coordinator+0x2D4 is firstPlay 0x80, texturesLoaded 0x40, moviesStopped
+0x20, firstMovie 0x10, isWidescreen 0x08, sfEnabled 0x04; ViewNode+0x44 is
+destroyed 0x80 down to cleared 0x01, and +0x45 is firstUpdate 0x80,
+pausedByTRC 0x40, **persist 0x20** -- StopAllMovies and GraphicsStopAllMovies
+test `persist`, not `pausedByTRC`, which is the kind of thing only the mask
+tells you.
+
+**A declared-never-defined virtual keeps the vtable out of the object.**
+`Coordinator` and `HeapAllocatorWii` each end with `virtual void __key();`,
+declared and never defined, and `GFxStateBag::GetStateBagImpl` is declared
+first and never defined; objsyms confirms the object emits no `__vt__`.
+
+The three near misses, with what was tried:
+
+  * `SwitchMovies` 284 B, **2 of 71 words**: retail loads
+    `pMovieViews.Begin()` one instruction earlier, before the `updULMovies`
+    store rather than after it, and the two words are that swap. The load
+    stays after the store whether the local is declared before or after the
+    assignment block -- a scheduling tie.
+  * `UnloadMovie` 284 B, **8 of 71 words, all register numbers**: retail
+    holds the iterator in r31 and the unity `.data` base in r30; ours gets
+    the base in r31. All three declaration orders of it/end/curNode were
+    measured (8, 9 and 16 words); the closest is what is in the tree.
+  * `GraphicsStopAllMovies` 156 B, **8 of 38 words**: retail re-reads
+    `viewTail` for the final `viewIterRend` assignment where ours shares the
+    loop condition's load, so everything after it is a word early. Tried the
+    loop condition through an inline accessor, through the raw member, and
+    the assignment through a volatile view.
+
+Also established: `HeapAllocatorWii` is 0x1AC bytes, not the 0xD4 first
+written, which is what puts `mBlockAllocator.heapLock` at Coordinator+0x204
+-- the critical section every Enter/Exit in the listing names. Confirmed
+walls for later: `SetMouseState` (488 B) and `RefreshViewport` (504 B) need
+five and four distinct float literals; `LoadTextures`, `PlayMovie` and
+`StopAllMovies` are pointer-to-member-function dispatch.
+
+## WAD02_13: HAVOK'S SHAPE CACHE AND SCALEFORM'S HANDLERS, 7 -> 45 OF 49
+
+Measured with `tools/unitcmp.py SB/NG/Engine/WAD02_13`, cflags_game,
+2026-09-15. Verified independently of the agent that wrote it: unitcmp
+gives 45 of 49; `rowdiff.py` against the file the unit started from gives
+**LOST 0**, GAINED 38, CHANGED 4 (every changed row previously absent),
+with the seven rows it began with still matching; each of the four NEAR
+MISS comments states the count unitcmp reports; and **no EXTRA rows** --
+the object defines no function retail lacks. This unit has **no DWARF at
+all** (`tools/brief.py` knows none of these functions -- it is Havok, GFx
+and Scaleform library code), so every layout came from `dwarf_types.py` and
+every body from `disasm.py` plus `alltypes.h`.
+
+**mwcc never inlines a base constructor, and that decides which
+constructors can be written at all.** A constructor written for a class
+whose base is an intermediate calls the INTERMEDIATE's constructor -- which
+both names the wrong symbol and emits that intermediate out of line, as a
+function retail's image does not contain. Measured on this unit: with all
+six constructors written, it read **43 of 56** -- one extra match, four
+EXTRA rows, and four constructors each differing by exactly one word, the
+wrong relocation and the EXTRA row being one cause. Deriving each written
+class DIRECTLY from the class whose constructor retail's listing names
+fixed both at once, where that was possible: the two Scaleform handlers
+derive straight from GFxState. Three could not be flattened, because the
+same classes must keep those intermediates for their DESTRUCTORS, which do
+match -- so `__ct__8GFxStateFQ28GFxState9StateType` (80 B),
+`__ct__5GFileFv` (72 B) and `__ct__13GFxFileOpenerFv` (76 B) are left
+unwritten rather than written wrong. 43 of 56 became **45 of 49 with no
+EXTRA**. This is the same wall WAD02_15_1's CreateRenderer hit from the
+other side.
+
+**A destructor that tests the null `this` TWICE off one `cmpwi` is one
+whose intermediate base destructor mwcc took IN LINE** -- the second test
+is the inlined body's own. Ordering the definitions accordingly (the
+inlined one ABOVE its caller, the ones retail calls BELOW theirs) is what
+made `__dt__26GRefCountBase<8GFxState,2>Fv` and
+`__dt__19GFxFSCommandHandlerFv` match. An empty first base produces the
+same extra `beq` but adds an `addi r3,r3,1`, because CodeWarrior gives the
+empty base a byte -- so the two are distinguishable in the listing.
+
+**GFx's reference count is not reached through a vtable.** The object holds
+a pointer at +4 to a PAIR of function pointers, and AddRef and Release are
+loaded from it with no slot offset -- one `lwz`, not two plus a header
+offset. That is what makes every `GPtr` member match, and WAD02_14 found
+the same thing independently in the same session.
+
+**A lever that works elsewhere can make things worse, and the measurement
+is what says so.** BRIEF.md's naming lever (name a value where retail
+computes it) closed two near misses in WAD02_15_1 the same day. Applied to
+`removeAt` here it gave 68 B and 15 of 13 words against the 52 B and 7 of
+13 of the spelling already in place, so it was rejected and the better one
+restored. All four spellings and their counts are in the source comment.
+
+Other things measured here:
+
+  * `hkThreadMemory::deallocateStack` is NOT inlined even inside a
+    `#pragma always_inline` region -- mwcc emitted it and called it, an
+    EXTRA row. Writing its three statements out at the call site removed
+    it, which is the same answer WAD02_15_1 needed for `GArray::RemoveAt`.
+  * An emptiness test compiled as a VALUE (`cntlzw`, `srwi`, `extsb.`)
+    rather than a branch is an inline returning `hkBool`, a one-byte class;
+    a one-byte class returned by value comes back in the MSB of r3.
+  * Havok's shape `operator new` writes `m_memSizeAndFlags` through the
+    returned pointer BEFORE the new-expression's null test.
+  * A member retail reads TWICE where ours shares one load
+    (`m_capacityAndFlags`, for the flag test and then the size) comes back
+    by reading one of the two through an inline accessor.
+  * Folded callees are reached by a cast to the surviving instantiation:
+    `hkPointerMap::isValid` through the collision-mesh map's 106-character
+    name, and the cylinder's radius accessor through `GMatrix2D::GetY`.
+  * `scaleShape`'s switch values came from the jump table at 0x806CEE9C:
+    1 sphere, 2 cylinder, 4 box, 5 capsule, 6 convexVertices, 9 list,
+    10 mopp, 11 convexTranslate, 12 convexTransform, with the source case
+    order being the block order.
+
+**Two differences from retail's object, recorded rather than fixed.**
+`scaleShape`'s switch makes mwcc emit its own jump table, where retail's
+lives in the unity TU's `.data` at 0x806CEE9C; the text matches, because
+the table's base is a masked relocation, but our object carries a `.rodata`
+table retail's does not. And the object emits **four weak vtables** --
+`__vt__23hkpSingleShapeContainer`,
+`__vt__Q29Scaleform20CustomCommandHandler`,
+`__vt__Q29Scaleform24ExternalInterfaceHandler`,
+`__vt__24GRefCountBaseStatImpl<2>` -- which are exactly the four
+polymorphic classes this file defines a constructor or destructor for.
+Every `virtual` in the file is only a declaration, but that does not keep
+the vtable out: mwcc emits a class's vtable wherever it emits one of its
+constructors or destructors. (The file's header comment claimed the
+opposite and has been corrected; objsyms.py reports 19 symbols outside
+.text, of 69 defined in all.) Neither costs a row, since the split takes
+.text and unitcmp compares .text.
+
+The four near misses, with what was tried:
+
+  * `collectGarbage` 320 B, **retail's exact length**, 22 of 80 words: the
+    walk, the reverse scan, both reference-count tests and the written-out
+    delete of the group are all in place, and every remaining word is
+    callee-saved register colouring (`this` in r30 where retail has r29,
+    the group in r27 where retail has r30, the scaled index in r29 where
+    retail has r28). Two spellings measured.
+  * `setAbs4` 68 B, 8 of 17 words: retail keeps y in f1 and z in f2, ours
+    the reverse, and every `fabs`, `frsp` and store follows. The four
+    results through locals declared x, y, z, w give an identical diff. It
+    is the FIRST function of retail's fragment, where compiler state no
+    spelling reaches has cost a register choice before.
+  * `removeAt` 52 B, 7 of 13 words, right length and right tail branch:
+    retail holds index*32 in r0 and the new size*32 in r3 where ours holds
+    them in r4 and r0, and forms the source address after the load rather
+    than before it. Four spellings measured (above).
+  * `__dt__23hkpSingleShapeContainerFv` 104 B against retail's 84, 22 of 21
+    words: retail's destructor ignores the delete flag entirely -- no
+    operator-delete branch, and only r31 saved. Three spellings: the
+    ordinary form, a sized `operator delete(void*, unsigned long)` (mwcc
+    called it with 8), and a private one (mwcc emitted the branch anyway).
+
+Left unwritten with reasons: `getShape` (812 B) is the four-literal wall
+(@153954, @145708, @145810, @148631); `scaleTranslateShape` (236 B),
+`__dt__18CHavokShapeBuilderFv` (152 B) and `hkCreateCHavokShapeBuilder__Fv`
+(152 B) each inline a constructor that stores a vtable, which is the
+constructor-inlining wall above; and the CustomTextRenderer / FileOpener /
+GSFMemoryFile cluster was not reached, two of them through `__ptmf_scall`
+pointer-to-member dispatch.

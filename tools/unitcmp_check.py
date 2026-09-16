@@ -129,10 +129,14 @@ EXPECT = {
     # class's own `operator delete`: a GFx object is freed through
     # GMemoryHeap::Free, and a one-line operator delete is taken by
     # -inline auto at the call site, which is what puts that call in
-    # the destructor. All eight match and reloc_audit is clean.
-    "SB/NG/Engine/WAD02_13": (7, 7),
-    # One function of the 68 in this chunk.
-    "SB/NG/Engine/WAD02_14": (2, 2),
+    # the destructor. Those eight still match. The unit is now Havok's
+    # scaled-shape cache and Scaleform's handlers besides; the four it
+    # misses are recorded in NOTES.md, and its object emits four vtables
+    # and a jump table retail's object does not.
+    "SB/NG/Engine/WAD02_13": (45, 49),
+    # Scaleform's Coordinator: the movie, texture and AS-queue paths.
+    # The three it misses are register and scheduling ties, in NOTES.md.
+    "SB/NG/Engine/WAD02_14": (49, 52),
     "SB/NG/Source/Engine/Graphics/Display": (2, 2),
     "SB/NG/Source/Engine/Graphics/Util/ScreenShot": (2, 2),
     "SB/NG/Source/Engine/IO/File/SystemCache": (5, 5),
@@ -295,7 +299,7 @@ EXPECT = {
     "SB/NG/Engine/WAD00_12_3": (7, 7),
     "SB/NG/Engine/WAD00_17_1": (16, 16),
     "SB/NG/Engine/WAD00_5_1": (2, 2),
-    "SB/NG/Engine/WAD02_15_1": (51, 57),
+    "SB/NG/Engine/WAD02_15_1": (56, 61),
     "SB/NG/Source/Engine/AssetManager/Loader/TableManager": (1, 1),
     "SB/NG/Source/Engine/AssetManager/Overseer/Coordinator": (2, 2),
     "SB/NG/Source/Engine/Entities/Blobs/CameraFlyBlobEntity": (3, 3),

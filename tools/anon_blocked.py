@@ -9,18 +9,25 @@ an anonymous namespace carries `@unnamed@WAD02_cpp@` in retail and would
 carry `@unnamed@<our file>_cpp@` in ours. The bytes can be identical and the
 symbols still will not pair.
 
-This is not a thing to work around, and two attempts are already excluded:
+One attempt is excluded and one is proven:
 
   * `#line 1 "WAD02.cpp"` does NOT move it. The mangler reads the real input
     filename, not __FILE__ -- measured, not assumed.
-  * Naming our source WAD02.cpp would produce the right symbol and collide
-    with the parent unit, which dtk refuses (`Duplicate object path`), and
-    would be one file for five blobs' worth of units in any case.
+  * NAMING THE SOURCE AFTER THE BLOB AT A DIFFERENT PATH does move it, and
+    is already in the tree: `SB/NG/Source/Engine/Util/Sort/WAD02.cpp` and
+    `SB/GM/Engine/Core/Wii/Env/WAD00.cpp` each carry a blob's basename at
+    their own path, each is its own unit in splits.txt, and dtk accepts the
+    duplicate basename because the OBJECT PATHS differ. Sort.cpp's two
+    functors matched byte for byte the first time because of it, and
+    WAD00.cpp's three statics carry retail's own `@unnamed@WAD00_cpp@`
+    names. What dtk refuses (`Duplicate object path`) is the same basename
+    at the PARENT's path, which is what an earlier note here recorded as
+    refusing the whole idea.
 
-So the honest answer is that these units are reachable only as part of the
-whole blob, and the target list should not offer them as if they were one
-good afternoon's work. `Sort.cpp` -- the largest no-data unit at 2,860
-bytes -- is one of them, which is worth knowing BEFORE writing it.
+So a unit listed below is not unreachable: it is reachable at the price of
+its real filename, which makes it a decision per unit rather than a sweep --
+and one worth taking BEFORE the unit is written rather than after. The
+numbers are what is behind that decision.
 """
 import re
 import sys

@@ -301,6 +301,15 @@ public:
         virtual void OnEvent(GRenderer* prenderer, EventType eventType) = 0;
     };
 
+    struct Stats {
+        void Clear();
+
+        unsigned int Triangles;
+        unsigned int Lines;
+        unsigned int Primitives;
+        unsigned int Masks;
+    };
+
     enum ResizeImageType { ResizeRgbToRgb, ResizeRgbaToRgba, ResizeRgbToRgba, ResizeGray };
 
     static void ResizeImage(unsigned char* pDst, int dstWidth, int dstHeight, int dstPitch,
@@ -311,6 +320,14 @@ public:
 };
 
 GRenderer::~GRenderer() {}
+
+void GRenderer::Stats::Clear()
+{
+    Triangles = 0;
+    Lines = 0;
+    Primitives = 0;
+    Masks = 0;
+}
 
 template <class T>
 class GRect {
@@ -397,7 +414,8 @@ public:
             long refCount = RefCount;
             if (refCount == 0)
                 return 0;
-            if (RefCount.CompareAndSet_NoSync(refCount, refCount + 1))
+            long next = refCount + 1;
+            if (RefCount.CompareAndSet_NoSync(refCount, next))
                 break;
         }
         return 1;
@@ -660,10 +678,16 @@ public:
 
 class GRendererWii : public GRenderer {
 public:
+    ~GRendererWii();
 };
+
+GRendererWii::~GRendererWii() {}
 
 class GRendererWiiImpl : public GRendererWii {
 public:
+    static void MakeNextMiplevel(unsigned int* pwidth, unsigned int* pheight,
+                                 unsigned char* pdata, int bpp);
+
     unsigned char _pad10[0x4C - 0x10];
     GRendererNode Textures;
     unsigned char _pad54[0x13C - 0x54];
@@ -762,10 +786,14 @@ bool GTextureWiiImpl::IsDataValid() const
     return Width != 0;
 }
 
-// NEAR MISS: 6 of 60 words differ, in AddRef_NotZero's compare-and-set:
-// retail holds the count in r5 and computes count + 1 into r4 ahead of the
-// compare, where this keeps the count in r4 and adds at the store (tried:
-// the compare-and-set as one inline level and as two).
+// The six words that used to differ here were all in AddRef_NotZero's
+// compare-and-set. Retail computes count + 1 into its own register BEFORE
+// the compare -- addi r4,r5,1 sits between the load and the cmplw -- and
+// that is what a NAMED LOCAL gives; folding the increment into the call
+// argument materialises it at the store instead. Naming it after the zero
+// test matches; naming it before the zero test leaves 5 of 60. Reading the
+// new value into a local inside CompareAndSet_NoSync matches too, and the
+// local here is the smaller change of the two.
 //
 // always_inline takes AddRef_NotZero and Release in line, as retail has
 // them. The region takes every function defined above it, so
@@ -963,6 +991,118 @@ static int GetTextureSize(int bpp, int w, int h)
     if (bpp == 0)
         return ((w + 7) >> 3) * ((h + 7) >> 3) * 32;
     return bpp * ((w + 3) & ~3) * ((h + 3) & ~3);
+}
+
+// Halves the level in place: an average of two along x when a dimension
+// cannot be halved, of a 2x2 box when both can. The width is read through
+// the pointer inside the loop, as retail does -- a byte store can alias it.
+//
+// NEAR MISS: 111 of 238 words differ, at retail's exact 952 bytes. The
+// prologue and epilogue, the one-channel 2x1 loop, the whole one-channel
+// 2x2 box loop, both box loop set-ups and every loop tail are exact; what
+// differs is register numbers and the order the byte loads and adds are
+// issued inside the four multi-channel bodies. Measured: storing each
+// channel as it is computed, 180 of 238 (the stores alias the source, so
+// no later load can be hoisted over them); the values into locals before
+// the stores, 150; the row below as its own pointer with each channel a
+// pair of pairs and the loads read into locals in channel order, 111; one
+// source pointer declared ahead of the branch chain, which retail keeps in
+// one saved register across the branches, 111 again.
+void GRendererWiiImpl::MakeNextMiplevel(unsigned int* pwidth, unsigned int* pheight,
+                                        unsigned char* pdata, int bpp)
+{
+    unsigned int new_w = *pwidth >> 1;
+    unsigned int new_h = *pheight >> 1;
+    if (new_w < 1)
+        new_w = 1;
+    if (new_h < 1)
+        new_h = 1;
+
+    if (new_w * 2 != *pwidth || new_h * 2 != *pheight) {
+        if (bpp == 1) {
+            unsigned char* in = pdata;
+            for (unsigned int i = 0; i < new_w * new_h; i++) {
+                *pdata = (in[0] + in[1]) >> 1;
+                pdata++;
+                in += 2;
+            }
+        } else if (bpp == 3) {
+            unsigned char* in = pdata;
+            for (unsigned int i = 0; i < new_w * new_h; i++) {
+                int a0 = in[0], b0 = in[3];
+                int a1 = in[1], b1 = in[4];
+                int a2 = in[2], b2 = in[5];
+                pdata[0] = (a0 + b0) >> 1;
+                pdata[1] = (a1 + b1) >> 1;
+                pdata[2] = (a2 + b2) >> 1;
+                pdata += 3;
+                in += 6;
+            }
+        } else {
+            unsigned char* in = pdata;
+            for (unsigned int i = 0; i < new_w * new_h; i++) {
+                int a0 = in[0], b0 = in[4];
+                int a1 = in[1], b1 = in[5];
+                int a2 = in[2], b2 = in[6];
+                int a3 = in[3], b3 = in[7];
+                pdata[0] = (a0 + b0) >> 1;
+                pdata[1] = (a1 + b1) >> 1;
+                pdata[2] = (a2 + b2) >> 1;
+                pdata[3] = (a3 + b3) >> 1;
+                pdata += 4;
+                in += 8;
+            }
+        }
+    } else {
+        if (bpp == 1) {
+            for (unsigned int j = 0; j < new_h; j++) {
+                unsigned char* out = pdata + j * new_w;
+                unsigned char* in = pdata + (j << 1) * *pwidth;
+                for (unsigned int i = 0; i < new_w; i++) {
+                    *out = (in[0] + in[1] + in[*pwidth] + in[*pwidth + 1]) >> 2;
+                    out++;
+                    in += 2;
+                }
+            }
+        } else if (bpp == 3) {
+            for (unsigned int j = 0; j < new_h; j++) {
+                unsigned char* out = pdata + j * (new_w * 3);
+                unsigned char* in = pdata + (j << 1) * (*pwidth * 3);
+                for (unsigned int i = 0; i < new_w; i++) {
+                    unsigned char* in2 = in + *pwidth * 3;
+                    int v0 = ((in[3] + in[0]) + (in2[3] + in2[0])) >> 2;
+                    int v1 = ((in[1] + in[4]) + (in2[1] + in2[4])) >> 2;
+                    int v2 = ((in[2] + in[5]) + (in2[2] + in2[5])) >> 2;
+                    out[0] = v0;
+                    out[1] = v1;
+                    out[2] = v2;
+                    out += 3;
+                    in += 6;
+                }
+            }
+        } else {
+            for (unsigned int j = 0; j < new_h; j++) {
+                unsigned char* out = pdata + j * (new_w * 4);
+                unsigned char* in = pdata + (j << 1) * (*pwidth * 4);
+                for (unsigned int i = 0; i < new_w; i++) {
+                    unsigned char* in2 = in + *pwidth * 4;
+                    int v0 = ((in[4] + in[0]) + (in2[4] + in2[0])) >> 2;
+                    int v1 = ((in[1] + in[5]) + (in2[5] + in2[1])) >> 2;
+                    int v2 = ((in[2] + in[6]) + (in2[6] + in2[2])) >> 2;
+                    int v3 = ((in[3] + in[7]) + (in2[7] + in2[3])) >> 2;
+                    out[0] = v0;
+                    out[1] = v1;
+                    out[2] = v2;
+                    out[3] = v3;
+                    out += 4;
+                    in += 8;
+                }
+            }
+        }
+    }
+
+    *pwidth = new_w;
+    *pheight = new_h;
 }
 
 bool GTextureWiiImpl::Map(int level, int n, MapRect* maps, int flags)
@@ -1250,7 +1390,7 @@ public:
     CoreJobQueue* queue;
     int frequency;
     int iter;
-    unsigned int jobNumber;
+    volatile unsigned int jobNumber;
     unsigned int completeNumber;
     CoreJobPendingRef* pendingJobs;
     int pendingJobsSize;
@@ -1346,15 +1486,26 @@ void CoreJobProcessor::SignalExeStart(int slot, CoreQueueRef* ref, CoreJob* job,
     ref->pendingJobsSize++;
 }
 
-// NEAR MISS: 23 of 58 words differ, all register numbers: j, the end
-// index, the element and the ready flag sit in r8, r9, r10 and r6 where
-// retail has r9, r10, r6 and r8 (tried: the flag declared after the level,
-// at the top of the function and behind an accessor; the element as a
-// pointer and through an index local; the level as a pointer).
+// NEAR MISS: 14 of 58 words differ, all register numbers, and the half of
+// it that was fixable is fixed. Declaring the element ahead of the queue
+// loop (as below) put j and the end index in retail's r9 and r10 and took
+// this from 23 words to 14; declaring it at the top of the function
+// instead gives the same bytes.
+//
+// What is left is one swap: ours has the element in r8 and the ready flag
+// in r6, retail the reverse. That pair does NOT follow declaration order.
+// Exchanging the two declarations, hoisting the flag to the top of the
+// function, and putting both at the top of the function all produce output
+// byte-identical to this -- three orders, one result -- so mwcc is choosing
+// between them on something other than where they are written, and the
+// next attempt should not be a fourth ordering. Earlier passes also tried
+// the flag behind an accessor, the element as a pointer and through an
+// index local, and the level as a pointer.
 CoreQueueRef* CoreJobProcessor::NextQueue(int slot)
 {
     for (int i = 0; i < 4; i++) {
         PriorityLevel& level = levels[i];
+        CoreQueueRef* ref;
         bool ready;
         if (level.queues.size == 0)
             continue;
@@ -1362,7 +1513,7 @@ CoreQueueRef* CoreJobProcessor::NextQueue(int slot)
         unsigned int j = level.nextQueueIndex;
         unsigned int end = j + level.queues.size;
         while (j < end) {
-            CoreQueueRef* ref = &level.queues.pool[j % level.queues.size];
+            ref = &level.queues.pool[j % level.queues.size];
 
             if (ref->iter < 0) {
                 ref->iter++;
@@ -1422,18 +1573,27 @@ void CoreJobProcessor::SignalExeComplete(int slot, CoreQueueRef* ref, CoreJob* j
         fence->prev = 0;
 }
 
-// NEAR MISS: 47 of 84 words differ, from one missing word: retail stores
-// the incremented job number and reads it back into r31, where this keeps
-// the sum in r29 without the reload, so everything after it is a word
-// early and the job and the number swap registers (tried: the locals in
-// three declaration orders, the number through an accessor, ++, += 1, and
-// the increment through a reference local).
+// Two things make this one match, and the first is why jobNumber is
+// volatile. Retail stores the incremented number and READS IT STRAIGHT
+// BACK (lwz, addi, stw, lwz); mwcc never re-reads an ordinary member whose
+// value it just wrote, so no arrangement of the arithmetic produces that
+// load -- an earlier pass tried three declaration orders, an accessor, ++,
+// += 1 and a reference local, and all of them left 47 of 84 words. The
+// member's type is what produces it: volatile took the function to 10 of
+// 85 at retail's exact size. Forcing the same re-read at this one site
+// with a cast, leaving the member ordinary, changed nothing at all, which
+// is what says the fact belongs to the member and not to the access.
+//
+// The ten words left after that were one register swap -- retail keeps the
+// job in r29 and the number in r31 -- and the declaration order below is
+// what assigns them that way. Declaring each local at its first use gives
+// the same bytes; the other two orders give 16 and 18 words.
 bool CoreJobProcessor::ProcessNextJob(int slot)
 {
     static int waiters;
     CoreQueueRef* ref;
-    CoreJob* job;
     unsigned int number;
+    CoreJob* job;
 
     jobAccessCS.Enter();
 
@@ -1478,6 +1638,8 @@ inline void SyncEvent::Create()
     OSInitMutex(&mutex);
     signalled = 0;
 }
+
+static void (SyncEvent::*const kKeepCreate)() = &SyncEvent::Create;
 
 inline void SyncEvent::Wait()
 {

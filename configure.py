@@ -1223,8 +1223,13 @@ config.libs = [
             Object(NonMatching, "G/src/GHeapStarter.cpp"),
             # The second: one function, whose whole point is a file static
             # reached through r13. This is what actually tests small data
-            # being left ON above.
+            # being left ON above -- 1 of 1, measured with
+            # `--extra "-O4,p -sdata 8 -sdata2 8"`, which is what BASE in
+            # tools/unitcmp.py differs from cflags_gfx by.
             Object(NonMatching, "G/src/GSystem.cpp"),
+            # The third: a four-byte forwarder and a ticks-to-microseconds
+            # conversion with a magic-number divide and a call to __div2i.
+            Object(NonMatching, "G/src/GTimer.cpp"),
         ],
     },
     {

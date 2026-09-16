@@ -8220,3 +8220,75 @@ disasm works on unwired units, the DWARF covers GFx unevenly, split sections
 reveal vtables before a line is written, and GFx uses multiple inheritance
 with thunks -- is in the scratchpad bootstrap file and unaffected by any of
 this.
+
+## CORRECTION: unitcmp CAN measure a GFx unit, with --extra
+
+The section above this one is headed "THE GFx LIBRARY EXISTS NOW -- AND
+unitcmp CANNOT MEASURE IT". The second half of that is wrong and is corrected
+here rather than edited away, because the mistake is the useful part.
+
+`unitcmp --extra` already exists, and mwcc honours the LAST occurrence of a
+repeated flag. BASE differs from cflags_gfx in exactly two things: BASE has
+`-O4,s` where cflags_base gives `-O4,p`, and BASE adds `-sdata 0 -sdata2 0`
+where GFx leaves the defaults of 8. So:
+
+    python tools/unitcmp.py G/src/GSystem --extra "-O4,p -sdata 8 -sdata2 8"
+
+      MATCH  84  Init__7GSystemFRCQ211GMemoryHeap8HeapDescP9GSysAlloc
+                 21 words, 4 masked by relocation
+      1 of 1 function(s) defined by the object are byte-identical
+
+**G/src/GSystem matches.** It always did -- the object ninja builds was shown
+to be byte-identical to retail apart from two REL24 branches and two type-109
+SDA21 relocations before any of this was understood. GHeapStarter stays at
+3 of 3 under the same flags, so the incantation does not cost the unit that
+was already exact.
+
+So the rule for a non-game unit is: **look up its library's cflags, diff them
+against unitcmp's BASE, and pass the difference as --extra.** For GFx that is
+`-O4,p -sdata 8 -sdata2 8`. unitcmp prints its own loud notice when --extra is
+in use, which is exactly right: the result counts only because configure.py
+really does build the unit that way.
+
+Two things this does NOT fix:
+
+  * `tools/unitcmp_pins.py` runs unitcmp with no --extra, so it still measures
+    G/src/GSystem as 0 of 1 and would pin that. The GFx units stay unpinned.
+  * `tools/reloc_audit.py` compiles 146 of its 537 units with the game flags
+    for the same reason. Its "0 branches to a symbol that exists elsewhere"
+    verdict is very likely sound -- branch target NAMES are not what `-sdata`
+    changes -- but it is reached that way, and the new notice now says so on
+    every run.
+
+The worth-keeping lesson is not about flags. **The switch that solved this was
+already in the tool, documented in its own `--help` output, while four builds
+went into inventing an explanation for the wrong number.** Before theorising
+about why a measurement disagrees with the build, read what the measuring
+tool already offers.
+
+### The bootstrap is complete: 6 of 6 functions across three units
+
+With measurement working, the third unit went in at once.
+
+  * **G/src/GHeapStarter, 3 of 3.** Proves the wiring and the source shape:
+    a base class declared and never defined, a constructor forwarding with a
+    literal 256, two members that are pure forwards (a four-byte function is
+    a forward with its arguments untouched).
+  * **G/src/GSystem, 1 of 1.** Proves small data: a file static reached
+    through r13, in `.sbss`, with two SDA21 relocations.
+  * **G/src/GTimer, 2 of 2, first compile.** Proves code generation. Its
+    84-byte GetProfileTicks is the Revolution SDK's ticks-to-microseconds
+    conversion written out -- `OSGetTime() * 8 / (OS_TIMER_CLOCK / 125000)`,
+    where OS_TIMER_CLOCK is the bus clock at 0x800000F8 divided by four. The
+    listing gives the divisor away: `mulhwu` with 0x431BDE83 then `srwi 15`
+    is a magic divide by 125000, since 2^47 / 0x431BDE83 = 125000, and the
+    64-bit numerator is the tick count shifted left by three. The divide
+    itself is a call to `__div2i` because the denominator is not a
+    compile-time constant. GetTicks is the four-byte tail branch into it.
+
+So cflags_gfx is now confirmed by three units of different character rather
+than by one flag-insensitive one, and the remaining 122 G/src units are
+ordinary decomp work. The open questions from the first draft -- `-RTTI`,
+`-common`, `-ipa`, the string flags -- are still open, but none of them has
+bitten across these three, and each will announce itself on the first unit
+that needs it.
